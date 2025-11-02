@@ -1,0 +1,128 @@
+// std::ffi::tokio - Tokio async runtime FFI bindings
+// High-performance async runtime using io_uring (Linux), kqueue (macOS), IOCP (Windows)
+
+// ============================================================================
+// Opaque Types
+// ============================================================================
+
+struct VexRuntime;  // Opaque pointer to tokio Runtime
+struct VexTask;     // Opaque pointer to JoinHandle
+
+// ============================================================================
+// Runtime Management
+// ============================================================================
+
+// Create multi-threaded tokio runtime
+extern fn vex_runtime_new(): *VexRuntime;
+
+// Create single-threaded runtime (for testing)
+extern fn vex_runtime_new_current_thread(): *VexRuntime;
+
+// Destroy runtime
+extern fn vex_runtime_destroy(runtime: *VexRuntime);
+
+// ============================================================================
+// Task Spawning
+// ============================================================================
+
+// Function pointer type for async tasks
+type TaskFn = fn(*byte);  // user_data
+
+// Spawn async task
+extern fn vex_runtime_spawn(
+    runtime: *VexRuntime,
+    task_fn: TaskFn,
+    user_data: *byte
+): *VexTask;
+
+// Block on async task (run synchronously)
+extern fn vex_runtime_block_on(
+    runtime: *VexRuntime,
+    task_fn: TaskFn,
+    user_data: *byte
+);
+
+// ============================================================================
+// Async Sleep
+// ============================================================================
+
+// Sleep for milliseconds (returns task handle)
+extern fn vex_async_sleep_ms(runtime: *VexRuntime, millis: u64): *VexTask;
+
+// Sleep for seconds (returns task handle)
+extern fn vex_async_sleep_secs(runtime: *VexRuntime, secs: u64): *VexTask;
+
+// ============================================================================
+// Async TCP
+// ============================================================================
+
+// Callback for async TCP connect
+type TcpConnectCallback = fn(fd: i32, user_data: *byte);
+
+// Async TCP connect
+// callback(fd, user_data) - fd >= 0 on success, -1 on error
+extern fn vex_tcp_connect_async(
+    host: *byte,
+    port: u16,
+    callback: TcpConnectCallback,
+    user_data: *byte
+);
+
+// ============================================================================
+// Async File I/O
+// ============================================================================
+
+// Callback for file read
+type FileReadCallback = fn(data: *byte, len: usize, user_data: *byte);
+
+// Async file read
+extern fn vex_file_read_async(
+    path: *byte,
+    callback: FileReadCallback,
+    user_data: *byte
+);
+
+// Callback for file write
+type FileWriteCallback = fn(result: i32, user_data: *byte);  // 0 = success, -1 = error
+
+// Async file write
+extern fn vex_file_write_async(
+    path: *byte,
+    data: *byte,
+    len: usize,
+    callback: FileWriteCallback,
+    user_data: *byte
+);
+
+// ============================================================================
+// Runtime Info
+// ============================================================================
+
+// Get number of worker threads
+extern fn vex_runtime_worker_threads(): usize;
+
+// Check if inside tokio runtime
+extern fn vex_runtime_is_inside_runtime(): bool;
+
+// ============================================================================
+// Helper Functions (for Vex)
+// ============================================================================
+
+// Convert Vex string to C string
+fn to_c_string(s: string): *byte {
+    len := s.len();
+    ptr := unsafe { malloc(len + 1) } as *byte;
+    
+    src := s.as_bytes();
+    for i in 0..len {
+        unsafe { ptr[i] = src[i]; }
+    }
+    
+    unsafe { ptr[len] = 0; }  // Null terminator
+    return ptr;
+}
+
+// Free C string
+fn free_c_string(ptr: *byte) {
+    unsafe { free(ptr); }
+}

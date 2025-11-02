@@ -1,0 +1,15 @@
+// Sum of array elements
+
+fn sum_array(arr: [i32; 5]) : i32 {
+    let result: i32 = 0;
+    for i := 0; i < 5; i++ {
+        result = result + arr[i];
+    }
+    return result;
+}
+
+fn main() {
+    let numbers: [i32; 5] = [1, 2, 3, 4, 5];
+    let total: i32 = sum_array(numbers);
+    print(total);  // 15
+}

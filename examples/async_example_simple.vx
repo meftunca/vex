@@ -1,0 +1,17 @@
+// Simple async example without external dependencies
+
+async fn task1() : i32 {
+    return 10;
+}
+
+async fn task2() : i32 {
+    return 20;
+}
+
+async fn main() : i32 {
+    a := await task1();
+    b := await task2();
+    sum := a + b;
+    print(sum);
+    return sum;
+}

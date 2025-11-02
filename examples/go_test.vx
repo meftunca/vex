@@ -1,0 +1,17 @@
+// Test go keyword (goroutine-style concurrency)
+fn task(id: i32) : i32 {
+    print(id);
+    return id * 10;
+}
+
+fn main() {
+    // Spawn tasks
+    t1 := go task(1);
+    t2 := go task(2);
+    t3 := go task(3);
+    
+    // Print task IDs (placeholders for now)
+    print(t1);
+    print(t2);
+    print(t3);
+}

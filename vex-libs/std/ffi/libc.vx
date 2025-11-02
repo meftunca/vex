@@ -1,0 +1,726 @@
+// std::libc - Core C library bindings (zero-overhead FFI)
+// This module provides direct access to libc functions
+
+// Memory allocation
+#[link(name = "c")]
+extern {
+    fn malloc(size: usize):*byte;
+    fn free(ptr: *byte);
+    fn realloc(ptr: *byte, size: usize):*byte;
+    fn calloc(nmemb: usize, size: usize):*byte;
+}
+
+// Memory operations (LLVM will replace with intrinsics)
+#[link(name = "c")]
+extern {
+    fn memcpy(dest: *byte, src: *byte, n: usize):*byte;
+    fn memmove(dest: *byte, src: *byte, n: usize):*byte;
+    fn memset(s: *byte, c: i32, n: usize):*byte;
+    fn memcmp(s1: *byte, s2: *byte, n: usize):i32;
+}
+
+// File I/O
+#[link(name = "c")]
+extern {
+    fn open(path: *byte, flags: i32, ...):i32;
+    fn close(fd: i32):i32;
+    fn read(fd: i32, buf: *byte, count: usize):i64;
+    fn write(fd: i32, buf: *byte, count: usize):i64;
+    fn lseek(fd: i32, offset: i64, whence: i32):i64;
+}
+
+// Filesystem operations
+#[link(name = "c")]
+extern {
+    fn mkdir(path: *byte, mode: u32):i32;
+    fn rmdir(path: *byte):i32;
+    fn unlink(path: *byte):i32;
+    fn rename(oldpath: *byte, newpath: *byte):i32;
+}
+
+// Directory operations
+#[link(name = "c")]
+extern {
+    type DIR;
+    type dirent;
+    
+    fn opendir(name: *byte):*DIR;
+    fn readdir(dirp: *DIR):*dirent;
+    fn closedir(dirp: *DIR):i32;
+}
+
+// File status
+#[link(name = "c")]
+extern {
+    type stat;
+    
+    fn stat(path: *byte, buf: *stat):i32;
+    fn fstat(fd: i32, buf: *stat):i32;
+    fn lstat(path: *byte, buf: *stat):i32;
+}
+
+// Pattern matching (glob)
+#[link(name = "c")]
+extern {
+    type glob_t;
+    
+    fn glob(pattern: *byte, flags: i32, errfunc: *byte, pglob: *glob_t):i32;
+    fn globfree(pglob: *glob_t);
+}
+
+// Memory mapping (mmap already in platform/unix.vx, but adding here for completeness)
+#[cfg(unix)]
+#[link(name = "c")]
+extern {
+    fn mmap(addr: *byte, length: usize, prot: i32, flags: i32, fd: i32, offset: i64):*byte;
+    fn munmap(addr: *byte, length: usize):i32;
+    fn mprotect(addr: *byte, len: usize, prot: i32):i32;
+}
+
+// Process management
+#[link(name = "c")]
+extern {
+    fn exit(status: i32):!;
+    fn fork():i32;  // pid_t is i32
+    fn execve(path: *byte, argv: **byte, envp: **byte):i32;
+}
+
+// Environment variables
+#[link(name = "c")]
+extern {
+    fn getenv(name: *byte):*byte;
+    fn setenv(name: *byte, value: *byte, overwrite: i32):i32;
+    fn unsetenv(name: *byte):i32;
+}
+
+// String operations
+#[link(name = "c")]
+extern {
+    fn strlen(s: *byte):usize;
+    fn strcmp(s1: *byte, s2: *byte):i32;
+    fn strncmp(s1: *byte, s2: *byte, n: usize):i32;
+    fn strcpy(dest: *byte, src: *byte):*byte;
+    fn strncpy(dest: *byte, src: *byte, n: usize):*byte;
+    fn strcat(dest: *byte, src: *byte):*byte;
+    fn strncat(dest: *byte, src: *byte, n: usize):*byte;
+    fn strchr(s: *byte, c: i32):*byte;
+    fn strrchr(s: *byte, c: i32):*byte;
+    fn strstr(haystack: *byte, needle: *byte):*byte;
+    fn strdup(s: *byte):*byte;
+}
+
+// String to number conversions
+#[link(name = "c")]
+extern {
+    fn atoi(s: *byte):i32;
+    fn atol(s: *byte):i64;
+    fn atof(s: *byte):f64;
+    fn strtol(s: *byte, endptr: **byte, base: i32):i64;
+    fn strtoul(s: *byte, endptr: **byte, base: i32):u64;
+    fn strtod(s: *byte, endptr: **byte):f64;
+}
+
+// Standard I/O (stdio.h)
+#[link(name = "c")]
+extern {
+    type FILE;
+    
+    fn fopen(path: *byte, mode: *byte):*FILE;
+    fn fclose(stream: *FILE):i32;
+    fn fread(ptr: *byte, size: usize, nmemb: usize, stream: *FILE):usize;
+    fn fwrite(ptr: *byte, size: usize, nmemb: usize, stream: *FILE):usize;
+    fn fseek(stream: *FILE, offset: i64, whence: i32):i32;
+    fn ftell(stream: *FILE):i64;
+    fn fflush(stream: *FILE):i32;
+    fn feof(stream: *FILE):i32;
+    fn ferror(stream: *FILE):i32;
+    fn fprintf(stream: *FILE, format: *byte, ...):i32;
+    fn fscanf(stream: *FILE, format: *byte, ...):i32;
+    fn fgets(s: *byte, size: i32, stream: *FILE):*byte;
+    fn fputs(s: *byte, stream: *FILE):i32;
+}
+
+// Pipe and dup
+#[link(name = "c")]
+extern {
+    fn pipe(pipefd: *i32):i32;
+    fn dup(oldfd: i32):i32;
+    fn dup2(oldfd: i32, newfd: i32):i32;
+}
+
+// Signal handling
+#[link(name = "c")]
+extern {
+    type sigaction;
+    type sigset_t;
+    
+    fn signal(signum: i32, handler: *byte):*byte;
+    fn kill(pid: i32, sig: i32):i32;
+    fn raise(sig: i32):i32;
+    fn alarm(seconds: u32):u32;
+    fn pause():i32;
+}
+
+// Wait for child processes
+#[link(name = "c")]
+extern {
+    fn wait(status: *i32):i32;
+    fn waitpid(pid: i32, status: *i32, options: i32):i32;
+}
+
+// User and group IDs
+#[link(name = "c")]
+extern {
+    fn getuid():u32;
+    fn geteuid():u32;
+    fn getgid():u32;
+    fn getegid():u32;
+    fn setuid(uid: u32):i32;
+    fn setgid(gid: u32):i32;
+    fn getpid():i32;
+    fn getppid():i32;
+}
+
+// Sleep and usleep
+#[link(name = "c")]
+extern {
+    fn sleep(seconds: u32):u32;
+    fn usleep(usec: u32):i32;
+    fn nanosleep(req: *timespec, rem: *timespec):i32;
+}
+
+// POSIX Threads - Mutex (blocking operations, not for async tasks!)
+#[link(name = "pthread")]
+extern {
+    type pthread_mutex_t;
+    type pthread_mutexattr_t;
+    type pthread_cond_t;
+    type pthread_condattr_t;
+    type pthread_t;
+    type pthread_attr_t;
+    
+    // Mutex operations
+    fn pthread_mutex_init(mutex: *pthread_mutex_t, attr: *pthread_mutexattr_t):i32;
+    fn pthread_mutex_lock(mutex: *pthread_mutex_t):i32;
+    fn pthread_mutex_unlock(mutex: *pthread_mutex_t):i32;
+    fn pthread_mutex_trylock(mutex: *pthread_mutex_t):i32;
+    fn pthread_mutex_destroy(mutex: *pthread_mutex_t):i32;
+    
+    // Condition variables
+    fn pthread_cond_init(cond: *pthread_cond_t, attr: *pthread_condattr_t):i32;
+    fn pthread_cond_wait(cond: *pthread_cond_t, mutex: *pthread_mutex_t):i32;
+    fn pthread_cond_signal(cond: *pthread_cond_t):i32;
+    fn pthread_cond_broadcast(cond: *pthread_cond_t):i32;
+    fn pthread_cond_destroy(cond: *pthread_cond_t):i32;
+    
+    // Thread creation and management
+    fn pthread_create(thread: *pthread_t, attr: *pthread_attr_t, 
+                     start_routine: *byte, arg: *byte):i32;
+    fn pthread_join(thread: pthread_t, retval: **byte):i32;
+    fn pthread_detach(thread: pthread_t):i32;
+    fn pthread_exit(retval: *byte):!;
+    fn pthread_self():pthread_t;
+}
+
+// POSIX Regular Expressions
+#[link(name = "c")]
+extern {
+    type regex_t;
+    type regmatch_t;
+    
+    fn regcomp(preg: *regex_t, pattern: *byte, cflags: i32):i32;
+    fn regexec(preg: *regex_t, string: *byte, nmatch: usize, 
+               pmatch: *regmatch_t, eflags: i32):i32;
+    fn regfree(preg: *regex_t);
+    fn regerror(errcode: i32, preg: *regex_t, errbuf: *byte, 
+                errbuf_size: usize):usize;
+}
+
+// Time functions
+#[link(name = "c")]
+extern {
+    type timespec;
+    type timeval;
+    type timezone;
+    type tm;
+    
+    fn time(tloc: *i64):i64;
+    fn clock_gettime(clk_id: i32, tp: *timespec):i32;
+    fn gettimeofday(tv: *timeval, tz: *timezone):i32;
+    fn localtime(timep: *i64):*tm;
+    fn gmtime(timep: *i64):*tm;
+    fn strftime(s: *byte, max: usize, format: *byte, tm: *tm):usize;
+    fn mktime(tm: *tm):i64;
+}
+
+// Constants - File I/O flags
+const O_RDONLY: i32 = 0;
+const O_WRONLY: i32 = 1;
+const O_RDWR: i32 = 2;
+const O_CREAT: i32 = 64;
+const O_TRUNC: i32 = 512;
+const O_APPEND: i32 = 1024;
+
+// Constants - lseek whence
+const SEEK_SET: i32 = 0;  // Seek from beginning
+const SEEK_CUR: i32 = 1;  // Seek from current position
+const SEEK_END: i32 = 2;  // Seek from end
+
+// Constants - glob flags
+const GLOB_ERR: i32 = 1;
+const GLOB_MARK: i32 = 2;
+const GLOB_NOSORT: i32 = 4;
+const GLOB_DOOFFS: i32 = 8;
+const GLOB_NOCHECK: i32 = 16;
+const GLOB_APPEND: i32 = 32;
+const GLOB_NOESCAPE: i32 = 64;
+
+// Constants - mmap prot flags (also in platform/unix.vx)
+const PROT_NONE: i32 = 0;
+const PROT_READ: i32 = 1;
+const PROT_WRITE: i32 = 2;
+const PROT_EXEC: i32 = 4;
+
+// Constants - mmap flags
+const MAP_SHARED: i32 = 1;
+const MAP_PRIVATE: i32 = 2;
+const MAP_FIXED: i32 = 16;
+const MAP_ANONYMOUS: i32 = 32;
+const MAP_ANON: i32 = 32;  // Alias
+
+// Constants - clock_gettime clocks
+const CLOCK_REALTIME: i32 = 0;
+const CLOCK_MONOTONIC: i32 = 1;
+const CLOCK_PROCESS_CPUTIME_ID: i32 = 2;
+const CLOCK_THREAD_CPUTIME_ID: i32 = 3;
+const CLOCK_MONOTONIC_RAW: i32 = 4;
+const CLOCK_REALTIME_COARSE: i32 = 5;
+const CLOCK_MONOTONIC_COARSE: i32 = 6;
+const CLOCK_BOOTTIME: i32 = 7;
+
+// Constants - Signal numbers
+const SIGHUP: i32 = 1;     // Hangup
+const SIGINT: i32 = 2;     // Interrupt (Ctrl+C)
+const SIGQUIT: i32 = 3;    // Quit
+const SIGILL: i32 = 4;     // Illegal instruction
+const SIGTRAP: i32 = 5;    // Trace trap
+const SIGABRT: i32 = 6;    // Abort
+const SIGBUS: i32 = 7;     // Bus error
+const SIGFPE: i32 = 8;     // Floating point exception
+const SIGKILL: i32 = 9;    // Kill (can't be caught)
+const SIGUSR1: i32 = 10;   // User-defined signal 1
+const SIGSEGV: i32 = 11;   // Segmentation fault
+const SIGUSR2: i32 = 12;   // User-defined signal 2
+const SIGPIPE: i32 = 13;   // Broken pipe
+const SIGALRM: i32 = 14;   // Alarm clock
+const SIGTERM: i32 = 15;   // Termination
+const SIGCHLD: i32 = 17;   // Child process terminated
+const SIGCONT: i32 = 18;   // Continue if stopped
+const SIGSTOP: i32 = 19;   // Stop process (can't be caught)
+const SIGTSTP: i32 = 20;   // Stop typed at terminal
+
+// Constants - Wait options
+const WNOHANG: i32 = 1;    // Don't block
+const WUNTRACED: i32 = 2;  // Report stopped children
+
+// Constants - Standard file descriptors
+const STDIN_FILENO: i32 = 0;
+const STDOUT_FILENO: i32 = 1;
+const STDERR_FILENO: i32 = 2;
+
+// Constants - Exit codes
+const EXIT_SUCCESS: i32 = 0;
+const EXIT_FAILURE: i32 = 1;
+
+// Constants - Regular expression flags
+const REG_EXTENDED: i32 = 1;    // Use Extended Regular Expressions
+const REG_ICASE: i32 = 2;       // Ignore case in match
+const REG_NOSUB: i32 = 4;       // Report only success/fail in regexec
+const REG_NEWLINE: i32 = 8;     // Change behavior of . and ^/$
+
+// Constants - Regular expression exec flags
+const REG_NOTBOL: i32 = 1;      // First char is not beginning of line
+const REG_NOTEOL: i32 = 2;      // Last char is not end of line
+
+// Constants - Regular expression error codes
+const REG_NOMATCH: i32 = 1;     // No match found
+const REG_BADPAT: i32 = 2;      // Invalid pattern
+const REG_ECOLLATE: i32 = 3;    // Invalid collating element
+const REG_ECTYPE: i32 = 4;      // Invalid character class
+const REG_EESCAPE: i32 = 5;     // Trailing backslash
+const REG_ESUBREG: i32 = 6;     // Invalid back reference
+const REG_EBRACK: i32 = 7;      // Unmatched brackets
+const REG_EPAREN: i32 = 8;      // Unmatched parentheses
+const REG_EBRACE: i32 = 9;      // Unmatched braces
+const REG_BADBR: i32 = 10;      // Invalid repetition count
+const REG_ERANGE: i32 = 11;     // Invalid character range
+const REG_ESPACE: i32 = 12;     // Out of memory
+const REG_BADRPT: i32 = 13;     // Invalid use of repetition
+
+// Constants - pthread errors
+const PTHREAD_MUTEX_NORMAL: i32 = 0;
+const PTHREAD_MUTEX_RECURSIVE: i32 = 1;
+const PTHREAD_MUTEX_ERRORCHECK: i32 = 2;
+const PTHREAD_MUTEX_DEFAULT: i32 = 0;
+
+const EBUSY: i32 = 16;          // Resource busy
+const ETIMEDOUT: i32 = 110;     // Connection timed out
+const EINVAL: i32 = 22;         // Invalid argument
+const EAGAIN: i32 = 11;         // Try again
+const EDEADLK: i32 = 35;        // Resource deadlock would occur
+
+// Constants - File permissions (Unix mode_t)
+const S_IRWXU: u32 = 0o700;  // User: rwx
+const S_IRUSR: u32 = 0o400;  // User: r--
+const S_IWUSR: u32 = 0o200;  // User: -w-
+const S_IXUSR: u32 = 0o100;  // User: --x
+const S_IRWXG: u32 = 0o070;  // Group: rwx
+const S_IRGRP: u32 = 0o040;  // Group: r--
+const S_IWGRP: u32 = 0o020;  // Group: -w-
+const S_IXGRP: u32 = 0o010;  // Group: --x
+const S_IRWXO: u32 = 0o007;  // Others: rwx
+const S_IROTH: u32 = 0o004;  // Others: r--
+const S_IWOTH: u32 = 0o002;  // Others: -w-
+const S_IXOTH: u32 = 0o001;  // Others: --x
+
+// Common permission combinations
+const S_IRWXUGO: u32 = 0o777;  // rwxrwxrwx
+const S_IRUGO: u32 = 0o444;    // r--r--r--
+const S_IWUGO: u32 = 0o222;    // -w--w--w-
+const S_IXUGO: u32 = 0o111;    // --x--x--x
+
+// Safe wrappers (exported API)
+fn safe_malloc(size: usize):(*byte | error) {
+    ptr := unsafe { malloc(size) };
+    if ptr as usize == 0 {
+        return error.new("Out of memory");
+    }
+    return ptr;
+}
+
+fn safe_free(ptr: *byte) {
+    if ptr as usize != 0 {
+        unsafe { free(ptr); }
+    }
+}
+
+fn safe_strlen(s: *byte):usize {
+    return unsafe { strlen(s) };
+}
+
+// Safe filesystem wrappers
+fn safe_mkdir(path: *byte, mode: u32):(i32 | error) {
+    result := unsafe { mkdir(path, mode) };
+    if result != 0 {
+        return error.new("Failed to create directory");
+    }
+    return result;
+}
+
+fn safe_rmdir(path: *byte):(i32 | error) {
+    result := unsafe { rmdir(path) };
+    if result != 0 {
+        return error.new("Failed to remove directory");
+    }
+    return result;
+}
+
+fn safe_unlink(path: *byte):(i32 | error) {
+    result := unsafe { unlink(path) };
+    if result != 0 {
+        return error.new("Failed to delete file");
+    }
+    return result;
+}
+
+fn safe_rename(oldpath: *byte, newpath: *byte):(i32 | error) {
+    result := unsafe { rename(oldpath, newpath) };
+    if result != 0 {
+        return error.new("Failed to rename/move file");
+    }
+    return result;
+}
+
+// Safe directory reading
+fn safe_opendir(name: *byte):(*DIR | error) {
+    dir := unsafe { opendir(name) };
+    if dir as usize == 0 {
+        return error.new("Failed to open directory");
+    }
+    return dir;
+}
+
+fn safe_readdir(dirp: *DIR):*dirent {
+    return unsafe { readdir(dirp) };
+}
+
+fn safe_closedir(dirp: *DIR):(i32 | error) {
+    result := unsafe { closedir(dirp) };
+    if result != 0 {
+        return error.new("Failed to close directory");
+    }
+    return result;
+}
+
+// Safe file stat
+fn safe_stat(path: *byte, buf: *stat):(i32 | error) {
+    result := unsafe { stat(path, buf) };
+    if result != 0 {
+        return error.new("Failed to get file status");
+    }
+    return result;
+}
+
+// Safe lseek
+fn safe_lseek(fd: i32, offset: i64, whence: i32):(i64 | error) {
+    result := unsafe { lseek(fd, offset, whence) };
+    if result < 0 {
+        return error.new("Failed to seek");
+    }
+    return result;
+}
+
+// Safe environment variable access
+fn safe_getenv(name: *byte):(*byte | null) {
+    result := unsafe { getenv(name) };
+    if result as usize == 0 {
+        return null;
+    }
+    return result;
+}
+
+fn safe_setenv(name: *byte, value: *byte, overwrite: i32):(i32 | error) {
+    result := unsafe { setenv(name, value, overwrite) };
+    if result != 0 {
+        return error.new("Failed to set environment variable");
+    }
+    return result;
+}
+
+// Safe pipe creation
+fn safe_pipe(pipefd: *i32):(i32 | error) {
+    result := unsafe { pipe(pipefd) };
+    if result != 0 {
+        return error.new("Failed to create pipe");
+    }
+    return result;
+}
+
+// Safe dup
+fn safe_dup(oldfd: i32):(i32 | error) {
+    result := unsafe { dup(oldfd) };
+    if result < 0 {
+        return error.new("Failed to duplicate file descriptor");
+    }
+    return result;
+}
+
+fn safe_dup2(oldfd: i32, newfd: i32):(i32 | error) {
+    result := unsafe { dup2(oldfd, newfd) };
+    if result < 0 {
+        return error.new("Failed to duplicate file descriptor");
+    }
+    return result;
+}
+
+// Safe fork
+fn safe_fork():(i32 | error) {
+    result := unsafe { fork() };
+    if result < 0 {
+        return error.new("Failed to fork process");
+    }
+    return result;
+}
+
+// Safe time functions
+fn safe_clock_gettime(clk_id: i32, tp: *timespec):(i32 | error) {
+    result := unsafe { clock_gettime(clk_id, tp) };
+    if result != 0 {
+        return error.new("Failed to get time");
+    }
+    return result;
+}
+
+fn safe_gettimeofday(tv: *timeval, tz: *timezone):(i32 | error) {
+    result := unsafe { gettimeofday(tv, tz) };
+    if result != 0 {
+        return error.new("Failed to get time of day");
+    }
+    return result;
+}
+
+// Safe FILE operations
+fn safe_fopen(path: *byte, mode: *byte):(*FILE | error) {
+    result := unsafe { fopen(path, mode) };
+    if result as usize == 0 {
+        return error.new("Failed to open file");
+    }
+    return result;
+}
+
+fn safe_fclose(stream: *FILE):(i32 | error) {
+    result := unsafe { fclose(stream) };
+    if result != 0 {
+        return error.new("Failed to close file");
+    }
+    return result;
+}
+
+// Safe glob
+fn safe_glob(pattern: *byte, flags: i32, pglob: *glob_t):(i32 | error) {
+    result := unsafe { glob(pattern, flags, 0 as *byte, pglob) };
+    if result != 0 {
+        return error.new("Failed to glob pattern");
+    }
+    return result;
+}
+
+// Helper: Get current time in seconds
+fn get_current_time():i64 {
+    return unsafe { time(0 as *i64) };
+}
+
+// Helper: Get monotonic time in nanoseconds
+fn get_monotonic_time_ns():(i64 | error) {
+    ts := safe_malloc(16)?; // sizeof(struct timespec)
+    defer safe_free(ts);
+    
+    safe_clock_gettime(CLOCK_MONOTONIC, ts as *timespec)?;
+    
+    // Extract seconds and nanoseconds
+    // timespec: { tv_sec: i64, tv_nsec: i64 }
+    sec_ptr := ts as *i64;
+    nsec_ptr := (ts as usize + 8) as *i64;
+    
+    sec := unsafe { *sec_ptr };
+    nsec := unsafe { *nsec_ptr };
+    
+    return sec * 1_000_000_000 + nsec;
+}
+
+// ============================================================================
+// POSIX Threads - Safe Wrappers
+// WARNING: These are BLOCKING operations. Do NOT use in async tasks!
+// Use Vex's native async runtime (std::async) for concurrent tasks.
+// ============================================================================
+
+// Safe mutex operations
+fn safe_pthread_mutex_init(mutex: *pthread_mutex_t):(i32 | error) {
+    result := unsafe { pthread_mutex_init(mutex, 0 as *pthread_mutexattr_t) };
+    if result != 0 {
+        return error.new("Failed to initialize mutex");
+    }
+    return result;
+}
+
+fn safe_pthread_mutex_lock(mutex: *pthread_mutex_t):(i32 | error) {
+    result := unsafe { pthread_mutex_lock(mutex) };
+    if result != 0 {
+        return error.new("Failed to lock mutex");
+    }
+    return result;
+}
+
+fn safe_pthread_mutex_unlock(mutex: *pthread_mutex_t):(i32 | error) {
+    result := unsafe { pthread_mutex_unlock(mutex) };
+    if result != 0 {
+        return error.new("Failed to unlock mutex");
+    }
+    return result;
+}
+
+fn safe_pthread_mutex_trylock(mutex: *pthread_mutex_t):(bool | error) {
+    result := unsafe { pthread_mutex_trylock(mutex) };
+    if result == 0 {
+        return true;  // Successfully locked
+    } else if result == EBUSY {
+        return false; // Already locked
+    } else {
+        return error.new("Failed to trylock mutex");
+    }
+}
+
+fn safe_pthread_mutex_destroy(mutex: *pthread_mutex_t):(i32 | error) {
+    result := unsafe { pthread_mutex_destroy(mutex) };
+    if result != 0 {
+        return error.new("Failed to destroy mutex");
+    }
+    return result;
+}
+
+// Safe condition variable operations
+fn safe_pthread_cond_init(cond: *pthread_cond_t):(i32 | error) {
+    result := unsafe { pthread_cond_init(cond, 0 as *pthread_condattr_t) };
+    if result != 0 {
+        return error.new("Failed to initialize condition variable");
+    }
+    return result;
+}
+
+fn safe_pthread_cond_wait(cond: *pthread_cond_t, 
+                                  mutex: *pthread_mutex_t):(i32 | error) {
+    result := unsafe { pthread_cond_wait(cond, mutex) };
+    if result != 0 {
+        return error.new("Failed to wait on condition variable");
+    }
+    return result;
+}
+
+fn safe_pthread_cond_signal(cond: *pthread_cond_t):(i32 | error) {
+    result := unsafe { pthread_cond_signal(cond) };
+    if result != 0 {
+        return error.new("Failed to signal condition variable");
+    }
+    return result;
+}
+
+fn safe_pthread_cond_broadcast(cond: *pthread_cond_t):(i32 | error) {
+    result := unsafe { pthread_cond_broadcast(cond) };
+    if result != 0 {
+        return error.new("Failed to broadcast condition variable");
+    }
+    return result;
+}
+
+fn safe_pthread_cond_destroy(cond: *pthread_cond_t):(i32 | error) {
+    result := unsafe { pthread_cond_destroy(cond) };
+    if result != 0 {
+        return error.new("Failed to destroy condition variable");
+    }
+    return result;
+}
+
+// ============================================================================
+// POSIX Regular Expressions - Safe Wrappers
+// ============================================================================
+
+fn safe_regcomp(preg: *regex_t, pattern: *byte, cflags: i32):(i32 | error) {
+    result := unsafe { regcomp(preg, pattern, cflags) };
+    if result != 0 {
+        // Get error message
+        let errbuf_size: usize = 256;
+        errbuf := safe_malloc(errbuf_size)?;
+        defer safe_free(errbuf);
+        
+        unsafe { regerror(result, preg, errbuf, errbuf_size); }
+        
+        return error.new("Failed to compile regex");
+    }
+    return result;
+}
+
+fn safe_regexec(preg: *regex_t, string: *byte, nmatch: usize,
+                        pmatch: *regmatch_t, eflags: i32):(i32 | null) {
+    result := unsafe { regexec(preg, string, nmatch, pmatch, eflags) };
+    if result == 0 {
+        return 0;  // Match found
+    } else if result == REG_NOMATCH {
+        return null;  // No match
+    } else {
+        return null;  // Error (could be improved)
+    }
+}
+
+fn safe_regfree(preg: *regex_t) {
+    unsafe { regfree(preg); }
+}

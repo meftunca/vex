@@ -1,0 +1,54 @@
+[workspace]
+members = [
+    "vex-lexer",
+    "vex-parser", 
+    "vex-ast",
+    "vex-compiler",
+    "vex-runtime",
+    "vex-cli"
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.2.0"
+edition = "2021"
+authors = ["Vex Language Team"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/yourusername/vex_lang"
+
+[workspace.dependencies]
+# Lexer & Parser
+logos = "0.13"
+lalrpop = "0.20"
+lalrpop-util = "0.20"
+
+# LLVM Backend
+inkwell = { version = "0.4", features = ["llvm16-0"] }
+
+# SPIR-V Backend
+rspirv = "0.12"
+spirv = "0.3"
+
+# Async Runtime
+tokio = { version = "1.35", features = ["full"] }
+tokio-uring = "0.4"
+
+# CLI
+clap = { version = "4.4", features = ["derive"] }
+
+# Utilities
+thiserror = "1.0"
+anyhow = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Logging
+env_logger = "0.11"
+log = "0.4"
+
+[profile.dev]
+opt-level = 0
+
+[profile.release]
+opt-level = 3
+lto = true

@@ -1,0 +1,38 @@
+// Example: Error handling with union types
+// Note: (T | error) syntax needs match expression support in codegen
+
+fn divide(a: i32, b: i32) :(i32 | error) {
+    if b == 0 {
+        // This would be: return error.new("Division by zero");
+        // For now, just return 0
+        return 0;
+    }
+    return a / b;
+}
+
+fn safe_divide(a: i32, b: i32) :i32 {
+    let result = divide(a, b);
+    
+    // This would use match expression:
+    // match result {
+    //     Ok(value) => return value,
+    //     Err(e) => {
+    //         print("Error: ");
+    //         print(e.message);
+    //         return 0;
+    //     }
+    // }
+    
+    // For now, just return the result
+    return result;
+}
+
+fn main() :i32 {
+    let x = safe_divide(10, 2);
+    print(x);  // Should print 5
+    
+    let y = safe_divide(10, 0);
+    print(y);  // Should print 0 (error case)
+    
+    return 0;
+}

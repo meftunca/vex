@@ -1,0 +1,226 @@
+// std::fs - Filesystem operations module
+
+import { libc } from "../ffi";
+
+export { File } from "./file";
+import * as file_mod from "./file";
+
+// ============================================================================
+// File Operations
+// ============================================================================
+
+// Read entire file to string
+fn read_to_string(path: string):(string | error) {
+    file := file_mod.open(path)?;
+    defer file_mod.close(&file);
+    
+    file_size := file_mod.size(&file)?;
+    
+    if file_size == 0 {
+        return "";
+    }
+    
+    buffer := libc.safe_malloc(file_size as usize)?;
+    defer libc.safe_free(buffer);
+    
+    bytes_read := file_mod.read(&file, buffer, file_size as usize)?;
+    
+    // Convert to string (simplified, needs proper implementation)
+    return "";  // TODO: Implement byte array to string conversion
+}
+
+// Write string to file (create or truncate)
+fn write(path: string, content: string):(bool | error) {
+    file := file_mod.create(path)?;
+    defer file_mod.close(&file);
+    
+    data := content.as_bytes();
+    file_mod.write(&file, data.as_ptr(), data.len())?;
+    
+    return true;
+}
+
+// Append string to file
+fn append(path: string, content: string):(bool | error) {
+    file := file_mod.open_append(path)?;
+    defer file_mod.close(&file);
+    
+    data := content.as_bytes();
+    file_mod.write(&file, data.as_ptr(), data.len())?;
+    
+    return true;
+}
+
+// Copy file
+fn copy(from: string, to: string):(bool | error) {
+    src := file_mod.open(from)?;
+    defer file_mod.close(&src);
+    
+    dst := file_mod.create(to)?;
+    defer file_mod.close(&dst);
+    
+    // Copy in 4KB chunks
+    let buffer_size: usize = 4096;
+    buffer := libc.safe_malloc(buffer_size)?;
+    defer libc.safe_free(buffer);
+    
+    loop {
+        bytes_read := file_mod.read(&src, buffer, buffer_size)?;
+        
+        if bytes_read == 0 {
+            break;
+        }
+        
+        file_mod.write(&dst, buffer, bytes_read as usize)?;
+    }
+    
+    return true;
+}
+
+// Remove file
+fn remove_file(path: string):(bool | error) {
+    path_cstr := to_c_string(path);
+    defer libc.safe_free(path_cstr);
+    
+    libc.safe_unlink(path_cstr)?;
+    return true;
+}
+
+// Rename/move file
+fn rename(from: string, to: string):(bool | error) {
+    from_cstr := to_c_string(from);
+    defer libc.safe_free(from_cstr);
+    
+    to_cstr := to_c_string(to);
+    defer libc.safe_free(to_cstr);
+    
+    libc.safe_rename(from_cstr, to_cstr)?;
+    return true;
+}
+
+// ============================================================================
+// Directory Operations
+// ============================================================================
+
+// Create directory with default permissions (0755)
+fn create_dir(path: string):(bool | error) {
+    return create_dir_mode(path, 0o755);
+}
+
+// Create directory with specific permissions
+fn create_dir_mode(path: string, mode: u32):(bool | error) {
+    path_cstr := to_c_string(path);
+    defer libc.safe_free(path_cstr);
+    
+    libc.safe_mkdir(path_cstr, mode)?;
+    return true;
+}
+
+// Create directory and all parent directories (like mkdir -p)
+fn create_dir_all(path: string):(bool | error) {
+    // TODO: Implement recursive directory creation
+    // For now, just create single directory
+    return create_dir(path);
+}
+
+// Remove empty directory
+fn remove_dir(path: string):(bool | error) {
+    path_cstr := to_c_string(path);
+    defer libc.safe_free(path_cstr);
+    
+    libc.safe_rmdir(path_cstr)?;
+    return true;
+}
+
+// Read directory entries
+// TODO: Implement proper iterator when Vex supports it
+fn read_dir(path: string):(bool | error) {
+    path_cstr := to_c_string(path);
+    defer libc.safe_free(path_cstr);
+    
+    dir := libc.safe_opendir(path_cstr)?;
+    
+    loop {
+        entry := libc.safe_readdir(dir);
+        
+        if entry as usize == 0 {
+            break;
+        }
+        
+        // TODO: Process entry and yield it
+    }
+    
+    libc.safe_closedir(dir)?;
+    return true;
+}
+
+// ============================================================================
+// Metadata Operations
+// ============================================================================
+
+// Check if path exists
+fn exists(path: string):bool {
+    path_cstr := to_c_string(path);
+    defer libc.safe_free(path_cstr);
+    
+    stat_buf := libc.safe_malloc(144);
+    
+    match stat_buf {
+        buf: *byte => {
+            result := libc.safe_stat(path_cstr, buf as *libc.stat);
+            libc.safe_free(buf);
+            
+            match result {
+                success: i32 => return true,
+                err: error => return false,
+            }
+        },
+        err: error => return false,
+    }
+}
+
+// Check if path is a directory
+fn is_dir(path: string):bool {
+    // TODO: Implement using stat and S_ISDIR macro
+    return false;
+}
+
+// Check if path is a regular file
+fn is_file(path: string):bool {
+    // TODO: Implement using stat and S_ISREG macro
+    return false;
+}
+
+// Get file metadata
+struct Metadata {
+    size: u64,
+    is_dir: bool,
+    is_file: bool,
+    permissions: u32,
+}
+
+fn metadata(path: string):(Metadata | error) {
+    // TODO: Implement full metadata extraction
+    return error.new("Not implemented yet");
+}
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+fn to_c_string(s: string):*byte {
+    len := s.len();
+    ptr_result := libc.safe_malloc(len + 1);
+    
+    match ptr_result {
+        ptr: *byte => {
+            src := s.as_ptr();
+            unsafe { libc.memcpy(ptr, src, len); }
+            unsafe { *(ptr + len) = 0; }
+            return ptr;
+        },
+        err: error => {
+            return 0 as *byte;
+        },
+    }
+}

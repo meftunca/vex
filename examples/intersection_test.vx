@@ -1,0 +1,34 @@
+// Interface definitions for testing intersection
+interface Reader {
+    fn read(size: i32): i32 {}
+}
+
+interface Writer {
+    fn write(data: i32): i32 {}
+}
+
+// Intersection type combining two interfaces
+fn do_io(stream: Reader & Writer): i32 {
+    return 0;
+}
+
+// Complex intersection with named types
+interface Logger {
+    fn log(msg: string): i32 {}
+}
+
+// Multiple intersection
+fn complex(obj: Reader & Writer & Logger): i32 {
+    return 1;
+}
+
+// Intersection in type alias
+type ReadWriter = Reader & Writer;
+
+fn use_alias(rw: ReadWriter): i32 {
+    return 2;
+}
+
+fn main(): i32 {
+    return 0;
+}

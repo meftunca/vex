@@ -1,0 +1,213 @@
+// std::regex - Regular expression matching using POSIX regex
+// Wrapper around regcomp/regexec for pattern matching
+
+import { libc } from "./ffi";
+
+// Size of regex_t varies by platform, typically 56-64 bytes
+const REGEX_SIZE: usize = 64;
+
+// Size of regmatch_t: 16 bytes (two i64 fields: rm_so, rm_eo)
+const REGMATCH_SIZE: usize = 16;
+
+struct Regex {
+    inner: *byte,
+    compiled: bool,
+}
+
+struct Match {
+    start: i64,  // rm_so
+    end: i64,    // rm_eo
+}
+
+// Compile a regular expression pattern
+fn compile(pattern: string):(Regex | error) {
+    return compile_with_flags(pattern, libc.REG_EXTENDED);
+}
+
+fn compile_with_flags(pattern: string, flags: i32):(Regex | error) {
+    inner := libc.safe_malloc(REGEX_SIZE)?;
+    
+    // Convert pattern to C string
+    pattern_cstr := to_c_string(pattern);
+    defer libc.safe_free(pattern_cstr);
+    
+    result := libc.safe_regcomp(inner as *libc.regex_t, pattern_cstr, flags);
+    
+    match result {
+        success: i32 => {
+            return Regex {
+                inner: inner,
+                compiled: true,
+            };
+        },
+        err: error => {
+            libc.safe_free(inner);
+            return err;
+        },
+    }
+}
+
+// Case-insensitive compile
+fn compile_icase(pattern: string):(Regex | error) {
+    return compile_with_flags(pattern, libc.REG_EXTENDED | libc.REG_ICASE);
+}
+
+// Check if string matches pattern
+fn is_match(regex: *Regex, text: string):bool {
+    if !regex.compiled {
+        return false;
+    }
+    
+    text_cstr := to_c_string(text);
+    defer libc.safe_free(text_cstr);
+    
+    result := libc.safe_regexec(regex.inner as *libc.regex_t, text_cstr, 
+                                    0, 0 as *libc.regmatch_t, 0);
+    
+    match result {
+        success: i32 => return true,
+        null => return false,
+    }
+}
+
+// Find first match and return position
+fn find_match(regex: *Regex, text: string):(Match | null | error) {
+    if !regex.compiled {
+        return error.new("Regex not compiled");
+    }
+    
+    text_cstr := to_c_string(text);
+    defer libc.safe_free(text_cstr);
+    
+    // Allocate regmatch_t array (we only need 1 match)
+    matches := libc.safe_malloc(REGMATCH_SIZE)?;
+    defer libc.safe_free(matches);
+    
+    result := libc.safe_regexec(regex.inner as *libc.regex_t, text_cstr,
+                                    1, matches as *libc.regmatch_t, 0);
+    
+    match result {
+        success: i32 => {
+            // Extract rm_so and rm_eo from regmatch_t
+            start_ptr := matches as *i64;
+            end_ptr := (matches as usize + 8) as *i64;
+            
+            start := unsafe { *start_ptr };
+            end := unsafe { *end_ptr };
+            
+            if start < 0 {
+                return null;  // No match in this group
+            }
+            
+            return Match {
+                start: start,
+                end: end,
+            };
+        },
+        null => return null,
+    }
+}
+
+// Find all matches (up to max_matches)
+fn find_all(regex: *Regex, text: string, max_matches: usize):([Match] | error) {
+    if !regex.compiled {
+        return error.new("Regex not compiled");
+    }
+    
+    text_cstr := to_c_string(text);
+    defer libc.safe_free(text_cstr);
+    
+    // Allocate array for matches
+    matches_buf := libc.safe_malloc(REGMATCH_SIZE * max_matches)?;
+    defer libc.safe_free(matches_buf);
+    
+    result := libc.safe_regexec(regex.inner as *libc.regex_t, text_cstr,
+                                    max_matches, matches_buf as *libc.regmatch_t, 0);
+    
+    match result {
+        success: i32 => {
+            // Count valid matches
+            let mut count: usize = 0;
+            let mut i: usize = 0;
+            
+            while i < max_matches {
+                match_ptr := (matches_buf as usize + (i * REGMATCH_SIZE)) as *i64;
+                start := unsafe { *match_ptr };
+                
+                if start >= 0 {
+                    count = count + 1;
+                } else {
+                    break;
+                }
+                
+                i = i + 1;
+            }
+            
+            // Create result array (simplified, actual implementation needs array support)
+            // TODO: Return actual array when Vex supports dynamic arrays
+            return [];
+        },
+        null => {
+            return [];  // No matches
+        },
+    }
+}
+
+// Replace first match
+fn replace_first(regex: *Regex, text: string, replacement: string):(string | error) {
+    // TODO: Implement when Vex has better string manipulation
+    return error.new("Not implemented yet");
+}
+
+// Replace all matches
+fn replace_all(regex: *Regex, text: string, replacement: string):(string | error) {
+    // TODO: Implement when Vex has better string manipulation
+    return error.new("Not implemented yet");
+}
+
+// Free regex resources
+fn free_regex(regex: *Regex) {
+    if regex.compiled {
+        libc.safe_regfree(regex.inner as *libc.regex_t);
+        libc.safe_free(regex.inner);
+        regex.compiled = false;
+    }
+}
+
+// Helper: Quick match without compiling
+fn quick_match(pattern: string, text: string):bool {
+    regex_result := compile(pattern);
+    
+    match regex_result {
+        regex: Regex => {
+            result := is_match(&regex, text);
+            free_regex(&regex);
+            return result;
+        },
+        err: error => {
+            return false;
+        },
+    }
+}
+
+// Helper: Convert string to C string
+fn to_c_string(s: string):*byte {
+    len := s.len();
+    ptr_result := libc.safe_malloc(len + 1);
+    
+    match ptr_result {
+        ptr: *byte => {
+            // Copy string data
+            src := s.as_ptr();
+            unsafe { libc.memcpy(ptr, src, len); }
+            
+            // Null terminate
+            unsafe { *(ptr as *byte + len) = 0; }
+            
+            return ptr;
+        },
+        err: error => {
+            return 0 as *byte;
+        },
+    }
+}

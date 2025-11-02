@@ -1,0 +1,83 @@
+// Example: GPU kernel with 'launch' keyword
+// Demonstrates CUDA/Metal/SPIR-V code generation
+
+import { hpc } from "std";
+
+// GPU kernel function
+// Compiler generates different code based on --gpu flag:
+// - CUDA: __global__ kernel
+// - Metal: kernel void
+// - SPIR-V: OpenCL kernel
+fn matrix_multiply_kernel(
+    a: &[f32],
+    b: &[f32], 
+    c: &mut [f32],
+    n: i32
+) {
+    // Get thread coordinates
+    let (tx, ty, _) = hpc.thread_idx();
+    let (bx, by, _) = hpc.block_idx();
+    
+    let row = by * 16 + ty;  // 16x16 blocks
+    let col = bx * 16 + tx;
+    
+    if row < n && col < n {
+        let mut sum = 0.0;
+        
+        for k := 0; k < n; k++ {
+            sum = sum + a[row * n + k] * b[k * n + col];
+        }
+        
+        c[row * n + col] = sum;
+    }
+}
+
+// CPU host code
+fn main() :i32 {
+    let n = 1024;
+    
+    print("Allocating matrices...");
+    let mut a = make([f32], n * n);
+    let mut b = make([f32], n * n);
+    let mut c = make([f32], n * n);
+    
+    // Initialize matrices
+    for i := 0; i < n * n; i++ {
+        a[i] = 1.0;
+        b[i] = 2.0;
+    }
+    
+    print("Launching GPU kernel...");
+    
+    // 'launch' keyword compiles to GPU code
+    // Grid: 64x64 blocks
+    // Block: 16x16 threads
+    // Total: 1024x1024 threads = 1M parallel operations
+    launch matrix_multiply_kernel(&a, &b, &mut c, n) {
+        grid: (64, 64, 1),   // 64x64 block grid
+        block: (16, 16, 1),  // 16x16 threads per block
+    };
+    
+    // Synchronize GPU (wait for kernel to finish)
+    await hpc.gpu_sync();
+    
+    print("GPU computation complete!");
+    
+    // Verify result
+    print("Checking results...");
+    if c[0] == 2048.0 {
+        print("✓ Correct!");
+    } else {
+        print("✗ Error!");
+    }
+    
+    return 0;
+}
+
+// Compiler flow for GPU code:
+// 1. Parse kernel function
+// 2. Generate LLVM IR
+// 3. If --gpu cuda: Run NVPTX backend → .ptx → CUDA binary
+// 4. If --gpu metal: Generate Metal shader → .metallib
+// 5. If --gpu spirv: Generate SPIR-V → Vulkan compute shader
+// 6. Link with runtime that manages GPU memory and dispatch

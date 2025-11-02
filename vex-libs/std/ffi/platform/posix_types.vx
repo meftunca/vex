@@ -1,0 +1,134 @@
+// std::ffi::platform::posix_types - POSIX type definitions
+// Platform-specific struct layouts for stat, dirent
+
+#[cfg(unix)]
+import { libc } from "../libc";
+
+// struct stat layout (Linux/macOS - slightly different but compatible subset)
+#[cfg(unix)]
+struct StatStruct {
+    st_dev: u64,      // Device ID
+    st_ino: u64,      // Inode number
+    st_mode: u32,     // File mode (permissions + type)
+    st_nlink: u64,    // Number of hard links
+    st_uid: u32,      // User ID
+    st_gid: u32,      // Group ID
+    st_rdev: u64,     // Device ID (if special file)
+    st_size: i64,     // Total size in bytes
+    st_blksize: i64,  // Block size for filesystem I/O
+    st_blocks: i64,   // Number of 512B blocks allocated
+    st_atime: i64,    // Last access time
+    st_mtime: i64,    // Last modification time
+    st_ctime: i64,    // Last status change time
+}
+
+// struct dirent layout (POSIX)
+#[cfg(unix)]
+struct DirentStruct {
+    d_ino: u64,       // Inode number
+    d_off: i64,       // Offset to next dirent
+    d_reclen: u16,    // Length of this record
+    d_type: u8,       // Type of file
+    d_name: [byte; 256], // Filename (null-terminated)
+}
+
+// File type constants from st_mode
+const S_IFMT: u32   = 0o170000;  // Bit mask for file type
+const S_IFSOCK: u32 = 0o140000;  // Socket
+const S_IFLNK: u32  = 0o120000;  // Symbolic link
+const S_IFREG: u32  = 0o100000;  // Regular file
+const S_IFBLK: u32  = 0o060000;  // Block device
+const S_IFDIR: u32  = 0o040000;  // Directory
+const S_IFCHR: u32  = 0o020000;  // Character device
+const S_IFIFO: u32  = 0o010000;  // FIFO
+
+// File type macros
+fn S_ISDIR(mode: u32):bool {
+    return (mode & S_IFMT) == S_IFDIR;
+}
+
+fn S_ISREG(mode: u32):bool {
+    return (mode & S_IFMT) == S_IFREG;
+}
+
+fn S_ISLNK(mode: u32):bool {
+    return (mode & S_IFMT) == S_IFLNK;
+}
+
+fn S_ISCHR(mode: u32):bool {
+    return (mode & S_IFMT) == S_IFCHR;
+}
+
+fn S_ISBLK(mode: u32):bool {
+    return (mode & S_IFMT) == S_IFBLK;
+}
+
+fn S_ISFIFO(mode: u32):bool {
+    return (mode & S_IFMT) == S_IFIFO;
+}
+
+fn S_ISSOCK(mode: u32):bool {
+    return (mode & S_IFMT) == S_IFSOCK;
+}
+
+// dirent d_type constants
+const DT_UNKNOWN: u8 = 0;
+const DT_FIFO: u8 = 1;
+const DT_CHR: u8 = 2;
+const DT_DIR: u8 = 4;
+const DT_BLK: u8 = 6;
+const DT_REG: u8 = 8;
+const DT_LNK: u8 = 10;
+const DT_SOCK: u8 = 12;
+
+// Helper functions to extract stat info
+fn get_file_size_from_stat(stat_ptr: *libc.stat):u64 {
+    stat_struct := stat_ptr as *StatStruct;
+    return unsafe { (*stat_struct).st_size as u64 };
+}
+
+fn get_file_mode_from_stat(stat_ptr: *libc.stat):u32 {
+    stat_struct := stat_ptr as *StatStruct;
+    return unsafe { (*stat_struct).st_mode };
+}
+
+fn get_modified_time_from_stat(stat_ptr: *libc.stat):i64 {
+    stat_struct := stat_ptr as *StatStruct;
+    return unsafe { (*stat_struct).st_mtime };
+}
+
+fn is_directory_from_stat(stat_ptr: *libc.stat):bool {
+    mode := get_file_mode_from_stat(stat_ptr);
+    return S_ISDIR(mode);
+}
+
+fn is_regular_file_from_stat(stat_ptr: *libc.stat):bool {
+    mode := get_file_mode_from_stat(stat_ptr);
+    return S_ISREG(mode);
+}
+
+// Helper functions to extract dirent info
+fn get_filename_from_dirent(dirent_ptr: *libc.dirent):string {
+    dirent_struct := dirent_ptr as *DirentStruct;
+    name_ptr := unsafe { &(*dirent_struct).d_name[0] as *byte };
+    
+    // Find string length
+    len := libc.safe_strlen(name_ptr);
+    
+    // Convert to Vex string
+    // TODO: Implement proper bytes to string conversion
+    return ""; // Placeholder
+}
+
+fn get_filetype_from_dirent(dirent_ptr: *libc.dirent):u8 {
+    dirent_struct := dirent_ptr as *DirentStruct;
+    return unsafe { (*dirent_struct).d_type };
+}
+
+fn is_directory_from_dirent(dirent_ptr: *libc.dirent):bool {
+    return get_filetype_from_dirent(dirent_ptr) == DT_DIR;
+}
+
+fn is_regular_file_from_dirent(dirent_ptr: *libc.dirent):bool {
+    return get_filetype_from_dirent(dirent_ptr) == DT_REG;
+}

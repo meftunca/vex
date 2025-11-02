@@ -1,0 +1,6 @@
+// Test just the Unwrap type with infer
+type Unwrap<T> = T extends &[infer E] ? E : T;
+
+fn main(): i32 {
+    return 0;
+}

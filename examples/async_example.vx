@@ -1,0 +1,56 @@
+// Example: Async/await with I/O operations
+// Demonstrates the async runtime and coroutine lowering
+
+import { io } from "std";
+
+// Async function that reads a file
+async fn read_config() :(string | error) {
+    // This 'await' suspends the coroutine
+    // Runtime submits io_uring read operation
+    // When I/O completes, runtime resumes this coroutine
+    let content = await io.read_to_string("config.toml");
+    
+    return content;
+}
+
+// Async function that writes a file
+async fn write_log(message: string) :(nil | error) {
+    // Another I/O suspension point
+    await io.write_string("log.txt", message);
+    return nil;
+}
+
+// Multiple concurrent async operations
+async fn process_files() :i32 {
+    // Start multiple I/O operations concurrently
+    // Runtime schedules them all on io_uring
+    let config = await read_config();
+    await write_log("Processing started");
+    
+    // More operations...
+    await write_log("Processing complete");
+    
+    return 0;
+}
+
+// Main can be async too
+async fn main() :i32 {
+    print("Starting async operations...");
+    
+    let result = await process_files();
+    
+    print("All async operations complete!");
+    return result;
+}
+
+// Note: This compiles to a state machine:
+//
+// enum ProcessFilesState {
+//     Start,
+//     ReadConfig(Future<String>),
+//     WriteLog1(Future<Nil>),
+//     WriteLog2(Future<Nil>),
+//     Done,
+// }
+//
+// The runtime polls these states and resumes when I/O completes

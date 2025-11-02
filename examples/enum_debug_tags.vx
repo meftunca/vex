@@ -1,0 +1,16 @@
+// Debug enum tags
+enum Color {
+    Red,
+    Green,
+    Blue,
+}
+
+fn main() {
+    r := Color_Red();
+    g := Color_Green();
+    b := Color_Blue();
+    
+    print(r);  // Should be 0
+    print(g);  // Should be 1
+    print(b);  // Should be 2
+}

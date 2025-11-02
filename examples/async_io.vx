@@ -1,0 +1,26 @@
+// Async I/O and Concurrency Example
+import { io, log, http, timer } from "std";
+
+async fn fetch_url(url: string) : (string | error) {
+    log.info(f"İstek atılıyor: {url}");
+    
+    let resp = try await http.get(url);
+    
+    return resp.text();
+}
+
+fn main() : error {
+    log.info("Async/Await ve Concurrency örneği");
+    
+    // Launch concurrent tasks
+    go fetch_url("https://api.site1.com");
+    go fetch_url("https://api.site2.com");
+    go fetch_url("https://api.site3.com");
+    
+    // Wait for some time
+    await timer.sleep(5000); // 5 seconds
+    
+    log.info("Tüm istekler gönderildi.");
+    
+    return nil;
+}

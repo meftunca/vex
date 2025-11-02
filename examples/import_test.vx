@@ -1,0 +1,7 @@
+// Test import system with a simple import
+import { io } from "std";
+
+fn main() {
+    print("Testing import system!");
+    print("Import compiled successfully!");
+}

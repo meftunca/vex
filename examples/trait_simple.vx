@@ -1,0 +1,28 @@
+// Simple trait example
+
+trait Printable {
+    fn print(self: &Self);
+    fn debug(self: &Self);
+}
+
+struct Point {
+    x: i32,
+    y: i32
+}
+
+impl Printable for Point {
+    fn (self: &Point) print() {
+        println(self.x);
+        println(self.y);
+    }
+    
+    fn (self: &Point) debug() {
+        println(self.x);
+        println(self.y);
+    }
+}
+
+fn main() {
+    let p = Point { x: 10, y: 20 };
+    p.print();
+}

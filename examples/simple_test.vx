@@ -1,0 +1,5 @@
+// Simple test without imports
+
+fn main() : i32 {
+    return 42;
+}

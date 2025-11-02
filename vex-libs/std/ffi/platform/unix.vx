@@ -1,0 +1,69 @@
+// vex-libs/std/ffi/platform/unix.vx
+// Unix/Linux/macOS specific system calls
+
+import { posix_types } from "./posix_types";
+
+#[cfg(unix)]
+#[link(name = "c")]
+extern {
+    // Memory mapping
+    fn mmap(addr: *void, len: usize, prot: i32, 
+            flags: i32, fd: i32, offset: i64):*void;
+    fn munmap(addr: *void, len: usize):i32;
+    fn mprotect(addr: *void, len: usize, prot: i32):i32;
+    
+    // Dynamic library loading
+    fn dlopen(filename: *byte, flags: i32):*void;
+    fn dlsym(handle: *void, symbol: *byte):*void;
+    fn dlclose(handle: *void):i32;
+    fn dlerror():*byte;
+    
+    // Process management
+    fn fork():i32;
+    fn execve(path: *byte, argv: **byte, envp: **byte):i32;
+    fn waitpid(pid: i32, status: *i32, options: i32):i32;
+    
+    // Signals
+    fn signal(signum: i32, handler: *fn(i32)):*fn(i32);
+    fn kill(pid: i32, sig: i32):i32;
+}
+
+// mmap constants
+const PROT_NONE: i32 = 0;
+const PROT_READ: i32 = 1;
+const PROT_WRITE: i32 = 2;
+const PROT_EXEC: i32 = 4;
+
+const MAP_SHARED: i32 = 1;
+const MAP_PRIVATE: i32 = 2;
+const MAP_ANONYMOUS: i32 = 32;
+const MAP_ANON: i32 = 32;
+
+const MAP_FAILED: usize = -1 as usize;
+
+// dlopen constants
+const RTLD_LAZY: i32 = 1;
+const RTLD_NOW: i32 = 2;
+const RTLD_GLOBAL: i32 = 256;
+const RTLD_LOCAL: i32 = 0;
+
+// Safe wrappers
+fn safe_mmap(len: usize, prot: i32, flags: i32):(*void | error) {
+    addr := unsafe { 
+        mmap(0 as *void, len, prot, flags, -1, 0) 
+    };
+    
+    if addr as usize == MAP_FAILED {
+        return error.new("mmap failed");
+    }
+    
+    return addr;
+}
+
+fn safe_munmap(addr: *void, len: usize):(i32 | error) {
+    result := unsafe { munmap(addr, len) };
+    if result != 0 {
+        return error.new("munmap failed");
+    }
+    return result;
+}

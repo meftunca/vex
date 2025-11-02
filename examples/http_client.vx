@@ -1,0 +1,30 @@
+// Example: HTTP Client using std library
+// This demonstrates the layered architecture:
+// - std::http (Layer 3) uses std::net (Layer 2)
+// - std::net (Layer 2) uses std::io (Layer 1)
+// - std::io (Layer 1) uses runtime intrinsics
+
+import { http } from "std";
+
+fn main() :i32 {
+    // Make an HTTP GET request
+    let response = await http.get("http://example.com/api/data");
+    
+    match response {
+        Ok(resp) => {
+            print(f"Status: {resp.status_code}");
+            print(f"Body: {resp.body}");
+            
+            // Print headers
+            for header in resp.headers {
+                print(f"{header.name}: {header.value}");
+            }
+            
+            return 0;
+        }
+        Err(e) => {
+            print(f"Error: {e.message}");
+            return 1;
+        }
+    }
+}

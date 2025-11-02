@@ -1,0 +1,82 @@
+// std::ffi::simdutf - Ultra-fast UTF-8/UTF-16 validation and conversion
+// Uses SIMD instructions (AVX-512, AVX2, NEON) for 20GB/s performance
+
+// ============================================================================
+// UTF-8 Validation (20GB/s with AVX-512!)
+// ============================================================================
+
+// Validate UTF-8 string
+// Returns: true if valid, false otherwise
+extern fn vex_utf8_validate(data: *byte, len: usize): bool;
+
+// Validate with error position
+// error_pos will be set to first error position (0 if valid)
+extern fn vex_utf8_validate_with_errors(
+    data: *byte,
+    len: usize,
+    error_pos: *usize
+): bool;
+
+// Check if string is ASCII (fast path)
+extern fn vex_is_ascii(data: *byte, len: usize): bool;
+
+// ============================================================================
+// UTF-16 Validation
+// ============================================================================
+
+// Validate UTF-16 Little Endian
+extern fn vex_utf16_validate(data: *u16, len: usize): bool;
+
+// ============================================================================
+// Character Counting (SIMD optimized)
+// ============================================================================
+
+// Count Unicode characters in UTF-8 (not bytes!)
+extern fn vex_utf8_count_chars(data: *byte, len: usize): usize;
+
+// Get character at index (slow, use sparingly)
+// Returns: Unicode codepoint, or 0xFFFFFFFF on error
+extern fn vex_utf8_char_at(data: *byte, len: usize, index: usize): u32;
+
+// ============================================================================
+// UTF-8 ↔ UTF-16 Conversion
+// ============================================================================
+
+// Get required buffer size for UTF-8 → UTF-16
+extern fn vex_utf8_to_utf16_length(data: *byte, len: usize): usize;
+
+// Get required buffer size for UTF-16 → UTF-8
+extern fn vex_utf16_to_utf8_length(data: *u16, len: usize): usize;
+
+// Convert UTF-8 to UTF-16 LE
+// Returns: Number of UTF-16 code units written, 0 on error
+extern fn vex_utf8_to_utf16(
+    input: *byte,
+    input_len: usize,
+    output: *u16,
+    output_capacity: usize
+): usize;
+
+// Convert UTF-16 LE to UTF-8
+// Returns: Number of bytes written, 0 on error
+extern fn vex_utf16_to_utf8(
+    input: *u16,
+    input_len: usize,
+    output: *byte,
+    output_capacity: usize
+): usize;
+
+// ============================================================================
+// Encoding Detection
+// ============================================================================
+
+// Encoding detection flags (bitmask)
+const SIMDUTF_ENCODING_UTF8: i32 = 1;
+const SIMDUTF_ENCODING_UTF16_LE: i32 = 2;
+const SIMDUTF_ENCODING_UTF16_BE: i32 = 4;
+const SIMDUTF_ENCODING_UTF32_LE: i32 = 8;
+const SIMDUTF_ENCODING_UTF32_BE: i32 = 16;
+
+// Detect possible encodings
+// Returns: Bitmask of SIMDUTF_ENCODING_* flags
+extern fn vex_detect_encoding(data: *byte, len: usize): i32;

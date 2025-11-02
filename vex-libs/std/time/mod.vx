@@ -1,0 +1,21 @@
+// std::time - Time measurement and representation
+
+export { Duration } from "./duration";
+export { Instant } from "./instant";
+export { SystemTime, UNIX_EPOCH } from "./systemtime";
+
+// Re-export common functions for convenience
+import * as duration from "./duration";
+import * as instant from "./instant";
+import * as systemtime from "./systemtime";
+
+// Duration constructors
+const from_secs = duration.from_secs;
+const from_millis = duration.from_millis;
+const from_micros = duration.from_micros;
+const from_nanos = duration.from_nanos;
+
+// Current time functions
+const now_instant = instant.now;
+const now_system = systemtime.now;
+const now_system_precise = systemtime.now_precise;

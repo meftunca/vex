@@ -1,0 +1,22 @@
+// Test enum constructors with debug output
+
+enum Status {
+    Pending,
+    Active,
+    Complete,
+}
+
+fn main(): i32 {
+    // Use enum constructors (auto-generated functions)
+    pending := Status_Pending();
+    print(pending);
+    
+    active := Status_Active();
+    print(active);
+    
+    complete := Status_Complete();
+    print(complete);
+    
+    // Return active status (should be 1)
+    return active;
+}

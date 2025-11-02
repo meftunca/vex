@@ -1,0 +1,20 @@
+// Test struct field access
+struct Vector2 {
+    x: f64,
+    y: f64,
+}
+
+fn main(): i32 {
+    v := Vector2{ x: 3.0, y: 4.0 };
+    
+    // Field access
+    x_val := v.x;
+    y_val := v.y;
+    
+    // Simple calculation
+    if x_val == 3.0 {
+        return 0;
+    }
+    
+    return 1;
+}

@@ -1,0 +1,22 @@
+[package]
+name = "vex-cli"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "vex"
+path = "src/main.rs"
+
+[dependencies]
+vex-compiler = { path = "../vex-compiler" }
+vex-parser = { path = "../vex-parser" }
+vex-lexer = { path = "../vex-lexer" }
+vex-ast = { path = "../vex-ast" }
+clap.workspace = true
+anyhow.workspace = true
+env_logger.workspace = true
+log.workspace = true
+inkwell.workspace = true

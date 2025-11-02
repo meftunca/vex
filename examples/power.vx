@@ -1,0 +1,23 @@
+// Power function (exponentiation)
+
+fn power(base: i32, exp: i32) :i32 {
+    if exp == 0 {
+        return 1;
+    }
+    if exp == 1 {
+        return base;
+    }
+    
+    half := power(base, exp / 2);
+    
+    if exp % 2 == 0 {
+        return half * half;
+    } else {
+        return base * half * half;
+    }
+}
+
+fn main() {
+    result := power(2, 10);
+    print(result);  // 1024
+}

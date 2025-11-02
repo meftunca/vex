@@ -1,0 +1,189 @@
+// Vex v0.6 - Yeni Değişken Syntax ve Built-in Types Demo
+import { io, log } from "std";
+
+// ============= Constants =============
+const PI := 3.14159;
+const string VERSION = "0.6";
+const int32 MAX_CONNECTIONS = 1000;
+
+// ============= Enums =============
+enum Option<T> {
+    Some(T),
+    None,
+}
+
+enum HttpMethod {
+    GET,
+    POST,
+    PUT,
+    DELETE,
+}
+
+// ============= Structs =============
+struct Vector2 {
+    x: f64,
+    y: f64,
+}
+
+struct Response<T> {
+    success: bool,
+    data: T,
+}
+
+// ============= Type Aliases =============
+type UserID = u64;
+type StringMap = Map<string, string>;
+type Config = Record<string, string>;
+
+// ============= Functions =============
+
+// Immutable reference function
+fn inspect(v: &Vector2) {
+    log.info(f"Vector: ({v.x}, {v.y})");
+}
+
+// Mutable reference function
+fn move_vec(v: *Vector2, dx: f64, dy: f64) {
+    v.x += dx;
+    v.y += dy;
+}
+
+// Generic function
+fn get_first<T>(slice: &[T]) : &T {
+    return &slice[0];
+}
+
+// Function with new/make
+fn create_vectors() : *[Vector2] {
+    // Make heap-allocated slice
+    vectors := make([Vector2], 10);
+    
+    // Initialize with loop
+    for i := 0; i < 10; i++ {
+        vectors[i] = Vector2{x: i as f64, y: i as f64 * 2.0};
+    }
+    
+    return vectors;
+}
+
+// Switch example
+fn process_method(method: HttpMethod) {
+    switch method {
+        case HttpMethod::GET:
+            log.info("GET request");
+        case HttpMethod::POST, HttpMethod::PUT:
+            log.info("Write request");
+        default:
+            log.info("Other request");
+    }
+}
+
+// Option handling with switch
+fn handle_option(opt: Option<string>) {
+    switch opt.(type) {
+        case Option::Some(value) :
+            io.print(f"Value: {value}\n");
+        case Option::None:
+            io.print("No value\n");
+    }
+}
+
+// Unsafe raw pointer example
+fn unsafe_example() {
+    int32 x = 42;
+    
+    unsafe {
+        *mut int32 ptr = &x as *mut int32;
+        *ptr = 100;
+        log.info(f"Modified via raw pointer: {x}");
+    }
+}
+
+// Main function
+fn main() : error {
+    log.info("=== Vex v0.6 - New Syntax Demo ===");
+    
+    // ============= Variables =============
+    // Mutable variables (default)
+    x := 10;                    // Type inferred
+    f64 pi = 3.14;              // Explicit type
+    name := "Vex Lang";
+    
+    // Immutable variables
+    const MAX_SIZE := 1024;
+    const string LANG = "Vex";
+    
+    // ============= Stack & Heap =============
+    // Stack allocation
+    Vector2 v1 = Vector2{x: 1.0, y: 2.0};
+    inspect(&v1);
+    move_vec(&v1, 5.0, 3.0);
+    inspect(&v1);
+    
+    // Heap allocation with new
+    v_heap := new(Vector2{x: 10.0, y: 20.0});
+    inspect(v_heap);
+    
+    // Heap slice with make
+    buffer := make([byte], 1024);
+    io.print(f"Buffer size: {buffer.len()}\n");
+    
+    // ============= Collections =============
+    // Map (mutable)
+    Map<string, int32> scores = Map::new();
+    scores.set("Alice", 100);
+    scores.set("Bob", 85);
+    
+    // Record (immutable)
+    config := Record<string, string>{
+        "host": "localhost",
+        "port": "8080",
+    };
+    
+    // ============= Arrays & Slices =============
+    numbers := [1, 2, 3, 4, 5];
+    first := get_first<int32>(&numbers);
+    io.print(f"First number: {first}\n");
+    
+    // For loops
+    for i := 0; i < 5; i++ {
+        io.print(f"{numbers[i]} ");
+    }
+    io.print("\n");
+    
+    // For-in loop
+    for num in numbers {
+        io.print(f"{num * 2} ");
+    }
+    io.print("\n");
+    
+    // ============= Enums =============
+    some_value := Option::Some<string>("Hello");
+    none_value := Option<string>::None;
+    
+    handle_option(some_value);
+    handle_option(none_value);
+    
+    // ============= HTTP Methods =============
+    method := HttpMethod::GET;
+    process_method(method);
+    
+    // ============= Generics =============
+    ok_response := Response<string>{
+        success: true,
+        data: "Operation successful",
+    };
+    
+    err_response := Response<nil>{
+        success: false,
+        data: nil,
+    };
+    
+    io.print(f"Response: {ok_response.data}\n");
+    
+    // ============= Unsafe Code =============
+    unsafe_example();
+    
+    log.info("=== Demo completed successfully! ===");
+    return nil;
+}

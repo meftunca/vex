@@ -1,0 +1,110 @@
+// Test: std::time module
+// Tests Duration, Instant, SystemTime
+
+import { time } from "std";
+
+extern "C" {
+    fn printf(fmt: *byte, ...) -> i32;
+}
+
+fn test_duration() {
+    printf("\n=== Duration Test ===\n\0".as_bytes().as_ptr());
+    
+    // Create durations
+    let d1 = time.from_secs(5);
+    let d2 = time.from_millis(500);
+    let d3 = time.from_micros(1000);
+    let d4 = time.from_nanos(1_000_000_000);
+    
+    printf("5 seconds = %lld nanos\n\0".as_bytes().as_ptr(), time.as_nanos(&d1));
+    printf("500 millis = %lld nanos\n\0".as_bytes().as_ptr(), time.as_nanos(&d2));
+    printf("1000 micros = %lld nanos\n\0".as_bytes().as_ptr(), time.as_nanos(&d3));
+    printf("1e9 nanos = %lld seconds\n\0".as_bytes().as_ptr(), time.as_secs(&d4));
+    
+    // Arithmetic
+    let sum = time.add(d1, d2);
+    printf("5s + 500ms = %lld ms\n\0".as_bytes().as_ptr(), time.as_millis(&sum));
+    
+    let diff = time.sub(d1, d2);
+    printf("5s - 500ms = %lld ms\n\0".as_bytes().as_ptr(), time.as_millis(&diff));
+    
+    // Comparison
+    if time.gt(&d1, &d2) {
+        printf("✓ 5s > 500ms\n\0".as_bytes().as_ptr());
+    }
+    
+    if time.eq(&d4, &d1) {
+        printf("✓ 1e9 nanos == 5 seconds? No, 1 second!\n\0".as_bytes().as_ptr());
+    }
+}
+
+fn test_instant() {
+    printf("\n=== Instant Test ===\n\0".as_bytes().as_ptr());
+    
+    let start_result = time.now_instant();
+    
+    match start_result {
+        start: time.Instant => {
+            printf("✓ Got instant\n\0".as_bytes().as_ptr());
+            
+            // Do some work
+            let mut i: i32 = 0;
+            while i < 1000000 {
+                i = i + 1;
+            }
+            
+            // Measure elapsed time
+            let elapsed_result = time.elapsed(&start);
+            
+            match elapsed_result {
+                elapsed: time.Duration => {
+                    let micros = time.as_micros(&elapsed);
+                    printf("Elapsed: %lld microseconds\n\0".as_bytes().as_ptr(), micros);
+                },
+                err: error => {
+                    printf("✗ Failed to get elapsed time\n\0".as_bytes().as_ptr());
+                },
+            }
+        },
+        err: error => {
+            printf("✗ Failed to get instant\n\0".as_bytes().as_ptr());
+        },
+    }
+}
+
+fn test_systemtime() {
+    printf("\n=== SystemTime Test ===\n\0".as_bytes().as_ptr());
+    
+    // Get current system time
+    let now = time.now_system();
+    printf("Current Unix timestamp: %lld\n\0".as_bytes().as_ptr(), now.secs);
+    
+    // Duration since epoch
+    let since_epoch = time.duration_since_epoch(&now);
+    let days = time.as_secs(&since_epoch) / 86400;
+    printf("Days since Unix epoch: %lld\n\0".as_bytes().as_ptr(), days);
+    
+    // Precise time
+    let precise_result = time.now_system_precise();
+    
+    match precise_result {
+        precise: time.SystemTime => {
+            printf("Precise time: %lld.%09d\n\0".as_bytes().as_ptr(), 
+                   precise.secs, precise.nanos);
+        },
+        err: error => {
+            printf("✗ Failed to get precise time\n\0".as_bytes().as_ptr());
+        },
+    }
+}
+
+fn main() -> i32 {
+    printf("=== std::time Test Suite ===\n\0".as_bytes().as_ptr());
+    
+    test_duration();
+    test_instant();
+    test_systemtime();
+    
+    printf("\n=== All Tests Complete ===\n\0".as_bytes().as_ptr());
+    return 0;
+}

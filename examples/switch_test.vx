@@ -1,0 +1,19 @@
+// Test switch statement parsing
+
+fn test_switch(x: i32): i32 {
+    switch x {
+        case 1:
+            y := 10;
+            return y;
+        case 2:
+            z := 20;
+            return z;
+        default:
+            return 0;
+    }
+}
+
+fn main(): i32 {
+    result := test_switch(2);
+    return result;
+}

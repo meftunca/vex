@@ -1,0 +1,5 @@
+// Go keyword test
+fn main() {
+    let result = go 100;
+    print(result);
+}

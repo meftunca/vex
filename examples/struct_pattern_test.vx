@@ -1,0 +1,31 @@
+// Test struct pattern matching
+struct Point {
+    x: i32,
+    y: i32,
+}
+
+fn main() {
+    // Test 1: Struct variable pattern with destructuring
+    p := Point { x: 10, y: 20 };
+    result1 := match p {
+        Point { x: a, y: b } => a + b,
+        _ => 0,
+    };
+    print(result1);  // Should print 30
+    
+    // Test 2: Shorthand pattern
+    p2 := Point { x: 5, y: 15 };
+    result2 := match p2 {
+        Point { x, y } => x * y,
+        _ => 0,
+    };
+    print(result2);  // Should print 75
+    
+    // Test 3: Nested computation
+    p3 := Point { x: 3, y: 7 };
+    result3 := match p3 {
+        Point { x: a, y: b } => a * 10 + b,
+        _ => 0,
+    };
+    print(result3);  // Should print 37
+}

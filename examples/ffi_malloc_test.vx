@@ -1,0 +1,28 @@
+// FFI Test Example - malloc/free with zero overhead
+// This tests basic C FFI functionality
+
+extern "C" {
+    fn malloc(size: usize) -> *mut byte;
+    fn free(ptr: *mut byte);
+    fn printf(fmt: *byte, ...) -> i32;
+}
+
+fn main() : i32 {
+    // Allocate 1024 bytes
+    let ptr = unsafe { malloc(1024) };
+    
+    // Check if allocation succeeded
+    if ptr as usize == 0 {
+        unsafe { printf("Allocation failed!\n".as_ptr()); }
+        return 1;
+    }
+    
+    unsafe { printf("Allocated 1024 bytes at: %p\n".as_ptr(), ptr); }
+    
+    // Free the memory
+    unsafe { free(ptr); }
+    
+    unsafe { printf("Memory freed successfully!\n".as_ptr()); }
+    
+    return 0;
+}

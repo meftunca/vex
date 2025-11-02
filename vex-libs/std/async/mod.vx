@@ -1,0 +1,113 @@
+// std::async - Async runtime (High-level wrapper around tokio)
+
+import { tokio } from "../ffi";
+import { Duration } from "../time";
+
+// ============================================================================
+// Runtime
+// ============================================================================
+
+struct Runtime {
+    inner: *tokio.VexRuntime,
+}
+
+// Create new multi-threaded runtime
+fn new_runtime(): Runtime {
+    return Runtime {
+        inner: tokio.vex_runtime_new(),
+    };
+}
+
+// Create single-threaded runtime (for testing)
+fn new_current_thread_runtime(): Runtime {
+    return Runtime {
+        inner: tokio.vex_runtime_new_current_thread(),
+    };
+}
+
+// Destroy runtime
+fn (rt: &Runtime) destroy() {
+    if rt.inner != 0 as *tokio.VexRuntime {
+        tokio.vex_runtime_destroy(rt.inner);
+        rt.inner = 0 as *tokio.VexRuntime;
+    }
+}
+
+// ============================================================================
+// Task Spawning
+// ============================================================================
+
+// Spawn async task
+fn (rt: &Runtime) spawn(f: fn()) {
+    // Wrapper to convert Vex closure to C function pointer
+    wrapper := |user_data: *byte| {
+        f();
+    };
+    
+    tokio.vex_runtime_spawn(rt.inner, wrapper, 0 as *byte);
+}
+
+// Block on async task (run synchronously)
+fn (rt: &Runtime) block_on(f: fn()) {
+    wrapper := |user_data: *byte| {
+        f();
+    };
+    
+    tokio.vex_runtime_block_on(rt.inner, wrapper, 0 as *byte);
+}
+
+// ============================================================================
+// Async Sleep
+// ============================================================================
+
+// Sleep for duration (requires runtime)
+async fn sleep(rt: &Runtime, duration: Duration) {
+    millis := duration.as_millis();
+    tokio.vex_async_sleep_ms(rt.inner, millis as u64);
+}
+
+// Sleep for milliseconds (requires runtime)
+async fn sleep_ms(rt: &Runtime, millis: u64) {
+    tokio.vex_async_sleep_ms(rt.inner, millis);
+}
+
+// Sleep for seconds (requires runtime)
+async fn sleep_secs(rt: &Runtime, secs: u64) {
+    tokio.vex_async_sleep_secs(rt.inner, secs);
+}
+
+// ============================================================================
+// Runtime Info
+// ============================================================================
+
+// Get number of worker threads
+fn worker_threads(): usize {
+    return tokio.vex_runtime_worker_threads();
+}
+
+// Check if inside tokio runtime
+fn is_inside_runtime(): bool {
+    return tokio.vex_runtime_is_inside_runtime();
+}
+
+// ============================================================================
+// Example Usage
+// ============================================================================
+
+/*
+import { async } from "std";
+
+fn main() {
+    runtime := async::new_runtime();
+    
+    runtime.block_on(async {
+        println("Starting async task...");
+        
+        await async::sleep_secs(runtime, 1);
+        
+        println("Task completed after 1 second!");
+    });
+    
+    runtime.destroy();
+}
+*/

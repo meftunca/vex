@@ -1,0 +1,16 @@
+fn greet(name: string) :i32 {
+    print("Hello, ");
+    print(name);
+    print("!");
+    return 0;
+}
+
+fn main() :i32 {
+    print("Welcome to Vex!");
+    greet("World");
+    
+    let message: string = "String variables work!";
+    print(message);
+    
+    return 0;
+}

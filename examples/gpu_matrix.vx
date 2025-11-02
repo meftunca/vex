@@ -1,0 +1,45 @@
+// GPU Matrix Multiplication Example
+import { io, log } from "std";
+
+// GPU kernel function
+gpu fn matrix_multiply(a: &[f32], b: &[f32], out: &mut [f32], size: u32) {
+    let x = @gpu.global_id.x;
+    let y = @gpu.global_id.y;
+    
+    if x >= size || y >= size {
+        return;
+    }
+    
+    let mut sum: f32 = 0.0;
+    for k in 0..size {
+        sum += a[y * size + k] * b[k * size + x];
+    }
+    out[y * size + x] = sum;
+}
+
+// CPU host function
+fn main() : error {
+    let N: u32 = 4;
+    let size = (N * N) as usize;
+    
+    // Initialize matrices
+    let mut a_data: [f32] = [];
+    let mut b_data: [f32] = [];
+    let mut out_data: [f32] = [];
+    
+    // Fill with test data
+    for i in 0..size {
+        a_data.push(1.0);
+        b_data.push(2.0);
+        out_data.push(0.0);
+    }
+    
+    log.info("GPU Matrix Multiplication başlatılıyor...");
+    
+    // Launch GPU kernel
+    await launch matrix_multiply[N, N](&a_data, &b_data, &mut out_data, N);
+    
+    log.info(f"GPU işi bitti. İlk sonuç: {out_data[0]}");
+    
+    return nil;
+}

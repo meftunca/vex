@@ -1,0 +1,86 @@
+// std::net - Layer 2: Network Protocol (100% Safe Native Vex)
+// This layer knows NOTHING about io_uring or unsafe code.
+// It only knows about "files" (sockets) from std::io.
+
+import { io } from "std";
+import type { Reader, Writer } from "std::io";
+
+// TCP Stream - wraps a File (socket is a file in Unix)
+struct TcpStream {
+    file: io.File,
+}
+
+// Connect to a TCP server
+// In real implementation, this would use socket() syscall via runtime
+// For now, we use a conceptual "/dev/tcp/host/port" path
+export async fn connect(host: string, port: i32) : (TcpStream | error) {
+    // Conceptual: open a socket as a file
+    // Real implementation would call __runtime_socket_connect intrinsic
+    socket_path := f"/dev/tcp/{host}/{port}";
+    file := try await io.open(socket_path);
+    
+    return TcpStream { file: file };
+}
+
+// Implement Reader trait for TcpStream
+// This just delegates to the underlying File
+fn (s: &TcpStream) read(buf: &[byte]) : (i32 | error) {
+    return await s.file.read(buf);
+}
+
+// Implement Writer trait for TcpStream
+// This just delegates to the underlying File
+fn (s: &TcpStream) write(buf: &[byte]) : (i32 | error) {
+    return await s.file.write(buf);
+}
+
+// Close the connection
+fn (s: &TcpStream) close() : (nil | error) {
+    return await s.file.close();
+}
+
+// UDP Socket
+struct UdpSocket {
+    file: io.File,
+}
+
+// Bind to a UDP port
+export async fn bind_udp(addr: string, port: i32) : (UdpSocket | error) {
+    socket_path := f"/dev/udp/{addr}/{port}";
+    file := try await io.open(socket_path);
+    
+    return UdpSocket { file: file };
+}
+
+// Send UDP packet
+fn (s: &UdpSocket) send_to(buf: &[byte], dest: string) : (i32 | error) {
+    // In real implementation, this would use sendto() syscall
+    return await s.file.write(buf);
+}
+
+// Receive UDP packet
+fn (s: &UdpSocket) recv_from(buf: &[byte]) : (i32 | error) {
+    // In real implementation, this would use recvfrom() syscall
+    return await s.file.read(buf);
+}
+
+// TCP Listener for server-side
+struct TcpListener {
+    file: io.File,
+}
+
+// Listen on a TCP port
+export async fn listen(addr: string, port: i32) : (TcpListener | error) {
+    listen_path := f"/dev/tcp/listen/{addr}/{port}";
+    file := try await io.open(listen_path);
+    
+    return TcpListener { file: file };
+}
+
+// Accept incoming connection
+fn (l: &TcpListener) accept() : (TcpStream | error) {
+    // In real implementation, this would use accept() syscall
+    // For now, conceptual placeholder
+    client_file := l.file; // Placeholder
+    return TcpStream { file: client_file };
+}

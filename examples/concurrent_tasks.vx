@@ -1,0 +1,56 @@
+// Example: Concurrent tasks with 'go' keyword
+// Demonstrates lightweight task spawning and channels
+
+import { sync } from "std";
+
+// A task that produces values
+async fn producer(ch: &mut sync.Channel<i32>, id: i32) {
+    for i := 0; i < 5; i++ {
+        let value = id * 10 + i;
+        await ch.send(value);
+        print("Producer ");
+        print(id);
+        print(" sent: ");
+        print(value);
+    }
+}
+
+// A task that consumes values
+async fn consumer(ch: &mut sync.Channel<i32>, id: i32) {
+    for i := 0; i < 10; i++ {
+        let value = await ch.recv();
+        print("Consumer ");
+        print(id);
+        print(" received: ");
+        print(value);
+    }
+}
+
+async fn main() :i32 {
+    let mut channel = sync.new_channel<i32>(10);
+    
+    // Spawn multiple producer tasks with 'go'
+    // These run concurrently on the async runtime
+    go producer(&mut channel, 1);
+    go producer(&mut channel, 2);
+    
+    // Spawn consumer task
+    go consumer(&mut channel, 1);
+    
+    // Use WaitGroup to coordinate
+    let mut wg = sync.new_waitgroup();
+    wg.add(3);
+    
+    // Wait for all tasks to complete
+    await wg.wait();
+    
+    print("All concurrent tasks finished!");
+    return 0;
+}
+
+// Note: 'go' is syntactic sugar for:
+//   runtime.spawn_task(async { ... })
+//
+// The runtime maintains a work-stealing task queue
+// Tasks are multiplexed on OS threads
+// I/O operations use io_uring for efficiency

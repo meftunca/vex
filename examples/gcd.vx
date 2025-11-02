@@ -1,0 +1,15 @@
+// Greatest Common Divisor (Euclidean algorithm)
+
+fn gcd(a: i32, b: i32) : i32 {
+    while b != 0 {
+        let temp: i32 = b;
+        b = a % b;
+        a = temp;
+    }
+    return a;
+}
+
+fn main() {
+    let result: i32 = gcd(48, 18);
+    print(result);  // 6
+}

@@ -1,0 +1,10 @@
+// Simple async test - just parsing
+
+async fn simple_async() : i32 {
+    return 42;
+}
+
+fn main() : i32 {
+    result := simple_async();
+    return 0;
+}

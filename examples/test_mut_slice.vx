@@ -1,0 +1,7 @@
+// Test mutable slice type
+fn test(x: &mut [string]) {
+}
+
+fn main(): i32 {
+    return 0;
+}

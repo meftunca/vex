@@ -1,0 +1,104 @@
+// std::time::Duration - Represents a span of time
+// Zero-cost wrapper around nanoseconds
+
+struct Duration {
+    nanos: i64,  // Total nanoseconds
+}
+
+// Constants
+const NANOS_PER_SEC: i64 = 1_000_000_000;
+const NANOS_PER_MILLI: i64 = 1_000_000;
+const NANOS_PER_MICRO: i64 = 1_000;
+
+// Constructors
+fn from_secs(secs: i64):Duration {
+    return Duration { nanos: secs * NANOS_PER_SEC };
+}
+
+fn from_millis(millis: i64):Duration {
+    return Duration { nanos: millis * NANOS_PER_MILLI };
+}
+
+fn from_micros(micros: i64):Duration {
+    return Duration { nanos: micros * NANOS_PER_MICRO };
+}
+
+fn from_nanos(nanos: i64):Duration {
+    return Duration { nanos: nanos };
+}
+
+fn zero():Duration {
+    return Duration { nanos: 0 };
+}
+
+// Getters
+fn as_secs(d: *Duration):i64 {
+    return d.nanos / NANOS_PER_SEC;
+}
+
+fn as_millis(d: *Duration):i64 {
+    return d.nanos / NANOS_PER_MILLI;
+}
+
+fn as_micros(d: *Duration):i64 {
+    return d.nanos / NANOS_PER_MICRO;
+}
+
+fn as_nanos(d: *Duration):i64 {
+    return d.nanos;
+}
+
+// Components
+fn subsec_nanos(d: *Duration):i32 {
+    return (d.nanos % NANOS_PER_SEC) as i32;
+}
+
+fn subsec_micros(d: *Duration):i32 {
+    return (d.nanos / NANOS_PER_MICRO % 1_000_000) as i32;
+}
+
+fn subsec_millis(d: *Duration):i32 {
+    return (d.nanos / NANOS_PER_MILLI % 1_000) as i32;
+}
+
+// Arithmetic
+fn add(a: Duration, b: Duration):Duration {
+    return Duration { nanos: a.nanos + b.nanos };
+}
+
+fn sub(a: Duration, b: Duration):Duration {
+    return Duration { nanos: a.nanos - b.nanos };
+}
+
+fn mul(d: Duration, scalar: i64):Duration {
+    return Duration { nanos: d.nanos * scalar };
+}
+
+fn div(d: Duration, scalar: i64):Duration {
+    return Duration { nanos: d.nanos / scalar };
+}
+
+// Comparison
+fn is_zero(d: *Duration):bool {
+    return d.nanos == 0;
+}
+
+fn eq(a: *Duration, b: *Duration):bool {
+    return a.nanos == b.nanos;
+}
+
+fn lt(a: *Duration, b: *Duration):bool {
+    return a.nanos < b.nanos;
+}
+
+fn le(a: *Duration, b: *Duration):bool {
+    return a.nanos <= b.nanos;
+}
+
+fn gt(a: *Duration, b: *Duration):bool {
+    return a.nanos > b.nanos;
+}
+
+fn ge(a: *Duration, b: *Duration):bool {
+    return a.nanos >= b.nanos;
+}

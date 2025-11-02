@@ -1,0 +1,73 @@
+// Example: GPU-accelerated vector addition
+// Demonstrates std::hpc for GPU computing
+
+import { hpc } from "std";
+
+// GPU kernel function
+// This will be compiled to CUDA/Metal/SPIR-V depending on platform
+fn vector_add_kernel(a: &[f32], b: &[f32], c: &mut [f32], n: i32) {
+    // Get thread index
+    let (idx_x, _, _) = hpc.thread_idx();
+    let (block_x, _, _) = hpc.block_idx();
+    
+    let idx = idx_x + block_x * 256; // 256 threads per block
+    
+    if idx < n {
+        c[idx] = a[idx] + b[idx];
+    }
+}
+
+fn main() :i32 {
+    let n = 1024 * 1024; // 1 million elements
+    
+    print(f"Allocating arrays of size {n}...");
+    
+    // Allocate arrays on heap
+    let mut a = make([f32], n);
+    let mut b = make([f32], n);
+    let mut c = make([f32], n);
+    
+    // Initialize arrays
+    for i := 0; i < n; i++ {
+        a[i] = i as f32;
+        b[i] = (i * 2) as f32;
+    }
+    
+    print("Launching GPU kernel...");
+    
+    // Calculate grid dimensions
+    let threads_per_block = 256;
+    let num_blocks = (n + threads_per_block - 1) / threads_per_block;
+    
+    // Launch kernel on GPU
+    // Compiler will generate CUDA/Metal code based on --gpu flag
+    launch vector_add_kernel(&a, &b, &mut c, n) {
+        grid: (num_blocks, 1, 1),
+        block: (threads_per_block, 1, 1),
+    };
+    
+    // Wait for GPU to finish
+    await hpc.gpu_sync();
+    
+    print("Verifying results...");
+    
+    // Verify first 10 results
+    let mut correct = true;
+    for i := 0; i < 10; i++ {
+        let expected = a[i] + b[i];
+        if c[i] != expected {
+            print(f"Error at index {i}: expected {expected}, got {c[i]}");
+            correct = false;
+        } else {
+            print(f"c[{i}] = {c[i]} ✓");
+        }
+    }
+    
+    if correct {
+        print("GPU computation successful!");
+        return 0;
+    } else {
+        print("GPU computation failed!");
+        return 1;
+    }
+}

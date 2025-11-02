@@ -1,0 +1,5 @@
+// Test F-string without interpolation first
+fn main(): i32 {
+    msg := f"Hello from Vex!";
+    return 0;
+}

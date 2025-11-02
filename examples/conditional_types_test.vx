@@ -1,0 +1,40 @@
+// Conditional Types Test for Vex Compiler
+// Testing: T extends U ? X : Y syntax with infer keyword
+
+// Basic conditional type: If T is string, return string, else int
+type IsString<T> = T extends string ? string : i32;
+
+// Test usage (these would be compile-time evaluated)
+type A = IsString<string>;  // Should be 'string'
+type B = IsString<i32>;     // Should be 'i32'
+
+// Unwrap type: Extract element type from slice
+// If T is a slice &[E], extract E; otherwise return T
+type Unwrap<T> = T extends &[infer E] ? E : T;
+
+type C = Unwrap<&[string]>;  // Should be 'string'
+type D = Unwrap<i32>;         // Should be 'i32'
+type E = Unwrap<&[f64]>;      // Should be 'f64'
+
+// Nested conditional types
+type DeepCheck<T> = T extends string ? 
+    (T extends &[infer E] ? E : string) : 
+    i32;
+
+// Type alias combining conditionals (chained conditionals)
+type StringOrNumber<T> = T extends string ? string : 
+                         T extends i32 ? i32 : 
+                         f64;
+
+// Another infer example with different types
+type ExtractMutable<T> = T extends &mut [infer E] ? E : T;
+
+fn main(): i32 {
+    // Conditional types including:
+    // - Basic conditionals (IsString)
+    // - Infer keyword with slices (Unwrap)
+    // - Nested conditionals (DeepCheck)
+    // - Chained conditionals (StringOrNumber)
+    // - Mutable slice infer (ExtractMutable)
+    return 42;
+}

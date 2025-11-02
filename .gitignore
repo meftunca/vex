@@ -1,0 +1,40 @@
+# Rust
+/target
+**/*.rs.bk
+*.pdb
+Cargo.lock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Build artifacts
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+*.out
+
+# Vex compiled files
+*.vex
+*.ll
+*.bc
+*.spv
+
+# Logs
+*.log
+
+# Testing
+/tmp
+/temp
+
+# Compiled Vex binaries
+vex-builds/
+*.o
+*.ll

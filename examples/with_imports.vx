@@ -1,0 +1,15 @@
+// Example showing import syntax (parser now supports this!)
+// Module resolution not yet implemented, but parser can parse it
+
+import { io } from "std";
+
+fn main() :i32 {
+    // This would work once module resolution is implemented:
+    // let content = await io.read_to_string("data.txt");
+    // print(content);
+    
+    print("Import syntax works!");
+    print("Module resolution coming soon...");
+    
+    return 0;
+}

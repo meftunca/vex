@@ -1,0 +1,68 @@
+// FFI Multiple Extern Blocks Test
+// Tests multiple extern "C" blocks with different libraries
+
+// Standard C library
+extern "C" {
+    fn malloc(size: usize) -> *mut byte;
+    fn free(ptr: *mut byte);
+    fn memcpy(dest: *mut byte, src: *byte, n: usize) -> *mut byte;
+}
+
+// Math library (usually requires -lm)
+extern "C" {
+    fn sqrt(x: f64) -> f64;
+    fn sin(x: f64) -> f64;
+    fn cos(x: f64) -> f64;
+}
+
+// Printf for output
+extern "C" {
+    fn printf(fmt: *byte, ...) -> i32;
+}
+
+fn main() : i32 {
+    // Test 1: Memory operations
+    unsafe { printf("=== Memory Operations ===\n".as_ptr()); }
+    
+    let size = 64;
+    let ptr1 = unsafe { malloc(size) };
+    let ptr2 = unsafe { malloc(size) };
+    
+    if ptr1 as usize == 0 || ptr2 as usize == 0 {
+        unsafe { printf("Allocation failed!\n".as_ptr()); }
+        return 1;
+    }
+    
+    // Fill first buffer
+    let i = 0;
+    while i < size {
+        unsafe { *(ptr1 + i) = (65 + i) as byte; } // Fill with 'A', 'B', 'C', ...
+        i = i + 1;
+    }
+    
+    // Copy to second buffer
+    unsafe { memcpy(ptr2, ptr1, size); }
+    
+    unsafe { printf("Copied %zu bytes from %p to %p\n".as_ptr(), size, ptr1, ptr2); }
+    
+    // Free memory
+    unsafe { free(ptr1); }
+    unsafe { free(ptr2); }
+    
+    // Test 2: Math operations
+    unsafe { printf("\n=== Math Operations ===\n".as_ptr()); }
+    
+    let x = 16.0;
+    let sqrt_result = unsafe { sqrt(x) };
+    unsafe { printf("sqrt(%.1f) = %.2f\n".as_ptr(), x, sqrt_result); }
+    
+    let angle = 0.0;  // 0 radians
+    let sin_result = unsafe { sin(angle) };
+    let cos_result = unsafe { cos(angle) };
+    unsafe { printf("sin(%.1f) = %.2f, cos(%.1f) = %.2f\n".as_ptr(), 
+                    angle, sin_result, angle, cos_result); }
+    
+    unsafe { printf("\n✓ All FFI tests passed!\n".as_ptr()); }
+    
+    return 0;
+}

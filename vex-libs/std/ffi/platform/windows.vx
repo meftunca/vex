@@ -1,0 +1,62 @@
+// std::ffi::platform::windows - Windows-specific FFI bindings
+
+#[cfg(windows)]
+#[link(name = "kernel32")]
+extern {
+    // Memory management
+    fn VirtualAlloc(addr: *void, size: usize, 
+                    alloc_type: u32, protect: u32):*void;
+    fn VirtualFree(addr: *void, size: usize, free_type: u32):i32;
+    fn VirtualProtect(addr: *void, size: usize, 
+                      new_protect: u32, old_protect: *u32):i32;
+    
+    // Dynamic library loading
+    fn LoadLibraryA(filename: *byte):*void;
+    fn GetProcAddress(hmodule: *void, proc_name: *byte):*void;
+    fn FreeLibrary(hmodule: *void):i32;
+    
+    // High-resolution time
+    fn QueryPerformanceCounter(count: *i64):i32;
+    fn QueryPerformanceFrequency(freq: *i64):i32;
+    
+    // Process management
+    fn CreateProcessA(application_name: *byte, command_line: *byte,
+                     process_attributes: *void, thread_attributes: *void,
+                     inherit_handles: i32, creation_flags: u32,
+                     environment: *void, current_directory: *byte,
+                     startup_info: *void, process_info: *void):i32;
+}
+
+// VirtualAlloc constants
+const MEM_COMMIT: u32 = 0x1000;
+const MEM_RESERVE: u32 = 0x2000;
+const MEM_RELEASE: u32 = 0x8000;
+
+const PAGE_NOACCESS: u32 = 0x01;
+const PAGE_READONLY: u32 = 0x02;
+const PAGE_READWRITE: u32 = 0x04;
+const PAGE_EXECUTE: u32 = 0x10;
+const PAGE_EXECUTE_READ: u32 = 0x20;
+const PAGE_EXECUTE_READWRITE: u32 = 0x40;
+
+// Safe wrappers
+fn safe_virtual_alloc(size: usize):(*void | error) {
+    addr := unsafe {
+        VirtualAlloc(0 as *void, size, 
+                     MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE)
+    };
+    
+    if addr as usize == 0 {
+        return error.new("VirtualAlloc failed");
+    }
+    
+    return addr;
+}
+
+fn safe_virtual_free(addr: *void):(i32 | error) {
+    result := unsafe { VirtualFree(addr, 0, MEM_RELEASE) };
+    if result == 0 {
+        return error.new("VirtualFree failed");
+    }
+    return result;
+}

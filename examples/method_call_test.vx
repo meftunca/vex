@@ -1,0 +1,21 @@
+// Test method calls with Go-style receiver syntax
+struct Point {
+    x: i32,
+    y: i32,
+}
+
+// Method for Point (Go/Rust style receiver syntax)
+fn (self: Point) distance_from_origin(): i32 {
+    // Simple distance calculation (x + y for now, should be sqrt(x^2 + y^2))
+    return self.x + self.y;
+}
+
+fn main() : i32 {
+    // Create a point
+    p := Point { x: 3, y: 4 };
+    
+    // Call method!
+    dist := p.distance_from_origin();
+    
+    return dist; // Should return 7 (3+4)
+}

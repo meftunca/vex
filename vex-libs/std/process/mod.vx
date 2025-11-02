@@ -1,0 +1,275 @@
+// std::process - Process management (High-level)
+// Wrapper around POSIX process operations
+
+import { libc } from "../ffi";
+
+// ============================================================================
+// Command Builder
+// ============================================================================
+
+struct Command {
+    program: string,
+    args: [string],
+    env_vars: [(string, string)],
+    working_dir: string,
+    stdin_pipe: bool,
+    stdout_pipe: bool,
+    stderr_pipe: bool,
+}
+
+// Create new command
+fn new(program: string):Command {
+    return Command {
+        program: program,
+        args: [],
+        env_vars: [],
+        working_dir: "",
+        stdin_pipe: false,
+        stdout_pipe: false,
+        stderr_pipe: false,
+    };
+}
+
+// Builder methods
+fn (c: &Command) arg(arg: string):&Command {
+    c.args.push(arg);
+    return c;
+}
+
+fn (c: &Command) args(args: [string]):&Command {
+    for arg in args {
+        c.args.push(arg);
+    }
+    return c;
+}
+
+fn (c: &Command) env(key: string, value: string):&Command {
+    c.env_vars.push((key, value));
+    return c;
+}
+
+fn (c: &Command) current_dir(dir: string):&Command {
+    c.working_dir = dir;
+    return c;
+}
+
+fn (c: &Command) stdin_piped():&Command {
+    c.stdin_pipe = true;
+    return c;
+}
+
+fn (c: &Command) stdout_piped():&Command {
+    c.stdout_pipe = true;
+    return c;
+}
+
+fn (c: &Command) stderr_piped():&Command {
+    c.stderr_pipe = true;
+    return c;
+}
+
+// ============================================================================
+// Child Process
+// ============================================================================
+
+struct Child {
+    pid: i32,
+    stdin: i32,   // File descriptor
+    stdout: i32,  // File descriptor
+    stderr: i32,  // File descriptor
+}
+
+struct ExitStatus {
+    code: i32,
+    success: bool,
+}
+
+// Spawn child process (fork + exec)
+fn (c: &Command) spawn():(Child | error) {
+    // TODO: Create pipes if needed
+    // TODO: fork()
+    // TODO: In child: setup pipes, chdir, execve
+    // TODO: In parent: close unused pipe ends, return Child
+    
+    pid := unsafe { libc.fork() };
+    
+    if pid < 0 {
+        return error.new("Failed to fork process");
+    }
+    
+    if pid == 0 {
+        // Child process
+        // TODO: Setup pipes, change directory, execute program
+        // For now, just exec the program
+        prog_cstr := to_c_string(c.program);
+        
+        // Build argv array (program name + args + NULL)
+        argv_size := 1 + c.args.len() + 1;
+        argv := unsafe { libc.malloc(argv_size * size_of::<*byte>()) } as **byte;
+        
+        unsafe { argv[0] = prog_cstr.ptr; }
+        
+        for i in 0..c.args.len() {
+            arg_cstr := to_c_string(c.args[i]);
+            unsafe { argv[i + 1] = arg_cstr.ptr; }
+        }
+        
+        unsafe { argv[argv_size - 1] = 0 as *byte; }  // NULL terminator
+        
+        // Execute
+        result := unsafe { libc.execve(prog_cstr.ptr, argv as **byte, 0 as **byte) };
+        
+        // If execve returns, it failed
+        unsafe { libc.exit(1); }
+    }
+    
+    // Parent process
+    return Child {
+        pid: pid,
+        stdin: -1,
+        stdout: -1,
+        stderr: -1,
+    };
+}
+
+// Wait for child to exit
+fn (child: &Child) wait():(ExitStatus | error) {
+    let mut status: i32 = 0;
+    result := unsafe { libc.waitpid(child.pid, &status, 0) };
+    
+    if result < 0 {
+        return error.new("Failed to wait for child process");
+    }
+    
+    // Extract exit code (simplified - should check WIFEXITED, etc.)
+    exit_code := (status >> 8) & 0xFF;
+    
+    return ExitStatus {
+        code: exit_code,
+        success: exit_code == 0,
+    };
+}
+
+// Kill child process
+fn (child: &Child) kill():(nil | error) {
+    result := unsafe { libc.kill(child.pid, libc.SIGTERM) };
+    
+    if result < 0 {
+        return error.new("Failed to kill child process");
+    }
+    
+    return nil;
+}
+
+// Run command and capture output
+fn (c: &Command) output():(Output | error) {
+    // TODO: Setup pipes for stdout/stderr
+    // TODO: spawn(), read output, wait()
+    
+    child := c.spawn()?;
+    status := child.wait()?;
+    
+    return Output {
+        status: status,
+        stdout: "",
+        stderr: "",
+    };
+}
+
+struct Output {
+    status: ExitStatus,
+    stdout: string,
+    stderr: string,
+}
+
+// ============================================================================
+// Environment Variables
+// ============================================================================
+
+// Get environment variable
+fn env(key: string):(string | nil) {
+    key_cstr := to_c_string(key);
+    defer free_c_string(key_cstr);
+    
+    value_ptr := unsafe { libc.getenv(key_cstr.ptr) };
+    
+    if value_ptr == 0 as *byte {
+        return nil;
+    }
+    
+    // Convert C string to Vex string
+    // TODO: Proper string conversion
+    return "";
+}
+
+// Set environment variable
+fn set_env(key: string, value: string):(nil | error) {
+    key_cstr := to_c_string(key);
+    value_cstr := to_c_string(value);
+    defer free_c_string(key_cstr);
+    defer free_c_string(value_cstr);
+    
+    result := unsafe { libc.setenv(key_cstr.ptr, value_cstr.ptr, 1) };
+    
+    if result != 0 {
+        return error.new("Failed to set environment variable");
+    }
+    
+    return nil;
+}
+
+// Remove environment variable
+fn remove_env(key: string):(nil | error) {
+    key_cstr := to_c_string(key);
+    defer free_c_string(key_cstr);
+    
+    result := unsafe { libc.unsetenv(key_cstr.ptr) };
+    
+    if result != 0 {
+        return error.new("Failed to remove environment variable");
+    }
+    
+    return nil;
+}
+
+// Get current process ID
+fn current_pid():i32 {
+    return unsafe { libc.getpid() };
+}
+
+// Get parent process ID
+fn parent_pid():i32 {
+    return unsafe { libc.getppid() };
+}
+
+// Exit current process
+fn exit(code: i32) {
+    unsafe { libc.exit(code); }
+}
+
+// ============================================================================
+// Helpers
+// ============================================================================
+
+struct CString {
+    ptr: *byte,
+    len: usize,
+}
+
+fn to_c_string(s: string):CString {
+    len := s.len();
+    ptr := unsafe { libc.malloc(len + 1) } as *byte;
+    
+    src := s.as_bytes();
+    for i in 0..len {
+        unsafe { ptr[i] = src[i]; }
+    }
+    
+    unsafe { ptr[len] = 0; }
+    
+    return CString { ptr: ptr, len: len };
+}
+
+fn free_c_string(s: CString) {
+    unsafe { libc.free(s.ptr as *byte); }
+}

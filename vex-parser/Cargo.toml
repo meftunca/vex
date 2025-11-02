@@ -1,0 +1,16 @@
+[package]
+name = "vex-parser"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+vex-ast = { path = "../vex-ast" }
+vex-lexer = { path = "../vex-lexer" }
+lalrpop-util.workspace = true
+thiserror.workspace = true
+
+[build-dependencies]
+lalrpop.workspace = true

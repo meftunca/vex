@@ -1,0 +1,28 @@
+// Union type in function parameter
+fn process_value(v: i32 | string | f64): i32 {
+    return 42;
+}
+
+// Union type in function return
+fn get_result(): string | i32 {
+    return 100;
+}
+
+// Union type with error (common pattern)
+fn read_file(path: string): string | error {
+    return "file content";
+}
+
+// Complex union types
+fn complex_union(): (i32 | string) {
+    return 42;
+}
+
+fn main(): i32 {
+    x := process_value(10);
+    y := get_result();
+    z := read_file("test.txt");
+    w := complex_union();
+    
+    return x;
+}
