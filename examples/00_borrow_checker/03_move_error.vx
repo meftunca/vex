@@ -1,0 +1,7 @@
+// Minimal move test
+
+fn main() {
+    let s = "hello";
+    let s2 = s;
+    log(s);
+}

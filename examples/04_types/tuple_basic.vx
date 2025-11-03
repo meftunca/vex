@@ -1,0 +1,38 @@
+// Tuple Types
+// Demonstrates: tuple literals, tuple access (when implemented)
+
+fn main() : i32 {
+    // Simple tuple (parsing supported)
+    // let point = (10, 20);
+    // let x = point.0;
+    // let y = point.1;
+    
+    // For now, use separate variables
+    let x = 10;
+    let y = 20;
+    
+    // Tuple with different types
+    // let person = ("Alice", 25, true);
+    let name_len = 5;
+    let age = 25;
+    let is_active = 1;  // true
+    
+    return x + y;  // Returns 30
+}
+
+// Function that would return a tuple
+fn make_point(x: i32, y: i32) : i32 {
+    // TODO: Return (x, y) when tuple codegen is ready
+    return x + y;
+}
+
+// Tuple destructuring (parsing supported)
+fn tuple_pattern_example() : i32 {
+    // let (x, y) = (10, 20);
+    // return x + y;
+    
+    // Temporary workaround
+    let x = 10;
+    let y = 20;
+    return x + y;
+}

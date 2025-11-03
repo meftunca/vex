@@ -15,40 +15,40 @@ export async fn launch_kernel<T>(func: fn(T), args: T, grid: GridDim, block: Blo
 }
 
 // Grid dimensions for GPU kernels
-struct GridDim {
+export struct GridDim {
     x: u32,
     y: u32,
     z: u32,
 }
 
 // Block dimensions for GPU kernels
-struct BlockDim {
+export struct BlockDim {
     x: u32,
     y: u32,
     z: u32,
 }
 
 // Thread index (available inside GPU kernels)
-fn thread_idx() : (u32, u32, u32) {
+export fn thread_idx() : (u32, u32, u32) {
     // This would be replaced by compiler with actual GPU thread ID
     return (0, 0, 0); // Placeholder
 }
 
 // Block index (available inside GPU kernels)
-fn block_idx() : (u32, u32, u32) {
+export fn block_idx() : (u32, u32, u32) {
     // This would be replaced by compiler with actual GPU block ID
     return (0, 0, 0); // Placeholder
 }
 
 // SIMD vector types (for explicit vectorization)
-struct Vec4f {
+export struct Vec4f {
     x: f32,
     y: f32,
     z: f32,
     w: f32,
 }
 
-struct Vec4i {
+export struct Vec4i {
     x: i32,
     y: i32,
     z: i32,
@@ -56,7 +56,7 @@ struct Vec4i {
 }
 
 // SIMD operations
-fn vec_add(a: Vec4f, b: Vec4f) : Vec4f {
+export fn vec_add(a: Vec4f, b: Vec4f) : Vec4f {
     // This would use LLVM vector intrinsics
     return Vec4f {
         x: a.x + b.x,
@@ -66,7 +66,7 @@ fn vec_add(a: Vec4f, b: Vec4f) : Vec4f {
     };
 }
 
-fn vec_mul(a: Vec4f, b: Vec4f) : Vec4f {
+export fn vec_mul(a: Vec4f, b: Vec4f) : Vec4f {
     return Vec4f {
         x: a.x * b.x,
         y: a.y * b.y,
@@ -75,7 +75,7 @@ fn vec_mul(a: Vec4f, b: Vec4f) : Vec4f {
     };
 }
 
-fn vec_dot(a: Vec4f, b: Vec4f) : f32 {
+export fn vec_dot(a: Vec4f, b: Vec4f) : f32 {
     m := vec_mul(a, b);
     return m.x + m.y + m.z + m.w;
 }
@@ -84,7 +84,7 @@ fn vec_dot(a: Vec4f, b: Vec4f) : f32 {
 // This is handled by the compiler, but we provide runtime support
 
 // Matrix operations (for GPU/SIMD acceleration)
-struct Matrix4x4 {
+export struct Matrix4x4 {
     data: [f32; 16],
 }
 
@@ -136,33 +136,33 @@ export async fn parallel_for(start: i32, end: i32, body: fn(i32)) {
 }
 
 // Get number of CPU cores
-fn get_num_cores() : i32 {
+export fn get_num_cores() : i32 {
     // This would call __runtime_get_num_cores intrinsic
     return 8; // Placeholder
 }
 
 // Task handle (from 'go' keyword)
-struct Task {
+export struct Task {
     id: u64,
 }
 
 // GPU memory management
-fn gpu_alloc(size: u32) : *byte {
+export fn gpu_alloc(size: u32) : *byte {
     // This would call CUDA cudaMalloc or Metal allocator
     return 0 as *byte; // Placeholder
 }
 
-fn gpu_free(ptr: *byte) {
+export fn gpu_free(ptr: *byte) {
     // This would call CUDA cudaFree
     // Placeholder
 }
 
-fn gpu_copy_to_device(dest: *byte, src: *byte, size: u32) {
+export fn gpu_copy_to_device(dest: *byte, src: *byte, size: u32) {
     // This would call CUDA cudaMemcpy :D
     // Placeholder
 }
 
-fn gpu_copy_to_host(dest: *byte, src: *byte, size: u32) {
+export fn gpu_copy_to_host(dest: *byte, src: *byte, size: u32) {
     // This would call CUDA cudaMemcpy :H
     // Placeholder
 }

@@ -168,22 +168,49 @@ impl<'a> Parser<'a> {
             Vec::new()
         };
 
+        // Optional trait implementation declaration: struct File impl Reader, Writer
+        let impl_traits = if self.match_token(&Token::Impl) {
+            let mut traits = Vec::new();
+            loop {
+                traits.push(self.consume_identifier()?);
+                if !self.match_token(&Token::Comma) {
+                    break;
+                }
+            }
+            traits
+        } else {
+            Vec::new()
+        };
+
         self.consume(&Token::LBrace, "Expected '{'")?;
 
         let mut fields = Vec::new();
+        let mut methods = Vec::new();
+
+        // Parse fields and methods
         while !self.check(&Token::RBrace) && !self.is_at_end() {
-            let field_name = self.consume_identifier()?;
-            self.consume(&Token::Colon, "Expected ':' after field name")?;
-            let field_type = self.parse_type()?;
+            // Check if this is a method (fn keyword) or field
+            if self.check(&Token::Fn) {
+                // Parse method
+                methods.push(self.parse_struct_method()?);
+            } else {
+                // Parse field
+                let field_name = self.consume_identifier()?;
+                self.consume(&Token::Colon, "Expected ':' after field name")?;
+                let field_type = self.parse_type()?;
 
-            fields.push(Field {
-                name: field_name,
-                ty: field_type,
-                tag: None,
-            });
+                fields.push(Field {
+                    name: field_name,
+                    ty: field_type,
+                    tag: None,
+                });
 
-            if !self.match_token(&Token::Comma) {
-                break;
+                if !self.match_token(&Token::Comma) {
+                    // Allow optional comma after last field
+                    if !self.check(&Token::RBrace) && !self.check(&Token::Fn) {
+                        return Err(self.error("Expected ',' or '}' after field"));
+                    }
+                }
             }
         }
 
@@ -192,8 +219,70 @@ impl<'a> Parser<'a> {
         Ok(Item::Struct(Struct {
             name,
             type_params,
+            impl_traits,
             fields,
+            methods,
         }))
+    }
+
+    /// Parse a method inside a struct body
+    fn parse_struct_method(&mut self) -> Result<Function, ParseError> {
+        self.consume(&Token::Fn, "Expected 'fn'")?;
+
+        // Parse receiver: (self: &StructName) or (self: &StructName!)
+        // Syntax: fn (self: &Type) method_name(...)
+        let receiver = if self.check(&Token::LParen) {
+            self.advance(); // consume '('
+            let param_name = self.consume_identifier()?;
+            if param_name != "self" {
+                return Err(self.error("First parameter of method must be 'self'"));
+            }
+            self.consume(&Token::Colon, "Expected ':' after 'self'")?;
+
+            let ty = self.parse_type()?;
+            self.consume(&Token::RParen, "Expected ')' after receiver")?;
+
+            // Determine mutability from the type
+            let is_mutable = if let Type::Reference(_, is_mut) = &ty {
+                *is_mut
+            } else {
+                false
+            };
+
+            Some(Receiver { is_mutable, ty })
+        } else {
+            None
+        };
+
+        // Method name comes AFTER receiver: fn (self: &T) method_name(...)
+        let name = self.consume_identifier()?;
+
+        // Parameters: (param1: T1, param2: T2)
+        self.consume(&Token::LParen, "Expected '('")?;
+        let params = self.parse_parameters()?;
+        self.consume(&Token::RParen, "Expected ')'")?;
+
+        // Optional return type
+        let return_type = if self.match_token(&Token::Colon) {
+            Some(self.parse_type()?)
+        } else {
+            None
+        };
+
+        // Method body
+        let body = self.parse_block()?;
+
+        Ok(Function {
+            attributes: Vec::new(),
+            is_async: false,
+            is_gpu: false,
+            receiver,
+            name,
+            type_params: Vec::new(),
+            params,
+            return_type,
+            body,
+        })
     }
 
     pub(crate) fn parse_enum(&mut self) -> Result<Item, ParseError> {
@@ -306,8 +395,22 @@ impl<'a> Parser<'a> {
 
         self.consume(&Token::LBrace, "Expected '{'")?;
 
+        // Parse optional super traits: trait ReadWriter: Reader, Writer
+        let super_traits = if self.match_token(&Token::Colon) {
+            let mut traits = Vec::new();
+            loop {
+                traits.push(self.consume_identifier()?);
+                if !self.match_token(&Token::Comma) {
+                    break;
+                }
+            }
+            traits
+        } else {
+            Vec::new()
+        };
+
         if is_trait {
-            // Parse trait methods (signatures only, no body)
+            // Parse trait methods (required or default implementations)
             let mut trait_methods = Vec::new();
             while !self.check(&Token::RBrace) && !self.is_at_end() {
                 if self.check(&Token::Fn) {
@@ -323,34 +426,14 @@ impl<'a> Parser<'a> {
             Ok(Item::Trait(Trait {
                 name,
                 type_params,
+                super_traits,
                 methods: trait_methods,
             }))
         } else {
-            // Parse interface methods
-            let mut methods = Vec::new();
-            while !self.check(&Token::RBrace) && !self.is_at_end() {
-                if self.check(&Token::Fn) {
-                    self.advance(); // consume 'fn'
-                    let func = self.parse_function()?;
-
-                    // Convert Function to InterfaceMethod
-                    methods.push(InterfaceMethod {
-                        name: func.name,
-                        params: func.params,
-                        return_type: func.return_type,
-                    });
-                } else {
-                    return Err(self.error("Expected method in interface"));
-                }
-            }
-
-            self.consume(&Token::RBrace, "Expected '}'")?;
-
-            Ok(Item::Interface(Interface {
-                name,
-                type_params,
-                methods,
-            }))
+            // Interface keyword is deprecated - treat as trait
+            return Err(self.error(
+                "The 'interface' keyword is deprecated. Use 'trait' instead (Vex v1.3 specification)",
+            ));
         }
     }
 
@@ -460,17 +543,30 @@ impl<'a> Parser<'a> {
             None
         };
 
-        // Trait methods end with semicolon, not a body
-        self.consume(
-            &Token::Semicolon,
-            "Expected ';' after trait method signature",
-        )?;
+        // Trait methods can have optional default implementation
+        let body = if self.match_token(&Token::LBrace) {
+            // Default implementation - parse until closing brace
+            let mut statements = Vec::new();
+            while !self.check(&Token::RBrace) && !self.is_at_end() {
+                statements.push(self.parse_statement()?);
+            }
+            self.consume(&Token::RBrace, "Expected '}' after method body")?;
+            Some(Block { statements })
+        } else {
+            // Required method (signature only)
+            self.consume(
+                &Token::Semicolon,
+                "Expected ';' or '{' after trait method signature",
+            )?;
+            None
+        };
 
         Ok(TraitMethod {
             name,
             receiver,
             params,
             return_type,
+            body,
         })
     }
 
@@ -605,10 +701,6 @@ impl<'a> Parser<'a> {
             Token::Unsafe => {
                 self.advance();
                 Ok("unsafe".to_string())
-            }
-            Token::Mut => {
-                self.advance();
-                Ok("mut".to_string())
             }
             Token::Error => {
                 self.advance();

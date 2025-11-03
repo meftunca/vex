@@ -1,0 +1,22 @@
+// Simple trait test - inline implementation without default methods
+// struct ... impl Trait { ... methods ... }
+
+// 1. Define a trait with only required methods
+trait Printer {
+    fn (self: &Self!) print();
+}
+
+// 2. Struct with inline trait implementation
+struct Message impl Printer {
+    text: string,
+    
+    // Implement required method
+    fn (self: &Message!) print() {
+        // Print implementation
+    }
+}
+
+fn main() {
+    let! msg = Message { text: "Hello" };
+    msg.print();
+}

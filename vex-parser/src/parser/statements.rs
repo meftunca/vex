@@ -7,9 +7,9 @@ use vex_lexer::Token;
 
 impl<'a> Parser<'a> {
     pub(crate) fn parse_statement(&mut self) -> Result<Statement, ParseError> {
-        // Let statement
+        // Let statement: let x = expr; or let! x = expr;
         if self.match_token(&Token::Let) {
-            let is_mutable = self.match_token(&Token::Mut);
+            let is_mutable = self.match_token(&Token::Not); // let! → mutable
             let name = self.consume_identifier()?;
 
             let ty = if self.match_token(&Token::Colon) {
@@ -171,23 +171,11 @@ impl<'a> Parser<'a> {
             });
         }
 
-        // Variable declaration or assignment
-        // Check for := or identifier followed by =
+        // Assignment or compound assignment
+        // Check for identifier followed by = or +=, -=, etc.
         if matches!(self.peek(), Token::Ident(_)) {
             let checkpoint = self.current;
             let name = self.consume_identifier()?;
-
-            // Variable declaration: x := expr;
-            if self.match_token(&Token::ColonEq) {
-                let value = self.parse_expression()?;
-                self.consume(&Token::Semicolon, "Expected ';'")?;
-                return Ok(Statement::VarDecl {
-                    is_const: false,
-                    name,
-                    ty: None, // Type inference
-                    value,
-                });
-            }
 
             // Assignment: x = expr;
             if self.match_token(&Token::Eq) {
@@ -219,21 +207,6 @@ impl<'a> Parser<'a> {
 
             // Not a declaration or assignment, backtrack
             self.current = checkpoint;
-        }
-
-        // Type annotation: i32 x = expr;
-        if self.is_type_keyword() {
-            let ty = self.parse_type()?;
-            let name = self.consume_identifier()?;
-            self.consume(&Token::Eq, "Expected '=' after variable name")?;
-            let value = self.parse_expression()?;
-            self.consume(&Token::Semicolon, "Expected ';'")?;
-            return Ok(Statement::VarDecl {
-                is_const: false,
-                name,
-                ty: Some(ty),
-                value,
-            });
         }
 
         // Check for case/default (shouldn't be here, but helps error reporting)
@@ -271,23 +244,5 @@ impl<'a> Parser<'a> {
             self.consume(&Token::Semicolon, "Expected ';' after expression")?;
         }
         Ok(Statement::Expression(expr))
-    }
-
-    pub(crate) fn is_type_keyword(&self) -> bool {
-        matches!(
-            self.peek(),
-            Token::I8
-                | Token::I16
-                | Token::I32
-                | Token::I64
-                | Token::U8
-                | Token::U16
-                | Token::U32
-                | Token::U64
-                | Token::F32
-                | Token::F64
-                | Token::Bool
-                | Token::String
-        )
     }
 }

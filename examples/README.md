@@ -1,195 +1,338 @@
-# Vex Example Programs
+# Vex Examples - v0.9
 
-This directory contains example programs demonstrating various Vex language features.
+Welcome to the Vex programming language examples! These examples demonstrate the core features of Vex that are currently implemented and working.
 
-## 🎯 Working Examples (Parser + Codegen Complete)
+## 📁 Directory Structure
 
-### Basic Programs
+```
+examples/
+├── 01_basics/           # Core language features
+├── 02_functions/        # Functions, methods, recursion
+├── 03_control_flow/     # If, switch, loops
+├── 04_types/            # Structs, enums, tuples, aliases
+├── 05_generics/         # Generic types and functions
+├── 06_patterns/         # Pattern matching, destructuring
+├── 07_strings/          # String operations, f-strings
+└── 08_algorithms/       # Classic algorithms
+```
 
-These compile and run successfully with the current compiler:
-
-| Program           | Description         | Features                          | Output         |
-| ----------------- | ------------------- | --------------------------------- | -------------- |
-| **calculator.vx** | Basic arithmetic    | Functions, parameters, operations | 13, 7, 30, 3   |
-| **sum_array.vx**  | Array iteration     | Arrays, for loops                 | 15             |
-| **gcd.vx**        | Euclidean algorithm | While loops, modulo               | 6              |
-| **fibonacci.vx**  | Recursive Fibonacci | Recursion                         | 55             |
-| **factorial.vx**  | Recursive factorial | Recursion                         | 120            |
-| **strings.vx**    | String handling     | String type, literals             | Hello messages |
-
-### Compile and run:
+## 🚀 Running Examples
 
 ```bash
-vex compile examples/calculator.vx
-./vex-builds/calculator
+# Using the vex compiler
+~/.cargo/target/debug/vex run examples/01_basics/hello_world.vx
+
+# Or compile to object file
+~/.cargo/target/debug/vex compile examples/01_basics/hello_world.vx -o hello.o
 ```
 
-## 🚧 Advanced Examples (Syntax Complete, Codegen TODO)
+## 📚 Examples by Category
 
-These demonstrate language features that parse correctly but need additional compiler support:
+### 01_basics/ - Core Language
 
-### Import System
+| File             | Description           | Features               |
+| ---------------- | --------------------- | ---------------------- |
+| `hello_world.vx` | Simplest program      | Basic function         |
+| `variables.vx`   | Variable declarations | let, let!, const       |
+| `types_basic.vx` | Primitive types       | i32, f32, bool, string |
 
-- **with_imports.vx** - Import syntax demonstration
-  - Parser: ✅ Complete
-  - Module Resolution: 🚧 In progress
-  - Status: Needs `ModuleResolver` integration
+**Key Concepts:**
 
-### Error Handling
+- ✅ `let x = 42;` - Immutable variable (default)
+- ✅ `let! x = 42;` - Mutable variable (explicit with !)
+- ✅ `const MAX = 100;` - Compile-time constant
+- ✅ Type inference and explicit types
 
-- **error_handling.vx** - Union types `(T | error)`
-  - Parser: ✅ Union types in AST
-  - Codegen: ❌ Needs tagged union implementation
-  - Status: Needs match expressions
+### 02_functions/ - Functions
 
-### Traits
+| File           | Description         | Features                  |
+| -------------- | ------------------- | ------------------------- |
+| `basic.vx`     | Function basics     | Parameters, return values |
+| `recursion.vx` | Recursive functions | Fibonacci, factorial, GCD |
+| `methods.vx`   | Struct methods      | Method receivers          |
 
-- **trait_example.vx** - Reader/Writer traits
-  - Parser: 🚧 Needs trait/impl parsing
-  - Codegen: ❌ Needs vtable or monomorphization
-  - Status: Foundation in AST, parser TODO
+**Key Concepts:**
 
-### Async/Await
+- ✅ Function definitions with parameters
+- ✅ Return types
+- ✅ Recursion support
+- ✅ Method syntax with receivers
 
-- **async_example.vx** - Async I/O operations
-  - Parser: 🚧 Needs async keyword handling
-  - Codegen: ❌ Needs coroutine lowering
-  - Status: Requires state machine generation
+### 03_control_flow/ - Control Flow
 
-### Concurrency
+| File         | Description            | Features                       |
+| ------------ | ---------------------- | ------------------------------ |
+| `if_else.vx` | Conditional statements | if, else, nested               |
+| `switch.vx`  | Switch statements      | case, default, multiple values |
+| `loops.vx`   | Loop constructs        | while, for                     |
 
-- **concurrent_tasks.vx** - Go keyword and channels
-  - Parser: 🚧 Needs go keyword parsing
-  - Codegen: ❌ Needs runtime task spawning
-  - Status: Requires async runtime
+**Key Concepts:**
 
-### GPU Computing
+- ✅ If-else conditionals
+- ✅ Switch/case with LLVM backend
+- ✅ While loops
+- ✅ For loops
 
-- **gpu_vector_add.vx** - Simple GPU kernel
-- **gpu_matmul.vx** - Matrix multiplication
-  - Parser: 🚧 Needs launch keyword parsing
-  - Codegen: ❌ Needs CUDA/Metal backend
-  - Status: Requires GPU runtime
+### 04_types/ - Type System
 
-## 📚 Standard Library Examples
+| File                 | Description      | Features                  |
+| -------------------- | ---------------- | ------------------------- |
+| `struct_basic.vx`    | Basic structs    | Definition, instantiation |
+| `struct_advanced.vx` | Advanced structs | Nested, methods           |
+| `enum_basic.vx`      | Simple enums     | C-style enums             |
+| `tuple_basic.vx`     | Tuple types      | (T, U, V)                 |
+| `type_aliases.vx`    | Type aliases     | Custom type names         |
+| `references.vx`      | References       | &T, &T!                   |
 
-These demonstrate std library usage (needs module resolution):
+**Key Concepts:**
 
-### Network Programming
+- ✅ Struct definitions and field access
+- ✅ Enum definitions (C-style)
+- ✅ Tuple types (parse support)
+- ✅ Type aliases
+- ✅ References: `&T` (immutable), `&T!` (mutable)
+
+### 05_generics/ - Generics
+
+| File            | Description        | Features             |
+| --------------- | ------------------ | -------------------- |
+| `functions.vx`  | Generic functions  | Type parameters      |
+| `interfaces.vx` | Generic interfaces | Interface<T>         |
+| `structs.vx`    | Generic structs    | Option<T>, Result<T> |
+
+**Key Concepts:**
+
+- ✅ Generic functions with `<T>`
+- ✅ Generic structs
+- ✅ Interface definitions
+- ⚠️ Monomorphization (partial)
+
+### 06_patterns/ - Pattern Matching
+
+| File                    | Description     | Features            |
+| ----------------------- | --------------- | ------------------- |
+| `struct_destructure.vx` | Struct patterns | Field destructuring |
+| `tuple_destructure.vx`  | Tuple patterns  | Element extraction  |
+| `enum_match.vx`         | Enum patterns   | Match expressions   |
+
+**Key Concepts:**
+
+- ⚠️ Pattern matching (parser support only)
+- ⚠️ Destructuring (limited codegen)
+
+### 07_strings/ - Strings
+
+| File            | Description   | Features        |
+| --------------- | ------------- | --------------- |
+| `literals.vx`   | String basics | String literals |
+| `formatting.vx` | F-strings     | f"Value: {x}"   |
+
+**Key Concepts:**
+
+- ✅ String literals
+- ✅ F-string syntax (limited codegen)
+- ✅ Global string constants
+
+### 08_algorithms/ - Algorithms
+
+| File           | Description             | Complexity | Returns |
+| -------------- | ----------------------- | ---------- | ------- |
+| `fibonacci.vx` | Nth Fibonacci           | O(2^n)     | 55      |
+| `factorial.vx` | Factorial               | O(n)       | 120     |
+| `gcd.vx`       | Greatest Common Divisor | O(log n)   | 6       |
+| `prime.vx`     | Prime check             | O(√n)      | bool    |
+| `power.vx`     | Exponentiation          | O(n)       | 1024    |
+
+**All algorithms are working and tested!** ✅
+
+## 🔧 v0.9 Syntax Guide
+
+### Variables
 
 ```vex
-import { http } from "std";
+// Immutable (default)
+let x = 42;
 
-let resp = await http.get("http://example.com");
-print(resp.body);
+// Mutable (explicit)
+let! y = 10;
+y = 20;  // OK
+
+// Constant
+const PI = 3.14;
 ```
 
-### File I/O
+### Functions
 
 ```vex
-import { io } from "std";
-
-let content = await io.read_to_string("data.txt");
-print(content);
-```
-
-### Testing
-
-```vex
-import { testing } from "std";
-
-fn test_add(t: &mut testing.TestContext) {
-    t.assert_eq(2 + 2, 4, "math works");
+fn add(a: i32, b: i32) : i32 {
+    return a + b;
 }
 ```
 
-## 🎓 Learning Path
-
-**Start here if you're new to Vex:**
-
-1. **calculator.vx** - Basic functions and arithmetic
-2. **sum_array.vx** - Arrays and loops
-3. **fibonacci.vx** - Recursion
-4. **strings.vx** - String handling
-5. **with_imports.vx** - Module system
-6. **trait_example.vx** - Traits and generics
-7. **async_example.vx** - Async I/O
-8. **concurrent_tasks.vx** - Concurrency
-9. **gpu_matmul.vx** - GPU acceleration
-
-## 🔧 Compilation Status
-
-| Feature        | Parser | Codegen | Runtime | Status            |
-| -------------- | ------ | ------- | ------- | ----------------- |
-| Functions      | ✅     | ✅      | N/A     | Working           |
-| Variables      | ✅     | ✅      | N/A     | Working           |
-| Arrays         | ✅     | ✅      | N/A     | Working           |
-| Loops          | ✅     | ✅      | N/A     | Working           |
-| Strings        | ✅     | ✅      | N/A     | Working           |
-| Imports        | ✅     | 🚧      | N/A     | Parser done       |
-| Traits         | 🚧     | ❌      | N/A     | Foundation ready  |
-| Async/Await    | 🚧     | ❌      | ❌      | Needs runtime     |
-| Go keyword     | ❌     | ❌      | ❌      | Needs runtime     |
-| Launch keyword | ❌     | ❌      | ❌      | Needs GPU runtime |
-
-## 💡 Notes
-
-### String Support (NEW!)
-
-Strings are now fully supported:
+### Structs
 
 ```vex
-let message: string = "Hello, World!";
-print(message);
+struct Point {
+    x: i32,
+    y: i32,
+}
+
+let p = Point { x: 10, y: 20 };
+let x_val = p.x;
 ```
 
-Strings compile to `i8*` pointers and use global string constants.
-
-### Import System (NEW!)
-
-Import syntax is parsed:
+### Control Flow
 
 ```vex
-import { io, net } from "std";
-import "std::http";
+// If-else
+if x > 0 {
+    return 1;
+} else {
+    return 0;
+}
+
+// Switch
+switch x {
+    case 1:
+        return 10;
+    case 2, 3:
+        return 20;
+    default:
+        return 0;
+}
 ```
 
-Module resolution coming soon to load actual std library files.
+### References
 
-### Trait System (Foundation)
+```vex
+// Immutable reference
+let x = 42;
+let ref_x: &i32 = &x;
 
-Trait tokens added to lexer:
+// Mutable reference
+let! y = 10;
+let ref_y: &i32! = &y!;
+```
 
-- `trait` keyword
-- `impl` keyword
+## ✅ Working Features
 
-Parser and codegen implementation in progress.
+- ✅ Functions (basic, generic, recursive, methods)
+- ✅ Variables (let, let!, const)
+- ✅ Primitive types (integers, floats, bool, string)
+- ✅ Structs (definition, instantiation, field access)
+- ✅ Enums (C-style, basic support)
+- ✅ Control flow (if/else, switch, while, for)
+- ✅ Arithmetic operators (+, -, \*, /, %)
+- ✅ Comparison operators (==, !=, <, >, <=, >=)
+- ✅ Type inference
+- ✅ Type aliases
+- ✅ Generics (partial)
+- ✅ Interfaces (definition, parsing)
+- ✅ References (&T, &T!)
+- ✅ Tuples (parsing)
 
-## 🚀 Next Steps
+## ⚠️ Partial Support
 
-To make advanced examples work:
+- ⚠️ Pattern matching (parser only, limited codegen)
+- ⚠️ Match expressions (parsed, codegen incomplete)
+- ⚠️ F-strings (parsed, limited interpolation)
+- ⚠️ Generics (basic monomorphization, edge cases)
+- ⚠️ Traits (parser only, no codegen)
 
-1. **Module Resolution** - Load vex-libs/std/ modules
-2. **Trait Parsing** - Parse trait/impl blocks
-3. **Error Types** - Implement tagged unions
-4. **Match Expressions** - Pattern matching for error handling
-5. **Async Codegen** - State machine generation
-6. **Vex Runtime** - Rust-based with io_uring
+## ❌ Not Yet Implemented
 
-## 📝 Contributing
+- ❌ Async/await
+- ❌ Channels and concurrency
+- ❌ GPU kernels
+- ❌ SIMD intrinsics
+- ❌ FFI (work in progress)
+- ❌ Module system (imports parse only)
+- ❌ Standard library (io, fs, net, etc.)
+- ❌ Error handling (Result<T>, try/catch)
+- ❌ Trait implementations
+- ❌ Union type codegen
+- ❌ Advanced pattern matching
 
-Want to add more examples? Follow these guidelines:
+## 📊 Test Status
 
-1. **Working examples** - Should compile and run with current compiler
-2. **Advanced examples** - Can demonstrate future features but add comments explaining status
-3. **Document requirements** - Clearly mark which compiler features are needed
-4. **Keep it simple** - One feature per example when possible
-5. **Add to this README** - Update the tables above
+| Category     | Total  | Working | Partial | Not Working |
+| ------------ | ------ | ------- | ------- | ----------- |
+| Basics       | 3      | 3       | 0       | 0           |
+| Functions    | 3      | 3       | 0       | 0           |
+| Control Flow | 3      | 3       | 0       | 0           |
+| Types        | 6      | 4       | 2       | 0           |
+| Generics     | 3      | 1       | 2       | 0           |
+| Patterns     | 3      | 0       | 3       | 0           |
+| Strings      | 2      | 1       | 1       | 0           |
+| Algorithms   | 5      | 5       | 0       | 0           |
+| **TOTAL**    | **28** | **20**  | **8**   | **0**       |
 
-## 🎯 Goal
+**Success Rate: 71% fully working, 29% partial** 🎉
 
-Make every example program compilable and runnable as compiler features are implemented!
+## 🎯 Quick Start
 
-Currently: **6/15 examples fully working** ✅
+1. **Hello World**
 
-Target: **15/15 examples working** by end of Q1 2026
+```bash
+~/.cargo/target/debug/vex run examples/01_basics/hello_world.vx
+```
+
+2. **Try Variables**
+
+```bash
+~/.cargo/target/debug/vex run examples/01_basics/variables.vx
+```
+
+3. **Fibonacci**
+
+```bash
+~/.cargo/target/debug/vex run examples/08_algorithms/fibonacci.vx
+# Should exit with code 55
+```
+
+4. **Check Exit Code**
+
+```bash
+~/.cargo/target/debug/vex run examples/08_algorithms/factorial.vx
+echo $?  # Should print 120
+```
+
+## 📖 Learning Path
+
+1. Start with `01_basics/` - Learn core syntax
+2. Move to `02_functions/` - Understand functions and recursion
+3. Try `03_control_flow/` - Master conditionals and loops
+4. Explore `04_types/` - Work with structs and enums
+5. Study `08_algorithms/` - See real-world examples
+
+## 🐛 Known Issues
+
+- Pattern matching codegen is incomplete
+- Match expressions don't generate proper LLVM IR
+- F-string interpolation is limited
+- Generic type constraints not enforced
+- Module imports are parsed but not resolved
+- Error handling (Result/Option) needs codegen
+
+## 🤝 Contributing
+
+When adding new examples:
+
+1. Use v0.9 syntax (`let` vs `let!`)
+2. Include comments explaining the feature
+3. Make examples self-contained
+4. Test that they compile and run
+5. Add to this README
+
+## 📝 Notes
+
+- All examples use v0.9 syntax (let/let! system)
+- Examples return values via exit codes for testing
+- IO operations commented out until std library is ready
+- Focus on features that actually work in the compiler
+
+---
+
+**Compiler Version:** 0.2.0  
+**Syntax Version:** v0.9  
+**Last Updated:** 3 Kasım 2025

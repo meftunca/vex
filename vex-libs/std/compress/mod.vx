@@ -8,7 +8,7 @@ import { zlib, zstd, lz4 } from "../ffi";
 // ============================================================================
 
 // Compress data using zlib (deflate algorithm)
-fn compress_zlib(data: &[byte], level: i32):([byte] | error) {
+export fn compress_zlib(data: &[byte], level: i32):([byte] | error) {
     // Estimate compressed size (worst case: input + 0.1% + 12 bytes)
     max_size := data.len() + (data.len() / 1000) + 12;
     compressed := make([byte], max_size);
@@ -38,7 +38,7 @@ fn compress_zlib(data: &[byte], level: i32):([byte] | error) {
 }
 
 // Decompress zlib data
-fn decompress_zlib(data: &[byte]):([byte] | error) {
+export fn decompress_zlib(data: &[byte]):([byte] | error) {
     // Start with 4x input size, grow if needed
     decompressed_size := data.len() * 4;
     decompressed := make([byte], decompressed_size);
@@ -88,7 +88,7 @@ fn decompress_zlib(data: &[byte]):([byte] | error) {
 // ============================================================================
 
 // Compress data using Zstandard
-fn compress_zstd(data: &[byte], level: i32):([byte] | error) {
+export fn compress_zstd(data: &[byte], level: i32):([byte] | error) {
     // Get maximum compressed size
     max_size := unsafe { zstd.ZSTD_compressBound(data.len() as u64) } as usize;
     compressed := make([byte], max_size);
@@ -117,7 +117,7 @@ fn compress_zstd(data: &[byte], level: i32):([byte] | error) {
 }
 
 // Decompress Zstandard data
-fn decompress_zstd(data: &[byte]):([byte] | error) {
+export fn decompress_zstd(data: &[byte]):([byte] | error) {
     // Get decompressed size from frame header
     decompressed_size := unsafe {
         zstd.ZSTD_getFrameContentSize(data.as_ptr() as *byte, data.len() as u64)
@@ -160,7 +160,7 @@ fn decompress_zstd(data: &[byte]):([byte] | error) {
 // ============================================================================
 
 // Compress data using LZ4
-fn compress_lz4(data: &[byte]):([byte] | error) {
+export fn compress_lz4(data: &[byte]):([byte] | error) {
     // Get maximum compressed size
     max_size := unsafe { lz4.LZ4_compressBound(data.len() as i32) } as usize;
     
@@ -188,7 +188,7 @@ fn compress_lz4(data: &[byte]):([byte] | error) {
 }
 
 // Decompress LZ4 data (requires original size)
-fn decompress_lz4(data: &[byte], original_size: usize):([byte] | error) {
+export fn decompress_lz4(data: &[byte], original_size: usize):([byte] | error) {
     decompressed := make([byte], original_size);
     
     result := unsafe {
@@ -208,7 +208,7 @@ fn decompress_lz4(data: &[byte], original_size: usize):([byte] | error) {
 }
 
 // LZ4 High Compression (slower but better ratio)
-fn compress_lz4_hc(data: &[byte], level: i32):([byte] | error) {
+export fn compress_lz4_hc(data: &[byte], level: i32):([byte] | error) {
     max_size := unsafe { lz4.LZ4_compressBound(data.len() as i32) } as usize;
     
     if max_size == 0 {
@@ -243,12 +243,12 @@ fn compress_lz4_hc(data: &[byte], level: i32):([byte] | error) {
 // ============================================================================
 
 // Compression level presets
-const COMPRESS_LEVEL_FAST: i32 = 1;
-const COMPRESS_LEVEL_DEFAULT: i32 = 6;
-const COMPRESS_LEVEL_BEST: i32 = 9;
+export const COMPRESS_LEVEL_FAST: i32 = 1;
+export const COMPRESS_LEVEL_DEFAULT: i32 = 6;
+export const COMPRESS_LEVEL_BEST: i32 = 9;
 
 // Auto-detect compression algorithm and decompress
-fn decompress_auto(data: &[byte]):([byte] | error) {
+export fn decompress_auto(data: &[byte]):([byte] | error) {
     // Check magic bytes
     if data.len() < 4 {
         return error.new("Data too short");

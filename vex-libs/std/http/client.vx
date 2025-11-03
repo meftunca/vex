@@ -1,0 +1,178 @@
+import { TcpStream, connect } from "../net";
+import { HttpRequest, HttpResponse, HttpMethod, new_request, parse_response } from ".";
+
+struct HeaderEntry {
+    key: string,
+    value: string,
+}
+
+struct HeaderMap {
+    entries: [HeaderEntry],
+    size: usize,
+}
+
+export struct HttpClient {
+    timeout: u64,
+    default_headers: HeaderMap,
+}
+
+export fn new_client(): HttpClient {
+    mut headers := HeaderMap { entries: [], size: 0 };
+    
+    entry1 := HeaderEntry { key: "User-Agent", value: "Vex/1.0" };
+    headers.entries.push(entry1);
+    
+    entry2 := HeaderEntry { key: "Connection", value: "close" };
+    headers.entries.push(entry2);
+    
+    headers.size = 2;
+    
+    return HttpClient {
+        timeout: 30000,
+        default_headers: headers,
+    };
+}
+
+export fn (client: &HttpClient) request(req: HttpRequest): (HttpResponse | error) {
+    url := parse_url(req.path)?;
+    
+    host := url.host;
+    port := url.port;
+    path := url.path;
+    
+    mut request := new_request(req.method, path);
+    request.set_header("Host", host);
+    
+    for entry in client.default_headers.entries {
+        request.set_header(entry.key, entry.value);
+    }
+    
+    for entry in req.headers.entries {
+        request.set_header(entry.key, entry.value);
+    }
+    
+    if req.body.len() > 0 {
+        request.set_body(req.body);
+    }
+    
+    stream := connect(host, port)?;
+    defer stream.close();
+    
+    request_bytes := request.to_bytes();
+    request_ptr := request_bytes.as_ptr();
+    request_len := request_bytes.len();
+    
+    stream.write(request_ptr, request_len)?;
+    
+    mut response_data := "";
+    buffer: [byte; 4096] = [0; 4096];
+    
+    loop {
+        bytes_read := stream.read(&buffer[0], 4096)?;
+        
+        if bytes_read == 0 {
+            break;
+        }
+        
+        chunk := string::from_bytes(&buffer[0], bytes_read as usize);
+        response_data = response_data + chunk;
+        
+        if response_data.contains("\r\n\r\n") {
+            headers_end := response_data.find("\r\n\r\n").unwrap();
+            headers_part := response_data[0..headers_end];
+            
+            if headers_part.contains("Content-Length: ") {
+                cl_start := headers_part.find("Content-Length: ").unwrap() + 16;
+                cl_end := headers_part[cl_start..].find("\r\n").unwrap() + cl_start;
+                content_length_str := headers_part[cl_start..cl_end];
+                content_length := content_length_str.parse_usize().unwrap();
+                
+                body_start := headers_end + 4;
+                current_body_len := response_data.len() - body_start;
+                
+                if current_body_len >= content_length {
+                    break;
+                }
+            }
+        }
+    }
+    
+    return parse_response(response_data);
+}
+
+export fn (client: &HttpClient) get(url: string): (HttpResponse | error) {
+    req := new_request(HttpMethod::GET, url);
+    return client.request(req);
+}
+
+export fn (client: &HttpClient) post(url: string, body: string): (HttpResponse | error) {
+    mut req := new_request(HttpMethod::POST, url);
+    req.set_body(body);
+    return client.request(req);
+}
+
+export fn (client: &HttpClient) put(url: string, body: string): (HttpResponse | error) {
+    mut req := new_request(HttpMethod::PUT, url);
+    req.set_body(body);
+    return client.request(req);
+}
+
+export fn (client: &HttpClient) delete(url: string): (HttpResponse | error) {
+    req := new_request(HttpMethod::DELETE, url);
+    return client.request(req);
+}
+
+struct ParsedUrl {
+    scheme: string,
+    host: string,
+    port: u16,
+    path: string,
+}
+
+fn parse_url(url: string): (ParsedUrl | error) {
+    mut remaining := url;
+    mut scheme := "http";
+    mut port: u16 = 80;
+    
+    if url.starts_with("https://") {
+        scheme = "https";
+        port = 443;
+        remaining = url[8..];
+    } else if url.starts_with("http://") {
+        remaining = url[7..];
+    }
+    
+    slash_pos := remaining.find("/");
+    
+    mut host_part := "";
+    mut path := "/";
+    
+    match slash_pos {
+        Some(pos) => {
+            host_part = remaining[0..pos];
+            path = remaining[pos..];
+        },
+        None => {
+            host_part = remaining;
+        },
+    }
+    
+    mut host := host_part;
+    colon_pos := host_part.find(":");
+    
+    match colon_pos {
+        Some(pos) => {
+            host = host_part[0..pos];
+            port_str := host_part[(pos + 1)..];
+            port = port_str.parse_u16().unwrap_or(port);
+        },
+        None => {},
+    }
+    
+    return ParsedUrl {
+        scheme: scheme,
+        host: host,
+        port: port,
+        path: path,
+    };
+}

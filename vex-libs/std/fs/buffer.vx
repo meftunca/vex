@@ -1,0 +1,143 @@
+import { libc } from "../ffi";
+import { File, read as file_read, write as file_write } from "./file";
+
+export struct BufReader {
+    file: File,
+    buffer: *byte,
+    capacity: usize,
+    position: usize,
+    available: usize,
+}
+
+export fn new_buf_reader(file: File, buffer_size: usize): (BufReader | error) {
+    buffer := libc.safe_malloc(buffer_size)?;
+    
+    return BufReader {
+        file: file,
+        buffer: buffer,
+        capacity: buffer_size,
+        position: 0,
+        available: 0,
+    };
+}
+
+export fn (br: &BufReader) read(dest: *byte, size: usize): (usize | error) {
+    if br.position >= br.available {
+        bytes_read := file_read(&br.file, br.buffer, br.capacity)?;
+        br.position = 0;
+        br.available = bytes_read as usize;
+        
+        if br.available == 0 {
+            return 0;
+        }
+    }
+    
+    available_bytes := br.available - br.position;
+    bytes_to_copy := if size < available_bytes { size } else { available_bytes };
+    
+    unsafe {
+        libc.memcpy(dest, br.buffer + br.position, bytes_to_copy);
+    }
+    
+    br.position = br.position + bytes_to_copy;
+    return bytes_to_copy;
+}
+
+export fn (br: &BufReader) read_line(): (string | error) {
+    line_buffer := libc.safe_malloc(1024)?;
+    line_pos: usize = 0;
+    line_cap: usize = 1024;
+    
+    loop {
+        if br.position >= br.available {
+            bytes_read := file_read(&br.file, br.buffer, br.capacity)?;
+            br.position = 0;
+            br.available = bytes_read as usize;
+            
+            if br.available == 0 {
+                break;
+            }
+        }
+        
+        while br.position < br.available {
+            c := unsafe { *(br.buffer + br.position) };
+            br.position = br.position + 1;
+            
+            if c == 10 {
+                unsafe { *(line_buffer + line_pos) = 0; }
+                return "";
+            }
+            
+            if line_pos >= line_cap {
+                new_cap := line_cap * 2;
+                new_buffer := libc.safe_realloc(line_buffer, new_cap)?;
+                line_buffer = new_buffer;
+                line_cap = new_cap;
+            }
+            
+            unsafe { *(line_buffer + line_pos) = c; }
+            line_pos = line_pos + 1;
+        }
+    }
+    
+    unsafe { *(line_buffer + line_pos) = 0; }
+    return "";
+}
+
+export fn (br: &BufReader) close(): (bool | error) {
+    libc.safe_free(br.buffer);
+    return true;
+}
+
+export struct BufWriter {
+    file: File,
+    buffer: *byte,
+    capacity: usize,
+    position: usize,
+}
+
+export fn new_buf_writer(file: File, buffer_size: usize): (BufWriter | error) {
+    buffer := libc.safe_malloc(buffer_size)?;
+    
+    return BufWriter {
+        file: file,
+        buffer: buffer,
+        capacity: buffer_size,
+        position: 0,
+    };
+}
+
+export fn (bw: &BufWriter) write(data: *byte, size: usize): (usize | error) {
+    if bw.position + size > bw.capacity {
+        bw.flush()?;
+    }
+    
+    if size > bw.capacity {
+        bytes_written := file_write(&bw.file, data, size)?;
+        return bytes_written as usize;
+    }
+    
+    unsafe {
+        libc.memcpy(bw.buffer + bw.position, data, size);
+    }
+    
+    bw.position = bw.position + size;
+    return size;
+}
+
+export fn (bw: &BufWriter) flush(): (bool | error) {
+    if bw.position == 0 {
+        return true;
+    }
+    
+    file_write(&bw.file, bw.buffer, bw.position)?;
+    bw.position = 0;
+    
+    return true;
+}
+
+export fn (bw: &BufWriter) close(): (bool | error) {
+    bw.flush()?;
+    libc.safe_free(bw.buffer);
+    return true;
+}

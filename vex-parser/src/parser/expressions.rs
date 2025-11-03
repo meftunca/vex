@@ -95,6 +95,25 @@ impl<'a> Parser<'a> {
             return Ok(Expression::Go(Box::new(expr)));
         }
 
+        // Reference expression: &expr or &expr! (mutable)
+        if self.match_token(&Token::Ampersand) {
+            let expr = self.parse_unary()?;
+
+            // Check for mutable reference: &expr!
+            let is_mutable = self.match_token(&Token::Not);
+
+            return Ok(Expression::Reference {
+                is_mutable,
+                expr: Box::new(expr),
+            });
+        }
+
+        // Dereference: *expr
+        if self.match_token(&Token::Star) {
+            let expr = self.parse_unary()?;
+            return Ok(Expression::Deref(Box::new(expr)));
+        }
+
         if self.match_tokens(&[Token::Not, Token::Minus]) {
             let op = match self.previous() {
                 Token::Not => UnaryOp::Not,

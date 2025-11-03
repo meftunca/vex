@@ -1,0 +1,36 @@
+// String Literals
+// Demonstrates: string constants, basic string usage
+
+fn main() : i32 {
+    // String literals
+    let greeting = "Hello";
+    let name = "Vex";
+    let message = "Welcome to Vex v0.9";
+    
+    // Strings are stored as global constants
+    // Compiled to i8* (null-terminated)
+    
+    // String in function call
+    let result = string_length_estimate("test");
+    
+    return result;  // Returns 4
+}
+
+// Function taking string parameter
+fn greet(name: string) : i32 {
+    // TODO: String operations when std library is ready
+    // For now, return a constant
+    return 42;
+}
+
+// Estimate string length (placeholder)
+fn string_length_estimate(s: string) : i32 {
+    // TODO: Actual strlen when FFI is ready
+    return 4;  // Placeholder
+}
+
+// String comparison (placeholder)
+fn strings_equal(a: string, b: string) : i32 {
+    // TODO: strcmp when available
+    return 0;  // 0 = not equal, 1 = equal
+}

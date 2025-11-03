@@ -1,7 +1,0 @@
-// Test slice type directly (not in generic)
-fn test(x: &[string]) {
-}
-
-fn main(): i32 {
-    return 0;
-}

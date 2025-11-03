@@ -1,0 +1,34 @@
+// Type Aliases
+// Demonstrates: type alias definitions
+
+// Simple type aliases
+type UserId = i32;
+type Score = i32;
+type Count = i32;
+
+fn main() : i32 {
+    // Use type aliases like regular types
+    let user_id: UserId = 12345;
+    let score: Score = 100;
+    let count: Count = 42;
+    
+    let result = process_user(user_id, score);
+    
+    return result;  // Returns 12445
+}
+
+// Function using type aliases
+fn process_user(id: UserId, score: Score) : i32 {
+    return id + score;
+}
+
+// Another type alias function
+fn increment_count(c: Count) : Count {
+    return c + 1;
+}
+
+// Complex calculation with aliases
+fn calculate_total(user: UserId, base_score: Score, multiplier: Count) : i32 {
+    let total_score = base_score * multiplier;
+    return user + total_score;
+}

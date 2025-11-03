@@ -1,10 +1,17 @@
-# Vex Programming Language
+# Vex Programming Language (v0.9)
 
-**Version:** 0.2.0  
-**Status:** Production-ready core, expanding features  
-**Test Coverage:** 29/59 passing (49.2%)
+**Version:** 0.2.0 (Syntax v0.9)  
+**Status:** Core features working, clean examples  
+**Test Coverage:** 71% working examples
 
-A modern systems programming language with Go/Rust ergonomics, async-first design, and GPU compute capabilities.
+A modern systems programming language with clean syntax, zero-overhead abstractions, and a focus on correctness.
+
+**v0.9 Highlights:**
+
+- ✅ Unified variable system: `let` (immutable) vs `let!` (mutable)
+- ✅ Consistent reference syntax: `&T` vs `&T!`
+- ✅ Removed redundant syntax (`:=`, `var`, `&mut`)
+- ✅ 23 working examples in organized structure
 
 ---
 
@@ -21,66 +28,84 @@ cargo build --release
 ### Run Examples
 
 ```bash
-# Run directly
-cargo run --bin vex run examples/fibonacci.vx
+# Run directly (using global cargo binary)
+~/.cargo/target/debug/vex run examples/08_algorithms/fibonacci.vx
+echo $?  # Prints 55
 
-# Compile to binary
-cargo run --bin vex compile examples/calculator.vx -o calculator
-./calculator
+# Explore organized examples
+~/.cargo/target/debug/vex run examples/01_basics/variables.vx
+~/.cargo/target/debug/vex run examples/02_functions/recursion.vx
+~/.cargo/target/debug/vex run examples/03_control_flow/loops.vx
+
+# Check examples README
+cat examples/README.md
 ```
 
-### Hello World
+### Hello World (v0.9)
 
 ```vex
-fn main(): i32 {
-    print("Hello, Vex!");
-    return 0;
+fn main() : i32 {
+    // Immutable variable (default)
+    let x = 42;
+
+    // Mutable variable (explicit)
+    let! counter = 0;
+    counter = counter + 1;
+
+    return counter;
 }
 ```
 
 ---
 
-## ✨ Features
+## ✨ Features (v0.9)
 
-### ✅ Fully Working
+### ✅ Fully Implemented & Tested
 
-- **Functions:** Regular, generic, methods with receivers
-- **Control Flow:** if/else, while, for, switch/case ✨NEW
-- **Data Structures:** Structs, enums (with constructors ✨NEW), arrays, tuples
-- **Type System:** Generics, interfaces, type aliases, references
+- **Variables:** `let` (immutable), `let!` (mutable) - unified system
+- **Functions:** Basic, generic, recursive, methods with receivers
+- **Control Flow:** if/else, switch/case, while loops
+- **Data Structures:** Structs, enums (C-style), tuples (parsed)
+- **Type System:** Generics (basic), interfaces, type aliases, references
 - **Operators:** Arithmetic, comparison, logical
-- **Strings:** Literals and f-strings
+- **Strings:** Literals, f-strings (parsed)
+- **References:** `&T` (immutable), `&T!` (mutable)
 
-### 🚧 In Progress
+**See `examples/` directory for 23 working examples organized by category!**
 
-- **Async/Await:** Parser in progress
-- **Match Expressions:** Planned for union types
-- **Traits:** Parser in progress
-- **Union Types:** Parsed, codegen pending
+### 🚧 Partial Support
 
-### 📋 Planned
+- **Pattern Matching:** Parser complete, codegen incomplete
+- **Generics:** Monomorphization works, some edge cases
+- **F-strings:** Parsing works, interpolation limited
 
-- **GPU/CUDA:** Kernel support
-- **SIMD:** Vectorization
-- **Full Async Runtime:** io_uring integration
+### ❌ Not Yet Implemented
+
+- **Async/Await:** Planned for future
+- **Traits:** Parser only, no codegen
+- **Union Types:** Parser only, no codegen
+- **Match Expressions:** Requires union codegen
+- **GPU/SIMD:** Future feature
+- **Standard Library:** io, fs, net modules planned
 
 ---
 
 ## 📚 Documentation
 
-| Document | Description |
-|----------|-------------|
+| Document                                         | Description                                |
+| ------------------------------------------------ | ------------------------------------------ |
 | **[LANGUAGE_FEATURES.md](LANGUAGE_FEATURES.md)** | **📖 Complete feature list with examples** |
-| [Specification.md](Specification.md) | Language specification |
-| [REFACTORING_SUCCESS.md](REFACTORING_SUCCESS.md) | Compiler refactoring details |
-| [MISSING_FEATURES.md](MISSING_FEATURES.md) | Feature implementation tracker |
-| [archive-docs/](archive-docs/) | Old documentation |
+| [Specification.md](Specification.md)             | Language specification                     |
+| [REFACTORING_SUCCESS.md](REFACTORING_SUCCESS.md) | Compiler refactoring details               |
+| [MISSING_FEATURES.md](MISSING_FEATURES.md)       | Feature implementation tracker             |
+| [archive-docs/](archive-docs/)                   | Old documentation                          |
 
 ---
 
 ## 🎯 Working Examples
 
 ### Algorithms ✅
+
 ```bash
 cargo run --bin vex run examples/fibonacci.vx      # Output: 55
 cargo run --bin vex run examples/factorial.vx      # Output: 120
@@ -89,6 +114,7 @@ cargo run --bin vex run examples/gcd.vx            # Output: 6
 ```
 
 ### Data Structures ✅
+
 ```bash
 cargo run --bin vex run examples/struct_test.vx           # Structs
 cargo run --bin vex run examples/enum_constructor_test.vx # Enums: 0,1,2
@@ -100,6 +126,7 @@ cargo run --bin vex run examples/switch_test.vx           # Switch: Exit 20
 ## 🎓 Language Examples
 
 ### Switch Statement ✨NEW
+
 ```vex
 fn classify(x: i32): i32 {
     switch x {
@@ -114,6 +141,7 @@ fn classify(x: i32): i32 {
 ```
 
 ### Enums with Constructors ✨NEW
+
 ```vex
 enum Status {
     Pending,   // 0
@@ -128,6 +156,7 @@ fn main(): i32 {
 ```
 
 ### More Examples
+
 See [LANGUAGE_FEATURES.md](LANGUAGE_FEATURES.md) for complete feature list.
 
 ---

@@ -37,6 +37,17 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }
         }
 
+        // Declare inline struct methods (new trait system v1.3)
+        for item in &program.items {
+            if let Item::Struct(struct_def) = item {
+                if struct_def.type_params.is_empty() {
+                    for method in &struct_def.methods {
+                        self.declare_struct_method(&struct_def.name, method)?;
+                    }
+                }
+            }
+        }
+
         // Generate enum constructor functions for non-generic enums
         for item in &program.items {
             if let Item::Enum(enum_def) = item {
@@ -65,6 +76,17 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         &trait_impl.for_type,
                         method,
                     )?;
+                }
+            }
+        }
+
+        // Fifth pass: compile inline struct method bodies (new trait system v1.3)
+        for item in &program.items {
+            if let Item::Struct(struct_def) = item {
+                if struct_def.type_params.is_empty() {
+                    for method in &struct_def.methods {
+                        self.compile_struct_method(&struct_def.name, method)?;
+                    }
                 }
             }
         }
@@ -338,6 +360,162 @@ impl<'ctx> ASTCodeGen<'ctx> {
         Ok(())
     }
 
+    /// Declare an inline struct method (new trait system v1.3)
+    /// Inline methods are declared directly inside struct body: struct Foo { ... fn bar() {...} }
+    fn declare_struct_method(
+        &mut self,
+        struct_name: &str,
+        method: &Function,
+    ) -> Result<(), String> {
+        // Mangle name: StructName_methodName
+        // Example: FileLogger_log
+        let mangled_name = format!("{}_{}", struct_name, method.name);
+
+        // Build parameter types (receiver becomes first parameter)
+        let mut param_types: Vec<inkwell::types::BasicMetadataTypeEnum> = Vec::new();
+
+        if let Some(ref receiver) = method.receiver {
+            param_types.push(self.ast_type_to_llvm(&receiver.ty).into());
+        }
+
+        for param in &method.params {
+            param_types.push(self.ast_type_to_llvm(&param.ty).into());
+        }
+
+        // Build return type
+        let ret_type = if let Some(ref ty) = method.return_type {
+            self.ast_type_to_llvm(ty)
+        } else {
+            inkwell::types::BasicTypeEnum::IntType(self.context.i32_type())
+        };
+
+        // Create function type and declare function
+        use inkwell::types::BasicTypeEnum;
+        let fn_type = match ret_type {
+            BasicTypeEnum::IntType(t) => t.fn_type(&param_types, false),
+            BasicTypeEnum::FloatType(t) => t.fn_type(&param_types, false),
+            BasicTypeEnum::ArrayType(t) => t.fn_type(&param_types, false),
+            BasicTypeEnum::StructType(t) => t.fn_type(&param_types, false),
+            BasicTypeEnum::PointerType(t) => t.fn_type(&param_types, false),
+            BasicTypeEnum::VectorType(t) => t.fn_type(&param_types, false),
+        };
+
+        let fn_val = self.module.add_function(&mangled_name, fn_type, None);
+        self.functions.insert(mangled_name.clone(), fn_val);
+
+        // Store function def for later compilation
+        let mut mangled_method = method.clone();
+        mangled_method.name = mangled_name.clone();
+        self.function_defs.insert(mangled_name, mangled_method);
+
+        Ok(())
+    }
+
+    /// Compile an inline struct method body
+    fn compile_struct_method(
+        &mut self,
+        struct_name: &str,
+        method: &Function,
+    ) -> Result<(), String> {
+        // Mangle name to match declaration
+        let mangled_name = format!("{}_{}", struct_name, method.name);
+
+        // Get the function we declared
+        let fn_val = *self
+            .functions
+            .get(&mangled_name)
+            .ok_or_else(|| format!("Struct method {} not found", mangled_name))?;
+
+        self.current_function = Some(fn_val);
+
+        // Create entry block
+        let entry = self.context.append_basic_block(fn_val, "entry");
+        self.builder.position_at_end(entry);
+
+        // Clear local variables for new function
+        self.variables.clear();
+        self.variable_types.clear();
+        self.variable_struct_names.clear();
+
+        let mut param_offset = 0;
+
+        // Allocate receiver as first parameter
+        if let Some(ref receiver) = method.receiver {
+            let param_val = fn_val
+                .get_nth_param(0)
+                .ok_or("Missing receiver parameter")?;
+            let receiver_ty = self.ast_type_to_llvm(&receiver.ty);
+
+            let alloca = self
+                .builder
+                .build_alloca(receiver_ty, "self")
+                .map_err(|e| format!("Failed to create receiver alloca: {}", e))?;
+
+            self.builder
+                .build_store(alloca, param_val)
+                .map_err(|e| format!("Failed to store receiver: {}", e))?;
+
+            self.variables.insert("self".to_string(), alloca);
+            self.variable_types.insert("self".to_string(), receiver_ty);
+
+            // Track struct name for method calls on self
+            if let Type::Reference(inner, _) = &receiver.ty {
+                if let Type::Named(struct_name) = &**inner {
+                    self.variable_struct_names
+                        .insert("self".to_string(), struct_name.clone());
+                }
+            }
+
+            param_offset = 1;
+        }
+
+        // Allocate parameters
+        for (i, param) in method.params.iter().enumerate() {
+            let param_val = fn_val
+                .get_nth_param((i + param_offset) as u32)
+                .ok_or_else(|| format!("Missing parameter {}", param.name))?;
+
+            let param_ty = self.ast_type_to_llvm(&param.ty);
+            let alloca = self
+                .builder
+                .build_alloca(param_ty, &param.name)
+                .map_err(|e| format!("Failed to create parameter alloca: {}", e))?;
+
+            self.builder
+                .build_store(alloca, param_val)
+                .map_err(|e| format!("Failed to store parameter: {}", e))?;
+
+            self.variables.insert(param.name.clone(), alloca);
+            self.variable_types.insert(param.name.clone(), param_ty);
+        }
+
+        // Compile function body
+        for stmt in &method.body.statements {
+            self.compile_statement(stmt)?;
+        }
+
+        // Ensure function returns
+        if self
+            .builder
+            .get_insert_block()
+            .unwrap()
+            .get_terminator()
+            .is_none()
+        {
+            if method.return_type.is_some() {
+                return Err(format!("Function {} must return a value", mangled_name));
+            } else {
+                // Return default i32 value
+                let ret_val = self.context.i32_type().const_int(0, false);
+                self.builder
+                    .build_return(Some(&ret_val))
+                    .map_err(|e| format!("Failed to build return: {}", e))?;
+            }
+        }
+
+        Ok(())
+    }
+
     /// Generate constructor functions for enum variants
     /// For C-style enums: Color::Red -> Color_Red() returns i32 (tag value)
     /// For data-carrying enums: Option::Some(T) -> Option_Some(value: T) returns struct
@@ -501,7 +679,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 .ok_or_else(|| "Receiver parameter not found".to_string())?;
 
             let param_type = self.ast_type_to_llvm(&receiver.ty);
-            let alloca = self.create_entry_block_alloca("self", &receiver.ty)?;
+            // v0.9: Function receivers are always mutable (local binding)
+            let alloca = self.create_entry_block_alloca("self", &receiver.ty, true)?;
             self.builder
                 .build_store(alloca, param_val)
                 .map_err(|e| format!("Failed to store receiver: {}", e))?;
@@ -538,7 +717,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 .ok_or_else(|| format!("Parameter {} not found", param.name))?;
 
             let param_type = self.ast_type_to_llvm(&param.ty);
-            let alloca = self.create_entry_block_alloca(&param.name, &param.ty)?;
+            // v0.9: Function parameters are always mutable (local binding)
+            let alloca = self.create_entry_block_alloca(&param.name, &param.ty, true)?;
             self.builder
                 .build_store(alloca, param_val)
                 .map_err(|e| format!("Failed to store parameter: {}", e))?;

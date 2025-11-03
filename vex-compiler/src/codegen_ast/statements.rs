@@ -25,17 +25,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
     pub(crate) fn compile_statement(&mut self, stmt: &Statement) -> Result<(), String> {
         match stmt {
             Statement::Let {
-                is_mutable: _,
-                name,
-                ty,
-                value,
-            }
-            | Statement::VarDecl {
-                is_const: _,
+                is_mutable,
                 name,
                 ty,
                 value,
             } => {
+                // v0.9: is_mutable determines if variable is mutable (let vs let!)
                 // FIRST: Determine struct name from expression BEFORE compiling
                 // (because after compilation, we lose the expression structure)
                 let struct_name_from_expr = if ty.is_none() {
@@ -186,6 +181,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 };
 
                 // Create alloca using final_llvm_type directly for tuples
+                // v0.9: Use is_mutable flag to distinguish let vs let!
                 let alloca = if tuple_struct_type.is_some() {
                     // For tuples, use the LLVM struct type directly
                     let builder = self.context.create_builder();
@@ -200,11 +196,18 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         None => builder.position_at_end(entry),
                     }
 
-                    builder
+                    let alloca = builder
                         .build_alloca(final_llvm_type, name)
-                        .map_err(|e| format!("Failed to create tuple alloca: {}", e))?
+                        .map_err(|e| format!("Failed to create tuple alloca: {}", e))?;
+
+                    // Mark as readonly if immutable (let without !)
+                    if !is_mutable {
+                        // TODO: Add LLVM metadata for immutability optimization
+                    }
+
+                    alloca
                 } else {
-                    self.create_entry_block_alloca(name, &final_var_type)?
+                    self.create_entry_block_alloca(name, &final_var_type, *is_mutable)?
                 };
 
                 self.builder

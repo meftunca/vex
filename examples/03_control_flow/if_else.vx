@@ -1,0 +1,84 @@
+// If-Else Control Flow
+// Demonstrates: if, else, nested conditions, expressions
+
+fn main() : i32 {
+    let x = 42;
+    let y = 10;
+    
+    // Simple if-else
+    let max = max_value(x, y);
+    
+    // Complex conditionals
+    let classification = classify_number(15);
+    
+    return max;  // Returns 42
+}
+
+// Simple if-else
+fn max_value(a: i32, b: i32) : i32 {
+    if a > b {
+        return a;
+    } else {
+        return b;
+    }
+}
+
+// Multiple conditions
+fn classify_number(n: i32) : i32 {
+    if n < 0 {
+        return -1;  // Negative
+    } else {
+        if n == 0 {
+            return 0;  // Zero
+        } else {
+            return 1;  // Positive
+        }
+    }
+}
+
+// Nested conditionals
+fn grade_score(score: i32) : i32 {
+    if score >= 90 {
+        return 5;  // A
+    } else {
+        if score >= 80 {
+            return 4;  // B
+        } else {
+            if score >= 70 {
+                return 3;  // C
+            } else {
+                if score >= 60 {
+                    return 2;  // D
+                } else {
+                    return 1;  // F
+                }
+            }
+        }
+    }
+}
+
+// Boolean expressions
+fn is_in_range(value: i32, min: i32, max: i32) : bool {
+    if value >= min {
+        if value <= max {
+            return true;
+        } else {
+            return false;
+        }
+    } else {
+        return false;
+    }
+}
+
+// Comparison operators
+fn compare(a: i32, b: i32) : i32 {
+    if a == b {
+        return 0;   // Equal
+    } else {
+        if a < b {
+            return -1;  // Less than
+        } else {
+            return 1;   // Greater than
+        }
+    }
+}

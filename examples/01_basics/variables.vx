@@ -1,0 +1,29 @@
+// Basic Variables in Vex v0.9
+// Demonstrates: let (immutable), let! (mutable), const
+
+fn main() : i32 {
+    // Immutable variable (default in v0.9)
+    let x = 42;
+    // x = 50;  // ❌ Error: cannot assign to immutable variable
+    
+    // Mutable variable (explicit with !)
+    let! y = 10;
+    y = 20;     // ✅ OK: y is mutable
+    y = y + 5;  // ✅ OK: can modify
+    
+    // Type inference
+    let name = "Vex";  // inferred as string
+    let pi = 3.14;     // inferred as f64
+    
+    // Explicit types
+    let age: i32 = 25;
+    let height: f32 = 1.75;
+    let is_active: bool = true;
+    
+    // Multiple declarations
+    let a = 1;
+    let b = 2;
+    let c = a + b;
+    
+    return c;  // Returns 3
+}

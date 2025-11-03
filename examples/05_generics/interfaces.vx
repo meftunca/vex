@@ -1,0 +1,50 @@
+// Interfaces
+// Demonstrates: interface definitions, method signatures
+
+// Simple interface
+interface Writer {
+    fn write(data: i32) : i32 {}
+}
+
+// Generic interface
+interface Container<T> {
+    fn get() : T {}
+    fn set(value: T) : i32 {}
+}
+
+// Multiple method interface
+interface Storage {
+    fn read() : i32 {}
+    fn write(value: i32) : i32 {}
+    fn clear() : i32 {}
+}
+
+// Struct that implements Writer
+struct File {
+    data: i32,
+}
+
+// Method implementing Writer interface (implicit Go-style)
+fn (self: &File) write(data: i32) : i32 {
+    return data;
+}
+
+fn main() : i32 {
+    let f = File { data: 0 };
+    let result = f.write(42);
+    return result;  // Returns 42
+}
+
+// Another implementation
+struct Buffer {
+    size: i32,
+}
+
+fn (self: &Buffer) write(data: i32) : i32 {
+    return data + self.size;
+}
+
+fn test_buffer() : i32 {
+    let buf = Buffer { size: 10 };
+    return buf.write(5);  // Returns 15
+}

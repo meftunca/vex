@@ -7,26 +7,26 @@ import { Duration } from "../time";
 // Runtime
 // ============================================================================
 
-struct Runtime {
+export struct Runtime {
     inner: *tokio.VexRuntime,
 }
 
 // Create new multi-threaded runtime
-fn new_runtime(): Runtime {
+export fn new_runtime(): Runtime {
     return Runtime {
         inner: tokio.vex_runtime_new(),
     };
 }
 
 // Create single-threaded runtime (for testing)
-fn new_current_thread_runtime(): Runtime {
+export fn new_current_thread_runtime(): Runtime {
     return Runtime {
         inner: tokio.vex_runtime_new_current_thread(),
     };
 }
 
 // Destroy runtime
-fn (rt: &Runtime) destroy() {
+export fn (rt: &Runtime) destroy() {
     if rt.inner != 0 as *tokio.VexRuntime {
         tokio.vex_runtime_destroy(rt.inner);
         rt.inner = 0 as *tokio.VexRuntime;
@@ -38,7 +38,7 @@ fn (rt: &Runtime) destroy() {
 // ============================================================================
 
 // Spawn async task
-fn (rt: &Runtime) spawn(f: fn()) {
+export fn (rt: &Runtime) spawn(f: fn()) {
     // Wrapper to convert Vex closure to C function pointer
     wrapper := |user_data: *byte| {
         f();
@@ -48,7 +48,7 @@ fn (rt: &Runtime) spawn(f: fn()) {
 }
 
 // Block on async task (run synchronously)
-fn (rt: &Runtime) block_on(f: fn()) {
+export fn (rt: &Runtime) block_on(f: fn()) {
     wrapper := |user_data: *byte| {
         f();
     };
@@ -81,12 +81,12 @@ async fn sleep_secs(rt: &Runtime, secs: u64) {
 // ============================================================================
 
 // Get number of worker threads
-fn worker_threads(): usize {
+export fn worker_threads(): usize {
     return tokio.vex_runtime_worker_threads();
 }
 
 // Check if inside tokio runtime
-fn is_inside_runtime(): bool {
+export fn is_inside_runtime(): bool {
     return tokio.vex_runtime_is_inside_runtime();
 }
 
@@ -97,7 +97,7 @@ fn is_inside_runtime(): bool {
 /*
 import { async } from "std";
 
-fn main() {
+export fn main() {
     runtime := async::new_runtime();
     
     runtime.block_on(async {

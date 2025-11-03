@@ -1,6 +1,0 @@
-fn main(): i32 {
-    // Simple two-element tuple
-    coords := (10, 20);
-    
-    return 0;
-}

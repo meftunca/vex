@@ -1,0 +1,11 @@
+// Borrow Rules Error: Multiple mutable borrows
+
+fn main() {
+    let! x = 10;
+    
+    let r1 = &x!;  // mutable borrow
+    let r2 = &x!;  // ❌ ERROR: cannot borrow as mutable more than once
+    
+    log(r1);
+    log(r2);
+}

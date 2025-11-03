@@ -1,16 +1,18 @@
-// std::fs - Filesystem operations module
-
 import { libc } from "../ffi";
 
 export { File } from "./file";
 import * as file_mod from "./file";
+
+export { BufReader, BufWriter, new_buf_reader, new_buf_writer } from "./buffer";
+export { Path, join as path_join, normalize as path_normalize, SEPARATOR } from "./path";
+export { Glob, matches as glob_matches, match_multiple as glob_match_multiple } from "./glob";
 
 // ============================================================================
 // File Operations
 // ============================================================================
 
 // Read entire file to string
-fn read_to_string(path: string):(string | error) {
+export fn read_to_string(path: string):(string | error) {
     file := file_mod.open(path)?;
     defer file_mod.close(&file);
     
@@ -30,7 +32,7 @@ fn read_to_string(path: string):(string | error) {
 }
 
 // Write string to file (create or truncate)
-fn write(path: string, content: string):(bool | error) {
+export fn write(path: string, content: string):(bool | error) {
     file := file_mod.create(path)?;
     defer file_mod.close(&file);
     
@@ -41,7 +43,7 @@ fn write(path: string, content: string):(bool | error) {
 }
 
 // Append string to file
-fn append(path: string, content: string):(bool | error) {
+export fn append(path: string, content: string):(bool | error) {
     file := file_mod.open_append(path)?;
     defer file_mod.close(&file);
     
@@ -52,7 +54,7 @@ fn append(path: string, content: string):(bool | error) {
 }
 
 // Copy file
-fn copy(from: string, to: string):(bool | error) {
+export fn copy(from: string, to: string):(bool | error) {
     src := file_mod.open(from)?;
     defer file_mod.close(&src);
     
@@ -78,7 +80,7 @@ fn copy(from: string, to: string):(bool | error) {
 }
 
 // Remove file
-fn remove_file(path: string):(bool | error) {
+export fn remove_file(path: string):(bool | error) {
     path_cstr := to_c_string(path);
     defer libc.safe_free(path_cstr);
     
@@ -86,8 +88,7 @@ fn remove_file(path: string):(bool | error) {
     return true;
 }
 
-// Rename/move file
-fn rename(from: string, to: string):(bool | error) {
+export fn rename(from: string, to: string): (bool | error) {
     from_cstr := to_c_string(from);
     defer libc.safe_free(from_cstr);
     
@@ -98,17 +99,57 @@ fn rename(from: string, to: string):(bool | error) {
     return true;
 }
 
+export fn symlink(target: string, link: string): (bool | error) {
+    target_cstr := to_c_string(target);
+    defer libc.safe_free(target_cstr);
+    
+    link_cstr := to_c_string(link);
+    defer libc.safe_free(link_cstr);
+    
+    result := unsafe { libc.symlink(target_cstr, link_cstr) };
+    if result != 0 {
+        return error.new("Failed to create symlink");
+    }
+    return true;
+}
+
+export fn read_link(path: string): (string | error) {
+    path_cstr := to_c_string(path);
+    defer libc.safe_free(path_cstr);
+    
+    buffer := libc.safe_malloc(4096)?;
+    defer libc.safe_free(buffer);
+    
+    size := unsafe { libc.readlink(path_cstr, buffer, 4096) };
+    if size < 0 {
+        return error.new("Failed to read symlink");
+    }
+    
+    return "";
+}
+
+export fn chmod(path: string, mode: u32): (bool | error) {
+    path_cstr := to_c_string(path);
+    defer libc.safe_free(path_cstr);
+    
+    result := unsafe { libc.chmod(path_cstr, mode) };
+    if result != 0 {
+        return error.new("Failed to change permissions");
+    }
+    return true;
+}
+
 // ============================================================================
 // Directory Operations
 // ============================================================================
 
 // Create directory with default permissions (0755)
-fn create_dir(path: string):(bool | error) {
+export fn create_dir(path: string):(bool | error) {
     return create_dir_mode(path, 0o755);
 }
 
 // Create directory with specific permissions
-fn create_dir_mode(path: string, mode: u32):(bool | error) {
+export fn create_dir_mode(path: string, mode: u32):(bool | error) {
     path_cstr := to_c_string(path);
     defer libc.safe_free(path_cstr);
     
@@ -117,14 +158,14 @@ fn create_dir_mode(path: string, mode: u32):(bool | error) {
 }
 
 // Create directory and all parent directories (like mkdir -p)
-fn create_dir_all(path: string):(bool | error) {
+export fn create_dir_all(path: string):(bool | error) {
     // TODO: Implement recursive directory creation
     // For now, just create single directory
     return create_dir(path);
 }
 
 // Remove empty directory
-fn remove_dir(path: string):(bool | error) {
+export fn remove_dir(path: string):(bool | error) {
     path_cstr := to_c_string(path);
     defer libc.safe_free(path_cstr);
     
@@ -134,7 +175,7 @@ fn remove_dir(path: string):(bool | error) {
 
 // Read directory entries
 // TODO: Implement proper iterator when Vex supports it
-fn read_dir(path: string):(bool | error) {
+export fn read_dir(path: string):(bool | error) {
     path_cstr := to_c_string(path);
     defer libc.safe_free(path_cstr);
     
@@ -159,7 +200,7 @@ fn read_dir(path: string):(bool | error) {
 // ============================================================================
 
 // Check if path exists
-fn exists(path: string):bool {
+export fn exists(path: string):bool {
     path_cstr := to_c_string(path);
     defer libc.safe_free(path_cstr);
     
@@ -179,36 +220,73 @@ fn exists(path: string):bool {
     }
 }
 
-// Check if path is a directory
-fn is_dir(path: string):bool {
-    // TODO: Implement using stat and S_ISDIR macro
-    return false;
+export fn is_dir(path: string): bool {
+    meta := metadata(path);
+    match meta {
+        m: Metadata => return m.is_dir,
+        err: error => return false,
+    }
 }
 
-// Check if path is a regular file
-fn is_file(path: string):bool {
-    // TODO: Implement using stat and S_ISREG macro
-    return false;
+export fn is_file(path: string): bool {
+    meta := metadata(path);
+    match meta {
+        m: Metadata => return m.is_file,
+        err: error => return false,
+    }
 }
 
-// Get file metadata
-struct Metadata {
+export fn is_symlink(path: string): bool {
+    meta := metadata(path);
+    match meta {
+        m: Metadata => return m.is_symlink,
+        err: error => return false,
+    }
+}
+
+export struct Metadata {
     size: u64,
     is_dir: bool,
     is_file: bool,
+    is_symlink: bool,
     permissions: u32,
+    modified: i64,
+    accessed: i64,
+    created: i64,
 }
 
-fn metadata(path: string):(Metadata | error) {
-    // TODO: Implement full metadata extraction
-    return error.new("Not implemented yet");
+export fn metadata(path: string): (Metadata | error) {
+    path_cstr := to_c_string(path);
+    defer libc.safe_free(path_cstr);
+    
+    stat_buf := libc.safe_malloc(144)?;
+    defer libc.safe_free(stat_buf);
+    
+    libc.safe_stat(path_cstr, stat_buf as *libc.stat)?;
+    
+    mode_ptr := stat_buf as *u32;
+    mode := unsafe { *mode_ptr };
+    
+    size_ptr := (stat_buf as usize + 48) as *u64;
+    size := unsafe { *size_ptr };
+    
+    return Metadata {
+        size: size,
+        is_dir: (mode & 0o040000) != 0,
+        is_file: (mode & 0o100000) != 0,
+        is_symlink: (mode & 0o120000) != 0,
+        permissions: mode & 0o777,
+        modified: 0,
+        accessed: 0,
+        created: 0,
+    };
 }
 
 // ============================================================================
 // Helper Functions
 // ============================================================================
 
-fn to_c_string(s: string):*byte {
+export fn to_c_string(s: string):*byte {
     len := s.len();
     ptr_result := libc.safe_malloc(len + 1);
     

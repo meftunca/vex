@@ -1,0 +1,59 @@
+// Vex v1.3 Trait System Example
+// struct ... impl Trait { ... methods ... }
+
+// 1. Define a trait with required and default methods
+trait Logger {
+    // Required method (signature only)
+    fn (self: &Self!) log(level: string, msg: string);
+    
+    // Default method (can be overridden)
+    fn (self: &Self!) info(msg: string) {
+        self.log("INFO", msg);
+    }
+    
+    fn (self: &Self!) warn(msg: string) {
+        self.log("WARN", msg);
+    }
+}
+
+// 2. Struct with inline trait implementation
+struct FileLogger impl Logger {
+    // Fields
+    path: string,
+    
+    // Trait implementation (inline)
+    fn (self: &FileLogger!) log(level: string, msg: string) {
+        // Implementation here
+        // write to file...
+    }
+    
+    // Override default method (optional)
+    fn (self: &FileLogger!) warn(msg: string) {
+        self.log("WARNING", msg);  // Custom behavior
+    }
+    
+    // Struct-specific method (not from trait)
+    fn (self: &FileLogger!) close() {
+        // Close file
+    }
+}
+
+// 3. Another implementation
+struct ConsoleLogger impl Logger {
+    prefix: string,
+    
+    fn (self: &ConsoleLogger!) log(level: string, msg: string) {
+        // Print to console
+    }
+    
+    // Use default info() and error() methods
+}
+
+fn main() {
+    let! file_log = FileLogger { path: "/var/log/app.log" };
+    file_log.info("Starting app");
+    file_log.warn("Something went wrong");
+    
+    let! console_log = ConsoleLogger { prefix: "[APP]" };
+    console_log.info("Hello");
+}

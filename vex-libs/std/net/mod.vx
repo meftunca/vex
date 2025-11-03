@@ -1,86 +1,893 @@
+import { libc } from "../ffi";
 // std::net - Layer 2: Network Protocol (100% Safe Native Vex)
-// This layer knows NOTHING about io_uring or unsafe code.
-// It only knows about "files" (sockets) from std::io.
 
-import { io } from "std";
-import type { Reader, Writer } from "std::io";
 
-// TCP Stream - wraps a File (socket is a file in Unix)
-struct TcpStream {
-    file: io.File,
-}
 
-// Connect to a TCP server
-// In real implementation, this would use socket() syscall via runtime
-// For now, we use a conceptual "/dev/tcp/host/port" path
-export async fn connect(host: string, port: i32) : (TcpStream | error) {
-    // Conceptual: open a socket as a file
-    // Real implementation would call __runtime_socket_connect intrinsic
-    socket_path := f"/dev/tcp/{host}/{port}";
-    file := try await io.open(socket_path);
+export struct TcpStream {// This layer knows NOTHING about io_uring or unsafe code.
+
+    fd: i32,
+
+    remote_addr: string,export struct TcpStream {// It only knows about "files" (sockets) from std::io.
+
+    remote_port: u16,
+
+}    fd: i32,
+
+
+
+export fn connect(host: string, port: u16): (TcpStream | error) {    remote_addr: string,import { io } from "std";
+
+
+    sockfd := unsafe { libc.socket(libc.AF_INET, libc.SOCK_STREAM, 0) };
+
+
+        remote_port: u16,import type { Reader, Writer } from "std::io";
+
+
+    if sockfd < 0 {
+
+        return error.new("Failed to create socket");
+        }
+
+    }
+
+    // TCP Stream - wraps a File (socket is a file in Unix)
+
+    host_cstr := to_c_string(host);
+
+
+    defer libc.safe_free(host_cstr);
+    export fn connect(host: string, port: u16): (TcpStream | error) {export struct TcpStream {
+
     
-    return TcpStream { file: file };
-}
 
-// Implement Reader trait for TcpStream
-// This just delegates to the underlying File
-fn (s: &TcpStream) read(buf: &[byte]) : (i32 | error) {
-    return await s.file.read(buf);
-}
+    addr := libc.safe_malloc(16)?;
+        sockfd := unsafe { libc.socket(libc.AF_INET, libc.SOCK_STREAM, 0) };
+        file: io.File,
 
-// Implement Writer trait for TcpStream
-// This just delegates to the underlying File
-fn (s: &TcpStream) write(buf: &[byte]) : (i32 | error) {
-    return await s.file.write(buf);
-}
+    defer libc.safe_free(addr);
 
-// Close the connection
-fn (s: &TcpStream) close() : (nil | error) {
-    return await s.file.close();
-}
 
-// UDP Socket
-struct UdpSocket {
-    file: io.File,
-}
+        }
 
-// Bind to a UDP port
-export async fn bind_udp(addr: string, port: i32) : (UdpSocket | error) {
-    socket_path := f"/dev/udp/{addr}/{port}";
-    file := try await io.open(socket_path);
+    unsafe {
+
+        family_ptr := addr as *u16;
+            if sockfd < 0 {
+
+        *family_ptr = libc.AF_INET as u16;
+
+
+                return error.new("Failed to create socket");
+                // Connect to a TCP server
+
+        port_ptr := (addr as usize + 2) as *u16;
+
+
+        *port_ptr = htons(port);
+            }// In real implementation, this would use socket() syscall via runtime
+
+        
+
+        ip_result := libc.inet_pton(libc.AF_INET, host_cstr, (addr as usize + 4) as *byte);
+            // For now, we use a conceptual "/dev/tcp/host/port" path
+
+        if ip_result <= 0 {
+
+            libc.close(sockfd);
+                host_cstr := to_c_string(host);
+            export async fn connect(host: string, port: i32) : (TcpStream | error) {
+
+            return error.new("Invalid IP address");
+
+
+        }    defer libc.safe_free(host_cstr);
+            // Conceptual: open a socket as a file
+
+    }
+
+            // Real implementation would call __runtime_socket_connect intrinsic
+
+    result := unsafe { libc.connect(sockfd, addr as *libc.sockaddr, 16) };
+
+
+        addr := libc.safe_malloc(16)?;
+            socket_path := f"/dev/tcp/{host}/{port}";
+
+
+    if result < 0 {
+
+        unsafe { libc.close(sockfd);
+         }    defer libc.safe_free(addr);
+            file := try await io.open(socket_path);
+
+
+        return error.new("Failed to connect");
+
+
+    }        
+
     
-    return UdpSocket { file: file };
+
+    return TcpStream {    unsafe {    return TcpStream { file: file };
+
+
+        fd: sockfd,
+
+        remote_addr: host,        family_ptr := addr as *u16;
+        }
+
+        remote_port: port,
+
+    };
+            *family_ptr = libc.AF_INET as u16;
+
+
 }
 
-// Send UDP packet
-fn (s: &UdpSocket) send_to(buf: &[byte], dest: string) : (i32 | error) {
-    // In real implementation, this would use sendto() syscall
-    return await s.file.write(buf);
-}
+        // Implement Reader trait for TcpStream
 
-// Receive UDP packet
-fn (s: &UdpSocket) recv_from(buf: &[byte]) : (i32 | error) {
-    // In real implementation, this would use recvfrom() syscall
-    return await s.file.read(buf);
-}
+export fn (stream: &TcpStream) read(buffer: *byte, size: usize): (i64 | error) {
 
-// TCP Listener for server-side
-struct TcpListener {
-    file: io.File,
-}
+    bytes_read := unsafe { libc.read(stream.fd, buffer, size) };
+            port_ptr := (addr as usize + 2) as *u16;
+    // This just delegates to the underlying File
 
-// Listen on a TCP port
-export async fn listen(addr: string, port: i32) : (TcpListener | error) {
-    listen_path := f"/dev/tcp/listen/{addr}/{port}";
-    file := try await io.open(listen_path);
     
-    return TcpListener { file: file };
+
+    if bytes_read < 0 {        *port_ptr = htons(port);
+    export fn (s: &TcpStream) read(buf: &[byte]) : (i32 | error) {
+
+        return error.new("Failed to read from socket");
+
+
+    }            return await s.file.read(buf);
+
+
+    
+
+    return bytes_read;
+            ip_result := libc.inet_pton(libc.AF_INET, host_cstr, (addr as usize + 4) as *byte);
+    }
+
 }
 
-// Accept incoming connection
-fn (l: &TcpListener) accept() : (TcpStream | error) {
-    // In real implementation, this would use accept() syscall
-    // For now, conceptual placeholder
-    client_file := l.file; // Placeholder
-    return TcpStream { file: client_file };
+        if ip_result <= 0 {
+
+export fn (stream: &TcpStream) write(data: *byte, size: usize): (i64 | error) {
+
+    bytes_written := unsafe { libc.write(stream.fd, data, size) };
+                libc.close(sockfd);
+    // Implement Writer trait for TcpStream
+
+    
+
+    if bytes_written < 0 {            return error.new("Invalid IP address");
+    // This just delegates to the underlying File
+
+        return error.new("Failed to write to socket");
+
+
+    }        }export fn (s: &TcpStream) write(buf: &[byte]) : (i32 | error) {
+
+    
+
+    return bytes_written;
+        }    return await s.file.write(buf);
+
+
+}
+
+    }
+
+export fn (stream: &TcpStream) close(): (bool | error) {
+
+    result := unsafe { libc.close(stream.fd) };
+        result := unsafe { libc.connect(sockfd, addr as *libc.sockaddr, 16) };
+
+
+    
+
+    if result != 0 {    // Close the connection
+
+        return error.new("Failed to close socket");
+
+
+    }    if result < 0 {export fn (s: &TcpStream) close() : (nil | error) {
+
+    
+
+    return true;
+            unsafe { libc.close(sockfd);
+     }    return await s.file.close();
+
+
+}
+
+        return error.new("Failed to connect");
+        }
+
+export struct TcpListener {
+
+    fd: i32,    }
+
+    local_addr: string,
+
+    local_port: u16,    // UDP Socket
+
+}
+
+    return TcpStream {export struct UdpSocket {
+
+export fn listen(addr: string, port: u16): (TcpListener | error) {
+
+    sockfd := unsafe { libc.socket(libc.AF_INET, libc.SOCK_STREAM, 0) };
+            fd: sockfd,    file: io.File,
+
+    
+
+    if sockfd < 0 {        remote_addr: host,}
+
+        return error.new("Failed to create socket");
+
+
+    }        remote_port: port,
+
+    
+
+    opt: i32 = 1;
+        };
+    // Bind to a UDP port
+
+    unsafe {
+
+        libc.setsockopt(sockfd, libc.SOL_SOCKET, libc.SO_REUSEADDR, &opt as *byte, 4);
+        }export async fn bind_udp(addr: string, port: i32) : (UdpSocket | error) {
+
+    }
+
+        socket_path := f"/dev/udp/{addr}/{port}";
+
+
+    addr_cstr := to_c_string(addr);
+
+
+    defer libc.safe_free(addr_cstr);
+    export fn (stream: &TcpStream) read(buffer: *byte, size: usize): (i64 | error) {    file := try await io.open(socket_path);
+
+
+    
+
+    server_addr := libc.safe_malloc(16)?;
+        bytes_read := unsafe { libc.read(stream.fd, buffer, size) };
+
+
+    defer libc.safe_free(server_addr);
+
+
+            return UdpSocket { file: file };
+
+
+    unsafe {
+
+        family_ptr := server_addr as *u16;
+            if bytes_read < 0 {}
+
+        *family_ptr = libc.AF_INET as u16;
+
+
+                return error.new("Failed to read from socket");
+
+
+        port_ptr := (server_addr as usize + 2) as *u16;
+
+
+        *port_ptr = htons(port);
+            }// Send UDP packet
+
+        
+
+        if addr == "0.0.0.0" || addr == "" {    export fn (s: &UdpSocket) send_to(buf: &[byte], dest: string) : (i32 | error) {
+
+            ip_ptr := (server_addr as usize + 4) as *u32;
+
+
+            *ip_ptr = 0;
+                return bytes_read;
+                // In real implementation, this would use sendto() syscall
+
+        } else {
+
+            libc.inet_pton(libc.AF_INET, addr_cstr, (server_addr as usize + 4) as *byte);
+            }    return await s.file.write(buf);
+
+
+        }
+
+    }}
+
+    
+
+    bind_result := unsafe { libc.bind(sockfd, server_addr as *libc.sockaddr, 16) };
+    export fn (stream: &TcpStream) write(data: *byte, size: usize): (i64 | error) {
+
+    
+
+    if bind_result < 0 {    bytes_written := unsafe { libc.write(stream.fd, data, size) };
+    // Receive UDP packet
+
+        unsafe { libc.close(sockfd);
+         }
+
+        return error.new("Failed to bind socket");
+            export fn (s: &UdpSocket) recv_from(buf: &[byte]) : (i32 | error) {
+
+    }
+
+        if bytes_written < 0 {    // In real implementation, this would use recvfrom() syscall
+
+    listen_result := unsafe { libc.listen(sockfd, 128) };
+
+
+            return error.new("Failed to write to socket");
+                return await s.file.read(buf);
+
+
+    if listen_result < 0 {
+
+        unsafe { libc.close(sockfd);
+         }    }}
+
+        return error.new("Failed to listen on socket");
+
+
+    }    
+
+    
+
+    return TcpListener {    return bytes_written;
+    // TCP Listener for server-side
+
+        fd: sockfd,
+
+        local_addr: addr,}export struct TcpListener {
+
+        local_port: port,
+
+    };
+        file: io.File,
+
+}
+
+export fn (stream: &TcpStream) close(): (bool | error) {}
+
+export fn (listener: &TcpListener) accept(): (TcpStream | error) {
+
+    client_addr := libc.safe_malloc(16)?;
+        result := unsafe { libc.close(stream.fd) };
+
+
+    defer libc.safe_free(client_addr);
+
+
+        // Listen on a TCP port
+
+    client_len: u32 = 16;
+
+
+        if result != 0 {export async fn listen(addr: string, port: i32) : (TcpListener | error) {
+
+    client_fd := unsafe { libc.accept(listener.fd, client_addr as *libc.sockaddr, &client_len) };
+
+
+            return error.new("Failed to close socket");
+                listen_path := f"/dev/tcp/listen/{addr}/{port}";
+
+
+    if client_fd < 0 {
+
+        return error.new("Failed to accept connection");
+            }    file := try await io.open(listen_path);
+
+
+    }
+
+            
+
+    return TcpStream {
+
+        fd: client_fd,    return true;
+            return TcpListener { file: file };
+
+
+        remote_addr: "unknown",
+
+        remote_port: 0,}}
+
+    };
+
+
+}
+
+
+
+export fn (listener: &TcpListener) close(): (bool | error) {export struct TcpListener {// Accept incoming connection
+
+    result := unsafe { libc.close(listener.fd) };
+
+
+        fd: i32,export fn (l: &TcpListener) accept() : (TcpStream | error) {
+
+    if result != 0 {
+
+        return error.new("Failed to close listener");
+            local_addr: string,    // In real implementation, this would use accept() syscall
+
+    }
+
+        local_port: u16,    // For now, conceptual placeholder
+
+    return true;
+
+
+}}    client_file := l.file;
+ // Placeholder
+
+
+
+export struct UdpSocket {    return TcpStream { file: client_file };
+
+
+    fd: i32,
+
+    local_addr: string,export fn listen(addr: string, port: u16): (TcpListener | error) {}
+
+    local_port: u16,
+
+}    sockfd := unsafe { libc.socket(libc.AF_INET, libc.SOCK_STREAM, 0) };
+
+
+    
+
+export fn bind_udp(addr: string, port: u16): (UdpSocket | error) {    if sockfd < 0 {
+
+    sockfd := unsafe { libc.socket(libc.AF_INET, libc.SOCK_DGRAM, 0) };
+            return error.new("Failed to create socket");
+
+
+        }
+
+    if sockfd < 0 {    
+
+        return error.new("Failed to create UDP socket");
+            opt: i32 = 1;
+
+
+    }    unsafe {
+
+            libc.setsockopt(sockfd, libc.SOL_SOCKET, libc.SO_REUSEADDR, &opt as *byte, 4);
+
+
+    addr_cstr := to_c_string(addr);
+        }
+
+    defer libc.safe_free(addr_cstr);
+
+
+        addr_cstr := to_c_string(addr);
+
+
+    server_addr := libc.safe_malloc(16)?;
+        defer libc.safe_free(addr_cstr);
+
+
+    defer libc.safe_free(server_addr);
+
+
+        server_addr := libc.safe_malloc(16)?;
+
+
+    unsafe {    defer libc.safe_free(server_addr);
+
+
+        family_ptr := server_addr as *u16;
+
+
+        *family_ptr = libc.AF_INET as u16;
+            unsafe {
+
+                family_ptr := server_addr as *u16;
+
+
+        port_ptr := (server_addr as usize + 2) as *u16;
+                *family_ptr = libc.AF_INET as u16;
+
+
+        *port_ptr = htons(port);
+
+
+                port_ptr := (server_addr as usize + 2) as *u16;
+
+
+        if addr == "0.0.0.0" || addr == "" {        *port_ptr = htons(port);
+
+
+            ip_ptr := (server_addr as usize + 4) as *u32;
+
+
+            *ip_ptr = 0;
+                    if addr == "0.0.0.0" || addr == "" {
+
+        } else {            ip_ptr := (server_addr as usize + 4) as *u32;
+
+
+            libc.inet_pton(libc.AF_INET, addr_cstr, (server_addr as usize + 4) as *byte);
+                        *ip_ptr = 0;
+
+
+        }        } else {
+
+    }            libc.inet_pton(libc.AF_INET, addr_cstr, (server_addr as usize + 4) as *byte);
+
+
+            }
+
+    bind_result := unsafe { libc.bind(sockfd, server_addr as *libc.sockaddr, 16) };
+        }
+
+        
+
+    if bind_result < 0 {    bind_result := unsafe { libc.bind(sockfd, server_addr as *libc.sockaddr, 16) };
+
+
+        unsafe { libc.close(sockfd);
+         }    
+
+        return error.new("Failed to bind UDP socket");
+            if bind_result < 0 {
+
+    }        unsafe { libc.close(sockfd);
+     }
+
+            return error.new("Failed to bind socket");
+
+
+    return UdpSocket {    }
+
+        fd: sockfd,    
+
+        local_addr: addr,    listen_result := unsafe { libc.listen(sockfd, 128) };
+
+
+        local_port: port,    
+
+    };
+        if listen_result < 0 {
+
+}        unsafe { libc.close(sockfd);
+ }
+
+        return error.new("Failed to listen on socket");
+
+
+export fn (socket: &UdpSocket) recv_from(buffer: *byte, size: usize): (i64, string, u16 | error) {    }
+
+    from_addr := libc.safe_malloc(16)?;
+
+
+    defer libc.safe_free(from_addr);
+        return TcpListener {
+
+            fd: sockfd,
+
+    from_len: u32 = 16;
+            local_addr: addr,
+
+            local_port: port,
+
+    bytes := unsafe {     };
+
+
+        libc.recvfrom(socket.fd, buffer, size, 0, from_addr as *libc.sockaddr, &from_len) }
+
+    };
+
+
+    export fn (listener: &TcpListener) accept(): (TcpStream | error) {
+
+    if bytes < 0 {    client_addr := libc.safe_malloc(16)?;
+
+
+        return error.new("Failed to receive UDP packet");
+            defer libc.safe_free(client_addr);
+
+
+    }    
+
+        client_len: u32 = 16;
+
+
+    return (bytes, "unknown", 0);
+
+
+}    client_fd := unsafe { libc.accept(listener.fd, client_addr as *libc.sockaddr, &client_len) };
+
+
+    
+
+export fn (socket: &UdpSocket) send_to(data: *byte, size: usize, addr: string, port: u16): (i64 | error) {    if client_fd < 0 {
+
+    addr_cstr := to_c_string(addr);
+            return error.new("Failed to accept connection");
+
+
+    defer libc.safe_free(addr_cstr);
+        }
+
+        
+
+    dest_addr := libc.safe_malloc(16)?;
+        return TcpStream {
+
+    defer libc.safe_free(dest_addr);
+            fd: client_fd,
+
+            remote_addr: "unknown",
+
+    unsafe {        remote_port: 0,
+
+        family_ptr := dest_addr as *u16;
+            };
+
+
+        *family_ptr = libc.AF_INET as u16;
+        }
+
+        
+
+        port_ptr := (dest_addr as usize + 2) as *u16;
+        export fn (listener: &TcpListener) close(): (bool | error) {
+
+        *port_ptr = htons(port);
+            result := unsafe { libc.close(listener.fd) };
+
+
+            
+
+        libc.inet_pton(libc.AF_INET, addr_cstr, (dest_addr as usize + 4) as *byte);
+            if result != 0 {
+
+    }        return error.new("Failed to close listener");
+
+
+        }
+
+    bytes := unsafe {    
+
+        libc.sendto(socket.fd, data, size, 0, dest_addr as *libc.sockaddr, 16)    return true;
+
+
+    };
+    }
+
+    
+
+    if bytes < 0 {export struct UdpSocket {
+
+        return error.new("Failed to send UDP packet");
+            fd: i32,
+
+    }    local_addr: string,
+
+        local_port: u16,
+
+    return bytes;
+    }
+
+}
+
+export fn bind_udp(addr: string, port: u16): (UdpSocket | error) {
+
+export fn (socket: &UdpSocket) close(): (bool | error) {    sockfd := unsafe { libc.socket(libc.AF_INET, libc.SOCK_DGRAM, 0) };
+
+
+    result := unsafe { libc.close(socket.fd) };
+
+
+        if sockfd < 0 {
+
+    if result != 0 {        return error.new("Failed to create UDP socket");
+
+
+        return error.new("Failed to close UDP socket");
+            }
+
+    }    
+
+        addr_cstr := to_c_string(addr);
+
+
+    return true;
+        defer libc.safe_free(addr_cstr);
+
+
+}    
+
+    server_addr := libc.safe_malloc(16)?;
+
+
+fn htons(port: u16): u16 {    defer libc.safe_free(server_addr);
+
+
+    return ((port & 0xFF) << 8) | ((port >> 8) & 0xFF);
+
+
+}    unsafe {
+
+        family_ptr := server_addr as *u16;
+
+
+fn to_c_string(s: string): *byte {        *family_ptr = libc.AF_INET as u16;
+
+
+    len := s.len();
+
+
+    ptr_result := libc.safe_malloc(len + 1);
+            port_ptr := (server_addr as usize + 2) as *u16;
+
+
+            *port_ptr = htons(port);
+
+
+    match ptr_result {        
+
+        ptr: *byte => {        if addr == "0.0.0.0" || addr == "" {
+
+            src := s.as_ptr();
+                        ip_ptr := (server_addr as usize + 4) as *u32;
+
+
+            unsafe { libc.memcpy(ptr, src, len);
+             }            *ip_ptr = 0;
+
+
+            unsafe { *(ptr + len) = 0;
+             }        } else {
+
+            return ptr;
+                        libc.inet_pton(libc.AF_INET, addr_cstr, (server_addr as usize + 4) as *byte);
+
+
+        },        }
+
+        err: error => {    }
+
+            return 0 as *byte;
+
+
+        },    bind_result := unsafe { libc.bind(sockfd, server_addr as *libc.sockaddr, 16) };
+
+
+    }    
+
+}    if bind_result < 0 {
+
+        unsafe { libc.close(sockfd);
+         }
+        return error.new("Failed to bind UDP socket");
+
+    }
+    
+    return UdpSocket {
+        fd: sockfd,
+        local_addr: addr,
+        local_port: port,
+    };
+
+}
+
+export fn (socket: &UdpSocket) recv_from(buffer: *byte, size: usize): (i64, string, u16 | error) {
+    from_addr := libc.safe_malloc(16)?;
+
+    defer libc.safe_free(from_addr);
+
+    
+    from_len: u32 = 16;
+
+    
+    bytes := unsafe { 
+        libc.recvfrom(socket.fd, buffer, size, 0, from_addr as *libc.sockaddr, &from_len) 
+    };
+
+    
+    if bytes < 0 {
+        return error.new("Failed to receive UDP packet");
+
+    }
+    
+    return (bytes, "unknown", 0);
+
+}
+
+export fn (socket: &UdpSocket) send_to(data: *byte, size: usize, addr: string, port: u16): (i64 | error) {
+    addr_cstr := to_c_string(addr);
+
+    defer libc.safe_free(addr_cstr);
+
+    
+    dest_addr := libc.safe_malloc(16)?;
+
+    defer libc.safe_free(dest_addr);
+
+    
+    unsafe {
+        family_ptr := dest_addr as *u16;
+
+        *family_ptr = libc.AF_INET as u16;
+
+        
+        port_ptr := (dest_addr as usize + 2) as *u16;
+
+        *port_ptr = htons(port);
+
+        
+        libc.inet_pton(libc.AF_INET, addr_cstr, (dest_addr as usize + 4) as *byte);
+
+    }
+    
+    bytes := unsafe {
+        libc.sendto(socket.fd, data, size, 0, dest_addr as *libc.sockaddr, 16)
+    };
+
+    
+    if bytes < 0 {
+        return error.new("Failed to send UDP packet");
+
+    }
+    
+    return bytes;
+
+}
+
+export fn (socket: &UdpSocket) close(): (bool | error) {
+    result := unsafe { libc.close(socket.fd) };
+
+    
+    if result != 0 {
+        return error.new("Failed to close UDP socket");
+
+    }
+    
+    return true;
+
+}
+
+fn htons(port: u16): u16 {
+    return ((port & 0xFF) << 8) | ((port >> 8) & 0xFF);
+
+}
+
+fn to_c_string(s: string): *byte {
+    len := s.len();
+
+    ptr_result := libc.safe_malloc(len + 1);
+
+    
+    match ptr_result {
+        ptr: *byte => {
+            src := s.as_ptr();
+
+            unsafe { libc.memcpy(ptr, src, len);
+             }
+            unsafe { *(ptr + len) = 0;
+             }
+            return ptr;
+
+        },
+        err: error => {
+            return 0 as *byte;
+
+        },
+    }
 }

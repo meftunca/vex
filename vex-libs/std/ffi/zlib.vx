@@ -33,7 +33,7 @@ extern {
 }
 
 // zlib stream structure
-struct z_stream {
+export struct z_stream {
     next_in: *byte,
     avail_in: u32,
     total_in: u64,
@@ -55,33 +55,33 @@ struct z_stream {
 }
 
 // Return codes
-const Z_OK: i32 = 0;
-const Z_STREAM_END: i32 = 1;
-const Z_NEED_DICT: i32 = 2;
-const Z_ERRNO: i32 = -1;
-const Z_STREAM_ERROR: i32 = -2;
-const Z_DATA_ERROR: i32 = -3;
-const Z_MEM_ERROR: i32 = -4;
-const Z_BUF_ERROR: i32 = -5;
-const Z_VERSION_ERROR: i32 = -6;
+export const Z_OK: i32 = 0;
+export const Z_STREAM_END: i32 = 1;
+export const Z_NEED_DICT: i32 = 2;
+export const Z_ERRNO: i32 = -1;
+export const Z_STREAM_ERROR: i32 = -2;
+export const Z_DATA_ERROR: i32 = -3;
+export const Z_MEM_ERROR: i32 = -4;
+export const Z_BUF_ERROR: i32 = -5;
+export const Z_VERSION_ERROR: i32 = -6;
 
 // Compression levels
-const Z_NO_COMPRESSION: i32 = 0;
-const Z_BEST_SPEED: i32 = 1;
-const Z_BEST_COMPRESSION: i32 = 9;
-const Z_DEFAULT_COMPRESSION: i32 = -1;
+export const Z_NO_COMPRESSION: i32 = 0;
+export const Z_BEST_SPEED: i32 = 1;
+export const Z_BEST_COMPRESSION: i32 = 9;
+export const Z_DEFAULT_COMPRESSION: i32 = -1;
 
 // Flush values
-const Z_NO_FLUSH: i32 = 0;
-const Z_PARTIAL_FLUSH: i32 = 1;
-const Z_SYNC_FLUSH: i32 = 2;
-const Z_FULL_FLUSH: i32 = 3;
-const Z_FINISH: i32 = 4;
-const Z_BLOCK: i32 = 5;
-const Z_TREES: i32 = 6;
+export const Z_NO_FLUSH: i32 = 0;
+export const Z_PARTIAL_FLUSH: i32 = 1;
+export const Z_SYNC_FLUSH: i32 = 2;
+export const Z_FULL_FLUSH: i32 = 3;
+export const Z_FINISH: i32 = 4;
+export const Z_BLOCK: i32 = 5;
+export const Z_TREES: i32 = 6;
 
 // Safe wrapper: Simple compression
-fn compress_data(data: [byte], level: i32):([byte] | error) {
+export fn compress_data(data: [byte], level: i32):([byte] | error) {
     source_len := data.len();
     dest_len := source_len + (source_len / 1000) + 12; // zlib overhead
     dest := make([byte], dest_len);
@@ -102,7 +102,7 @@ fn compress_data(data: [byte], level: i32):([byte] | error) {
 }
 
 // Safe wrapper: Simple decompression
-fn decompress_data(compressed: [byte], expected_size: usize):([byte] | error) {
+export fn decompress_data(compressed: [byte], expected_size: usize):([byte] | error) {
     dest := make([byte], expected_size);
     actual_len := expected_size;
     
@@ -119,6 +119,6 @@ fn decompress_data(compressed: [byte], expected_size: usize):([byte] | error) {
 }
 
 // CRC32 checksum
-fn calculate_crc32(data: [byte]):u32 {
+export fn calculate_crc32(data: [byte]):u32 {
     return unsafe { crc32(0, data.as_ptr(), data.len() as u32) };
 }

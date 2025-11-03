@@ -8,7 +8,7 @@ import { openssl } from "../ffi";
 // ============================================================================
 
 // SHA-256 hash
-fn sha256(data: &[byte]):[byte; 32] {
+export fn sha256(data: &[byte]):[byte; 32] {
     hash := [byte; 32];
     
     unsafe {
@@ -23,7 +23,7 @@ fn sha256(data: &[byte]):[byte; 32] {
 }
 
 // SHA-512 hash
-fn sha512(data: &[byte]):[byte; 64] {
+export fn sha512(data: &[byte]):[byte; 64] {
     hash := [byte; 64];
     
     unsafe {
@@ -38,7 +38,7 @@ fn sha512(data: &[byte]):[byte; 64] {
 }
 
 // MD5 hash (deprecated, use only for compatibility)
-fn md5(data: &[byte]):[byte; 16] {
+export fn md5(data: &[byte]):[byte; 16] {
     hash := [byte; 16];
     
     unsafe {
@@ -53,7 +53,7 @@ fn md5(data: &[byte]):[byte; 16] {
 }
 
 // SHA-1 hash (deprecated, use only for compatibility)
-fn sha1(data: &[byte]):[byte; 20] {
+export fn sha1(data: &[byte]):[byte; 20] {
     hash := [byte; 20];
     
     unsafe {
@@ -72,7 +72,7 @@ fn sha1(data: &[byte]):[byte; 20] {
 // ============================================================================
 
 // HMAC-SHA256
-fn hmac_sha256(key: &[byte], data: &[byte]):[byte; 32] {
+export fn hmac_sha256(key: &[byte], data: &[byte]):[byte; 32] {
     hmac := [byte; 32];
     let mut len: u32 = 32;
     
@@ -92,7 +92,7 @@ fn hmac_sha256(key: &[byte], data: &[byte]):[byte; 32] {
 }
 
 // HMAC-SHA512
-fn hmac_sha512(key: &[byte], data: &[byte]):[byte; 64] {
+export fn hmac_sha512(key: &[byte], data: &[byte]):[byte; 64] {
     hmac := [byte; 64];
     let mut len: u32 = 64;
     
@@ -116,7 +116,7 @@ fn hmac_sha512(key: &[byte], data: &[byte]):[byte; 64] {
 // ============================================================================
 
 // Generate random bytes
-fn random_bytes(count: usize):[byte] {
+export fn random_bytes(count: usize):[byte] {
     bytes := make([byte], count);
     
     result := unsafe {
@@ -132,14 +132,14 @@ fn random_bytes(count: usize):[byte] {
 }
 
 // Generate random u32
-fn random_u32():u32 {
+export fn random_u32():u32 {
     bytes := random_bytes(4);
     return (bytes[0] as u32) | ((bytes[1] as u32) << 8) | 
            ((bytes[2] as u32) << 16) | ((bytes[3] as u32) << 24);
 }
 
 // Generate random u64
-fn random_u64():u64 {
+export fn random_u64():u64 {
     bytes := random_bytes(8);
     return (bytes[0] as u64) | ((bytes[1] as u64) << 8) | 
            ((bytes[2] as u64) << 16) | ((bytes[3] as u64) << 24) |
@@ -148,7 +148,7 @@ fn random_u64():u64 {
 }
 
 // Generate random i32 in range [min, max)
-fn random_range(min: i32, max: i32):i32 {
+export fn random_range(min: i32, max: i32):i32 {
     range := (max - min) as u32;
     random := random_u32();
     return min + (random % range) as i32;
@@ -159,7 +159,7 @@ fn random_range(min: i32, max: i32):i32 {
 // ============================================================================
 
 // AES-256-CBC encryption
-fn aes_256_cbc_encrypt(key: &[byte; 32], iv: &[byte; 16], plaintext: &[byte]):([byte] | error) {
+export fn aes_256_cbc_encrypt(key: &[byte; 32], iv: &[byte; 16], plaintext: &[byte]):([byte] | error) {
     if key.len() != 32 {
         return error.new("Key must be 32 bytes for AES-256");
     }
@@ -232,7 +232,7 @@ fn aes_256_cbc_encrypt(key: &[byte; 32], iv: &[byte; 16], plaintext: &[byte]):([
 }
 
 // AES-256-CBC decryption
-fn aes_256_cbc_decrypt(key: &[byte; 32], iv: &[byte; 16], ciphertext: &[byte]):([byte] | error) {
+export fn aes_256_cbc_decrypt(key: &[byte; 32], iv: &[byte; 16], ciphertext: &[byte]):([byte] | error) {
     if key.len() != 32 {
         return error.new("Key must be 32 bytes for AES-256");
     }
@@ -309,7 +309,7 @@ fn aes_256_cbc_decrypt(key: &[byte; 32], iv: &[byte; 16], ciphertext: &[byte]):(
 // ============================================================================
 
 // PBKDF2 with SHA-256
-fn pbkdf2_sha256(password: &[byte], salt: &[byte], iterations: i32, key_len: usize):[byte] {
+export fn pbkdf2_sha256(password: &[byte], salt: &[byte], iterations: i32, key_len: usize):[byte] {
     derived_key := make([byte], key_len);
     
     result := unsafe {
@@ -338,7 +338,7 @@ fn pbkdf2_sha256(password: &[byte], salt: &[byte], iterations: i32, key_len: usi
 // ============================================================================
 
 // Compare two byte arrays in constant time
-fn constant_time_compare(a: &[byte], b: &[byte]):bool {
+export fn constant_time_compare(a: &[byte], b: &[byte]):bool {
     if a.len() != b.len() {
         return false;
     }
@@ -359,7 +359,7 @@ fn constant_time_compare(a: &[byte], b: &[byte]):bool {
 // ============================================================================
 
 // Generate AES key from password
-fn derive_aes_key(password: string, salt: &[byte]):[byte; 32] {
+export fn derive_aes_key(password: string, salt: &[byte]):[byte; 32] {
     password_bytes := password.as_bytes();
     key := pbkdf2_sha256(&password_bytes, salt, 100000, 32);
     
@@ -373,7 +373,7 @@ fn derive_aes_key(password: string, salt: &[byte]):[byte; 32] {
 }
 
 // Generate random IV for AES
-fn generate_aes_iv():[byte; 16] {
+export fn generate_aes_iv():[byte; 16] {
     bytes := random_bytes(16);
     
     iv := [byte; 16];
@@ -385,6 +385,6 @@ fn generate_aes_iv():[byte; 16] {
 }
 
 // Generate random salt
-fn generate_salt(len: usize):[byte] {
+export fn generate_salt(len: usize):[byte] {
     return random_bytes(len);
 }

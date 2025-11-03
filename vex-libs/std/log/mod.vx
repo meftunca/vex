@@ -1,34 +1,34 @@
 // std/log - Logging functions (Go-style)
 
-fn Println(message: string) {
+export fn Println(message: string) {
     println(message);
 }
 
-fn Printf(format: string) {
+export fn Printf(format: string) {
     print(format);
 }
 
-fn Info(message: string) {
+export fn Info(message: string) {
     print("[INFO] ");
     println(message);
 }
 
-fn Warn(message: string) {
+export fn Warn(message: string) {
     print("[WARN] ");
     println(message);
 }
 
-fn Error(message: string) {
+export fn Error(message: string) {
     print("[ERROR] ");
     println(message);
 }
 
-fn Debug(message: string) {
+export fn Debug(message: string) {
     print("[DEBUG] ");
     println(message);
 }
 
-fn Fatal(message: string) {
+export fn Fatal(message: string) {
     print("[FATAL] ");
     println(message);
 }

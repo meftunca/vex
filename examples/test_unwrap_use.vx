@@ -1,8 +1,0 @@
-// Test Unwrap type with usage
-type Unwrap<T> = T extends &[infer E] ? E : T;
-
-type C = Unwrap<&[string]>;
-
-fn main(): i32 {
-    return 0;
-}

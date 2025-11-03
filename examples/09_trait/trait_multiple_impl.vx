@@ -1,0 +1,53 @@
+// Practical Trait System Example - Multiple Implementations
+// Demonstrates working inline trait implementation in Vex v1.3
+
+// 1. Define a Display trait
+trait Display {
+    fn (self: &Self!) show();
+}
+
+// 2. Point struct with Display implementation
+struct Point impl Display {
+    x: i32,
+    y: i32,
+    
+    fn (self: &Point!) show() {
+        // In real code, would print coordinates
+    }
+    
+    fn (self: &Point!) distance() : i32 {
+        // Calculate distance from origin
+        // For now, just return a value
+        let result = 42;
+        return result;
+    }
+}
+
+// 3. Rectangle struct with Display implementation
+struct Rectangle impl Display {
+    width: i32,
+    height: i32,
+    
+    fn (self: &Rectangle!) show() {
+        // In real code, would print dimensions
+    }
+    
+    fn (self: &Rectangle!) area() : i32 {
+        let w = self.width;
+        let h = self.height;
+        let result = w * h;
+        return result;
+    }
+}
+
+fn main() {
+    // Create and use Point
+    let! p = Point { x: 10, y: 20 };
+    p.show();
+    let d = p.distance();
+    
+    // Create and use Rectangle
+    let! r = Rectangle { width: 5, height: 3 };
+    r.show();
+    let a = r.area();
+}

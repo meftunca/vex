@@ -236,6 +236,33 @@ extern {
                 errbuf_size: usize):usize;
 }
 
+// Socket functions
+#[link(name = "c")]
+extern {
+    type sockaddr;
+    type sockaddr_in;
+    type sockaddr_in6;
+    
+    fn socket(domain: i32, sock_type: i32, protocol: i32):i32;
+    fn connect(sockfd: i32, addr: *sockaddr, addrlen: u32):i32;
+    fn bind(sockfd: i32, addr: *sockaddr, addrlen: u32):i32;
+    fn listen(sockfd: i32, backlog: i32):i32;
+    fn accept(sockfd: i32, addr: *sockaddr, addrlen: *u32):i32;
+    fn send(sockfd: i32, buf: *byte, len: usize, flags: i32):i64;
+    fn recv(sockfd: i32, buf: *byte, len: usize, flags: i32):i64;
+    fn sendto(sockfd: i32, buf: *byte, len: usize, flags: i32, 
+              dest_addr: *sockaddr, addrlen: u32):i64;
+    fn recvfrom(sockfd: i32, buf: *byte, len: usize, flags: i32,
+                src_addr: *sockaddr, addrlen: *u32):i64;
+    fn setsockopt(sockfd: i32, level: i32, optname: i32, 
+                  optval: *byte, optlen: u32):i32;
+    fn getsockopt(sockfd: i32, level: i32, optname: i32,
+                  optval: *byte, optlen: *u32):i32;
+    fn shutdown(sockfd: i32, how: i32):i32;
+    fn inet_pton(af: i32, src: *byte, dst: *byte):i32;
+    fn inet_ntop(af: i32, src: *byte, dst: *byte, size: u32):*byte;
+}
+
 // Time functions
 #[link(name = "c")]
 extern {
@@ -254,143 +281,165 @@ extern {
 }
 
 // Constants - File I/O flags
-const O_RDONLY: i32 = 0;
-const O_WRONLY: i32 = 1;
-const O_RDWR: i32 = 2;
-const O_CREAT: i32 = 64;
-const O_TRUNC: i32 = 512;
-const O_APPEND: i32 = 1024;
+export const O_RDONLY: i32 = 0;
+export const O_WRONLY: i32 = 1;
+export const O_RDWR: i32 = 2;
+export const O_CREAT: i32 = 64;
+export const O_TRUNC: i32 = 512;
+export const O_APPEND: i32 = 1024;
 
 // Constants - lseek whence
-const SEEK_SET: i32 = 0;  // Seek from beginning
-const SEEK_CUR: i32 = 1;  // Seek from current position
-const SEEK_END: i32 = 2;  // Seek from end
+export const SEEK_SET: i32 = 0;  // Seek from beginning
+export const SEEK_CUR: i32 = 1;  // Seek from current position
+export const SEEK_END: i32 = 2;  // Seek from end
 
 // Constants - glob flags
-const GLOB_ERR: i32 = 1;
-const GLOB_MARK: i32 = 2;
-const GLOB_NOSORT: i32 = 4;
-const GLOB_DOOFFS: i32 = 8;
-const GLOB_NOCHECK: i32 = 16;
-const GLOB_APPEND: i32 = 32;
-const GLOB_NOESCAPE: i32 = 64;
+export const GLOB_ERR: i32 = 1;
+export const GLOB_MARK: i32 = 2;
+export const GLOB_NOSORT: i32 = 4;
+export const GLOB_DOOFFS: i32 = 8;
+export const GLOB_NOCHECK: i32 = 16;
+export const GLOB_APPEND: i32 = 32;
+export const GLOB_NOESCAPE: i32 = 64;
 
 // Constants - mmap prot flags (also in platform/unix.vx)
-const PROT_NONE: i32 = 0;
-const PROT_READ: i32 = 1;
-const PROT_WRITE: i32 = 2;
-const PROT_EXEC: i32 = 4;
+export const PROT_NONE: i32 = 0;
+export const PROT_READ: i32 = 1;
+export const PROT_WRITE: i32 = 2;
+export const PROT_EXEC: i32 = 4;
 
 // Constants - mmap flags
-const MAP_SHARED: i32 = 1;
-const MAP_PRIVATE: i32 = 2;
-const MAP_FIXED: i32 = 16;
-const MAP_ANONYMOUS: i32 = 32;
-const MAP_ANON: i32 = 32;  // Alias
+export const MAP_SHARED: i32 = 1;
+export const MAP_PRIVATE: i32 = 2;
+export const MAP_FIXED: i32 = 16;
+export const MAP_ANONYMOUS: i32 = 32;
+export const MAP_ANON: i32 = 32;  // Alias
 
 // Constants - clock_gettime clocks
-const CLOCK_REALTIME: i32 = 0;
-const CLOCK_MONOTONIC: i32 = 1;
-const CLOCK_PROCESS_CPUTIME_ID: i32 = 2;
-const CLOCK_THREAD_CPUTIME_ID: i32 = 3;
-const CLOCK_MONOTONIC_RAW: i32 = 4;
-const CLOCK_REALTIME_COARSE: i32 = 5;
-const CLOCK_MONOTONIC_COARSE: i32 = 6;
-const CLOCK_BOOTTIME: i32 = 7;
+export const CLOCK_REALTIME: i32 = 0;
+export const CLOCK_MONOTONIC: i32 = 1;
+export const CLOCK_PROCESS_CPUTIME_ID: i32 = 2;
+export const CLOCK_THREAD_CPUTIME_ID: i32 = 3;
+export const CLOCK_MONOTONIC_RAW: i32 = 4;
+export const CLOCK_REALTIME_COARSE: i32 = 5;
+export const CLOCK_MONOTONIC_COARSE: i32 = 6;
+export const CLOCK_BOOTTIME: i32 = 7;
 
 // Constants - Signal numbers
-const SIGHUP: i32 = 1;     // Hangup
-const SIGINT: i32 = 2;     // Interrupt (Ctrl+C)
-const SIGQUIT: i32 = 3;    // Quit
-const SIGILL: i32 = 4;     // Illegal instruction
-const SIGTRAP: i32 = 5;    // Trace trap
-const SIGABRT: i32 = 6;    // Abort
-const SIGBUS: i32 = 7;     // Bus error
-const SIGFPE: i32 = 8;     // Floating point exception
-const SIGKILL: i32 = 9;    // Kill (can't be caught)
-const SIGUSR1: i32 = 10;   // User-defined signal 1
-const SIGSEGV: i32 = 11;   // Segmentation fault
-const SIGUSR2: i32 = 12;   // User-defined signal 2
-const SIGPIPE: i32 = 13;   // Broken pipe
-const SIGALRM: i32 = 14;   // Alarm clock
-const SIGTERM: i32 = 15;   // Termination
-const SIGCHLD: i32 = 17;   // Child process terminated
-const SIGCONT: i32 = 18;   // Continue if stopped
-const SIGSTOP: i32 = 19;   // Stop process (can't be caught)
-const SIGTSTP: i32 = 20;   // Stop typed at terminal
+export const SIGHUP: i32 = 1;     // Hangup
+export const SIGINT: i32 = 2;     // Interrupt (Ctrl+C)
+export const SIGQUIT: i32 = 3;    // Quit
+export const SIGILL: i32 = 4;     // Illegal instruction
+export const SIGTRAP: i32 = 5;    // Trace trap
+export const SIGABRT: i32 = 6;    // Abort
+export const SIGBUS: i32 = 7;     // Bus error
+export const SIGFPE: i32 = 8;     // Floating point exception
+export const SIGKILL: i32 = 9;    // Kill (can't be caught)
+export const SIGUSR1: i32 = 10;   // User-defined signal 1
+export const SIGSEGV: i32 = 11;   // Segmentation fault
+export const SIGUSR2: i32 = 12;   // User-defined signal 2
+export const SIGPIPE: i32 = 13;   // Broken pipe
+export const SIGALRM: i32 = 14;   // Alarm clock
+export const SIGTERM: i32 = 15;   // Termination
+export const SIGCHLD: i32 = 17;   // Child process terminated
+export const SIGCONT: i32 = 18;   // Continue if stopped
+export const SIGSTOP: i32 = 19;   // Stop process (can't be caught)
+export const SIGTSTP: i32 = 20;   // Stop typed at terminal
 
 // Constants - Wait options
-const WNOHANG: i32 = 1;    // Don't block
-const WUNTRACED: i32 = 2;  // Report stopped children
+export const WNOHANG: i32 = 1;    // Don't block
+export const WUNTRACED: i32 = 2;  // Report stopped children
 
 // Constants - Standard file descriptors
-const STDIN_FILENO: i32 = 0;
-const STDOUT_FILENO: i32 = 1;
-const STDERR_FILENO: i32 = 2;
+export const STDIN_FILENO: i32 = 0;
+export const STDOUT_FILENO: i32 = 1;
+export const STDERR_FILENO: i32 = 2;
 
 // Constants - Exit codes
-const EXIT_SUCCESS: i32 = 0;
-const EXIT_FAILURE: i32 = 1;
+export const EXIT_SUCCESS: i32 = 0;
+export const EXIT_FAILURE: i32 = 1;
 
 // Constants - Regular expression flags
-const REG_EXTENDED: i32 = 1;    // Use Extended Regular Expressions
-const REG_ICASE: i32 = 2;       // Ignore case in match
-const REG_NOSUB: i32 = 4;       // Report only success/fail in regexec
-const REG_NEWLINE: i32 = 8;     // Change behavior of . and ^/$
+export const REG_EXTENDED: i32 = 1;    // Use Extended Regular Expressions
+export const REG_ICASE: i32 = 2;       // Ignore case in match
+export const REG_NOSUB: i32 = 4;       // Report only success/fail in regexec
+export const REG_NEWLINE: i32 = 8;     // Change behavior of . and ^/$
 
 // Constants - Regular expression exec flags
-const REG_NOTBOL: i32 = 1;      // First char is not beginning of line
-const REG_NOTEOL: i32 = 2;      // Last char is not end of line
+export const REG_NOTBOL: i32 = 1;      // First char is not beginning of line
+export const REG_NOTEOL: i32 = 2;      // Last char is not end of line
 
 // Constants - Regular expression error codes
-const REG_NOMATCH: i32 = 1;     // No match found
-const REG_BADPAT: i32 = 2;      // Invalid pattern
-const REG_ECOLLATE: i32 = 3;    // Invalid collating element
-const REG_ECTYPE: i32 = 4;      // Invalid character class
-const REG_EESCAPE: i32 = 5;     // Trailing backslash
-const REG_ESUBREG: i32 = 6;     // Invalid back reference
-const REG_EBRACK: i32 = 7;      // Unmatched brackets
-const REG_EPAREN: i32 = 8;      // Unmatched parentheses
-const REG_EBRACE: i32 = 9;      // Unmatched braces
-const REG_BADBR: i32 = 10;      // Invalid repetition count
-const REG_ERANGE: i32 = 11;     // Invalid character range
-const REG_ESPACE: i32 = 12;     // Out of memory
-const REG_BADRPT: i32 = 13;     // Invalid use of repetition
+export const REG_NOMATCH: i32 = 1;     // No match found
+export const REG_BADPAT: i32 = 2;      // Invalid pattern
+export const REG_ECOLLATE: i32 = 3;    // Invalid collating element
+export const REG_ECTYPE: i32 = 4;      // Invalid character class
+export const REG_EESCAPE: i32 = 5;     // Trailing backslash
+export const REG_ESUBREG: i32 = 6;     // Invalid back reference
+export const REG_EBRACK: i32 = 7;      // Unmatched brackets
+export const REG_EPAREN: i32 = 8;      // Unmatched parentheses
+export const REG_EBRACE: i32 = 9;      // Unmatched braces
+export const REG_BADBR: i32 = 10;      // Invalid repetition count
+export const REG_ERANGE: i32 = 11;     // Invalid character range
+export const REG_ESPACE: i32 = 12;     // Out of memory
+export const REG_BADRPT: i32 = 13;     // Invalid use of repetition
 
 // Constants - pthread errors
-const PTHREAD_MUTEX_NORMAL: i32 = 0;
-const PTHREAD_MUTEX_RECURSIVE: i32 = 1;
-const PTHREAD_MUTEX_ERRORCHECK: i32 = 2;
-const PTHREAD_MUTEX_DEFAULT: i32 = 0;
+export const PTHREAD_MUTEX_NORMAL: i32 = 0;
+export const PTHREAD_MUTEX_RECURSIVE: i32 = 1;
+export const PTHREAD_MUTEX_ERRORCHECK: i32 = 2;
+export const PTHREAD_MUTEX_DEFAULT: i32 = 0;
 
-const EBUSY: i32 = 16;          // Resource busy
-const ETIMEDOUT: i32 = 110;     // Connection timed out
-const EINVAL: i32 = 22;         // Invalid argument
-const EAGAIN: i32 = 11;         // Try again
-const EDEADLK: i32 = 35;        // Resource deadlock would occur
+export const EBUSY: i32 = 16;          // Resource busy
+export const ETIMEDOUT: i32 = 110;     // Connection timed out
+export const EINVAL: i32 = 22;         // Invalid argument
+export const EAGAIN: i32 = 11;         // Try again
+export const EDEADLK: i32 = 35;        // Resource deadlock would occur
+
+// Socket constants - Address families
+export const AF_INET: i32 = 2;         // IPv4
+export const AF_INET6: i32 = 10;       // IPv6
+export const AF_UNIX: i32 = 1;         // Unix domain sockets
+
+// Socket types
+export const SOCK_STREAM: i32 = 1;     // TCP
+export const SOCK_DGRAM: i32 = 2;      // UDP
+export const SOCK_RAW: i32 = 3;        // Raw socket
+
+// Socket options
+export const SOL_SOCKET: i32 = 1;
+export const SO_REUSEADDR: i32 = 2;
+export const SO_KEEPALIVE: i32 = 9;
+export const SO_RCVTIMEO: i32 = 20;
+export const SO_SNDTIMEO: i32 = 21;
+
+// Shutdown options
+export const SHUT_RD: i32 = 0;         // Shutdown read
+export const SHUT_WR: i32 = 1;         // Shutdown write
+export const SHUT_RDWR: i32 = 2;       // Shutdown both
 
 // Constants - File permissions (Unix mode_t)
-const S_IRWXU: u32 = 0o700;  // User: rwx
-const S_IRUSR: u32 = 0o400;  // User: r--
-const S_IWUSR: u32 = 0o200;  // User: -w-
-const S_IXUSR: u32 = 0o100;  // User: --x
-const S_IRWXG: u32 = 0o070;  // Group: rwx
-const S_IRGRP: u32 = 0o040;  // Group: r--
-const S_IWGRP: u32 = 0o020;  // Group: -w-
-const S_IXGRP: u32 = 0o010;  // Group: --x
-const S_IRWXO: u32 = 0o007;  // Others: rwx
-const S_IROTH: u32 = 0o004;  // Others: r--
-const S_IWOTH: u32 = 0o002;  // Others: -w-
-const S_IXOTH: u32 = 0o001;  // Others: --x
+export const S_IRWXU: u32 = 0o700;  // User: rwx
+export const S_IRUSR: u32 = 0o400;  // User: r--
+export const S_IWUSR: u32 = 0o200;  // User: -w-
+export const S_IXUSR: u32 = 0o100;  // User: --x
+export const S_IRWXG: u32 = 0o070;  // Group: rwx
+export const S_IRGRP: u32 = 0o040;  // Group: r--
+export const S_IWGRP: u32 = 0o020;  // Group: -w-
+export const S_IXGRP: u32 = 0o010;  // Group: --x
+export const S_IRWXO: u32 = 0o007;  // Others: rwx
+export const S_IROTH: u32 = 0o004;  // Others: r--
+export const S_IWOTH: u32 = 0o002;  // Others: -w-
+export const S_IXOTH: u32 = 0o001;  // Others: --x
 
 // Common permission combinations
-const S_IRWXUGO: u32 = 0o777;  // rwxrwxrwx
-const S_IRUGO: u32 = 0o444;    // r--r--r--
-const S_IWUGO: u32 = 0o222;    // -w--w--w-
-const S_IXUGO: u32 = 0o111;    // --x--x--x
+export const S_IRWXUGO: u32 = 0o777;  // rwxrwxrwx
+export const S_IRUGO: u32 = 0o444;    // r--r--r--
+export const S_IWUGO: u32 = 0o222;    // -w--w--w-
+export const S_IXUGO: u32 = 0o111;    // --x--x--x
 
 // Safe wrappers (exported API)
-fn safe_malloc(size: usize):(*byte | error) {
+export fn safe_malloc(size: usize):(*byte | error) {
     ptr := unsafe { malloc(size) };
     if ptr as usize == 0 {
         return error.new("Out of memory");
@@ -398,18 +447,18 @@ fn safe_malloc(size: usize):(*byte | error) {
     return ptr;
 }
 
-fn safe_free(ptr: *byte) {
+export fn safe_free(ptr: *byte) {
     if ptr as usize != 0 {
         unsafe { free(ptr); }
     }
 }
 
-fn safe_strlen(s: *byte):usize {
+export fn safe_strlen(s: *byte):usize {
     return unsafe { strlen(s) };
 }
 
 // Safe filesystem wrappers
-fn safe_mkdir(path: *byte, mode: u32):(i32 | error) {
+export fn safe_mkdir(path: *byte, mode: u32):(i32 | error) {
     result := unsafe { mkdir(path, mode) };
     if result != 0 {
         return error.new("Failed to create directory");
@@ -417,7 +466,7 @@ fn safe_mkdir(path: *byte, mode: u32):(i32 | error) {
     return result;
 }
 
-fn safe_rmdir(path: *byte):(i32 | error) {
+export fn safe_rmdir(path: *byte):(i32 | error) {
     result := unsafe { rmdir(path) };
     if result != 0 {
         return error.new("Failed to remove directory");
@@ -425,7 +474,7 @@ fn safe_rmdir(path: *byte):(i32 | error) {
     return result;
 }
 
-fn safe_unlink(path: *byte):(i32 | error) {
+export fn safe_unlink(path: *byte):(i32 | error) {
     result := unsafe { unlink(path) };
     if result != 0 {
         return error.new("Failed to delete file");
@@ -433,7 +482,7 @@ fn safe_unlink(path: *byte):(i32 | error) {
     return result;
 }
 
-fn safe_rename(oldpath: *byte, newpath: *byte):(i32 | error) {
+export fn safe_rename(oldpath: *byte, newpath: *byte):(i32 | error) {
     result := unsafe { rename(oldpath, newpath) };
     if result != 0 {
         return error.new("Failed to rename/move file");
@@ -442,7 +491,7 @@ fn safe_rename(oldpath: *byte, newpath: *byte):(i32 | error) {
 }
 
 // Safe directory reading
-fn safe_opendir(name: *byte):(*DIR | error) {
+export fn safe_opendir(name: *byte):(*DIR | error) {
     dir := unsafe { opendir(name) };
     if dir as usize == 0 {
         return error.new("Failed to open directory");
@@ -450,11 +499,11 @@ fn safe_opendir(name: *byte):(*DIR | error) {
     return dir;
 }
 
-fn safe_readdir(dirp: *DIR):*dirent {
+export fn safe_readdir(dirp: *DIR):*dirent {
     return unsafe { readdir(dirp) };
 }
 
-fn safe_closedir(dirp: *DIR):(i32 | error) {
+export fn safe_closedir(dirp: *DIR):(i32 | error) {
     result := unsafe { closedir(dirp) };
     if result != 0 {
         return error.new("Failed to close directory");
@@ -463,7 +512,7 @@ fn safe_closedir(dirp: *DIR):(i32 | error) {
 }
 
 // Safe file stat
-fn safe_stat(path: *byte, buf: *stat):(i32 | error) {
+export fn safe_stat(path: *byte, buf: *stat):(i32 | error) {
     result := unsafe { stat(path, buf) };
     if result != 0 {
         return error.new("Failed to get file status");
@@ -472,7 +521,7 @@ fn safe_stat(path: *byte, buf: *stat):(i32 | error) {
 }
 
 // Safe lseek
-fn safe_lseek(fd: i32, offset: i64, whence: i32):(i64 | error) {
+export fn safe_lseek(fd: i32, offset: i64, whence: i32):(i64 | error) {
     result := unsafe { lseek(fd, offset, whence) };
     if result < 0 {
         return error.new("Failed to seek");
@@ -481,7 +530,7 @@ fn safe_lseek(fd: i32, offset: i64, whence: i32):(i64 | error) {
 }
 
 // Safe environment variable access
-fn safe_getenv(name: *byte):(*byte | null) {
+export fn safe_getenv(name: *byte):(*byte | null) {
     result := unsafe { getenv(name) };
     if result as usize == 0 {
         return null;
@@ -489,7 +538,7 @@ fn safe_getenv(name: *byte):(*byte | null) {
     return result;
 }
 
-fn safe_setenv(name: *byte, value: *byte, overwrite: i32):(i32 | error) {
+export fn safe_setenv(name: *byte, value: *byte, overwrite: i32):(i32 | error) {
     result := unsafe { setenv(name, value, overwrite) };
     if result != 0 {
         return error.new("Failed to set environment variable");
@@ -498,7 +547,7 @@ fn safe_setenv(name: *byte, value: *byte, overwrite: i32):(i32 | error) {
 }
 
 // Safe pipe creation
-fn safe_pipe(pipefd: *i32):(i32 | error) {
+export fn safe_pipe(pipefd: *i32):(i32 | error) {
     result := unsafe { pipe(pipefd) };
     if result != 0 {
         return error.new("Failed to create pipe");
@@ -507,7 +556,7 @@ fn safe_pipe(pipefd: *i32):(i32 | error) {
 }
 
 // Safe dup
-fn safe_dup(oldfd: i32):(i32 | error) {
+export fn safe_dup(oldfd: i32):(i32 | error) {
     result := unsafe { dup(oldfd) };
     if result < 0 {
         return error.new("Failed to duplicate file descriptor");
@@ -515,7 +564,7 @@ fn safe_dup(oldfd: i32):(i32 | error) {
     return result;
 }
 
-fn safe_dup2(oldfd: i32, newfd: i32):(i32 | error) {
+export fn safe_dup2(oldfd: i32, newfd: i32):(i32 | error) {
     result := unsafe { dup2(oldfd, newfd) };
     if result < 0 {
         return error.new("Failed to duplicate file descriptor");
@@ -524,7 +573,7 @@ fn safe_dup2(oldfd: i32, newfd: i32):(i32 | error) {
 }
 
 // Safe fork
-fn safe_fork():(i32 | error) {
+export fn safe_fork():(i32 | error) {
     result := unsafe { fork() };
     if result < 0 {
         return error.new("Failed to fork process");
@@ -533,7 +582,7 @@ fn safe_fork():(i32 | error) {
 }
 
 // Safe time functions
-fn safe_clock_gettime(clk_id: i32, tp: *timespec):(i32 | error) {
+export fn safe_clock_gettime(clk_id: i32, tp: *timespec):(i32 | error) {
     result := unsafe { clock_gettime(clk_id, tp) };
     if result != 0 {
         return error.new("Failed to get time");
@@ -541,7 +590,7 @@ fn safe_clock_gettime(clk_id: i32, tp: *timespec):(i32 | error) {
     return result;
 }
 
-fn safe_gettimeofday(tv: *timeval, tz: *timezone):(i32 | error) {
+export fn safe_gettimeofday(tv: *timeval, tz: *timezone):(i32 | error) {
     result := unsafe { gettimeofday(tv, tz) };
     if result != 0 {
         return error.new("Failed to get time of day");
@@ -550,7 +599,7 @@ fn safe_gettimeofday(tv: *timeval, tz: *timezone):(i32 | error) {
 }
 
 // Safe FILE operations
-fn safe_fopen(path: *byte, mode: *byte):(*FILE | error) {
+export fn safe_fopen(path: *byte, mode: *byte):(*FILE | error) {
     result := unsafe { fopen(path, mode) };
     if result as usize == 0 {
         return error.new("Failed to open file");
@@ -558,7 +607,7 @@ fn safe_fopen(path: *byte, mode: *byte):(*FILE | error) {
     return result;
 }
 
-fn safe_fclose(stream: *FILE):(i32 | error) {
+export fn safe_fclose(stream: *FILE):(i32 | error) {
     result := unsafe { fclose(stream) };
     if result != 0 {
         return error.new("Failed to close file");
@@ -567,7 +616,7 @@ fn safe_fclose(stream: *FILE):(i32 | error) {
 }
 
 // Safe glob
-fn safe_glob(pattern: *byte, flags: i32, pglob: *glob_t):(i32 | error) {
+export fn safe_glob(pattern: *byte, flags: i32, pglob: *glob_t):(i32 | error) {
     result := unsafe { glob(pattern, flags, 0 as *byte, pglob) };
     if result != 0 {
         return error.new("Failed to glob pattern");
@@ -576,12 +625,12 @@ fn safe_glob(pattern: *byte, flags: i32, pglob: *glob_t):(i32 | error) {
 }
 
 // Helper: Get current time in seconds
-fn get_current_time():i64 {
+export fn get_current_time():i64 {
     return unsafe { time(0 as *i64) };
 }
 
 // Helper: Get monotonic time in nanoseconds
-fn get_monotonic_time_ns():(i64 | error) {
+export fn get_monotonic_time_ns():(i64 | error) {
     ts := safe_malloc(16)?; // sizeof(struct timespec)
     defer safe_free(ts);
     
@@ -605,7 +654,7 @@ fn get_monotonic_time_ns():(i64 | error) {
 // ============================================================================
 
 // Safe mutex operations
-fn safe_pthread_mutex_init(mutex: *pthread_mutex_t):(i32 | error) {
+export fn safe_pthread_mutex_init(mutex: *pthread_mutex_t):(i32 | error) {
     result := unsafe { pthread_mutex_init(mutex, 0 as *pthread_mutexattr_t) };
     if result != 0 {
         return error.new("Failed to initialize mutex");
@@ -613,7 +662,7 @@ fn safe_pthread_mutex_init(mutex: *pthread_mutex_t):(i32 | error) {
     return result;
 }
 
-fn safe_pthread_mutex_lock(mutex: *pthread_mutex_t):(i32 | error) {
+export fn safe_pthread_mutex_lock(mutex: *pthread_mutex_t):(i32 | error) {
     result := unsafe { pthread_mutex_lock(mutex) };
     if result != 0 {
         return error.new("Failed to lock mutex");
@@ -621,7 +670,7 @@ fn safe_pthread_mutex_lock(mutex: *pthread_mutex_t):(i32 | error) {
     return result;
 }
 
-fn safe_pthread_mutex_unlock(mutex: *pthread_mutex_t):(i32 | error) {
+export fn safe_pthread_mutex_unlock(mutex: *pthread_mutex_t):(i32 | error) {
     result := unsafe { pthread_mutex_unlock(mutex) };
     if result != 0 {
         return error.new("Failed to unlock mutex");
@@ -629,7 +678,7 @@ fn safe_pthread_mutex_unlock(mutex: *pthread_mutex_t):(i32 | error) {
     return result;
 }
 
-fn safe_pthread_mutex_trylock(mutex: *pthread_mutex_t):(bool | error) {
+export fn safe_pthread_mutex_trylock(mutex: *pthread_mutex_t):(bool | error) {
     result := unsafe { pthread_mutex_trylock(mutex) };
     if result == 0 {
         return true;  // Successfully locked
@@ -640,7 +689,7 @@ fn safe_pthread_mutex_trylock(mutex: *pthread_mutex_t):(bool | error) {
     }
 }
 
-fn safe_pthread_mutex_destroy(mutex: *pthread_mutex_t):(i32 | error) {
+export fn safe_pthread_mutex_destroy(mutex: *pthread_mutex_t):(i32 | error) {
     result := unsafe { pthread_mutex_destroy(mutex) };
     if result != 0 {
         return error.new("Failed to destroy mutex");
@@ -649,7 +698,7 @@ fn safe_pthread_mutex_destroy(mutex: *pthread_mutex_t):(i32 | error) {
 }
 
 // Safe condition variable operations
-fn safe_pthread_cond_init(cond: *pthread_cond_t):(i32 | error) {
+export fn safe_pthread_cond_init(cond: *pthread_cond_t):(i32 | error) {
     result := unsafe { pthread_cond_init(cond, 0 as *pthread_condattr_t) };
     if result != 0 {
         return error.new("Failed to initialize condition variable");
@@ -657,7 +706,7 @@ fn safe_pthread_cond_init(cond: *pthread_cond_t):(i32 | error) {
     return result;
 }
 
-fn safe_pthread_cond_wait(cond: *pthread_cond_t, 
+export fn safe_pthread_cond_wait(cond: *pthread_cond_t, 
                                   mutex: *pthread_mutex_t):(i32 | error) {
     result := unsafe { pthread_cond_wait(cond, mutex) };
     if result != 0 {
@@ -666,7 +715,7 @@ fn safe_pthread_cond_wait(cond: *pthread_cond_t,
     return result;
 }
 
-fn safe_pthread_cond_signal(cond: *pthread_cond_t):(i32 | error) {
+export fn safe_pthread_cond_signal(cond: *pthread_cond_t):(i32 | error) {
     result := unsafe { pthread_cond_signal(cond) };
     if result != 0 {
         return error.new("Failed to signal condition variable");
@@ -674,7 +723,7 @@ fn safe_pthread_cond_signal(cond: *pthread_cond_t):(i32 | error) {
     return result;
 }
 
-fn safe_pthread_cond_broadcast(cond: *pthread_cond_t):(i32 | error) {
+export fn safe_pthread_cond_broadcast(cond: *pthread_cond_t):(i32 | error) {
     result := unsafe { pthread_cond_broadcast(cond) };
     if result != 0 {
         return error.new("Failed to broadcast condition variable");
@@ -682,7 +731,7 @@ fn safe_pthread_cond_broadcast(cond: *pthread_cond_t):(i32 | error) {
     return result;
 }
 
-fn safe_pthread_cond_destroy(cond: *pthread_cond_t):(i32 | error) {
+export fn safe_pthread_cond_destroy(cond: *pthread_cond_t):(i32 | error) {
     result := unsafe { pthread_cond_destroy(cond) };
     if result != 0 {
         return error.new("Failed to destroy condition variable");
@@ -694,7 +743,7 @@ fn safe_pthread_cond_destroy(cond: *pthread_cond_t):(i32 | error) {
 // POSIX Regular Expressions - Safe Wrappers
 // ============================================================================
 
-fn safe_regcomp(preg: *regex_t, pattern: *byte, cflags: i32):(i32 | error) {
+export fn safe_regcomp(preg: *regex_t, pattern: *byte, cflags: i32):(i32 | error) {
     result := unsafe { regcomp(preg, pattern, cflags) };
     if result != 0 {
         // Get error message
@@ -709,7 +758,7 @@ fn safe_regcomp(preg: *regex_t, pattern: *byte, cflags: i32):(i32 | error) {
     return result;
 }
 
-fn safe_regexec(preg: *regex_t, string: *byte, nmatch: usize,
+export fn safe_regexec(preg: *regex_t, string: *byte, nmatch: usize,
                         pmatch: *regmatch_t, eflags: i32):(i32 | null) {
     result := unsafe { regexec(preg, string, nmatch, pmatch, eflags) };
     if result == 0 {
@@ -721,6 +770,6 @@ fn safe_regexec(preg: *regex_t, string: *byte, nmatch: usize,
     }
 }
 
-fn safe_regfree(preg: *regex_t) {
+export fn safe_regfree(preg: *regex_t) {
     unsafe { regfree(preg); }
 }

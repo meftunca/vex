@@ -1,40 +1,40 @@
 // std - Minimal Standard Library
 
-struct error {
+export struct error {
     message: string,
 }
 
-fn new_error(msg: string) : error {
+export fn new_error(msg: string) : error {
     return error { message: msg };
 }
 
 // Placeholder io module functions
-fn io_print(s: string) {
+export fn io_print(s: string) {
     print(s);
 }
 
-fn io_println(s: string) {
+export fn io_println(s: string) {
     print(s);
 }
 
 // Placeholder log module functions
-fn log_info(s: string) {
+export fn log_info(s: string) {
     print(s);
 }
 
-fn log_error(s: string) {
+export fn log_error(s: string) {
     print(s);
 }
 
-fn log_warn(s: string) {
+export fn log_warn(s: string) {
     print(s);
 }
 
-struct io {
+export struct io {
     x: i32,
 }
 
-struct log {
+export struct log {
     y: i32,
 }
 
@@ -42,8 +42,8 @@ struct log {
 // Standard Library Version
 // ============================================================
 
-const VERSION: string = "0.1.0";
-const COMPILER_VERSION: string = "0.2.0";
+export const VERSION: string = "0.1.0";
+export const COMPILER_VERSION: string = "0.2.0";
 
 // ============================================================
 // Module Documentation

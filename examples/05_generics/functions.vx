@@ -1,0 +1,40 @@
+// Generic Functions
+// Demonstrates: generic type parameters, monomorphization
+
+// Generic identity function
+fn identity<T>(x: T) : T {
+    return x;
+}
+
+// Generic max function (for i32)
+fn max<T>(a: T, b: T) : T {
+    // Comparison works for i32 instantiation
+    if a > b {
+        return a;
+    } else {
+        return b;
+    }
+}
+
+fn main() : i32 {
+    // Monomorphize identity for i32
+    let x = identity<i32>(42);
+    
+    // Monomorphize identity for different type
+    let y = identity<i32>(100);
+    
+    // Generic max
+    let max_val = max<i32>(x, y);
+    
+    return max_val;  // Returns 100
+}
+
+// Generic swap (conceptual)
+fn swap<T>(a: T, b: T) : T {
+    return b;  // Simplified: return second value
+}
+
+// Generic function with computation
+fn double<T>(x: T) : T {
+    return x + x;  // Works for numeric types
+}

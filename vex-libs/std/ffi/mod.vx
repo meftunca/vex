@@ -23,13 +23,13 @@ import { openssl } from "./openssl";
 export { libc, zlib, zstd, lz4, openssl };
 
 // C string type (null-terminated)
-struct CString {
+export struct CString {
     ptr: *byte,
     len: usize,
 }
 
 // Convert Vex string to C string (malloc-based)
-fn to_c_string(s: string) : CString {
+export fn to_c_string(s: string) : CString {
     bytes := s.as_bytes();
     len := bytes.len();
     
@@ -46,7 +46,7 @@ fn to_c_string(s: string) : CString {
 }
 
 // Convert C string to Vex string
-fn from_c_string(cstr: CString) : string {
+export fn from_c_string(cstr: CString) : string {
     bytes := make([byte], cstr.len);
     
     unsafe { libc.memcpy(bytes.as_mut_ptr(), cstr.ptr, cstr.len); }
@@ -55,12 +55,12 @@ fn from_c_string(cstr: CString) : string {
 }
 
 // Free C string
-fn free_c_string(cstr: CString) {
+export fn free_c_string(cstr: CString) {
     unsafe { libc.free(cstr.ptr); }
 }
 
 // Dynamic library loading
-struct LibHandle {
+export struct LibHandle {
     handle: *void,
 }
 
@@ -68,7 +68,7 @@ struct LibHandle {
 export type CFunctionPtr = *fn();
 
 // Load dynamic library (platform-abstracted)
-fn load_library(path: string) : (LibHandle | error) {
+export fn load_library(path: string) : (LibHandle | error) {
     c_path := to_c_string(path);
     
     #[cfg(unix)]
@@ -87,7 +87,7 @@ fn load_library(path: string) : (LibHandle | error) {
 }
 
 // Look up symbol in library
-fn get_symbol(lib: LibHandle, name: string) : (CFunctionPtr | error) {
+export fn get_symbol(lib: LibHandle, name: string) : (CFunctionPtr | error) {
     c_name := to_c_string(name);
     
     #[cfg(unix)]
@@ -106,7 +106,7 @@ fn get_symbol(lib: LibHandle, name: string) : (CFunctionPtr | error) {
 }
 
 // Close dynamic library
-fn close_library(lib: LibHandle) {
+export fn close_library(lib: LibHandle) {
     #[cfg(unix)]
     unsafe { unix.dlclose(lib.handle); }
     

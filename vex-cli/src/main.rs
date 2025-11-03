@@ -127,6 +127,14 @@ fn main() -> Result<()> {
 
             println!("   ✅ Parsed {} successfully", filename);
 
+            // Run borrow checker (Phase 1: Immutability)
+            println!("   🔍 Running borrow checker...");
+            let mut borrow_checker = vex_compiler::BorrowChecker::new();
+            if let Err(e) = borrow_checker.check_program(&ast) {
+                anyhow::bail!("⚠️  Borrow checker error: {}", e);
+            }
+            println!("   ✅ Borrow check passed");
+
             // Resolve imports if any
             if !ast.imports.is_empty() {
                 println!("   📦 Resolving {} import(s)...", ast.imports.len());

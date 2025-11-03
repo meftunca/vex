@@ -1,0 +1,54 @@
+// Multiple Trait Implementation Test
+// struct Foo impl Trait1, Trait2, Trait3 { ... }
+
+// Define multiple traits
+trait Display {
+    fn (self: &Self!) show();
+}
+
+trait Serializable {
+    fn (self: &Self!) serialize() : i32;
+}
+
+trait Comparable {
+    fn (self: &Self!) compare(other: &Self) : i32;
+}
+
+// Struct implementing multiple traits at once
+struct Person impl Display, Serializable, Comparable {
+    name: string,
+    age: i32,
+    
+    // Display implementation
+    fn (self: &Person!) show() {
+        // Show person info
+    }
+    
+    // Serializable implementation
+    fn (self: &Person!) serialize() : i32 {
+        return 1;
+    }
+    
+    // Comparable implementation
+    fn (self: &Person!) compare(other: &Person) : i32 {
+        let self_age = self.age;
+        return self_age;
+    }
+    
+    // Struct-specific method
+    fn (self: &Person!) birthday() {
+        // Increment age
+    }
+}
+
+fn main() {
+    let! p = Person { name: "Alice", age: 30 };
+    
+    // Call methods from different traits
+    p.show();           // Display trait
+    let s = p.serialize();    // Serializable trait
+    // let c = p.compare(&p);    // Comparable trait - TODO: reference expression in codegen
+    
+    // Call struct-specific method
+    p.birthday();
+}

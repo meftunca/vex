@@ -1,0 +1,51 @@
+// References (v0.9)
+// Demonstrates: &T (immutable), &T! (mutable) syntax
+
+fn main() : i32 {
+    // Immutable reference
+    let x = 42;
+    // let ref_x: &i32 = &x;
+    // let value = *ref_x;
+    
+    // Mutable reference (v0.9 syntax)
+    let! y = 10;
+    // let ref_y: &i32! = &y!;
+    // *ref_y = 20;
+    
+    // For now, direct usage until reference codegen is complete
+    y = 20;
+    
+    return y;  // Returns 20
+}
+
+// Function taking immutable reference
+fn read_value(x: i32) : i32 {
+    // fn read_value(ref_x: &i32) : i32 {
+    //     return *ref_x;
+    // }
+    return x;
+}
+
+// Function taking mutable reference
+fn modify_value(x: i32) : i32 {
+    // fn modify_value(ref_x: &i32!) : i32 {
+    //     *ref_x = *ref_x + 10;
+    //     return *ref_x;
+    // }
+    return x + 10;
+}
+
+// Multiple references
+fn swap_values(a: i32, b: i32) : i32 {
+    // fn swap_values(a: &i32!, b: &i32!) {
+    //     let temp = *a;
+    //     *a = *b;
+    //     *b = temp;
+    // }
+    
+    // Temporary implementation
+    let temp = a;
+    let result_a = b;
+    let result_b = temp;
+    return result_a + result_b;
+}

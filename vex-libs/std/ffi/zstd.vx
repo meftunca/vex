@@ -47,21 +47,21 @@ extern {
 }
 
 // Compression levels
-const ZSTD_MIN_CLEVEL: i32 = 1;
-const ZSTD_MAX_CLEVEL: i32 = 22;
-const ZSTD_DEFAULT_CLEVEL: i32 = 3;
+export const ZSTD_MIN_CLEVEL: i32 = 1;
+export const ZSTD_MAX_CLEVEL: i32 = 22;
+export const ZSTD_DEFAULT_CLEVEL: i32 = 3;
 
 // Fast compression levels (negative)
-const ZSTD_FAST_1: i32 = -1;
-const ZSTD_FAST_5: i32 = -5;
-const ZSTD_FAST_10: i32 = -10;
+export const ZSTD_FAST_1: i32 = -1;
+export const ZSTD_FAST_5: i32 = -5;
+export const ZSTD_FAST_10: i32 = -10;
 
 // Special return values
-const ZSTD_CONTENTSIZE_UNKNOWN: u64 = 0xFFFFFFFFFFFFFFFF;
-const ZSTD_CONTENTSIZE_ERROR: u64 = 0xFFFFFFFFFFFFFFFE;
+export const ZSTD_CONTENTSIZE_UNKNOWN: u64 = 0xFFFFFFFFFFFFFFFF;
+export const ZSTD_CONTENTSIZE_ERROR: u64 = 0xFFFFFFFFFFFFFFFE;
 
 // Safe wrapper: Compress with automatic size calculation
-fn compress(data: [byte], level: i32):([byte] | error) {
+export fn compress(data: [byte], level: i32):([byte] | error) {
     max_size := unsafe { ZSTD_compressBound(data.len()) };
     compressed := make([byte], max_size);
     
@@ -82,7 +82,7 @@ fn compress(data: [byte], level: i32):([byte] | error) {
 }
 
 // Safe wrapper: Decompress with size detection
-fn decompress(compressed: [byte]):([byte] | error) {
+export fn decompress(compressed: [byte]):([byte] | error) {
     // Get original size from frame header
     content_size := unsafe {
         ZSTD_getFrameContentSize(compressed.as_ptr(), compressed.len())
@@ -112,21 +112,21 @@ fn decompress(compressed: [byte]):([byte] | error) {
 }
 
 // Fast compression (level -1, very fast)
-fn compress_fast(data: [byte]):([byte] | error) {
+export fn compress_fast(data: [byte]):([byte] | error) {
     return compress(data, ZSTD_FAST_1);
 }
 
 // Best compression (level 19, very slow but maximum compression)
-fn compress_best(data: [byte]):([byte] | error) {
+export fn compress_best(data: [byte]):([byte] | error) {
     return compress(data, 19);
 }
 
 // Dictionary-based compression (good for small repeated data)
-struct ZstdDict {
+export struct ZstdDict {
     data: [byte],
 }
 
-fn compress_with_dict(data: [byte], dict: ZstdDict, level: i32):([byte] | error) {
+export fn compress_with_dict(data: [byte], dict: ZstdDict, level: i32):([byte] | error) {
     ctx := unsafe { ZSTD_createCCtx() };
     if ctx as usize == 0 {
         return error.new("Failed to create compression context");

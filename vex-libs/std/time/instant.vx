@@ -4,18 +4,18 @@
 import { libc } from "../ffi";
 import { Duration, from_nanos } from "./duration";
 
-struct Instant {
+export struct Instant {
     nanos: i64,  // Nanoseconds since arbitrary point
 }
 
 // Get current instant
-fn now():(Instant | error) {
+export fn now():(Instant | error) {
     nanos := libc.get_monotonic_time_ns()?;
     return Instant { nanos: nanos };
 }
 
 // Duration since another instant
-fn duration_since(later: *Instant, earlier: *Instant):Duration {
+export fn duration_since(later: *Instant, earlier: *Instant):Duration {
     diff := later.nanos - earlier.nanos;
     if diff < 0 {
         return from_nanos(0); // Clamp to zero
@@ -24,38 +24,38 @@ fn duration_since(later: *Instant, earlier: *Instant):Duration {
 }
 
 // Duration since this instant (elapsed time)
-fn elapsed(start: *Instant):(Duration | error) {
+export fn elapsed(start: *Instant):(Duration | error) {
     current := now()?;
     return duration_since(&current, start);
 }
 
 // Add duration to instant
-fn add(instant: Instant, duration: Duration):Instant {
+export fn add(instant: Instant, duration: Duration):Instant {
     return Instant { nanos: instant.nanos + duration.nanos };
 }
 
 // Subtract duration from instant
-fn sub(instant: Instant, duration: Duration):Instant {
+export fn sub(instant: Instant, duration: Duration):Instant {
     return Instant { nanos: instant.nanos - duration.nanos };
 }
 
 // Comparison
-fn eq(a: *Instant, b: *Instant):bool {
+export fn eq(a: *Instant, b: *Instant):bool {
     return a.nanos == b.nanos;
 }
 
-fn lt(a: *Instant, b: *Instant):bool {
+export fn lt(a: *Instant, b: *Instant):bool {
     return a.nanos < b.nanos;
 }
 
-fn le(a: *Instant, b: *Instant):bool {
+export fn le(a: *Instant, b: *Instant):bool {
     return a.nanos <= b.nanos;
 }
 
-fn gt(a: *Instant, b: *Instant):bool {
+export fn gt(a: *Instant, b: *Instant):bool {
     return a.nanos > b.nanos;
 }
 
-fn ge(a: *Instant, b: *Instant):bool {
+export fn ge(a: *Instant, b: *Instant):bool {
     return a.nanos >= b.nanos;
 }

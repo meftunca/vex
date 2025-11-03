@@ -4,19 +4,19 @@
 import { libc } from "../ffi";
 import { Duration, from_secs, from_nanos } from "./duration";
 
-struct SystemTime {
+export struct SystemTime {
     secs: i64,   // Seconds since UNIX epoch
     nanos: i32,  // Nanosecond component
 }
 
 // UNIX epoch constant
-const UNIX_EPOCH: SystemTime = SystemTime {
+export const UNIX_EPOCH: SystemTime = SystemTime {
     secs: 0,
     nanos: 0,
 };
 
 // Get current system time
-fn now():SystemTime {
+export fn now():SystemTime {
     timestamp := libc.get_current_time();
     return SystemTime {
         secs: timestamp,
@@ -25,7 +25,7 @@ fn now():SystemTime {
 }
 
 // Get current system time with nanosecond precision
-fn now_precise():(SystemTime | error) {
+export fn now_precise():(SystemTime | error) {
     // Allocate timespec
     ts := libc.safe_malloc(16)?; // sizeof(struct timespec)
     defer libc.safe_free(ts);
@@ -46,13 +46,13 @@ fn now_precise():(SystemTime | error) {
 }
 
 // Duration since UNIX epoch
-fn duration_since_epoch(time: *SystemTime):Duration {
+export fn duration_since_epoch(time: *SystemTime):Duration {
     total_nanos := time.secs * 1_000_000_000 + time.nanos as i64;
     return from_nanos(total_nanos);
 }
 
 // Duration since another time
-fn duration_since(later: *SystemTime, earlier: *SystemTime):(Duration | error) {
+export fn duration_since(later: *SystemTime, earlier: *SystemTime):(Duration | error) {
     later_total := later.secs * 1_000_000_000 + later.nanos as i64;
     earlier_total := earlier.secs * 1_000_000_000 + earlier.nanos as i64;
     
@@ -66,7 +66,7 @@ fn duration_since(later: *SystemTime, earlier: *SystemTime):(Duration | error) {
 }
 
 // Add duration
-fn add(time: SystemTime, duration: Duration):SystemTime {
+export fn add(time: SystemTime, duration: Duration):SystemTime {
     total_nanos := time.secs * 1_000_000_000 + time.nanos as i64 + duration.nanos;
     
     return SystemTime {
@@ -76,7 +76,7 @@ fn add(time: SystemTime, duration: Duration):SystemTime {
 }
 
 // Subtract duration
-fn sub(time: SystemTime, duration: Duration):SystemTime {
+export fn sub(time: SystemTime, duration: Duration):SystemTime {
     total_nanos := time.secs * 1_000_000_000 + time.nanos as i64 - duration.nanos;
     
     return SystemTime {
@@ -86,11 +86,11 @@ fn sub(time: SystemTime, duration: Duration):SystemTime {
 }
 
 // Comparison
-fn eq(a: *SystemTime, b: *SystemTime):bool {
+export fn eq(a: *SystemTime, b: *SystemTime):bool {
     return a.secs == b.secs && a.nanos == b.nanos;
 }
 
-fn lt(a: *SystemTime, b: *SystemTime):bool {
+export fn lt(a: *SystemTime, b: *SystemTime):bool {
     if a.secs < b.secs {
         return true;
     }
@@ -100,14 +100,14 @@ fn lt(a: *SystemTime, b: *SystemTime):bool {
     return false;
 }
 
-fn le(a: *SystemTime, b: *SystemTime):bool {
+export fn le(a: *SystemTime, b: *SystemTime):bool {
     return lt(a, b) || eq(a, b);
 }
 
-fn gt(a: *SystemTime, b: *SystemTime):bool {
+export fn gt(a: *SystemTime, b: *SystemTime):bool {
     return !le(a, b);
 }
 
-fn ge(a: *SystemTime, b: *SystemTime):bool {
+export fn ge(a: *SystemTime, b: *SystemTime):bool {
     return !lt(a, b);
 }

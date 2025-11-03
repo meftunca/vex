@@ -1,0 +1,30 @@
+// F-Strings (Formatted Strings)
+// Demonstrates: f-string syntax, interpolation
+
+fn main() : i32 {
+    // Simple f-string (no interpolation)
+    let msg1 = f"Hello from Vex!";
+    
+    // F-string with interpolation (parsed, limited codegen)
+    let x = 42;
+    // let msg2 = f"The answer is {x}";
+    
+    let name = "Alice";
+    // let greeting = f"Hello, {name}!";
+    
+    // For now, return a constant
+    return x;
+}
+
+// F-string with calculation
+fn format_calculation(a: i32, b: i32) : i32 {
+    let sum = a + b;
+    // let result = f"{a} + {b} = {sum}";
+    return sum;
+}
+
+// F-string with multiple values
+fn format_point(x: i32, y: i32) : i32 {
+    // let formatted = f"Point({x}, {y})";
+    return x + y;
+}

@@ -4,27 +4,27 @@
 import { libc } from "./ffi";
 
 // Size of regex_t varies by platform, typically 56-64 bytes
-const REGEX_SIZE: usize = 64;
+export const REGEX_SIZE: usize = 64;
 
 // Size of regmatch_t: 16 bytes (two i64 fields: rm_so, rm_eo)
-const REGMATCH_SIZE: usize = 16;
+export const REGMATCH_SIZE: usize = 16;
 
-struct Regex {
+export struct Regex {
     inner: *byte,
     compiled: bool,
 }
 
-struct Match {
+export struct Match {
     start: i64,  // rm_so
     end: i64,    // rm_eo
 }
 
 // Compile a regular expression pattern
-fn compile(pattern: string):(Regex | error) {
+export fn compile(pattern: string):(Regex | error) {
     return compile_with_flags(pattern, libc.REG_EXTENDED);
 }
 
-fn compile_with_flags(pattern: string, flags: i32):(Regex | error) {
+export fn compile_with_flags(pattern: string, flags: i32):(Regex | error) {
     inner := libc.safe_malloc(REGEX_SIZE)?;
     
     // Convert pattern to C string
@@ -48,12 +48,12 @@ fn compile_with_flags(pattern: string, flags: i32):(Regex | error) {
 }
 
 // Case-insensitive compile
-fn compile_icase(pattern: string):(Regex | error) {
+export fn compile_icase(pattern: string):(Regex | error) {
     return compile_with_flags(pattern, libc.REG_EXTENDED | libc.REG_ICASE);
 }
 
 // Check if string matches pattern
-fn is_match(regex: *Regex, text: string):bool {
+export fn is_match(regex: *Regex, text: string):bool {
     if !regex.compiled {
         return false;
     }
@@ -71,7 +71,7 @@ fn is_match(regex: *Regex, text: string):bool {
 }
 
 // Find first match and return position
-fn find_match(regex: *Regex, text: string):(Match | null | error) {
+export fn find_match(regex: *Regex, text: string):(Match | null | error) {
     if !regex.compiled {
         return error.new("Regex not compiled");
     }
@@ -109,7 +109,7 @@ fn find_match(regex: *Regex, text: string):(Match | null | error) {
 }
 
 // Find all matches (up to max_matches)
-fn find_all(regex: *Regex, text: string, max_matches: usize):([Match] | error) {
+export fn find_all(regex: *Regex, text: string, max_matches: usize):([Match] | error) {
     if !regex.compiled {
         return error.new("Regex not compiled");
     }
@@ -154,19 +154,19 @@ fn find_all(regex: *Regex, text: string, max_matches: usize):([Match] | error) {
 }
 
 // Replace first match
-fn replace_first(regex: *Regex, text: string, replacement: string):(string | error) {
+export fn replace_first(regex: *Regex, text: string, replacement: string):(string | error) {
     // TODO: Implement when Vex has better string manipulation
     return error.new("Not implemented yet");
 }
 
 // Replace all matches
-fn replace_all(regex: *Regex, text: string, replacement: string):(string | error) {
+export fn replace_all(regex: *Regex, text: string, replacement: string):(string | error) {
     // TODO: Implement when Vex has better string manipulation
     return error.new("Not implemented yet");
 }
 
 // Free regex resources
-fn free_regex(regex: *Regex) {
+export fn free_regex(regex: *Regex) {
     if regex.compiled {
         libc.safe_regfree(regex.inner as *libc.regex_t);
         libc.safe_free(regex.inner);
@@ -175,7 +175,7 @@ fn free_regex(regex: *Regex) {
 }
 
 // Helper: Quick match without compiling
-fn quick_match(pattern: string, text: string):bool {
+export fn quick_match(pattern: string, text: string):bool {
     regex_result := compile(pattern);
     
     match regex_result {
@@ -191,7 +191,7 @@ fn quick_match(pattern: string, text: string):bool {
 }
 
 // Helper: Convert string to C string
-fn to_c_string(s: string):*byte {
+export fn to_c_string(s: string):*byte {
     len := s.len();
     ptr_result := libc.safe_malloc(len + 1);
     

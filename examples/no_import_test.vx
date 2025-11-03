@@ -1,4 +1,0 @@
-// Test without import first
-fn main() {
-    print("Hello from Vex!");
-}

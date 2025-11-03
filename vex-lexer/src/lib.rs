@@ -9,8 +9,6 @@ pub enum Token {
     Fn,
     #[token("let")]
     Let,
-    #[token("mut")]
-    Mut,
     #[token("struct")]
     Struct,
     #[token("enum")]
@@ -207,8 +205,6 @@ pub enum Token {
     Increment,
     #[token("--")]
     Decrement,
-    #[token(":=")]
-    ColonEq, // Go-style short variable declaration
 
     // Literals
     #[regex(r"[0-9]+", |lex| lex.slice().parse().ok())]
@@ -293,15 +289,15 @@ mod tests {
 
     #[test]
     fn test_keywords() {
-        let source = "fn let mut struct async await";
+        let source = "fn let struct async await trait";
         let mut lexer = Lexer::new(source);
 
         assert_eq!(lexer.next().unwrap().unwrap().token, Token::Fn);
         assert_eq!(lexer.next().unwrap().unwrap().token, Token::Let);
-        assert_eq!(lexer.next().unwrap().unwrap().token, Token::Mut);
         assert_eq!(lexer.next().unwrap().unwrap().token, Token::Struct);
         assert_eq!(lexer.next().unwrap().unwrap().token, Token::Async);
         assert_eq!(lexer.next().unwrap().unwrap().token, Token::Await);
+        assert_eq!(lexer.next().unwrap().unwrap().token, Token::Trait);
     }
 
     #[test]

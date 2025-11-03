@@ -1,0 +1,138 @@
+export enum HttpMethod {
+    GET,
+    POST,
+    PUT,
+    DELETE,
+    PATCH,
+    HEAD,
+    OPTIONS,
+}
+
+export fn (method: HttpMethod) to_string(): string {
+    match method {
+        HttpMethod::GET => return "GET",
+        HttpMethod::POST => return "POST",
+        HttpMethod::PUT => return "PUT",
+        HttpMethod::DELETE => return "DELETE",
+        HttpMethod::PATCH => return "PATCH",
+        HttpMethod::HEAD => return "HEAD",
+        HttpMethod::OPTIONS => return "OPTIONS",
+    }
+}
+
+struct HeaderEntry {
+    key: string,
+    value: string,
+}
+
+struct HeaderMap {
+    entries: [HeaderEntry],
+    size: usize,
+}
+
+export struct HttpRequest {
+    method: HttpMethod,
+    path: string,
+    version: string,
+    headers: HeaderMap,
+    body: string,
+}
+
+export fn new_request(method: HttpMethod, path: string): HttpRequest {
+    return HttpRequest {
+        method: method,
+        path: path,
+        version: "HTTP/1.1",
+        headers: HeaderMap { entries: [], size: 0 },
+        body: "",
+    };
+}
+
+export fn (req: &HttpRequest) set_header(key: string, value: string): &HttpRequest {
+    entry := HeaderEntry { key: key, value: value };
+    req.headers.entries.push(entry);
+    req.headers.size = req.headers.size + 1;
+    return req;
+}
+
+export fn (req: &HttpRequest) set_body(body: string): &HttpRequest {
+    req.body = body;
+    content_length := body.len().to_string();
+    req.headers.insert("Content-Length", content_length);
+    return req;
+}
+
+export fn (req: &HttpRequest) to_bytes(): string {
+    mut result := "";
+    
+    result = result + req.method.to_string() + " " + req.path + " " + req.version + "\r\n";
+    
+    for entry in req.headers.entries {
+        result = result + entry.key + ": " + entry.value + "\r\n";
+    }
+    
+    result = result + "\r\n";
+    
+    if req.body.len() > 0 {
+        result = result + req.body;
+    }
+    
+    return result;
+}
+
+export fn parse_request(raw: string): (HttpRequest | error) {
+    lines := raw.split("\r\n");
+    
+    if lines.len() < 1 {
+        return error.new("Invalid HTTP request");
+    }
+    
+    request_line := lines[0].split(" ");
+    
+    if request_line.len() != 3 {
+        return error.new("Invalid request line");
+    }
+    
+    method := match request_line[0] {
+        "GET" => HttpMethod::GET,
+        "POST" => HttpMethod::POST,
+        "PUT" => HttpMethod::PUT,
+        "DELETE" => HttpMethod::DELETE,
+        "PATCH" => HttpMethod::PATCH,
+        "HEAD" => HttpMethod::HEAD,
+        "OPTIONS" => HttpMethod::OPTIONS,
+        _ => return error.new("Unknown HTTP method"),
+    };
+    
+    mut headers := HeaderMap { entries: [], size: 0 };
+    mut body_start := 0;
+    
+    for i in 1..lines.len() {
+        line := lines[i];
+        
+        if line.len() == 0 {
+            body_start = i + 1;
+            break;
+        }
+        
+        parts := line.split(": ");
+        if parts.len() >= 2 {
+            entry := HeaderEntry { key: parts[0], value: parts[1] };
+            headers.entries.push(entry);
+            headers.size = headers.size + 1;
+        }
+    }
+    
+    mut body := "";
+    if body_start < lines.len() {
+        body = lines[body_start..].join("\r\n");
+    }
+    
+    return HttpRequest {
+        method: method,
+        path: request_line[1],
+        version: request_line[2],
+        headers: headers,
+        body: body,
+    };
+}

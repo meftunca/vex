@@ -10,12 +10,12 @@ import * as instant from "./instant";
 import * as systemtime from "./systemtime";
 
 // Duration constructors
-const from_secs = duration.from_secs;
-const from_millis = duration.from_millis;
-const from_micros = duration.from_micros;
-const from_nanos = duration.from_nanos;
+export const from_secs = duration.from_secs;
+export const from_millis = duration.from_millis;
+export const from_micros = duration.from_micros;
+export const from_nanos = duration.from_nanos;
 
 // Current time functions
-const now_instant = instant.now;
-const now_system = systemtime.now;
-const now_system_precise = systemtime.now_precise;
+export const now_instant = instant.now;
+export const now_system = systemtime.now;
+export const now_system_precise = systemtime.now_precise;

@@ -1,0 +1,66 @@
+// Switch Statement
+// Demonstrates: switch/case, multiple cases, default
+
+fn main() : i32 {
+    let day = 3;
+    let day_name = day_of_week(day);
+    
+    let score = 85;
+    let grade = get_grade(score);
+    
+    return day_name + grade;  // Returns 3 + 4 = 7
+}
+
+// Simple switch
+fn day_of_week(day: i32) : i32 {
+    switch day {
+        case 1:
+            return 1;  // Monday
+        case 2:
+            return 2;  // Tuesday
+        case 3:
+            return 3;  // Wednesday
+        case 4:
+            return 4;  // Thursday
+        case 5:
+            return 5;  // Friday
+        case 6:
+            return 6;  // Saturday
+        case 7:
+            return 7;  // Sunday
+        default:
+            return 0;  // Invalid
+    }
+}
+
+// Switch with multiple cases per branch
+fn get_grade(score: i32) : i32 {
+    switch score {
+        case 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100:
+            return 5;  // A
+        case 80, 81, 82, 83, 84, 85, 86, 87, 88, 89:
+            return 4;  // B
+        case 70, 71, 72, 73, 74, 75, 76, 77, 78, 79:
+            return 3;  // C
+        case 60, 61, 62, 63, 64, 65, 66, 67, 68, 69:
+            return 2;  // D
+        default:
+            return 1;  // F
+    }
+}
+
+// Switch with computation
+fn operation_code(op: i32) : i32 {
+    switch op {
+        case 1:
+            return 10 + 20;
+        case 2:
+            return 100 - 50;
+        case 3:
+            return 5 * 6;
+        case 4:
+            return 100 / 4;
+        default:
+            return 0;
+    }
+}

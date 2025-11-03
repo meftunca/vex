@@ -95,12 +95,12 @@ export unsafe fn asm(code: string) {
 }
 
 // Size and alignment helpers
-fn size_of<T>() : u32 {
+export fn size_of<T>() : u32 {
     // This would be a compiler intrinsic
     return 0; // Placeholder
 }
 
-fn align_of<T>() : u32 {
+export fn align_of<T>() : u32 {
     // This would be a compiler intrinsic
     return 0; // Placeholder
 }

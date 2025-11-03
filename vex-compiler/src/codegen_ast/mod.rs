@@ -146,6 +146,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         &self,
         name: &str,
         ty: &Type,
+        is_mutable: bool,
     ) -> Result<PointerValue<'ctx>, String> {
         let builder = self.context.create_builder();
 
@@ -161,9 +162,18 @@ impl<'ctx> ASTCodeGen<'ctx> {
         }
 
         let llvm_type = self.ast_type_to_llvm(ty);
-        builder
+        let alloca = builder
             .build_alloca(llvm_type, name)
-            .map_err(|e| format!("Failed to create alloca: {}", e))
+            .map_err(|e| format!("Failed to create alloca: {}", e))?;
+
+        // v0.9: Mark immutable variables as readonly (optimization hint for LLVM)
+        // Mutable variables (let!) remain writable
+        if !is_mutable {
+            // TODO: Add LLVM metadata to mark as readonly/constant
+            // This will be optimized better by LLVM backend
+        }
+
+        Ok(alloca)
     }
 
     /// Compile to object file

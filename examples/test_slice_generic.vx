@@ -1,8 +1,0 @@
-// Test slice type in generic without conditional
-type MyType<T> = T;
-
-type C = MyType<&[string]>;
-
-fn main(): i32 {
-    return 0;
-}

@@ -7,7 +7,7 @@ import { libc } from "../ffi";
 // Command Builder
 // ============================================================================
 
-struct Command {
+export struct Command {
     program: string,
     args: [string],
     env_vars: [(string, string)],
@@ -18,7 +18,7 @@ struct Command {
 }
 
 // Create new command
-fn new(program: string):Command {
+export fn new(program: string):Command {
     return Command {
         program: program,
         args: [],
@@ -31,39 +31,39 @@ fn new(program: string):Command {
 }
 
 // Builder methods
-fn (c: &Command) arg(arg: string):&Command {
+export fn (c: &Command) arg(arg: string):&Command {
     c.args.push(arg);
     return c;
 }
 
-fn (c: &Command) args(args: [string]):&Command {
+export fn (c: &Command) args(args: [string]):&Command {
     for arg in args {
         c.args.push(arg);
     }
     return c;
 }
 
-fn (c: &Command) env(key: string, value: string):&Command {
+export fn (c: &Command) env(key: string, value: string):&Command {
     c.env_vars.push((key, value));
     return c;
 }
 
-fn (c: &Command) current_dir(dir: string):&Command {
+export fn (c: &Command) current_dir(dir: string):&Command {
     c.working_dir = dir;
     return c;
 }
 
-fn (c: &Command) stdin_piped():&Command {
+export fn (c: &Command) stdin_piped():&Command {
     c.stdin_pipe = true;
     return c;
 }
 
-fn (c: &Command) stdout_piped():&Command {
+export fn (c: &Command) stdout_piped():&Command {
     c.stdout_pipe = true;
     return c;
 }
 
-fn (c: &Command) stderr_piped():&Command {
+export fn (c: &Command) stderr_piped():&Command {
     c.stderr_pipe = true;
     return c;
 }
@@ -72,20 +72,20 @@ fn (c: &Command) stderr_piped():&Command {
 // Child Process
 // ============================================================================
 
-struct Child {
+export struct Child {
     pid: i32,
     stdin: i32,   // File descriptor
     stdout: i32,  // File descriptor
     stderr: i32,  // File descriptor
 }
 
-struct ExitStatus {
+export struct ExitStatus {
     code: i32,
     success: bool,
 }
 
 // Spawn child process (fork + exec)
-fn (c: &Command) spawn():(Child | error) {
+export fn (c: &Command) spawn():(Child | error) {
     // TODO: Create pipes if needed
     // TODO: fork()
     // TODO: In child: setup pipes, chdir, execve
@@ -133,7 +133,7 @@ fn (c: &Command) spawn():(Child | error) {
 }
 
 // Wait for child to exit
-fn (child: &Child) wait():(ExitStatus | error) {
+export fn (child: &Child) wait():(ExitStatus | error) {
     let mut status: i32 = 0;
     result := unsafe { libc.waitpid(child.pid, &status, 0) };
     
@@ -151,7 +151,7 @@ fn (child: &Child) wait():(ExitStatus | error) {
 }
 
 // Kill child process
-fn (child: &Child) kill():(nil | error) {
+export fn (child: &Child) kill():(nil | error) {
     result := unsafe { libc.kill(child.pid, libc.SIGTERM) };
     
     if result < 0 {
@@ -162,7 +162,7 @@ fn (child: &Child) kill():(nil | error) {
 }
 
 // Run command and capture output
-fn (c: &Command) output():(Output | error) {
+export fn (c: &Command) output():(Output | error) {
     // TODO: Setup pipes for stdout/stderr
     // TODO: spawn(), read output, wait()
     
@@ -176,7 +176,7 @@ fn (c: &Command) output():(Output | error) {
     };
 }
 
-struct Output {
+export struct Output {
     status: ExitStatus,
     stdout: string,
     stderr: string,
@@ -187,7 +187,7 @@ struct Output {
 // ============================================================================
 
 // Get environment variable
-fn env(key: string):(string | nil) {
+export fn env(key: string):(string | nil) {
     key_cstr := to_c_string(key);
     defer free_c_string(key_cstr);
     
@@ -203,7 +203,7 @@ fn env(key: string):(string | nil) {
 }
 
 // Set environment variable
-fn set_env(key: string, value: string):(nil | error) {
+export fn set_env(key: string, value: string):(nil | error) {
     key_cstr := to_c_string(key);
     value_cstr := to_c_string(value);
     defer free_c_string(key_cstr);
@@ -219,7 +219,7 @@ fn set_env(key: string, value: string):(nil | error) {
 }
 
 // Remove environment variable
-fn remove_env(key: string):(nil | error) {
+export fn remove_env(key: string):(nil | error) {
     key_cstr := to_c_string(key);
     defer free_c_string(key_cstr);
     
@@ -233,17 +233,17 @@ fn remove_env(key: string):(nil | error) {
 }
 
 // Get current process ID
-fn current_pid():i32 {
+export fn current_pid():i32 {
     return unsafe { libc.getpid() };
 }
 
 // Get parent process ID
-fn parent_pid():i32 {
+export fn parent_pid():i32 {
     return unsafe { libc.getppid() };
 }
 
 // Exit current process
-fn exit(code: i32) {
+export fn exit(code: i32) {
     unsafe { libc.exit(code); }
 }
 
@@ -251,12 +251,12 @@ fn exit(code: i32) {
 // Helpers
 // ============================================================================
 
-struct CString {
+export struct CString {
     ptr: *byte,
     len: usize,
 }
 
-fn to_c_string(s: string):CString {
+export fn to_c_string(s: string):CString {
     len := s.len();
     ptr := unsafe { libc.malloc(len + 1) } as *byte;
     
@@ -270,6 +270,6 @@ fn to_c_string(s: string):CString {
     return CString { ptr: ptr, len: len };
 }
 
-fn free_c_string(s: CString) {
+export fn free_c_string(s: CString) {
     unsafe { libc.free(s.ptr as *byte); }
 }

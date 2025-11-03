@@ -1,0 +1,10 @@
+// Borrow Rules Error: Mutation while borrowed
+
+fn main() {
+    let! x = 10;
+    
+    let r = &x;    // immutable borrow
+    x = 20;        // ❌ ERROR: cannot mutate while borrowed
+    
+    log(r);
+}

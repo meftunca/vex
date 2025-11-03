@@ -7,12 +7,12 @@ import { simdutf } from "../../ffi";
 // ============================================================================
 
 // Validate UTF-8 string (SIMD optimized, 20GB/s)
-fn is_valid_utf8(data: &[byte]): bool {
+export fn is_valid_utf8(data: &[byte]): bool {
     return simdutf.vex_utf8_validate(data.as_ptr(), data.len());
 }
 
 // Validate UTF-8 with error position
-fn validate_utf8_with_errors(data: &[byte]): (bool, usize) {
+export fn validate_utf8_with_errors(data: &[byte]): (bool, usize) {
     error_pos: usize = 0;
     valid := simdutf.vex_utf8_validate_with_errors(
         data.as_ptr(),
@@ -23,7 +23,7 @@ fn validate_utf8_with_errors(data: &[byte]): (bool, usize) {
 }
 
 // Check if string is pure ASCII
-fn is_ascii(data: &[byte]): bool {
+export fn is_ascii(data: &[byte]): bool {
     return simdutf.vex_is_ascii(data.as_ptr(), data.len());
 }
 
@@ -32,13 +32,13 @@ fn is_ascii(data: &[byte]): bool {
 // ============================================================================
 
 // Count Unicode characters (not bytes!)
-fn char_count(s: string): usize {
+export fn char_count(s: string): usize {
     bytes := s.as_bytes();
     return simdutf.vex_utf8_count_chars(bytes.as_ptr(), bytes.len());
 }
 
 // Get character at index
-fn char_at(s: string, index: usize): (char | error) {
+export fn char_at(s: string, index: usize): (char | error) {
     bytes := s.as_bytes();
     codepoint := simdutf.vex_utf8_char_at(bytes.as_ptr(), bytes.len(), index);
     
@@ -55,7 +55,7 @@ fn char_at(s: string, index: usize): (char | error) {
 // ============================================================================
 
 // Convert UTF-8 to UTF-16 Little Endian
-fn to_utf16(s: string): [u16] {
+export fn to_utf16(s: string): [u16] {
     bytes := s.as_bytes();
     
     // Get required buffer size
@@ -84,7 +84,7 @@ fn to_utf16(s: string): [u16] {
 }
 
 // Convert UTF-16 LE to UTF-8 string
-fn from_utf16(utf16: &[u16]): (string | error) {
+export fn from_utf16(utf16: &[u16]): (string | error) {
     // Validate UTF-16
     if !simdutf.vex_utf16_validate(utf16.as_ptr(), utf16.len()) {
         return error.new("Invalid UTF-16");
@@ -122,24 +122,24 @@ fn from_utf16(utf16: &[u16]): (string | error) {
 // ============================================================================
 
 // Detect possible encodings
-fn detect_encoding(data: &[byte]): EncodingFlags {
+export fn detect_encoding(data: &[byte]): EncodingFlags {
     flags := simdutf.vex_detect_encoding(data.as_ptr(), data.len());
     return EncodingFlags { bits: flags };
 }
 
-struct EncodingFlags {
+export struct EncodingFlags {
     bits: i32,
 }
 
-fn (e: &EncodingFlags) is_utf8(): bool {
+export fn (e: &EncodingFlags) is_utf8(): bool {
     return (e.bits & simdutf.SIMDUTF_ENCODING_UTF8) != 0;
 }
 
-fn (e: &EncodingFlags) is_utf16_le(): bool {
+export fn (e: &EncodingFlags) is_utf16_le(): bool {
     return (e.bits & simdutf.SIMDUTF_ENCODING_UTF16_LE) != 0;
 }
 
-fn (e: &EncodingFlags) is_utf16_be(): bool {
+export fn (e: &EncodingFlags) is_utf16_be(): bool {
     return (e.bits & simdutf.SIMDUTF_ENCODING_UTF16_BE) != 0;
 }
 
@@ -148,12 +148,12 @@ fn (e: &EncodingFlags) is_utf16_be(): bool {
 // ============================================================================
 
 // Convert to Windows wide string (UTF-16 LE)
-fn to_wide_string(s: string): [u16] {
+export fn to_wide_string(s: string): [u16] {
     return to_utf16(s);
 }
 
 // Convert from Windows wide string
-fn from_wide_string(wide: &[u16]): (string | error) {
+export fn from_wide_string(wide: &[u16]): (string | error) {
     return from_utf16(wide);
 }
 
@@ -164,7 +164,7 @@ fn from_wide_string(wide: &[u16]): (string | error) {
 /*
 import { utf8 } from "std::encoding";
 
-fn main() {
+export fn main() {
     text := "Hello, 世界! 🚀";
     
     // Validate

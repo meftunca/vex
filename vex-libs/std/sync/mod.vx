@@ -2,13 +2,13 @@
 // Concurrency primitives for async Vex programs.
 
 // Mutex for thread-safe shared state
-struct Mutex<T> {
+export struct Mutex<T> {
     data: T,
     locked: bool,
 }
 
 // Create a new mutex
-fn new_mutex<T>(value: T) : Mutex<T> {
+export fn new_mutex<T>(value: T) : Mutex<T> {
     return Mutex {
         data: value,
         locked: false,
@@ -16,7 +16,7 @@ fn new_mutex<T>(value: T) : Mutex<T> {
 }
 
 // Lock the mutex (async - will wait if already locked)
-fn (m: &Mutex<T>) lock() : &T {
+export fn (m: &Mutex<T>) lock() : &T {
     // In real implementation, this would use atomic operations
     // or runtime intrinsics for proper locking
     while m.locked {
@@ -28,18 +28,18 @@ fn (m: &Mutex<T>) lock() : &T {
 }
 
 // Unlock the mutex
-fn (m: &Mutex<T>) unlock() {
+export fn (m: &Mutex<T>) unlock() {
     m.locked = false;
 }
 
 // Channel for async communication between tasks
-struct Channel<T> {
+export struct Channel<T> {
     buffer: [T],
     capacity: i32,
 }
 
 // Create a new channel with given capacity
-fn new_channel<T>(capacity: i32) : Channel<T> {
+export fn new_channel<T>(capacity: i32) : Channel<T> {
     return Channel {
         buffer: [],
         capacity: capacity,
@@ -47,7 +47,7 @@ fn new_channel<T>(capacity: i32) : Channel<T> {
 }
 
 // Send value to channel (blocks if full)
-fn (c: &Channel<T>) send(value: T) : (nil | error) {
+export fn (c: &Channel<T>) send(value: T) : (nil | error) {
     while c.buffer.len() >= c.capacity {
         await yield(); // Wait for space
     }
@@ -57,7 +57,7 @@ fn (c: &Channel<T>) send(value: T) : (nil | error) {
 }
 
 // Receive value from channel (blocks if empty)
-fn (c: &Channel<T>) recv() : (T | error) {
+export fn (c: &Channel<T>) recv() : (T | error) {
     while c.buffer.len() == 0 {
         await yield(); // Wait for data
     }
@@ -68,44 +68,44 @@ fn (c: &Channel<T>) recv() : (T | error) {
 }
 
 // WaitGroup for coordinating multiple async tasks
-struct WaitGroup {
+export struct WaitGroup {
     count: i32,
 }
 
 // Create new wait group
-fn new_waitgroup() : WaitGroup {
+export fn new_waitgroup() : WaitGroup {
     return WaitGroup { count: 0 };
 }
 
 // Add to wait group counter
-fn (wg: &WaitGroup) add(delta: i32) {
+export fn (wg: &WaitGroup) add(delta: i32) {
     wg.count = wg.count + delta;
 }
 
 // Mark one task as done
-fn (wg: &WaitGroup) done() {
+export fn (wg: &WaitGroup) done() {
     wg.count = wg.count - 1;
 }
 
 // Wait until counter reaches zero
-fn (wg: &WaitGroup) wait() {
+export fn (wg: &WaitGroup) wait() {
     while wg.count > 0 {
         await yield();
     }
 }
 
 // Semaphore for limiting concurrent access
-struct Semaphore {
+export struct Semaphore {
     permits: i32,
 }
 
 // Create semaphore with N permits
-fn new_semaphore(permits: i32) : Semaphore {
+export fn new_semaphore(permits: i32) : Semaphore {
     return Semaphore { permits: permits };
 }
 
 // Acquire a permit (blocks if none available)
-fn (s: &Semaphore) acquire() {
+export fn (s: &Semaphore) acquire() {
     while s.permits <= 0 {
         await yield();
     }
@@ -113,19 +113,19 @@ fn (s: &Semaphore) acquire() {
 }
 
 // Release a permit
-fn (s: &Semaphore) release() {
+export fn (s: &Semaphore) release() {
     s.permits = s.permits + 1;
 }
 
 // RwLock - Multiple readers or single writer
-struct RwLock<T> {
+export struct RwLock<T> {
     data: T,
     readers: i32,
     writer: bool,
 }
 
 // Create new RwLock
-fn new_rwlock<T>(value: T) : RwLock<T> {
+export fn new_rwlock<T>(value: T) : RwLock<T> {
     return RwLock {
         data: value,
         readers: 0,
@@ -134,7 +134,7 @@ fn new_rwlock<T>(value: T) : RwLock<T> {
 }
 
 // Acquire read lock
-fn (rw: &RwLock<T>) read() : &T {
+export fn (rw: &RwLock<T>) read() : &T {
     while rw.writer {
         await yield();
     }
@@ -143,12 +143,12 @@ fn (rw: &RwLock<T>) read() : &T {
 }
 
 // Release read lock
-fn (rw: &RwLock<T>) read_unlock() {
+export fn (rw: &RwLock<T>) read_unlock() {
     rw.readers = rw.readers - 1;
 }
 
 // Acquire write lock
-fn (rw: &RwLock<T>) write() : &T {
+export fn (rw: &RwLock<T>) write() : &T {
     while rw.readers > 0 || rw.writer {
         await yield();
     }
@@ -157,7 +157,7 @@ fn (rw: &RwLock<T>) write() : &T {
 }
 
 // Release write lock
-fn (rw: &RwLock<T>) write_unlock() {
+export fn (rw: &RwLock<T>) write_unlock() {
     rw.writer = false;
 }
 

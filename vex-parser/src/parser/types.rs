@@ -7,20 +7,27 @@ use vex_lexer::Token;
 
 impl<'a> Parser<'a> {
     pub(crate) fn parse_type(&mut self) -> Result<Type, ParseError> {
-        // Reference type: &T or &mut T, or Slice type: &[T] or &mut [T]
+        // Reference type: &T or &T!, or Slice type: &[T] or &[T]!
         if self.check(&Token::Ampersand) {
             self.advance();
-            let is_mutable = self.match_token(&Token::Mut);
 
-            // Check if this is a slice type: &[T]
+            // Check if this is a slice type: &[T] or &[T]!
             if self.check(&Token::LBracket) {
                 self.advance();
                 let elem_ty = self.parse_type()?;
                 self.consume(&Token::RBracket, "Expected ']' in slice type")?;
+
+                // Check for mutable slice: &[T]!
+                let is_mutable = self.match_token(&Token::Not);
+
                 return Ok(Type::Slice(Box::new(elem_ty), is_mutable));
             }
 
             let inner_ty = self.parse_type()?;
+
+            // Check for mutable reference: &T!
+            let is_mutable = self.match_token(&Token::Not);
+
             return Ok(Type::Reference(Box::new(inner_ty), is_mutable));
         }
 
@@ -202,10 +209,6 @@ impl<'a> Parser<'a> {
             // For named types and complex types, allow intersection
             let mut types = vec![ty];
             while self.match_token(&Token::Ampersand) {
-                // Don't parse 'mut' after & in intersection context
-                if self.check(&Token::Mut) {
-                    return Err(self.error("Unexpected 'mut' in intersection type"));
-                }
                 types.push(self.parse_type_primary()?);
             }
             return Ok(Type::Intersection(types));
@@ -233,20 +236,23 @@ impl<'a> Parser<'a> {
             return Ok(Type::Infer(name));
         }
 
-        // Reference type: &T or &mut T, or Slice type: &[T] or &mut [T]
+        // Reference type: &T or &T! (v0.9 syntax), or Slice type: &[T] or &[T]!
         if self.check(&Token::Ampersand) {
             self.advance();
-            let is_mutable = self.match_token(&Token::Mut);
 
-            // Check if this is a slice type: &[T]
+            // Check if this is a slice type: &[T] or &[T]!
             if self.check(&Token::LBracket) {
                 self.advance();
                 let elem_ty = self.parse_type_primary()?;
                 self.consume(&Token::RBracket, "Expected ']' in slice type")?;
+                // Check for ! after ] for mutable slice: &[T]!
+                let is_mutable = self.match_token(&Token::Not);
                 return Ok(Type::Slice(Box::new(elem_ty), is_mutable));
             }
 
             let inner_ty = self.parse_type_primary()?;
+            // Check for ! after type for mutable reference: &T!
+            let is_mutable = self.match_token(&Token::Not);
             return Ok(Type::Reference(Box::new(inner_ty), is_mutable));
         }
 

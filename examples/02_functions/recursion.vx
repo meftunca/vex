@@ -1,0 +1,50 @@
+// Recursive Functions
+// Demonstrates: recursion, multiple recursive functions
+
+fn main() : i32 {
+    let fib_10 = fibonacci(10);  // Should be 55
+    let fact_5 = factorial(5);   // Should be 120
+    let sum_10 = sum_to_n(10);   // Should be 55
+    
+    return fib_10;  // Returns 55
+}
+
+// Recursive Fibonacci
+fn fibonacci(n: i32) : i32 {
+    if n <= 1 {
+        return n;
+    }
+    return fibonacci(n - 1) + fibonacci(n - 2);
+}
+
+// Recursive Factorial
+fn factorial(n: i32) : i32 {
+    if n <= 1 {
+        return 1;
+    }
+    return n * factorial(n - 1);
+}
+
+// Recursive sum from 1 to n
+fn sum_to_n(n: i32) : i32 {
+    if n <= 0 {
+        return 0;
+    }
+    return n + sum_to_n(n - 1);
+}
+
+// Greatest Common Divisor (Euclidean algorithm)
+fn gcd(a: i32, b: i32) : i32 {
+    if b == 0 {
+        return a;
+    }
+    return gcd(b, a % b);
+}
+
+// Power function (x^n)
+fn power(base: i32, exp: i32) : i32 {
+    if exp == 0 {
+        return 1;
+    }
+    return base * power(base, exp - 1);
+}

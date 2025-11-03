@@ -29,26 +29,26 @@ extern {
 }
 
 // mmap constants
-const PROT_NONE: i32 = 0;
-const PROT_READ: i32 = 1;
-const PROT_WRITE: i32 = 2;
-const PROT_EXEC: i32 = 4;
+export const PROT_NONE: i32 = 0;
+export const PROT_READ: i32 = 1;
+export const PROT_WRITE: i32 = 2;
+export const PROT_EXEC: i32 = 4;
 
-const MAP_SHARED: i32 = 1;
-const MAP_PRIVATE: i32 = 2;
-const MAP_ANONYMOUS: i32 = 32;
-const MAP_ANON: i32 = 32;
+export const MAP_SHARED: i32 = 1;
+export const MAP_PRIVATE: i32 = 2;
+export const MAP_ANONYMOUS: i32 = 32;
+export const MAP_ANON: i32 = 32;
 
-const MAP_FAILED: usize = -1 as usize;
+export const MAP_FAILED: usize = -1 as usize;
 
 // dlopen constants
-const RTLD_LAZY: i32 = 1;
-const RTLD_NOW: i32 = 2;
-const RTLD_GLOBAL: i32 = 256;
-const RTLD_LOCAL: i32 = 0;
+export const RTLD_LAZY: i32 = 1;
+export const RTLD_NOW: i32 = 2;
+export const RTLD_GLOBAL: i32 = 256;
+export const RTLD_LOCAL: i32 = 0;
 
 // Safe wrappers
-fn safe_mmap(len: usize, prot: i32, flags: i32):(*void | error) {
+export fn safe_mmap(len: usize, prot: i32, flags: i32):(*void | error) {
     addr := unsafe { 
         mmap(0 as *void, len, prot, flags, -1, 0) 
     };
@@ -60,7 +60,7 @@ fn safe_mmap(len: usize, prot: i32, flags: i32):(*void | error) {
     return addr;
 }
 
-fn safe_munmap(addr: *void, len: usize):(i32 | error) {
+export fn safe_munmap(addr: *void, len: usize):(i32 | error) {
     result := unsafe { munmap(addr, len) };
     if result != 0 {
         return error.new("munmap failed");

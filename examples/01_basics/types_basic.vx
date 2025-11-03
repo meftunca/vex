@@ -1,0 +1,40 @@
+// Basic Types in Vex
+// Demonstrates: integers, floats, booleans, strings
+
+fn main() : i32 {
+    // Integers (signed)
+    let i8_val: i8 = 127;
+    let i16_val: i16 = 32767;
+    let i32_val: i32 = 2147483647;
+    let i64_val: i64 = 9223372036854775807;
+    
+    // Integers (unsigned)
+    let u8_val: u8 = 255;
+    let u16_val: u16 = 65535;
+    let u32_val: u32 = 4294967295;
+    
+    // Floating point
+    let f32_val: f32 = 3.14;
+    let f64_val: f64 = 2.718281828;
+    
+    // Boolean
+    let is_true: bool = true;
+    let is_false: bool = false;
+    
+    // String literals
+    let greeting = "Hello";
+    let name = "Vex";
+    
+    // Type inference
+    let auto_int = 42;        // i32
+    let auto_float = 3.14;    // f64
+    let auto_bool = true;     // bool
+    
+    // Arithmetic
+    let sum = 10 + 20;
+    let diff = 100 - 50;
+    let prod = 5 * 6;
+    let quot = 100 / 4;
+    
+    return sum;  // Returns 30
+}

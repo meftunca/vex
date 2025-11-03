@@ -36,12 +36,11 @@ pub struct Export {
     pub items: Vec<String>, // For export { io, net };
 }
 
-/// Top-level items (functions, structs, interfaces, type aliases, enums, constants)
+/// Top-level items (functions, structs, traits, type aliases, enums, constants)
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Item {
     Function(Function),
     Struct(Struct),
-    Interface(Interface),
     Trait(Trait),
     TraitImpl(TraitImpl),
     TypeAlias(TypeAlias),
@@ -79,12 +78,15 @@ pub struct Param {
     pub ty: Type,
 }
 
-/// Struct definition
+/// Struct definition (v1.3: Inline trait implementation)
+/// Example: struct File impl Reader, Writer { fd: i32, fn read() {...} }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Struct {
     pub name: String,
     pub type_params: Vec<String>, // Generic type parameters: <T>
+    pub impl_traits: Vec<String>, // Traits this struct implements (inline declaration)
     pub fields: Vec<Field>,
+    pub methods: Vec<Function>, // Methods defined inline (including trait implementations)
 }
 
 /// Struct field
@@ -159,15 +161,22 @@ pub struct ExternFunction {
     pub is_variadic: bool,
 }
 
-/// Interface definition
+/// Interface definition (DEPRECATED in v1.3 - Use Trait instead)
+/// This is kept for backward compatibility during migration.
+/// Will be removed in future versions.
+#[deprecated(
+    since = "0.9.0",
+    note = "Use Trait instead. Interface keyword removed in v1.3"
+)]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Interface {
     pub name: String,
-    pub type_params: Vec<String>, // Generic type parameters: Cache<K, V>
+    pub type_params: Vec<String>,
     pub methods: Vec<InterfaceMethod>,
 }
 
-/// Interface method signature
+/// Interface method signature (DEPRECATED - Use TraitMethod)
+#[deprecated(since = "0.9.0", note = "Use TraitMethod instead")]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct InterfaceMethod {
     pub name: String,
@@ -175,21 +184,26 @@ pub struct InterfaceMethod {
     pub return_type: Option<Type>,
 }
 
-/// Trait definition (Rust-style type classes)
+/// Trait definition (Vex v1.3: Required + default methods)
+/// Example: trait Logger { fn log(&Self!, msg); fn info(&Self!, msg) {...} }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Trait {
     pub name: String,
     pub type_params: Vec<String>, // Generic type parameters: Converter<T>
+    pub super_traits: Vec<String>, // Trait inheritance: trait A: B, C
     pub methods: Vec<TraitMethod>,
 }
 
-/// Trait method signature (no body, just signature)
+/// Trait method (required or default)
+/// Example: fn log(self: &Self!, msg: string); // required
+///          fn info(self: &Self!, msg: string) { self.log("INFO", msg); } // default
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TraitMethod {
     pub name: String,
-    pub receiver: Option<Receiver>, // self parameter
+    pub receiver: Option<Receiver>, // self parameter (must use Self type)
     pub params: Vec<Param>,
     pub return_type: Option<Type>,
+    pub body: Option<Block>, // Some(...) = default impl, None = required
 }
 
 /// Trait implementation
@@ -272,17 +286,9 @@ pub struct Block {
 /// Statements
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Statement {
-    /// Variable declaration (let/let mut): let x: i32 = expr;
+    /// Variable declaration: let x: i32 = expr; or let! x: i32 = expr;
     Let {
-        is_mutable: bool,
-        name: String,
-        ty: Option<Type>,
-        value: Expression,
-    },
-
-    /// Variable declaration (old style): x := expr; or int32 x = expr;
-    VarDecl {
-        is_const: bool,
+        is_mutable: bool, // false = let, true = let!
         name: String,
         ty: Option<Type>,
         value: Expression,

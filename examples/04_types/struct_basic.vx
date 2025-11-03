@@ -1,0 +1,46 @@
+// Basic Structs
+// Demonstrates: struct definition, instantiation, field access
+
+struct Point {
+    x: i32,
+    y: i32,
+}
+
+struct Rectangle {
+    width: i32,
+    height: i32,
+}
+
+struct Person {
+    age: i32,
+    height: i32,
+}
+
+fn main() : i32 {
+    // Create struct instances
+    let p = Point { x: 10, y: 20 };
+    let rect = Rectangle { width: 50, height: 30 };
+    let person = Person { age: 25, height: 175 };
+    
+    // Access fields
+    let x_coord = p.x;
+    let y_coord = p.y;
+    let area = rect.width * rect.height;
+    
+    return area;  // Returns 1500
+}
+
+// Function that returns a struct
+fn make_point(x: i32, y: i32) : Point {
+    return Point { x: x, y: y };
+}
+
+// Function that takes struct as parameter
+fn get_x(p: Point) : i32 {
+    return p.x;
+}
+
+// Calculate rectangle area
+fn area(rect: Rectangle) : i32 {
+    return rect.width * rect.height;
+}

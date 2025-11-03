@@ -1,0 +1,111 @@
+import { TcpListener, TcpStream, listen } from "../net";
+import { HttpRequest, HttpResponse, parse_request, new_response } from ".";
+
+export type Handler = fn(HttpRequest): HttpResponse;
+
+export struct HttpServer {
+    addr: string,
+    port: u16,
+    handler: Handler,
+}
+
+export fn new_server(addr: string, port: u16, handler: Handler): HttpServer {
+    return HttpServer {
+        addr: addr,
+        port: port,
+        handler: handler,
+    };
+}
+
+export fn (server: &HttpServer) start(): (bool | error) {
+    listener := listen(server.addr, server.port)?;
+    
+    println("HTTP server listening on {}:{}", server.addr, server.port);
+    
+    loop {
+        result := listener.accept();
+        
+        match result {
+            stream: TcpStream => {
+                handle_connection(stream, server.handler)?;
+            },
+            err: error => {
+                eprintln("Failed to accept connection: {}", err.message());
+            },
+        }
+    }
+    
+    listener.close()?;
+    return true;
+}
+
+fn handle_connection(stream: TcpStream, handler: Handler): (bool | error) {
+    defer stream.close();
+    
+    mut request_data := "";
+    buffer: [byte; 4096] = [0; 4096];
+    
+    loop {
+        bytes_read := stream.read(&buffer[0], 4096)?;
+        
+        if bytes_read == 0 {
+            break;
+        }
+        
+        chunk := string::from_bytes(&buffer[0], bytes_read as usize);
+        request_data = request_data + chunk;
+        
+        if request_data.contains("\r\n\r\n") {
+            break;
+        }
+    }
+    
+    if request_data.len() == 0 {
+        return true;
+    }
+    
+    request_result := parse_request(request_data);
+    
+    response := match request_result {
+        req: HttpRequest => {
+            handler(req)
+        },
+        err: error => {
+            mut res := new_response(400);
+            res.set_body("Bad Request");
+            res
+        },
+    };
+    
+    response_bytes := response.to_bytes();
+    response_ptr := response_bytes.as_ptr();
+    response_len := response_bytes.len();
+    
+    stream.write(response_ptr, response_len)?;
+    
+    return true;
+}
+
+struct RouteEntry {
+    path: string,
+    handler: Handler,
+}
+
+struct RouteMap {
+    entries: [RouteEntry],
+    size: usize,
+}
+
+export fn route(req: HttpRequest, routes: RouteMap): HttpResponse {
+    route_key := req.method.to_string() + " " + req.path;
+    
+    for entry in routes.entries {
+        if entry.path == route_key {
+            return entry.handler(req);
+        }
+    }
+    
+    mut res := new_response(404);
+    res.set_body("Not Found");
+    return res;
+}

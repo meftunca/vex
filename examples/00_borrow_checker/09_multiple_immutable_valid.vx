@@ -1,0 +1,13 @@
+// Borrow Rules Valid: Multiple immutable borrows
+
+fn main() {
+    let x = 10;
+    
+    let r1 = &x;  // immutable borrow
+    let r2 = &x;  // ✅ OK: multiple immutable borrows are allowed
+    let r3 = &x;  // ✅ OK
+    
+    log(r1);
+    log(r2);
+    log(r3);
+}

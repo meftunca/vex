@@ -1,0 +1,44 @@
+// Generic Structs
+// Demonstrates: generic struct definitions, instantiation
+
+// Generic container
+struct Box<T> {
+    value: T,
+}
+
+// Generic pair
+struct Pair<T, U> {
+    first: T,
+    second: U,
+}
+
+fn main() : i32 {
+    // Instantiate Box with i32
+    let box1 = Box<i32> { value: 42 };
+    let val1 = box1.value;
+    
+    // Instantiate Box with different value
+    let box2 = Box<i32> { value: 100 };
+    let val2 = box2.value;
+    
+    // Generic pair (i32, i32)
+    let pair = Pair<i32, i32> { first: 10, second: 20 };
+    let sum = pair.first + pair.second;
+    
+    return sum;  // Returns 30
+}
+
+// Function that creates a Box
+fn make_box<T>(value: T) : Box<T> {
+    return Box<T> { value: value };
+}
+
+// Function that extracts value from Box
+fn unbox<T>(b: Box<T>) : T {
+    return b.value;
+}
+
+// Function working with Pair
+fn pair_sum(p: Pair<i32, i32>) : i32 {
+    return p.first + p.second;
+}

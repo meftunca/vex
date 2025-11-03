@@ -2,19 +2,19 @@
 
 import { libc } from "../ffi";
 
-struct File {
+export struct File {
     fd: i32,
     path: string,
     is_open: bool,
 }
 
 // Open file for reading
-fn open(path: string):(File | error) {
+export fn open(path: string):(File | error) {
     return open_with_flags(path, libc.O_RDONLY);
 }
 
 // Open file with specific flags
-fn open_with_flags(path: string, flags: i32):(File | error) {
+export fn open_with_flags(path: string, flags: i32):(File | error) {
     path_cstr := to_c_string(path);
     defer libc.safe_free(path_cstr);
     
@@ -32,17 +32,17 @@ fn open_with_flags(path: string, flags: i32):(File | error) {
 }
 
 // Create new file (truncate if exists)
-fn create(path: string):(File | error) {
+export fn create(path: string):(File | error) {
     return open_with_flags(path, libc.O_CREAT | libc.O_WRONLY | libc.O_TRUNC);
 }
 
 // Open file for append
-fn open_append(path: string):(File | error) {
+export fn open_append(path: string):(File | error) {
     return open_with_flags(path, libc.O_CREAT | libc.O_WRONLY | libc.O_APPEND);
 }
 
 // Read from file
-fn read(file: *File, buffer: *byte, size: usize):(i64 | error) {
+export fn read(file: *File, buffer: *byte, size: usize):(i64 | error) {
     if !file.is_open {
         return error.new("File not open");
     }
@@ -57,7 +57,7 @@ fn read(file: *File, buffer: *byte, size: usize):(i64 | error) {
 }
 
 // Write to file
-fn write(file: *File, data: *byte, size: usize):(i64 | error) {
+export fn write(file: *File, data: *byte, size: usize):(i64 | error) {
     if !file.is_open {
         return error.new("File not open");
     }
@@ -72,7 +72,7 @@ fn write(file: *File, data: *byte, size: usize):(i64 | error) {
 }
 
 // Seek to position
-fn seek(file: *File, offset: i64, whence: i32):(i64 | error) {
+export fn seek(file: *File, offset: i64, whence: i32):(i64 | error) {
     if !file.is_open {
         return error.new("File not open");
     }
@@ -81,12 +81,12 @@ fn seek(file: *File, offset: i64, whence: i32):(i64 | error) {
 }
 
 // Get current position
-fn tell(file: *File):(i64 | error) {
+export fn tell(file: *File):(i64 | error) {
     return seek(file, 0, libc.SEEK_CUR);
 }
 
 // Get file size
-fn size(file: *File):(i64 | error) {
+export fn size(file: *File):(i64 | error) {
     if !file.is_open {
         return error.new("File not open");
     }
@@ -100,7 +100,7 @@ fn size(file: *File):(i64 | error) {
 }
 
 // Close file
-fn close(file: *File):(bool | error) {
+export fn close(file: *File):(bool | error) {
     if !file.is_open {
         return true; // Already closed
     }
@@ -116,7 +116,7 @@ fn close(file: *File):(bool | error) {
 }
 
 // Helper: Convert string to C string
-fn to_c_string(s: string):*byte {
+export fn to_c_string(s: string):*byte {
     len := s.len();
     ptr_result := libc.safe_malloc(len + 1);
     

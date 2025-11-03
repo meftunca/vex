@@ -1,0 +1,72 @@
+// Basic Enums
+// Demonstrates: enum definition, variants, simple usage
+
+// Simple C-style enum
+enum Color {
+    Red,
+    Green,
+    Blue,
+}
+
+// Enum with numeric values
+enum Direction {
+    North,
+    East,
+    South,
+    West,
+}
+
+// Enum for state machine
+enum State {
+    Idle,
+    Running,
+    Paused,
+    Stopped,
+}
+
+fn main() : i32 {
+    // Enum values are represented as integers (tags)
+    // Red = 0, Green = 1, Blue = 2
+    let color = 1;  // Green
+    
+    // Direction values: North=0, East=1, South=2, West=3
+    let dir = 2;  // South
+    
+    // State values: Idle=0, Running=1, Paused=2, Stopped=3
+    let state = 1;  // Running
+    
+    // Use enum values
+    let result = process_color(color);
+    
+    return result;  // Returns 10
+}
+
+// Function using enum tags
+fn process_color(color: i32) : i32 {
+    if color == 0 {  // Red
+        return 5;
+    } else {
+        if color == 1 {  // Green
+            return 10;
+        } else {
+            return 15;  // Blue
+        }
+    }
+}
+
+// Direction handler
+fn handle_direction(dir: i32) : i32 {
+    if dir == 0 {  // North
+        return 0;
+    } else {
+        if dir == 1 {  // East
+            return 90;
+        } else {
+            if dir == 2 {  // South
+                return 180;
+            } else {
+                return 270;  // West
+            }
+        }
+    }
+}

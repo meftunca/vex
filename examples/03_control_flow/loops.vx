@@ -1,0 +1,76 @@
+// Loop Constructs
+// Demonstrates: while loops, iteration
+
+fn main() : i32 {
+    // While loop - sum 1 to 10
+    let sum = sum_to_n(10);
+    
+    // While with mutable counter
+    let count = count_down(5);
+    
+    return sum;  // Returns 55
+}
+
+// Sum from 1 to n using while
+fn sum_to_n(n: i32) : i32 {
+    let! result = 0;
+    let! i = 1;
+    
+    while i <= n {
+        result = result + i;
+        i = i + 1;
+    }
+    
+    return result;
+}
+
+// Count down using while
+fn count_down(n: i32) : i32 {
+    let! counter = n;
+    let! sum = 0;
+    
+    while counter > 0 {
+        sum = sum + counter;
+        counter = counter - 1;
+    }
+    
+    return sum;
+}
+
+// Find first number divisible by 7
+fn find_divisible_by_7(max: i32) : i32 {
+    let! i = 1;
+    let! found = 0;
+    
+    while found == 0 {
+        let remainder = i - (i / 7) * 7;
+        if remainder == 0 {
+            found = i;
+        } else {
+            if i >= max {
+                found = -1;  // Not found marker
+            } else {
+                i = i + 1;
+            }
+        }
+    }
+    
+    if found == -1 {
+        return 0;
+    } else {
+        return found;
+    }
+}
+
+// Factorial using while
+fn factorial_while(n: i32) : i32 {
+    let! result = 1;
+    let! i = n;
+    
+    while i > 1 {
+        result = result * i;
+        i = i - 1;
+    }
+    
+    return result;
+}

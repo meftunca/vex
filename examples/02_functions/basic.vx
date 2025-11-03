@@ -1,0 +1,43 @@
+// Basic Functions
+// Demonstrates: function definitions, parameters, return values
+
+fn main() : i32 {
+    let a = 5;
+    let b = 7;
+    
+    let sum = add(a, b);         // 12
+    let product = multiply(a, b); // 35
+    
+    return sum;  // Returns 12
+}
+
+// Simple function with two parameters
+fn add(x: i32, y: i32) : i32 {
+    return x + y;
+}
+
+// Another arithmetic function
+fn multiply(x: i32, y: i32) : i32 {
+    return x * y;
+}
+
+// Function calling other functions
+fn calculate(a: i32, b: i32) : i32 {
+    let sum = add(a, b);
+    let product = multiply(a, b);
+    return sum + product;
+}
+
+// Function with no parameters
+fn get_magic_number() : i32 {
+    return 42;
+}
+
+// Function with explicit return type
+fn is_positive(n: i32) : bool {
+    if n > 0 {
+        return true;
+    } else {
+        return false;
+    }
+}
