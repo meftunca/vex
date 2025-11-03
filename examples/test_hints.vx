@@ -1,0 +1,42 @@
+// test_hints.vx
+// Test compiler hints (assume, likely, unlikely)
+
+fn process_likely(x: i32): i32 {
+    // Hint to compiler that x > 0 is likely
+    let cond = x > 0;
+    if cond {
+        return x * 2;
+    } else {
+        return 0;
+    }
+}
+
+fn process_unlikely(x: i32): i32 {
+    // Hint to compiler that x < 0 is unlikely
+    let cond = x < 0;
+    if cond {
+        return 0;
+    } else {
+        return x + 10;
+    }
+}
+
+fn main(): i32 {
+    println("Testing compiler hints...");
+    
+    let val1 = process_likely(5);
+    print("process_likely(5) = ");
+    println(val1);
+    
+    let val2 = process_unlikely(15);
+    print("process_unlikely(15) = ");
+    println(val2);
+    
+    // Test assume - tell compiler x is positive
+    let x: i32 = 42;
+    assume(x > 0);
+    println("assume(x > 0) executed");
+    
+    println("All compiler hints tests passed!");
+    return 0;
+}

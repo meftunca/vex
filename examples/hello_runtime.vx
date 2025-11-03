@@ -1,0 +1,6 @@
+// hello_runtime.vx
+// Simple hello world to test runtime linking
+
+fn main(): i32 {
+    return 0;
+}

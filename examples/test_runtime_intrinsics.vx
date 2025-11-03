@@ -1,0 +1,23 @@
+// test_runtime_intrinsics.vx
+// Test Vex runtime with LLVM intrinsics
+
+fn main() -> i32 {
+    // Test basic functionality
+    print_hello();
+    
+    // Test arithmetic
+    let x = fibonacci(10);
+    
+    return 0;
+}
+
+fn print_hello() {
+    // Will use vex_io_print from runtime
+}
+
+fn fibonacci(n: i64) -> i64 {
+    if n <= 1 {
+        return n;
+    }
+    return fibonacci(n - 1) + fibonacci(n - 2);
+}

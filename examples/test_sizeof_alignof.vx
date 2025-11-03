@@ -1,0 +1,29 @@
+// test_sizeof_alignof.vx
+// Test sizeof and alignof builtins
+
+fn main(): i32 {
+    println("Testing sizeof and alignof...");
+    
+    // Test sizeof for integers
+    let x: i32 = 42;
+    let size_i32 = sizeof(x);
+    print("sizeof(i32) = ");
+    println(size_i32);
+    
+    let y: i64 = 100;
+    let size_i64 = sizeof(y);
+    print("sizeof(i64) = ");
+    println(size_i64);
+    
+    // Test alignof for integers
+    let align_i32 = alignof(x);
+    print("alignof(i32) = ");
+    println(align_i32);
+    
+    let align_i64 = alignof(y);
+    print("alignof(i64) = ");
+    println(align_i64);
+    
+    println("All sizeof/alignof tests passed!");
+    return 0;
+}

@@ -1,0 +1,121 @@
+// std/time.vx
+// Time and duration utilities
+
+// Get current Unix timestamp (seconds since epoch)
+fn now(): i64 {
+    // TODO: Call runtime vex_time_now
+    return 0;
+}
+
+// Get current time in milliseconds
+fn now_ms(): i64 {
+    // TODO: Call runtime vex_time_now_ms
+    return 0;
+}
+
+// Get current time in microseconds
+fn now_us(): i64 {
+    // TODO: Call runtime vex_time_now_us
+    return 0;
+}
+
+// Get current time in nanoseconds
+fn now_ns(): i64 {
+    // TODO: Call runtime vex_time_now_ns
+    return 0;
+}
+
+// Sleep for specified seconds
+fn sleep(seconds: i64): void {
+    // TODO: Call runtime vex_time_sleep
+}
+
+// Sleep for specified milliseconds
+fn sleep_ms(milliseconds: i64): void {
+    // TODO: Call runtime vex_time_sleep_ms
+}
+
+// Sleep for specified microseconds
+fn sleep_us(microseconds: i64): void {
+    // TODO: Call runtime vex_time_sleep_us
+}
+
+// Sleep for specified nanoseconds
+fn sleep_ns(nanoseconds: i64): void {
+    // TODO: Call runtime vex_time_sleep_ns
+}
+
+// Duration struct for representing time spans
+struct Duration {
+    seconds: i64,
+    nanoseconds: i64
+}
+
+// Create duration from seconds
+fn from_seconds(seconds: i64): Duration {
+    return Duration { seconds: seconds, nanoseconds: 0 };
+}
+
+// Create duration from milliseconds
+fn from_millis(milliseconds: i64): Duration {
+    return Duration {
+        seconds: milliseconds / 1000,
+        nanoseconds: (milliseconds % 1000) * 1000000
+    };
+}
+
+// Create duration from microseconds
+fn from_micros(microseconds: i64): Duration {
+    return Duration {
+        seconds: microseconds / 1000000,
+        nanoseconds: (microseconds % 1000000) * 1000
+    };
+}
+
+// Create duration from nanoseconds
+fn from_nanos(nanoseconds: i64): Duration {
+    return Duration {
+        seconds: nanoseconds / 1000000000,
+        nanoseconds: nanoseconds % 1000000000
+    };
+}
+
+// Convert duration to seconds
+fn to_seconds(d: Duration): i64 {
+    return d.seconds;
+}
+
+// Convert duration to milliseconds
+fn to_millis(d: Duration): i64 {
+    return d.seconds * 1000 + d.nanoseconds / 1000000;
+}
+
+// Convert duration to microseconds
+fn to_micros(d: Duration): i64 {
+    return d.seconds * 1000000 + d.nanoseconds / 1000;
+}
+
+// Convert duration to nanoseconds
+fn to_nanos(d: Duration): i64 {
+    return d.seconds * 1000000000 + d.nanoseconds;
+}
+
+// Simple timer for benchmarking
+struct Timer {
+    start_time: i64
+}
+
+// Start a new timer
+fn start_timer(): Timer {
+    return Timer { start_time: now_ns() };
+}
+
+// Get elapsed time in nanoseconds
+fn elapsed(timer: Timer): i64 {
+    return now_ns() - timer.start_time;
+}
+
+// Get elapsed time as duration
+fn elapsed_duration(timer: Timer): Duration {
+    return from_nanos(now_ns() - timer.start_time);
+}

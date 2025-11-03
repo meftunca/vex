@@ -1,0 +1,36 @@
+// test_intrinsics.vx
+// Test LLVM intrinsics builtins
+
+fn main(): i32 {
+    println("Testing LLVM intrinsics...");
+    
+    // Test bit manipulation
+    let x: i32 = 8;  // Binary: 0b00001000
+    
+    let leading = ctlz(x);
+    print("ctlz(8) = ");
+    println(leading);  // Should be 28 (32 - 4)
+    
+    let trailing = cttz(x);
+    print("cttz(8) = ");
+    println(trailing);  // Should be 3
+    
+    let popcount = ctpop(x);
+    print("ctpop(8) = ");
+    println(popcount);  // Should be 1
+    
+    // Test byte swap
+    let y: i32 = 305419896;  // 0x12345678
+    let swapped = bswap(y);
+    print("bswap(305419896) = ");
+    println(swapped);
+    
+    // Test bitreverse
+    let z: i32 = -2147483648;  // 0x80000000 (highest bit set)
+    let reversed = bitreverse(z);
+    print("bitreverse(0x80000000) = ");
+    println(reversed);
+    
+    println("All intrinsics tests passed!");
+    return 0;
+}

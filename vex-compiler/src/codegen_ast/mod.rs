@@ -7,23 +7,22 @@ use inkwell::module::Module;
 use inkwell::targets::{
     CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetMachine,
 };
-use inkwell::types::{BasicMetadataTypeEnum, BasicTypeEnum, StructType};
-use inkwell::values::{
-    BasicMetadataValueEnum, BasicValueEnum, FloatValue, FunctionValue, IntValue, PointerValue,
-};
-use inkwell::FloatPredicate;
-use inkwell::IntPredicate;
+use inkwell::types::{BasicTypeEnum, StructType};
+use inkwell::values::{BasicMetadataValueEnum, BasicValueEnum, FunctionValue, PointerValue};
 use inkwell::OptimizationLevel;
 use std::collections::HashMap;
 use std::path::Path;
 use vex_ast::*;
 
 // Sub-modules containing impl blocks for ASTCodeGen
+mod builtins;
 mod expressions;
 mod ffi;
 mod functions;
 mod statements;
 mod types;
+
+use builtins::BuiltinRegistry;
 
 /// Struct definition metadata
 #[derive(Debug, Clone)]
@@ -59,6 +58,9 @@ pub struct ASTCodeGen<'ctx> {
     // Maps module names to their imported functions: "io" -> ["print", "println"]
     pub(crate) module_namespaces: HashMap<String, Vec<String>>,
 
+    // Builtin functions registry
+    pub(crate) builtins: BuiltinRegistry<'ctx>,
+
     pub(crate) current_function: Option<FunctionValue<'ctx>>,
     pub(crate) printf_fn: Option<FunctionValue<'ctx>>,
 }
@@ -86,6 +88,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             trait_defs: HashMap::new(),
             trait_impls: HashMap::new(),
             module_namespaces: HashMap::new(),
+            builtins: BuiltinRegistry::new(),
             current_function: None,
             printf_fn: None,
         }

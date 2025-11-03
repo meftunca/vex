@@ -25,7 +25,7 @@
 //! ```
 
 use crate::borrow_checker::errors::{BorrowError, BorrowResult};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use vex_ast::{Expression, Item, Program, Statement};
 
 /// Type of borrow (for tracking)

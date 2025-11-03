@@ -1,0 +1,21 @@
+# Build outputs
+build/
+*.o
+*.a
+*.bc
+*.ll
+*.so
+*.dylib
+
+# Test binaries
+test
+test_*
+
+# macOS
+.DS_Store
+
+# Editor
+*.swp
+*.swo
+*~
+.vscode/

@@ -113,6 +113,8 @@ pub enum Token {
     Byte,
     #[token("error")]
     Error,
+    #[token("Map")]
+    Map,
 
     // Intrinsics
     #[token("@vectorize")]

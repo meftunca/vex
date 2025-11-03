@@ -1,9 +1,8 @@
 // Type conversion and inference
 // Contains ast_type_to_llvm, infer_expression_type and related methods
 
-use super::{ASTCodeGen, StructDef};
+use super::ASTCodeGen;
 use inkwell::types::BasicTypeEnum;
-use inkwell::values::PointerValue;
 use std::collections::HashMap;
 use vex_ast::*;
 

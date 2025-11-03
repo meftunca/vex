@@ -1,0 +1,16 @@
+// test_builtins.vx
+// Test new builtin functions
+
+fn main(): i32 {
+    // Test print and println
+    println("Testing builtins...");
+    print("Value: ");
+    println(42);
+    
+    // Test assert
+    assert(1 == 1, "Math works!");
+    assert(42 > 10, "Comparison works!");
+    
+    println("All tests passed!");
+    return 0;
+}

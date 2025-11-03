@@ -1,0 +1,21 @@
+// test_memory_builtins.vx
+// Test memory allocation builtins
+
+fn main(): i32 {
+    println("Testing memory builtins...");
+    
+    // Test alloc
+    let ptr = alloc(100);
+    println("Allocated 100 bytes");
+    
+    // Test realloc
+    let new_ptr = realloc(ptr, 200);
+    println("Reallocated to 200 bytes");
+    
+    // Test free
+    free(new_ptr);
+    println("Freed memory");
+    
+    println("All memory tests passed!");
+    return 0;
+}

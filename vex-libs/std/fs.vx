@@ -1,0 +1,111 @@
+// std/fs.vx
+// File system operations
+
+// File open modes
+let READ_MODE = 0;
+let WRITE_MODE = 1;
+let APPEND_MODE = 2;
+
+// File handle type (opaque pointer)
+struct File {
+    handle: ptr
+}
+
+// Open a file
+fn open(path: String, mode: i32): File {
+    // TODO: Call runtime vex_fs_open
+    return File { handle: 0 as ptr };
+}
+
+// Close a file
+fn close(file: File): i32 {
+    // TODO: Call runtime vex_fs_close
+    return 0;
+}
+
+// Read from file
+fn read(file: File, buffer: ptr, size: i64): i64 {
+    // TODO: Call runtime vex_fs_read
+    return 0;
+}
+
+// Write to file
+fn write(file: File, buffer: ptr, size: i64): i64 {
+    // TODO: Call runtime vex_fs_write
+    return 0;
+}
+
+// Read entire file to string
+fn read_to_string(path: String): String {
+    // TODO: Call runtime vex_fs_read_to_string
+    return "";
+}
+
+// Write string to file
+fn write_string(path: String, content: String): i32 {
+    // TODO: Call runtime vex_fs_write_string
+    return 0;
+}
+
+// Check if file exists
+fn exists(path: String): bool {
+    // TODO: Call runtime vex_fs_exists
+    return false;
+}
+
+// Delete file
+fn remove(path: String): i32 {
+    // TODO: Call runtime vex_fs_remove
+    return 0;
+}
+
+// Rename/move file
+fn rename(old_path: String, new_path: String): i32 {
+    // TODO: Call runtime vex_fs_rename
+    return 0;
+}
+
+// Get file size
+fn size(path: String): i64 {
+    // TODO: Call runtime vex_fs_size
+    return 0;
+}
+
+// Create directory
+fn mkdir(path: String): i32 {
+    // TODO: Call runtime vex_fs_mkdir
+    return 0;
+}
+
+// Remove directory
+fn rmdir(path: String): i32 {
+    // TODO: Call runtime vex_fs_rmdir
+    return 0;
+}
+
+// List directory contents
+fn readdir(path: String): Array<String> {
+    // TODO: Call runtime vex_fs_readdir
+    return Array<String>();
+}
+
+// File metadata
+struct FileStat {
+    size: i64,
+    is_file: bool,
+    is_dir: bool,
+    created: i64,
+    modified: i64
+}
+
+// Get file metadata
+fn stat(path: String): FileStat {
+    // TODO: Call runtime vex_fs_stat
+    return FileStat {
+        size: 0,
+        is_file: false,
+        is_dir: false,
+        created: 0,
+        modified: 0
+    };
+}

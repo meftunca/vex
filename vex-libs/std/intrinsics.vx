@@ -1,0 +1,99 @@
+// std/intrinsics.vx
+// LLVM intrinsics exposure for advanced optimizations
+
+// Bit manipulation
+fn ctlz(x: i32): i32 {
+    // Count leading zeros
+    // TODO: Map to llvm.ctlz.i32
+    return 0;
+}
+
+fn cttz(x: i32): i32 {
+    // Count trailing zeros
+    // TODO: Map to llvm.cttz.i32
+    return 0;
+}
+
+fn ctpop(x: i32): i32 {
+    // Count population (number of 1 bits)
+    // TODO: Map to llvm.ctpop.i32
+    return 0;
+}
+
+fn bswap(x: i32): i32 {
+    // Byte swap
+    // TODO: Map to llvm.bswap.i32
+    return x;
+}
+
+fn bitreverse(x: i32): i32 {
+    // Reverse bits
+    // TODO: Map to llvm.bitreverse.i32
+    return x;
+}
+
+// Overflow checking arithmetic
+fn sadd_overflow(a: i32, b: i32): (i32, bool) {
+    // Safe add with overflow check
+    // TODO: Map to llvm.sadd.with.overflow.i32
+    return (a + b, false);
+}
+
+fn ssub_overflow(a: i32, b: i32): (i32, bool) {
+    // Safe subtract with overflow check
+    // TODO: Map to llvm.ssub.with.overflow.i32
+    return (a - b, false);
+}
+
+fn smul_overflow(a: i32, b: i32): (i32, bool) {
+    // Safe multiply with overflow check
+    // TODO: Map to llvm.smul.with.overflow.i32
+    return (a * b, false);
+}
+
+// Memory operations
+fn prefetch(addr: ptr, rw: i32, locality: i32, cache_type: i32): void {
+    // Prefetch memory
+    // TODO: Map to llvm.prefetch
+}
+
+fn assume(condition: bool): void {
+    // Optimization hint: assume condition is true
+    // TODO: Map to llvm.assume
+}
+
+// Math intrinsics
+fn sqrt_f32(x: f32): f32 {
+    // TODO: Map to llvm.sqrt.f32
+    return x;
+}
+
+fn sqrt_f64(x: f64): f64 {
+    // TODO: Map to llvm.sqrt.f64
+    return x;
+}
+
+fn fma_f32(a: f32, b: f32, c: f32): f32 {
+    // Fused multiply-add: a * b + c
+    // TODO: Map to llvm.fma.f32
+    return a * b + c;
+}
+
+fn fma_f64(a: f64, b: f64, c: f64): f64 {
+    // Fused multiply-add: a * b + c
+    // TODO: Map to llvm.fma.f64
+    return a * b + c;
+}
+
+// Compiler hints
+fn likely(x: bool): bool {
+    // Hint that condition is likely true
+    // TODO: Map to llvm.expect
+    return x;
+}
+
+fn unlikely(x: bool): bool {
+    // Hint that condition is likely false
+    // TODO: Map to llvm.expect
+    return x;
+}

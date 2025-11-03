@@ -18,72 +18,18 @@ impl<'ctx> ASTCodeGen<'ctx> {
             return Err("Complex function calls not yet supported".to_string());
         };
 
-        // Special handling for print() builtin (no newline)
-        if func_name == "print" {
-            if args.len() != 1 {
-                return Err("print() takes exactly one argument".to_string());
-            }
-
-            let val = self.compile_expression(&args[0])?;
-
-            // Determine format string based on type (NO newline)
-            match val {
-                BasicValueEnum::IntValue(_) => {
-                    self.build_printf("%d", &[val])?;
-                }
-                BasicValueEnum::FloatValue(_) => {
-                    self.build_printf("%f", &[val])?;
-                }
-                BasicValueEnum::PointerValue(_) => {
-                    // String (i8* pointer)
-                    self.build_printf("%s", &[val])?;
-                }
-                _ => {
-                    return Err(format!("print() doesn't support this type yet: {:?}", val));
-                }
-            }
-
-            // Return 0 as dummy value
-            return Ok(self.context.i32_type().const_int(0, false).into());
-        }
-
-        // Special handling for println() builtin (with newline)
-        if func_name == "println" {
-            if args.len() != 1 {
-                return Err("println() takes exactly one argument".to_string());
-            }
-
-            let val = self.compile_expression(&args[0])?;
-
-            // Determine format string based on type (WITH newline)
-            match val {
-                BasicValueEnum::IntValue(_) => {
-                    self.build_printf("%d\n", &[val])?;
-                }
-                BasicValueEnum::FloatValue(_) => {
-                    self.build_printf("%f\n", &[val])?;
-                }
-                BasicValueEnum::PointerValue(_) => {
-                    // String (i8* pointer)
-                    self.build_printf("%s\n", &[val])?;
-                }
-                _ => {
-                    return Err(format!(
-                        "println() doesn't support this type yet: {:?}",
-                        val
-                    ));
-                }
-            }
-
-            // Return 0 as dummy value
-            return Ok(self.context.i32_type().const_int(0, false).into());
-        }
-
-        // Compile arguments
+        // Compile arguments first
         let mut arg_vals: Vec<BasicMetadataValueEnum> = Vec::new();
+        let mut arg_basic_vals: Vec<BasicValueEnum> = Vec::new();
         for arg in args {
             let val = self.compile_expression(arg)?;
             arg_vals.push(val.into());
+            arg_basic_vals.push(val);
+        }
+
+        // Check if this is a builtin function
+        if let Some(builtin_fn) = self.builtins.get(func_name) {
+            return builtin_fn(self, &arg_basic_vals);
         }
 
         // Check if this is a generic function that needs instantiation

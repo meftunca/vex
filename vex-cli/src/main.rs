@@ -283,10 +283,18 @@ fn main() -> Result<()> {
                 .map_err(|e| anyhow::anyhow!(e))?;
             println!("✓ Object file generated: {}", obj_path);
 
-            // Link with clang
-            println!("🔗 Linking...");
+            // Link with clang and Vex runtime library
+            println!("🔗 Linking with Vex runtime...");
+
+            // Get runtime library path
+            let runtime_lib_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .parent()
+                .unwrap()
+                .join("vex-runtime/c/build/libvex_runtime.a");
+
             let link_result = Command::new("clang")
                 .arg(&obj_path)
+                .arg(&runtime_lib_path)
                 .arg("-o")
                 .arg(&output_path)
                 .output()?;
@@ -469,9 +477,15 @@ fn main() -> Result<()> {
                 .compile_to_object(&obj_path)
                 .map_err(|e| anyhow::anyhow!("Object file generation error: {}", e))?;
 
-            // Link
+            // Link with Vex runtime library
+            let runtime_lib_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .parent()
+                .unwrap()
+                .join("vex-runtime/c/build/libvex_runtime.a");
+
             let link_result = Command::new("clang")
                 .arg(&obj_path)
+                .arg(&runtime_lib_path)
                 .arg("-o")
                 .arg(&temp_output)
                 .output()?;

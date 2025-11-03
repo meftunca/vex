@@ -1,0 +1,32 @@
+// test_unreachable.vx
+// Test unreachable builtin
+
+fn get_positive(x: i32): i32 {
+    if x > 0 {
+        return x;
+    } else {
+        if x < 0 {
+            return -x;
+        } else {
+            unreachable();
+        }
+    }
+    return 0; // This should never be reached
+}
+
+fn main(): i32 {
+    println("Testing unreachable...");
+    
+    let val1 = get_positive(5);
+    print("get_positive(5) = ");
+    println(val1);
+    
+    let val2 = get_positive(-10);
+    print("get_positive(-10) = ");
+    println(val2);
+    
+    // Note: calling get_positive(0) would trigger unreachable and abort
+    
+    println("All unreachable tests passed!");
+    return 0;
+}
