@@ -1,0 +1,17 @@
+// Debug: Check negative return value
+
+enum SimpleResult {
+    Ok(i32),
+    Err(i32)
+}
+
+fn main(): i32 {
+    let result = SimpleResult.Err(42);
+    
+    let output = match result {
+        SimpleResult.Ok(val) => val,
+        SimpleResult.Err(code) => code
+    };
+    
+    return output;  // Should return 42
+}

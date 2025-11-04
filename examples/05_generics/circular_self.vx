@@ -1,0 +1,11 @@
+// Test: Circular generic self-reference
+// This should detect the cycle and fail gracefully
+
+struct Node<T> {
+    value: T,
+    next: Node<T>  // Circular self-reference
+}
+
+fn main(): i32 {
+    return 0;
+}

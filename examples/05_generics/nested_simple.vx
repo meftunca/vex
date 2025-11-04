@@ -1,0 +1,20 @@
+// Simple Nested Generic Test
+// Tests: Box<Box<i32>> basic parsing and instantiation
+
+struct Box<T> {
+    value: T,
+}
+
+fn main(): i32 {
+    // Test 1: Box inside Box
+    let inner = Box<i32> { value: 42 };
+    let outer = Box<Box<i32>> { value: inner };
+    
+    // Extract from outer (should return Box<i32>)
+    let middle = outer.value;
+    
+    // Extract from middle (should return i32)
+    let result = middle.value;
+    
+    return result;  // Should be 42
+}

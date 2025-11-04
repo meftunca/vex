@@ -1,4 +1,4 @@
-// std::sync - Layer 2: Synchronization (100% Safe Native Vex)
+// std.sync - Layer 2: Synchronization (100% Safe Native Vex)
 // Concurrency primitives for async Vex programs.
 
 // Mutex for thread-safe shared state

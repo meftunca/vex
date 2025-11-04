@@ -1,0 +1,33 @@
+// Simple Result Test - Non-Generic
+// Test ? operator with simple Result enum
+
+enum SimpleResult {
+    Ok(i32),
+    Err(i32)
+}
+
+// Function that can fail
+fn divide(a: i32, b: i32): SimpleResult {
+    if b == 0 {
+        return SimpleResult.Err(-1);
+    }
+    return SimpleResult.Ok(a / b);
+}
+
+// Function using ? operator
+fn calculate(): SimpleResult {
+    let x = divide(10, 2)?;  // Should unwrap to 5
+    let y = divide(20, 4)?;  // Should unwrap to 5
+    return SimpleResult.Ok(x + y);  // Should return Ok(10)
+}
+
+fn main(): i32 {
+    let result = calculate();
+    
+    let output = match result {
+        SimpleResult.Ok(val) => val,
+        SimpleResult.Err(code) => code
+    };
+    
+    return output;  // Should return 10
+}

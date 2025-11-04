@@ -1,0 +1,21 @@
+// Simple test: Match with block that uses bound variable
+// Expected: Returns 42
+
+enum Maybe {
+    Some(i32),
+    None
+}
+
+fn main(): i32 {
+    let! x = Maybe.Some(21);
+    
+    let result = match x {
+        Maybe.Some(val) => {
+            let doubled = val * 2;
+            doubled
+        },
+        Maybe.None => 0
+    };
+    
+    return result;
+}

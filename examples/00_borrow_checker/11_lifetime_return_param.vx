@@ -1,0 +1,12 @@
+// Phase 4: Lifetime Analysis - Returning reference to parameter (should pass)
+// Parameters have scope 1, which is valid to return
+
+fn get_ref(x: &i32): &i32 {
+    return x;  // OK: x is a parameter (scope 1), safe to return
+}
+
+fn main(): i32 {
+    let value = 42;
+    let ref_val = get_ref(&value);
+    return 0;
+}

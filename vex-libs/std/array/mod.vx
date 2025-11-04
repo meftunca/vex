@@ -1,0 +1,155 @@
+// Vex Standard Library - Array Module
+// Array manipulation utilities
+
+// Get length of array
+export fn len<T>(arr: [T]): i64 {
+    return array_len(arr as *void);
+}
+
+// Get element at index (bounds checked, panics on out of range)
+export fn get<T>(arr: [T], index: i64): T {
+    let elem_size = sizeof(arr[0]);
+    let ptr = array_get(arr as *void, index, elem_size);
+    return *(ptr as *T);
+}
+
+// Set element at index (bounds checked, panics on out of range)
+export fn set<T>(arr: [T]!, index: i64, value: T) {
+    let elem_size = sizeof(arr[0]);
+    array_set(arr as *void, index, &value as *void, elem_size);
+}
+
+// Append element to array (may reallocate)
+export fn append<T>(arr: [T]!, value: T): [T] {
+    let elem_size = sizeof(arr[0]);
+    let new_ptr = array_append(arr as *void, &value as *void, elem_size);
+    return new_ptr as [T];
+}
+
+// Check if array is empty
+export fn is_empty<T>(arr: [T]): bool {
+    return array_len(arr as *void) == 0;
+}
+
+// Get first element (panics if empty)
+export fn first<T>(arr: [T]): T {
+    return array.get(arr, 0);
+}
+
+// Get last element (panics if empty)
+export fn last<T>(arr: [T]): T {
+    let length = array_len(arr as *void);
+    return array.get(arr, length - 1);
+}
+
+// Check if array contains element (requires equality)
+export fn contains<T>(arr: [T], value: T): bool {
+    let length = array_len(arr as *void);
+    let i: i64 = 0;
+    
+    while i < length {
+        if array.get(arr, i) == value {
+            return true;
+        }
+        i = i + 1;
+    }
+    
+    return false;
+}
+
+// Find index of element (returns -1 if not found)
+export fn index_of<T>(arr: [T], value: T): i64 {
+    let length = array_len(arr as *void);
+    let i: i64 = 0;
+    
+    while i < length {
+        if array.get(arr, i) == value {
+            return i;
+        }
+        i = i + 1;
+    }
+    
+    return -1;
+}
+
+// Fill array with value
+export fn fill<T>(arr: [T]!, value: T) {
+    let length = array_len(arr as *void);
+    let i: i64 = 0;
+    
+    while i < length {
+        array.set(arr, i, value);
+        i = i + 1;
+    }
+}
+
+// Reverse array in-place
+export fn reverse<T>(arr: [T]!) {
+    let length = array_len(arr as *void);
+    let i: i64 = 0;
+    
+    while i < length / 2 {
+        let j = length - 1 - i;
+        let temp = array.get(arr, i);
+        array.set(arr, i, array.get(arr, j));
+        array.set(arr, j, temp);
+        i = i + 1;
+    }
+}
+
+// Sum of numeric array
+export fn sum_i32(arr: [i32]): i32 {
+    let length = array_len(arr as *void);
+    let total: i32 = 0;
+    let i: i64 = 0;
+    
+    while i < length {
+        total = total + array.get(arr, i);
+        i = i + 1;
+    }
+    
+    return total;
+}
+
+export fn sum_i64(arr: [i64]): i64 {
+    let length = array_len(arr as *void);
+    let total: i64 = 0;
+    let i: i64 = 0;
+    
+    while i < length {
+        total = total + array.get(arr, i);
+        i = i + 1;
+    }
+    
+    return total;
+}
+
+export fn sum_f64(arr: [f64]): f64 {
+    let length = array_len(arr as *void);
+    let total: f64 = 0.0;
+    let i: i64 = 0;
+    
+    while i < length {
+        total = total + array.get(arr, i);
+        i = i + 1;
+    }
+    
+    return total;
+}
+
+// Example usage:
+// let! numbers = [1, 2, 3, 4, 5];
+// 
+// println(array.len(numbers));         // 5
+// println(array.first(numbers));       // 1
+// println(array.last(numbers));        // 5
+// 
+// if array.contains(numbers, 3) {
+//     println("Found 3!");
+// }
+//
+// array.reverse(numbers);              // [5, 4, 3, 2, 1]
+// println(array.sum_i32(numbers));     // 15
+//
+// numbers = array.append(numbers, 6);
+// println(array.len(numbers));         // 6

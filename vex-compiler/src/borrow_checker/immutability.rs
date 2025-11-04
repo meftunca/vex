@@ -126,6 +126,7 @@ impl ImmutabilityChecker {
             Statement::If {
                 condition,
                 then_block,
+                elif_branches,
                 else_block,
             } => {
                 // Check condition
@@ -134,6 +135,14 @@ impl ImmutabilityChecker {
                 // Check branches
                 for stmt in &then_block.statements {
                     self.check_statement(stmt)?;
+                }
+
+                // Check elif branches
+                for (elif_cond, elif_block) in elif_branches {
+                    self.check_expression(elif_cond)?;
+                    for stmt in &elif_block.statements {
+                        self.check_statement(stmt)?;
+                    }
                 }
 
                 if let Some(else_blk) = else_block {

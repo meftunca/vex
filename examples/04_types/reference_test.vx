@@ -1,0 +1,17 @@
+// Test reference expressions: &expr
+// Tests taking references to variables and passing them to functions
+
+fn increment(x: &i32!): i32 {
+    let val = *x;
+    return val + 1;
+}
+
+fn main(): i32 {
+    let! counter = 10;
+    
+    // Take reference to variable
+    let result = increment(&counter);
+    
+    // Should return 11 (10 + 1)
+    return result;
+}

@@ -1,0 +1,58 @@
+{
+  "name": "vex-language",
+  "displayName": "Vex Language Support",
+  "description": "Syntax highlighting and language support for Vex programming language",
+  "version": "0.2.0",
+  "publisher": "meftunca",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "keywords": [
+    "vex",
+    "systems programming",
+    "rust",
+    "go"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/meftunca/vex"
+  },
+  "contributes": {
+    "languages": [
+      {
+        "id": "vex",
+        "aliases": [
+          "Vex",
+          "vex"
+        ],
+        "extensions": [
+          ".vx"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "vex",
+        "scopeName": "source.vex",
+        "path": "./syntaxes/vex.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "vex",
+        "path": "./snippets/vex.json"
+      }
+    ],
+    "themes": [
+      {
+        "label": "Vex Dark",
+        "uiTheme": "vs-dark",
+        "path": "./themes/vex-dark.json"
+      }
+    ]
+  }
+}

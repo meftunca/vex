@@ -1,0 +1,25 @@
+// Test: Match expression with block bodies
+// Expected: Returns 42
+
+enum Maybe {
+    Some(i32),
+    None
+}
+
+fn main(): i32 {
+    let! x = Maybe.Some(20);
+    
+    let result = match x {
+        Maybe.Some(val) => {
+            let doubled = val * 2;
+            let added = doubled + 2;
+            added
+        },
+        Maybe.None => {
+            let default_val = 0;
+            default_val
+        }
+    };
+    
+    return result;
+}

@@ -1,4 +1,4 @@
-// std::ffi::platform::windows - Windows-specific FFI bindings
+// std.ffi.platform.windows - Windows-specific FFI bindings
 
 #[cfg(windows)]
 #[link(name = "kernel32")]

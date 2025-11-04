@@ -1,0 +1,16 @@
+// Debug: return enum value directly
+
+enum Maybe {
+    Some(i32),
+    None,
+}
+
+fn main(): i32 {
+    let m = Maybe.Some(42);
+    
+    // Don't match, just create and try to use
+    print("Created enum value");
+    
+    // Try to return it (will fail because wrong type, but shows what we have)
+    return 0;
+}

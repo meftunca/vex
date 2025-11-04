@@ -1,4 +1,4 @@
-// std::hpc - Layer 1: High Performance Computing
+// std.hpc - Layer 1: High Performance Computing
 // This module provides GPU and SIMD acceleration primitives
 
 // GPU kernel launch (from specification Section 6.1)

@@ -1,0 +1,24 @@
+// Deep Nested Generics Test
+// Tests: How deep can we go?
+
+struct Box<T> {
+    value: T,
+}
+
+fn main(): i32 {
+    // Test depth 5
+    let b1: Box<i32> = Box<i32> { value: 42 };
+    let b2: Box<Box<i32>> = Box<Box<i32>> { value: b1 };
+    let b3: Box<Box<Box<i32>>> = Box<Box<Box<i32>>> { value: b2 };
+    let b4: Box<Box<Box<Box<i32>>>> = Box<Box<Box<Box<i32>>>> { value: b3 };
+    let b5: Box<Box<Box<Box<Box<i32>>>>> = Box<Box<Box<Box<Box<i32>>>>> { value: b4 };
+    
+    // Extract
+    let v4 = b5.value;
+    let v3 = v4.value;
+    let v2 = v3.value;
+    let v1 = v2.value;
+    let result = v1.value;
+    
+    return result;
+}

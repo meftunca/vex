@@ -1,4 +1,4 @@
-// std::ffi::simdutf - Ultra-fast UTF-8/UTF-16 validation and conversion
+// std.ffi.simdutf - Ultra-fast UTF-8/UTF-16 validation and conversion
 // Uses SIMD instructions (AVX-512, AVX2, NEON) for 20GB/s performance
 
 // ============================================================================

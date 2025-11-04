@@ -1,0 +1,25 @@
+// Higher-Order Functions Example
+// Function types can be passed as parameters
+
+fn double(x: i32): i32 {
+    return x * 2;
+}
+
+fn square(x: i32): i32 {
+    return x * x;
+}
+
+fn apply(f: fn(i32) -> i32, value: i32): i32 {
+    return f(value);
+}
+
+fn main(): i32 {
+    let x = 5;
+    
+    // Pass function as argument
+    let doubled = apply(double, x);
+    let squared = apply(square, x);
+    
+    // Result: 10 + 25 = 35
+    return doubled + squared;
+}

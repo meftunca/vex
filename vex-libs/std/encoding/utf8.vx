@@ -1,4 +1,4 @@
-// std::encoding::utf8 - UTF-8 utilities with SIMD optimization (20GB/s)
+// std.encoding.utf8 - UTF-8 utilities with SIMD optimization (20GB/s)
 
 import { simdutf } from "../../ffi";
 
@@ -162,29 +162,29 @@ export fn from_wide_string(wide: &[u16]): (string | error) {
 // ============================================================================
 
 /*
-import { utf8 } from "std::encoding";
+import { utf8 } from "std.encoding";
 
 export fn main() {
     text := "Hello, 世界! 🚀";
     
     // Validate
-    if utf8::is_valid_utf8(text.as_bytes()) {
+    if utf8.is_valid_utf8(text.as_bytes()) {
         println("Valid UTF-8!");
     }
     
     // Count characters (not bytes)
-    char_count := utf8::char_count(text);  // 13 characters
+    char_count := utf8.char_count(text);  // 13 characters
     byte_count := text.len();               // 18 bytes
     println(f"Characters: {char_count}, Bytes: {byte_count}");
     
     // Get character at index
-    ch := utf8::char_at(text, 7)?;  // '世'
+    ch := utf8.char_at(text, 7)?;  // '世'
     
     // Convert to UTF-16 for Windows API
-    wide := utf8::to_wide_string(text);
+    wide := utf8.to_wide_string(text);
     
     // Detect encoding
-    encoding := utf8::detect_encoding(text.as_bytes());
+    encoding := utf8.detect_encoding(text.as_bytes());
     if encoding.is_utf8() {
         println("Detected UTF-8!");
     }

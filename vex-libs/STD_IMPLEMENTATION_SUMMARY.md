@@ -171,7 +171,7 @@ fn main() -> i32 {
 import { sync } from "std";
 
 fn main() -> i32 {
-    let mut ch = sync.new_channel<i32>(10);
+    let! ch = sync.new_channel<i32>(10);
 
     go { await ch.send(42); };
     let value = await ch.recv();
@@ -185,14 +185,14 @@ fn main() -> i32 {
 ```vex
 import { hpc } from "std";
 
-fn kernel(data: &mut [f32]) {
+fn kernel(data: &[f32]!) {
     let idx = hpc.thread_idx().x;
     data[idx] = data[idx] * 2.0;
 }
 
 fn main() -> i32 {
-    let mut data = [1.0; 1024];
-    launch kernel(&mut data) { grid: (4, 1, 1), block: (256, 1, 1) };
+    let! data = [1.0; 1024];
+    launch kernel(&data!) { grid: (4, 1, 1), block: (256, 1, 1) };
     await hpc.gpu_sync();
     return 0;
 }

@@ -1,4 +1,4 @@
-// std::ffi::tokio - Tokio async runtime FFI bindings
+// std.ffi.tokio - Tokio async runtime FFI bindings
 // High-performance async runtime using io_uring (Linux), kqueue (macOS), IOCP (Windows)
 
 // ============================================================================

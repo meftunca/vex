@@ -1,0 +1,43 @@
+// Comprehensive Higher-Order Functions Test
+// Tests function pointers, apply, map-like operations
+
+fn double(x: i32): i32 {
+    return x * 2;
+}
+
+fn square(x: i32): i32 {
+    return x * x;
+}
+
+fn add_ten(x: i32): i32 {
+    return x + 10;
+}
+
+// Higher-order function: apply function to value
+fn apply(f: fn(i32) -> i32, value: i32): i32 {
+    return f(value);
+}
+
+// Higher-order function: compose two functions
+fn compose(f: fn(i32) -> i32, g: fn(i32) -> i32, value: i32): i32 {
+    return f(g(value));
+}
+
+fn main(): i32 {
+    let x = 5;
+    
+    // Test 1: Apply single function
+    let result1 = apply(double, x);  // 10
+    
+    // Test 2: Apply different function
+    let result2 = apply(square, x);  // 25
+    
+    // Test 3: Compose functions
+    let result3 = compose(double, add_ten, x);  // double(add_ten(5)) = double(15) = 30
+    
+    // Test 4: Different composition
+    let result4 = compose(add_ten, square, x);  // add_ten(square(5)) = add_ten(25) = 35
+    
+    // Return sum: 10 + 25 + 30 + 35 = 100
+    return result1 + result2 + result3 + result4;
+}

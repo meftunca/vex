@@ -1,0 +1,52 @@
+// Break and Continue Test
+// Tests loop control flow with while loops
+
+fn main(): i32 {
+    // Test 1: Break in while loop
+    let! sum = 0;
+    let! i = 0;
+    while i < 10 {
+        if i == 5 {
+            break;
+        }
+        sum = sum + i;
+        i = i + 1;
+    }
+    // sum should be 0+1+2+3+4 = 10
+    
+    // Test 2: Continue in while loop
+    let! result = 0;
+    let! j = 0;
+    while j < 10 {
+        j = j + 1;
+        if j == 3 {
+            continue;
+        }
+        if j == 7 {
+            continue;
+        }
+        result = result + 1;
+    }
+    // result should be 8 (skipped 3 and 7, counted 1,2,4,5,6,8,9,10)
+    
+    // Test 3: Nested loop with break
+    let! outer = 0;
+    let! k = 0;
+    while k < 5 {
+        let! inner = 0;
+        let! m = 0;
+        while m < 5 {
+            if m == 3 {
+                break;
+            }
+            inner = inner + 1;
+            m = m + 1;
+        }
+        outer = outer + inner;
+        k = k + 1;
+    }
+    // outer should be 3*5 = 15
+    
+    // Return combined result
+    return sum + result + outer;  // 10 + 8 + 15 = 33
+}

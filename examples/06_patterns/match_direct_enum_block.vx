@@ -1,0 +1,22 @@
+// Test: Direct enum literal in match with block
+// Expected: Returns 50
+
+enum Result {
+    Ok(i32),
+    Err(i32)
+}
+
+fn main(): i32 {
+    let! result = Result.Ok(50);
+    
+    let output = match result {
+        Result.Ok(val) => {
+            val
+        },
+        Result.Err(code) => {
+            code
+        }
+    };
+    
+    return output;
+}

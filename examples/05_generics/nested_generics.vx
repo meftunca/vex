@@ -1,0 +1,36 @@
+// Nested Generics Test
+// Tests: Generic inside generic, complex type parameters
+
+struct Box<T> {
+    value: T,
+}
+
+struct Pair<T, U> {
+    first: T,
+    second: U,
+}
+
+fn main(): i32 {
+    // Test 1: Box inside Box (nested generic)
+    let inner = Box<i32> { value: 42 };
+    let outer = Box<Box<i32>> { value: inner };
+    let middle = outer.value;
+    let extracted = middle.value;
+    
+    // Test 2: Pair with generic types
+    let p1 = Pair<i32, i32> { first: 10, second: 20 };
+    let boxed_pair = Box<Pair<i32, i32>> { value: p1 };
+    let pair = boxed_pair.value;
+    let sum = pair.first + pair.second;
+    
+    // Test 3: Pair of Boxes
+    let box1 = Box<i32> { value: 5 };
+    let box2 = Box<i32> { value: 7 };
+    let pair_of_boxes = Pair<Box<i32>, Box<i32>> { first: box1, second: box2 };
+    let first_box = pair_of_boxes.first;
+    let second_box = pair_of_boxes.second;
+    let product = first_box.value * second_box.value;
+    
+    // Result: 42 + 30 + 35 = 107
+    return extracted + sum + product;
+}

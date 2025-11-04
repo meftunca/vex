@@ -1,4 +1,4 @@
-// std::ffi::zstd - Zstandard compression library bindings
+// std.ffi.zstd - Zstandard compression library bindings
 // Modern, fast compression by Facebook (better than zlib)
 
 #[link(name = "zstd")]

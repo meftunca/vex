@@ -1,4 +1,4 @@
-// std::ffi::openssl - OpenSSL cryptography library bindings
+// std.ffi.openssl - OpenSSL cryptography library bindings
 // TLS, crypto, hashing, and more
 
 // ==================== SSL/TLS ====================

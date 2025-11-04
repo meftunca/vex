@@ -1,6 +1,9 @@
 // Modular LLVM Code Generator for Vex
 // Refactored from codegen_ast.rs for better maintainability
 
+// Compiler limits
+pub(crate) const MAX_GENERIC_DEPTH: usize = 64; // Maximum nesting depth for generic types (Rust uses 128)
+
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::Module;
@@ -15,14 +18,14 @@ use std::path::Path;
 use vex_ast::*;
 
 // Sub-modules containing impl blocks for ASTCodeGen
-mod builtins;
+pub mod builtins; // Now a directory module
 mod expressions;
 mod ffi;
 mod functions;
 mod statements;
 mod types;
 
-use builtins::BuiltinRegistry;
+pub use builtins::BuiltinRegistry;
 
 /// Struct definition metadata
 #[derive(Debug, Clone)]
@@ -39,8 +42,12 @@ pub struct ASTCodeGen<'ctx> {
     pub(crate) variables: HashMap<String, PointerValue<'ctx>>,
     pub(crate) variable_types: HashMap<String, BasicTypeEnum<'ctx>>,
     pub(crate) variable_struct_names: HashMap<String, String>,
+    pub(crate) variable_enum_names: HashMap<String, String>, // Track enum variable names
     // Track tuple variables separately to know their struct types for pattern matching
     pub(crate) tuple_variable_types: HashMap<String, StructType<'ctx>>,
+    // Track function pointer parameters (stored as values, not allocas)
+    pub(crate) function_params: HashMap<String, PointerValue<'ctx>>,
+    pub(crate) function_param_types: HashMap<String, Type>,
     pub(crate) functions: HashMap<String, FunctionValue<'ctx>>,
     pub(crate) function_defs: HashMap<String, Function>,
     pub(crate) struct_ast_defs: HashMap<String, Struct>,
@@ -63,6 +70,16 @@ pub struct ASTCodeGen<'ctx> {
 
     pub(crate) current_function: Option<FunctionValue<'ctx>>,
     pub(crate) printf_fn: Option<FunctionValue<'ctx>>,
+
+    // Defer statement stack (LIFO order)
+    pub(crate) deferred_statements: Vec<Statement>,
+
+    // Loop context stack for break/continue
+    // Stack of (loop_body_block, loop_merge_block) - last entry is current loop
+    pub(crate) loop_context_stack: Vec<(
+        inkwell::basic_block::BasicBlock<'ctx>,
+        inkwell::basic_block::BasicBlock<'ctx>,
+    )>,
 }
 
 impl<'ctx> ASTCodeGen<'ctx> {
@@ -77,7 +94,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
             variables: HashMap::new(),
             variable_types: HashMap::new(),
             variable_struct_names: HashMap::new(),
+            variable_enum_names: HashMap::new(),
             tuple_variable_types: HashMap::new(),
+            function_params: HashMap::new(),
+            function_param_types: HashMap::new(),
             functions: HashMap::new(),
             function_defs: HashMap::new(),
             struct_ast_defs: HashMap::new(),
@@ -91,12 +111,32 @@ impl<'ctx> ASTCodeGen<'ctx> {
             builtins: BuiltinRegistry::new(),
             current_function: None,
             printf_fn: None,
+            deferred_statements: Vec::new(),
+            loop_context_stack: Vec::new(),
         }
     }
 
     /// Register a module namespace with its functions
     pub fn register_module_namespace(&mut self, module_name: String, functions: Vec<String>) {
         self.module_namespaces.insert(module_name, functions);
+    }
+
+    /// Execute deferred statements in LIFO order
+    /// Called before function exits (return, panic, or end of function)
+    /// Note: Does NOT clear the stack - use clear_deferred_statements() at function boundary
+    pub(crate) fn execute_deferred_statements(&mut self) -> Result<(), String> {
+        // Execute in reverse order (LIFO - Last In First Out)
+        // Clone the statements to avoid borrow checker issues
+        let statements: Vec<Statement> = self.deferred_statements.iter().rev().cloned().collect();
+        for stmt in statements {
+            self.compile_statement(&stmt)?;
+        }
+        Ok(())
+    }
+
+    /// Clear deferred statements (called at function boundary)
+    pub(crate) fn clear_deferred_statements(&mut self) {
+        self.deferred_statements.clear();
     }
 
     /// Declare printf for output
@@ -146,7 +186,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
     /// Create an alloca instruction in the entry block of the function
     pub(crate) fn create_entry_block_alloca(
-        &self,
+        &mut self,
         name: &str,
         ty: &Type,
         is_mutable: bool,
@@ -225,6 +265,117 @@ impl<'ctx> ASTCodeGen<'ctx> {
             BasicTypeEnum::StructType(struct_ty) => struct_ty.const_zero().into(),
             BasicTypeEnum::ArrayType(array_ty) => array_ty.const_zero().into(),
             _ => self.context.i32_type().const_zero().into(),
+        }
+    }
+
+    /// Get struct name from an expression
+    /// Returns the struct type name if the expression evaluates to a struct
+    pub(crate) fn get_expression_struct_name(
+        &mut self,
+        expr: &Expression,
+    ) -> Result<Option<String>, String> {
+        match expr {
+            // Variable: look up in variable_struct_names
+            Expression::Ident(var_name) => Ok(self.variable_struct_names.get(var_name).cloned()),
+            // Struct literal: directly has name
+            Expression::StructLiteral { name, .. } => Ok(Some(name.clone())),
+            // Field access: recursively get object's struct, then lookup field type
+            Expression::FieldAccess { object, field } => {
+                if let Some(object_struct_name) = self.get_expression_struct_name(object)? {
+                    // Look up struct definition to get field type
+                    // Clone field_type to avoid borrow issues
+                    let field_type_opt =
+                        self.struct_defs
+                            .get(&object_struct_name)
+                            .and_then(|struct_def| {
+                                struct_def
+                                    .fields
+                                    .iter()
+                                    .find(|(f, _)| f == field)
+                                    .map(|(_, t)| t.clone())
+                            });
+
+                    if let Some(field_type) = field_type_opt {
+                        // Check if field type is a struct
+                        match field_type {
+                            Type::Named(field_struct_name) => {
+                                if self.struct_defs.contains_key(&field_struct_name) {
+                                    Ok(Some(field_struct_name))
+                                } else {
+                                    Ok(None)
+                                }
+                            }
+                            Type::Generic { name, type_args } => {
+                                // Generic struct field like Box<i32>
+                                // Return the mangled name
+                                match self.instantiate_generic_struct(&name, &type_args) {
+                                    Ok(mangled_name) => Ok(Some(mangled_name)),
+                                    Err(_) => Ok(None),
+                                }
+                            }
+                            _ => Ok(None),
+                        }
+                    } else {
+                        Ok(None)
+                    }
+                } else {
+                    Ok(None)
+                }
+            }
+            // Function call: look up return type in function_defs
+            Expression::Call { func, .. } => {
+                if let Expression::Ident(func_name) = func.as_ref() {
+                    // Clone return_type to avoid borrow issues
+                    let return_type_opt = self
+                        .function_defs
+                        .get(func_name)
+                        .and_then(|func_def| func_def.return_type.clone());
+
+                    if let Some(return_type) = return_type_opt {
+                        match return_type {
+                            Type::Named(struct_name) => {
+                                if self.struct_defs.contains_key(&struct_name) {
+                                    Ok(Some(struct_name))
+                                } else {
+                                    Ok(None)
+                                }
+                            }
+                            Type::Generic { name, type_args } => {
+                                match self.instantiate_generic_struct(&name, &type_args) {
+                                    Ok(mangled_name) => Ok(Some(mangled_name)),
+                                    Err(_) => Ok(None),
+                                }
+                            }
+                            _ => Ok(None),
+                        }
+                    } else {
+                        Ok(None)
+                    }
+                } else {
+                    Ok(None)
+                }
+            }
+            // Other expressions don't return structs
+            _ => Ok(None),
+        }
+    }
+
+    /// Calculate nesting depth of a generic type
+    /// Example: Box<Box<Box<i32>>> = depth 3
+    pub(crate) fn get_generic_depth(&self, ty: &Type) -> usize {
+        match ty {
+            Type::Generic { type_args, .. } => {
+                // Get max depth from all type arguments, add 1 for current level
+                let max_arg_depth = type_args
+                    .iter()
+                    .map(|arg| self.get_generic_depth(arg))
+                    .max()
+                    .unwrap_or(0);
+                1 + max_arg_depth
+            }
+            Type::Reference(inner, _) => self.get_generic_depth(inner),
+            Type::Array(elem, _) => self.get_generic_depth(elem),
+            _ => 0,
         }
     }
 }

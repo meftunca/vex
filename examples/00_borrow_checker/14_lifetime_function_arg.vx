@@ -1,0 +1,15 @@
+// Phase 4.1: Cross-function lifetime tracking
+// Tests that references passed to functions are validated
+
+fn use_ref(x: &i32): i32 {
+    return 0;
+}
+
+fn test_valid(): i32 {
+    let value = 42;
+    return use_ref(&value);  // OK: value is in scope during call
+}
+
+fn main(): i32 {
+    return test_valid();
+}

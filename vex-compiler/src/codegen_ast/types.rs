@@ -3,7 +3,7 @@
 
 use super::ASTCodeGen;
 use inkwell::types::BasicTypeEnum;
-use std::collections::HashMap;
+use std::{collections::HashMap, u128};
 use vex_ast::*;
 
 impl<'ctx> ASTCodeGen<'ctx> {
@@ -14,12 +14,16 @@ impl<'ctx> ASTCodeGen<'ctx> {
             Type::I16 => BasicTypeEnum::IntType(self.context.i16_type()),
             Type::I32 => BasicTypeEnum::IntType(self.context.i32_type()),
             Type::I64 => BasicTypeEnum::IntType(self.context.i64_type()),
+            Type::I128 => BasicTypeEnum::IntType(self.context.i128_type()),
             Type::U8 => BasicTypeEnum::IntType(self.context.i8_type()),
             Type::U16 => BasicTypeEnum::IntType(self.context.i16_type()),
             Type::U32 => BasicTypeEnum::IntType(self.context.i32_type()),
             Type::U64 => BasicTypeEnum::IntType(self.context.i64_type()),
+            Type::U128 => BasicTypeEnum::IntType(self.context.i128_type()),
+            // Type::F16 => BasicTypeEnum::FloatType(self.context.f16_type()),
             Type::F32 => BasicTypeEnum::FloatType(self.context.f32_type()),
             Type::F64 => BasicTypeEnum::FloatType(self.context.f64_type()),
+            Type::F128 => BasicTypeEnum::FloatType(self.context.f128_type()),
             Type::Bool => BasicTypeEnum::IntType(self.context.bool_type()),
             Type::String => {
                 // String as i8* (C-style string pointer)
@@ -94,12 +98,122 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
                     // Return pointer to struct (zero-copy!)
                     BasicTypeEnum::PointerType(struct_ty.ptr_type(inkwell::AddressSpace::default()))
+                } else if let Some(enum_def) = self.enum_ast_defs.get(name) {
+                    // Handle enum types
+                    // Enums with data are represented as structs: {i32 tag, T data}
+                    // Find the largest data type among all variants
+                    let has_data = enum_def.variants.iter().any(|v| v.data.is_some());
+                    eprintln!(
+                        "🟠 ast_type_to_llvm for enum {}: has_data={}, variants={}",
+                        name,
+                        has_data,
+                        enum_def.variants.len()
+                    );
+
+                    if has_data {
+                        // For data-carrying enums, we need to find the largest data type
+                        // For simplicity, use the first data type we find
+                        // For mixed enums (Some + None), calculate union size
+
+                        // Find the largest data type
+                        let largest_data_type = enum_def
+                            .variants
+                            .iter()
+                            .filter_map(|v| v.data.as_ref())
+                            .map(|ty| {
+                                let llvm_ty = self.ast_type_to_llvm(ty);
+                                (ty, llvm_ty)
+                            })
+                            .max_by_key(|(_, llvm_ty)| {
+                                // Get size of LLVM type
+                                match llvm_ty {
+                                    BasicTypeEnum::IntType(i) => i.get_bit_width() as usize,
+                                    BasicTypeEnum::FloatType(f) => match f {
+                                        _ if *f == self.context.f32_type() => 32,
+                                        _ if *f == self.context.f64_type() => 64,
+                                        _ => 32,
+                                    },
+                                    BasicTypeEnum::PointerType(_) => 64,
+                                    BasicTypeEnum::StructType(s) => {
+                                        // Approximate struct size
+                                        s.count_fields() as usize * 32
+                                    }
+                                    _ => 32,
+                                }
+                            })
+                            .map(|(_, llvm_ty)| llvm_ty)
+                            .unwrap_or(self.context.i8_type().into()); // Default: i8 for unit variants
+
+                        let enum_struct_type = self.context.struct_type(
+                            &[self.context.i32_type().into(), largest_data_type],
+                            false,
+                        );
+                        BasicTypeEnum::StructType(enum_struct_type)
+                    } else {
+                        // Unit-only enum: just an i32 tag
+                        BasicTypeEnum::IntType(self.context.i32_type())
+                    }
                 } else if name == "AnonymousStruct" {
                     // Placeholder for inferred structs
                     BasicTypeEnum::IntType(self.context.i32_type())
                 } else {
                     // Unknown named type, default to i32
                     // TODO: Better error handling
+                    BasicTypeEnum::IntType(self.context.i32_type())
+                }
+            }
+            Type::Function {
+                params,
+                return_type,
+            } => {
+                // Function type: fn(T1, T2) -> R
+                // In LLVM, this is a function pointer type
+                let param_types: Vec<inkwell::types::BasicMetadataTypeEnum> = params
+                    .iter()
+                    .map(|t| self.ast_type_to_llvm(t).into())
+                    .collect();
+
+                let ret_llvm = self.ast_type_to_llvm(return_type);
+
+                // Create function type
+                let fn_type = match ret_llvm {
+                    BasicTypeEnum::IntType(t) => t.fn_type(&param_types, false),
+                    BasicTypeEnum::FloatType(t) => t.fn_type(&param_types, false),
+                    BasicTypeEnum::ArrayType(t) => t.fn_type(&param_types, false),
+                    BasicTypeEnum::StructType(t) => t.fn_type(&param_types, false),
+                    BasicTypeEnum::PointerType(t) => t.fn_type(&param_types, false),
+                    _ => self.context.i32_type().fn_type(&param_types, false),
+                };
+
+                // Return as pointer to function
+                BasicTypeEnum::PointerType(fn_type.ptr_type(inkwell::AddressSpace::default()))
+            }
+            Type::Generic { name, type_args } => {
+                // Generic struct type: Box<T>, Pair<T, U>
+                // Need to instantiate and look up monomorphized struct
+                // Use const self, so can't call instantiate_generic_struct (needs &mut self)
+                // Instead, generate mangled name and look up in struct_defs
+
+                let type_arg_strings: Vec<String> =
+                    type_args.iter().map(|t| self.type_to_string(t)).collect();
+
+                let mangled_name = format!("{}_{}", name, type_arg_strings.join("_"));
+
+                // Look up the monomorphized struct
+                if let Some(struct_def) = self.struct_defs.get(&mangled_name) {
+                    let field_types: Vec<BasicTypeEnum> = struct_def
+                        .fields
+                        .iter()
+                        .map(|(_, field_ty)| self.ast_type_to_llvm(field_ty))
+                        .collect();
+
+                    let struct_ty = self.context.struct_type(&field_types, false);
+
+                    // Return pointer to struct (zero-copy!)
+                    BasicTypeEnum::PointerType(struct_ty.ptr_type(inkwell::AddressSpace::default()))
+                } else {
+                    // Struct not yet monomorphized, return i32 placeholder
+                    // This shouldn't happen if instantiate_generic_struct was called first
                     BasicTypeEnum::IntType(self.context.i32_type())
                 }
             }
@@ -121,6 +235,33 @@ impl<'ctx> ASTCodeGen<'ctx> {
         }
     }
 
+    /// Extract LLVM FunctionType from AST Function type
+    /// Used for indirect function calls
+    pub(crate) fn ast_function_type_to_llvm(
+        &self,
+        params: &[Type],
+        return_type: &Type,
+    ) -> Result<inkwell::types::FunctionType<'ctx>, String> {
+        let param_types: Vec<inkwell::types::BasicMetadataTypeEnum> = params
+            .iter()
+            .map(|t| self.ast_type_to_llvm(t).into())
+            .collect();
+
+        let ret_llvm = self.ast_type_to_llvm(return_type);
+
+        // Create function type based on return type
+        let fn_type = match ret_llvm {
+            BasicTypeEnum::IntType(t) => t.fn_type(&param_types, false),
+            BasicTypeEnum::FloatType(t) => t.fn_type(&param_types, false),
+            BasicTypeEnum::ArrayType(t) => t.fn_type(&param_types, false),
+            BasicTypeEnum::StructType(t) => t.fn_type(&param_types, false),
+            BasicTypeEnum::PointerType(t) => t.fn_type(&param_types, false),
+            _ => return Err("Unsupported return type for function".to_string()),
+        };
+
+        Ok(fn_type)
+    }
+
     /// Infer AST type from LLVM type (for type inference)
     pub(crate) fn infer_ast_type_from_llvm(
         &self,
@@ -134,6 +275,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     16 => Ok(Type::I16),
                     32 => Ok(Type::I32),
                     64 => Ok(Type::I64),
+                    128 => Ok(Type::I128),
                     1 => Ok(Type::Bool),
                     _ => Err(format!("Unsupported integer bit width: {}", bit_width)),
                 }
@@ -205,16 +347,26 @@ impl<'ctx> ASTCodeGen<'ctx> {
             Type::I16 => "i16".to_string(),
             Type::I32 => "i32".to_string(),
             Type::I64 => "i64".to_string(),
+            Type::I128 => "i128".to_string(),
             Type::U8 => "u8".to_string(),
             Type::U16 => "u16".to_string(),
             Type::U32 => "u32".to_string(),
             Type::U64 => "u64".to_string(),
+            Type::U128 => "u128".to_string(),
             Type::F32 => "f32".to_string(),
             Type::F64 => "f64".to_string(),
+            Type::F128 => "f128".to_string(),
             Type::Bool => "bool".to_string(),
             Type::String => "string".to_string(),
             Type::Named(name) => name.clone(),
-            Type::Generic { name, .. } => name.clone(),
+            Type::Generic { name, type_args } => {
+                // Recursive mangling for nested generics: Box<Box<i32>> => Box_Box_i32
+                let arg_strs: Vec<String> = type_args
+                    .iter()
+                    .map(|arg| self.type_to_string(arg))
+                    .collect();
+                format!("{}_{}", name, arg_strs.join("_"))
+            }
             _ => "unknown".to_string(),
         }
     }
@@ -235,6 +387,18 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }
             Type::Array(elem_ty, size) => {
                 Type::Array(Box::new(self.substitute_type(elem_ty, type_subst)), *size)
+            }
+            Type::Generic { name, type_args } => {
+                // Recursively substitute type arguments (for nested generics)
+                // Example: Box<T> where T=Box<i32> becomes Box<Box<i32>>
+                let substituted_args: Vec<Type> = type_args
+                    .iter()
+                    .map(|arg| self.substitute_type(arg, type_subst))
+                    .collect();
+                Type::Generic {
+                    name: name.clone(),
+                    type_args: substituted_args,
+                }
             }
             _ => ty.clone(),
         }

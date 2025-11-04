@@ -153,20 +153,8 @@ impl<'a> Parser<'a> {
 
         let name = self.consume_identifier_or_keyword()?;
 
-        // Optional generic type parameters: struct Vec<T>
-        let type_params = if self.match_token(&Token::Lt) {
-            let mut params = Vec::new();
-            loop {
-                params.push(self.consume_identifier()?);
-                if !self.match_token(&Token::Comma) {
-                    break;
-                }
-            }
-            self.consume(&Token::Gt, "Expected '>' after type parameters")?;
-            params
-        } else {
-            Vec::new()
-        };
+        // Optional generic type parameters with bounds: struct Vec<T: Display>
+        let type_params = self.parse_type_params()?;
 
         // Optional trait implementation declaration: struct File impl Reader, Writer
         let impl_traits = if self.match_token(&Token::Impl) {
@@ -290,20 +278,8 @@ impl<'a> Parser<'a> {
 
         let name = self.consume_identifier()?;
 
-        // Optional type parameters: enum Option<T>
-        let type_params = if self.match_token(&Token::Lt) {
-            let mut params = Vec::new();
-            loop {
-                params.push(self.consume_identifier()?);
-                if !self.match_token(&Token::Comma) {
-                    break;
-                }
-            }
-            self.consume(&Token::Gt, "Expected '>' after type parameters")?;
-            params
-        } else {
-            Vec::new()
-        };
+        // Optional type parameters with bounds: enum Option<T: Display>
+        let type_params = self.parse_type_params()?;
 
         self.consume(&Token::LBrace, "Expected '{'")?;
 
@@ -344,20 +320,8 @@ impl<'a> Parser<'a> {
 
         let name = self.consume_identifier()?;
 
-        // Optional type parameters: type Result<T, E>
-        let type_params = if self.match_token(&Token::Lt) {
-            let mut params = Vec::new();
-            loop {
-                params.push(self.consume_identifier()?);
-                if !self.match_token(&Token::Comma) {
-                    break;
-                }
-            }
-            self.consume(&Token::Gt, "Expected '>' after type parameters")?;
-            params
-        } else {
-            Vec::new()
-        };
+        // Optional type parameters with bounds: type Result<T: Display, E> = ...
+        let type_params = self.parse_type_params()?;
 
         self.consume(&Token::Eq, "Expected '=' after type alias name")?;
 
@@ -381,17 +345,8 @@ impl<'a> Parser<'a> {
 
         let name = self.consume_identifier()?;
 
-        // Parse generic type parameters: interface Cache<K, V> or trait Converter<T>
-        let mut type_params = Vec::new();
-        if self.match_token(&Token::Lt) {
-            loop {
-                type_params.push(self.consume_identifier()?);
-                if !self.match_token(&Token::Comma) {
-                    break;
-                }
-            }
-            self.consume(&Token::Gt, "Expected '>' after type parameters")?;
-        }
+        // Parse generic type parameters with bounds: trait Converter<T: Display>
+        let type_params = self.parse_type_params()?;
 
         self.consume(&Token::LBrace, "Expected '{'")?;
 
@@ -442,17 +397,8 @@ impl<'a> Parser<'a> {
         // impl<T> TraitName<T> for Vec<T> { ... }
         self.consume(&Token::Impl, "Expected 'impl'")?;
 
-        // Parse generic type parameters: impl<T>
-        let mut type_params = Vec::new();
-        if self.match_token(&Token::Lt) {
-            loop {
-                type_params.push(self.consume_identifier()?);
-                if !self.match_token(&Token::Comma) {
-                    break;
-                }
-            }
-            self.consume(&Token::Gt, "Expected '>' after type parameters")?;
-        }
+        // Parse generic type parameters with bounds: impl<T: Display>
+        let type_params = self.parse_type_params()?;
 
         // Parse trait name
         let trait_name = self.consume_identifier()?;
@@ -574,23 +520,29 @@ impl<'a> Parser<'a> {
         // Note: 'fn' token is already consumed by the caller
         // For async functions, 'async fn' is consumed
 
-        // Check for method receiver: fn (self: Type) method_name()
+        // Check for method receiver: fn (self: Type) method_name() or fn (p: &Type) method_name()
         let receiver = if self.check(&Token::LParen) {
             // Peek ahead to see if this is a receiver or just parameters
             let checkpoint = self.current;
             self.advance(); // consume '('
 
-            // Check if next token is identifier "self"
-            let is_self = if let Token::Ident(name) = self.peek() {
-                name == "self"
+            // Check if next token is an identifier followed by ':'
+            // This distinguishes receiver (p: Type) from parameters (p Type) or (p, q)
+            let is_receiver = if let Token::Ident(_) = self.peek() {
+                // Look ahead one more token to check for ':'
+                let next_checkpoint = self.current;
+                self.advance(); // consume identifier
+                let has_colon = self.check(&Token::Colon);
+                self.current = next_checkpoint; // backtrack
+                has_colon
             } else {
                 false
             };
 
-            if is_self {
+            if is_receiver {
                 // This is a receiver!
-                let _self_name = self.consume_identifier()?;
-                self.consume(&Token::Colon, "Expected ':' after 'self'")?;
+                let _receiver_name = self.consume_identifier()?; // 'self', 'p', 'r', etc.
+                self.consume(&Token::Colon, "Expected ':' after receiver name")?;
                 let receiver_type = self.parse_type()?;
                 self.consume(&Token::RParen, "Expected ')' after receiver")?;
 
@@ -612,20 +564,8 @@ impl<'a> Parser<'a> {
 
         let name = self.consume_identifier()?;
 
-        // Optional generic type parameters: fn foo<T, U>()
-        let type_params = if self.match_token(&Token::Lt) {
-            let mut params = Vec::new();
-            loop {
-                params.push(self.consume_identifier()?);
-                if !self.match_token(&Token::Comma) {
-                    break;
-                }
-            }
-            self.consume(&Token::Gt, "Expected '>' after type parameters")?;
-            params
-        } else {
-            Vec::new()
-        };
+        // Optional generic type parameters with bounds: fn foo<T: Display, U: Clone>()
+        let type_params = self.parse_type_params()?;
 
         self.consume(&Token::LParen, "Expected '('")?;
         let params = self.parse_parameters()?;

@@ -1,0 +1,33 @@
+// Test: Multiple trait bounds
+// Expected: Compiles successfully
+
+trait Display {
+    fn display(self: &Self!): string;
+}
+
+trait Clone {
+    fn clone(self: &Self!): Self;
+}
+
+struct Point impl Display, Clone {
+    x: i32,
+    y: i32,
+    
+    fn display(self: &Point): string {
+        return "Point";
+    }
+    
+    fn clone(self: &Point): Point {
+        return Point { x: self.x, y: self.y };
+    }
+}
+
+// Function with multiple trait bounds
+fn print_and_clone<T: Display + Clone>(value: T): i32 {
+    return 100;
+}
+
+fn main(): i32 {
+    let p = Point { x: 10, y: 20 };
+    return print_and_clone(p);
+}

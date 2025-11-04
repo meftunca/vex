@@ -1,0 +1,63 @@
+// Test string builtin functions
+fn main(): i32 {
+    println("Testing string builtins...");
+    
+    // Test strlen
+    let s = "hello";
+    let len = strlen(s);
+    print("strlen(\"hello\") = ");
+    println(len);
+    
+    // Test strcmp
+    let cmp1 = strcmp("abc", "abc");
+    let cmp2 = strcmp("abc", "xyz");
+    print("strcmp(\"abc\", \"abc\") = ");
+    println(cmp1);
+    print("strcmp(\"abc\", \"xyz\") = ");
+    println(cmp2);
+    
+    // Test strdup
+    let duplicate = strdup("test");
+    print("strdup(\"test\"): ");
+    
+    // Compare original and duplicate
+    let dup_cmp = strcmp("test", duplicate);
+    if dup_cmp == 0 {
+        println("SUCCESS - duplicate matches original");
+    } else {
+        println("FAILED - duplicate differs from original");
+    }
+    
+    // Test strcpy
+    let buffer = alloc(100);
+    memset(buffer, 0, 100);  // Zero the buffer
+    strcpy(buffer, "copy me");
+    print("strcpy result: ");
+    let copy_cmp = strcmp(buffer, "copy me");
+    if copy_cmp == 0 {
+        println("SUCCESS - copied string matches source");
+    } else {
+        println("FAILED - copied string differs from source");
+    }
+    
+    // Test strcat
+    let buf2 = alloc(100);
+    memset(buf2, 0, 100);
+    strcpy(buf2, "hello ");
+    strcat(buf2, "world");
+    print("strcat result: ");
+    let cat_cmp = strcmp(buf2, "hello world");
+    if cat_cmp == 0 {
+        println("SUCCESS - concatenated string is correct");
+    } else {
+        println("FAILED - concatenated string is wrong");
+    }
+    
+    // Clean up
+    free(buffer);
+    free(buf2);
+    free(duplicate);
+    
+    println("All string builtin tests complete!");
+    return 0;
+}

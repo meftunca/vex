@@ -11,13 +11,6 @@ impl<'ctx> ASTCodeGen<'ctx> {
         func_expr: &Expression,
         args: &[Expression],
     ) -> Result<BasicValueEnum<'ctx>, String> {
-        // Get function name
-        let func_name = if let Expression::Ident(name) = func_expr {
-            name
-        } else {
-            return Err("Complex function calls not yet supported".to_string());
-        };
-
         // Compile arguments first
         let mut arg_vals: Vec<BasicMetadataValueEnum> = Vec::new();
         let mut arg_basic_vals: Vec<BasicValueEnum> = Vec::new();
@@ -27,40 +20,117 @@ impl<'ctx> ASTCodeGen<'ctx> {
             arg_basic_vals.push(val);
         }
 
-        // Check if this is a builtin function
-        if let Some(builtin_fn) = self.builtins.get(func_name) {
-            return builtin_fn(self, &arg_basic_vals);
+        // Check if this is an enum constructor call: EnumName.Variant(data)
+        if let Expression::FieldAccess { object, field } = func_expr {
+            if let Expression::Ident(enum_name) = object.as_ref() {
+                // Check if this is a registered enum
+                if self.enum_ast_defs.contains_key(enum_name) {
+                    // This is an enum constructor call
+                    let constructor_name = format!("{}_{}", enum_name, field);
+
+                    if let Some(fn_val) = self.functions.get(&constructor_name) {
+                        let call_site = self
+                            .builder
+                            .build_call(*fn_val, &arg_vals, "enum_ctor")
+                            .map_err(|e| format!("Failed to build enum constructor call: {}", e))?;
+
+                        return call_site
+                            .try_as_basic_value()
+                            .left()
+                            .ok_or_else(|| "Enum constructor returned void".to_string());
+                    } else {
+                        return Err(format!("Enum constructor {} not found", constructor_name));
+                    }
+                }
+            }
         }
 
-        // Check if this is a generic function that needs instantiation
-        let fn_val = if let Some(fn_val) = self.functions.get(func_name) {
-            *fn_val
-        } else if let Some(func_def) = self.function_defs.get(func_name).cloned() {
-            // Check if it's a generic function
-            if !func_def.type_params.is_empty() {
-                // Infer type arguments from arguments
-                // For now, simple approach: use argument types
-                let type_args = self.infer_type_args_from_call(&func_def, args)?;
+        // Check if this is a direct function identifier or an expression
+        if let Expression::Ident(func_name) = func_expr {
+            // Direct function call by name
 
-                // Instantiate generic function
-                self.instantiate_generic_function(&func_def, &type_args)?
-            } else {
-                return Err(format!("Function {} not declared", func_name));
+            // Check if this is a builtin function
+            if let Some(builtin_fn) = self.builtins.get(func_name) {
+                return builtin_fn(self, &arg_basic_vals);
             }
+
+            // Check if this is a function parameter (stored in function_params)
+            if self.function_params.contains_key(func_name) {
+                // This is a function pointer parameter - fall through to complex expression handling
+                // (it will be looked up via compile_expression -> Expression::Ident)
+            } else {
+                // Check if this is a global function that needs instantiation
+                let fn_val = if let Some(fn_val) = self.functions.get(func_name) {
+                    *fn_val
+                } else if let Some(func_def) = self.function_defs.get(func_name).cloned() {
+                    // Check if it's a generic function
+                    if !func_def.type_params.is_empty() {
+                        // Infer type arguments from arguments
+                        // For now, simple approach: use argument types
+                        let type_args = self.infer_type_args_from_call(&func_def, args)?;
+
+                        // Instantiate generic function
+                        self.instantiate_generic_function(&func_def, &type_args)?
+                    } else {
+                        return Err(format!("Function {} not declared", func_name));
+                    }
+                } else {
+                    return Err(format!("Function {} not found", func_name));
+                };
+
+                // Build call
+                let call_site = self
+                    .builder
+                    .build_call(fn_val, &arg_vals, "call")
+                    .map_err(|e| format!("Failed to build call: {}", e))?;
+
+                return call_site
+                    .try_as_basic_value()
+                    .left()
+                    .ok_or_else(|| "Function call returned void".to_string());
+            }
+        }
+
+        // Complex function expression or function parameter
+        // Complex function expression - compile it to get function pointer
+        let func_val = self.compile_expression(func_expr)?;
+
+        // It should be a pointer value (function pointer)
+        if let BasicValueEnum::PointerValue(fn_ptr) = func_val {
+            // For indirect calls through function pointers, we need the function type
+            // Check if this is a function parameter with known type
+            let fn_type = if let Expression::Ident(name) = func_expr {
+                if let Some(param_type) = self.function_param_types.get(name) {
+                    if let Type::Function {
+                        params,
+                        return_type,
+                    } = param_type
+                    {
+                        // Extract LLVM function type from AST type
+                        self.ast_function_type_to_llvm(params, return_type)?
+                    } else {
+                        return Err(format!("Parameter {} is not a function type", name));
+                    }
+                } else {
+                    return Err(format!("Function type for {} not found", name));
+                }
+            } else {
+                return Err("Complex function expressions not yet supported".to_string());
+            };
+
+            // Build indirect call using the function pointer
+            let call_site = self
+                .builder
+                .build_indirect_call(fn_type, fn_ptr, &arg_vals, "indirect_call")
+                .map_err(|e| format!("Failed to build indirect call: {}", e))?;
+
+            return call_site
+                .try_as_basic_value()
+                .left()
+                .ok_or_else(|| "Function call returned void".to_string());
         } else {
-            return Err(format!("Function {} not found", func_name));
-        };
-
-        // Build call
-        let call_site = self
-            .builder
-            .build_call(fn_val, &arg_vals, "call")
-            .map_err(|e| format!("Failed to build call: {}", e))?;
-
-        call_site
-            .try_as_basic_value()
-            .left()
-            .ok_or_else(|| "Function call returned void".to_string())
+            return Err("Function expression did not evaluate to a function pointer".to_string());
+        }
     }
 
     /// Compile method call: obj.method(args)
@@ -161,10 +231,109 @@ impl<'ctx> ASTCodeGen<'ctx> {
             if let Some(trait_method) = found_trait_method {
                 trait_method
             } else {
-                return Err(format!(
-                    "Method '{}' not found for struct '{}' (neither as struct method nor trait method)",
-                    method, struct_name
-                ));
+                // Try to find default trait method
+                // Check all traits implemented by this type
+                // First, collect trait information to avoid borrow checker issues
+                let mut default_method_info: Option<(String, String, vex_ast::TraitMethod)> = None;
+
+                for ((trait_name, type_name), _) in &self.trait_impls {
+                    if type_name == &struct_name {
+                        // Check if the trait has a default method with this name
+                        if let Some(trait_def) = self.trait_defs.get(trait_name) {
+                            for trait_method in &trait_def.methods {
+                                if trait_method.name == method && trait_method.body.is_some() {
+                                    // Found default method! Save info for compilation
+                                    default_method_info = Some((
+                                        trait_name.clone(),
+                                        type_name.clone(),
+                                        trait_method.clone(),
+                                    ));
+                                    break;
+                                }
+                            }
+                        }
+                        if default_method_info.is_some() {
+                            break;
+                        }
+                    }
+                }
+
+                // Now compile if found
+                if let Some((trait_name, type_name, trait_method)) = default_method_info {
+                    let default_method_name = format!("{}_{}_{}", type_name, trait_name, method);
+
+                    // Check if already compiled
+                    if !self.functions.contains_key(&default_method_name) {
+                        // Save current function context (variables, types, current_function, builder position)
+                        let saved_variables = self.variables.clone();
+                        let saved_variable_types = self.variable_types.clone();
+                        let saved_variable_struct_names = self.variable_struct_names.clone();
+                        let saved_current_function = self.current_function;
+
+                        // Replace Self with concrete type in receiver and params
+                        let concrete_type = vex_ast::Type::Named(type_name.clone());
+
+                        let receiver = if let Some(ref r) = trait_method.receiver {
+                            Some(vex_ast::Receiver {
+                                is_mutable: r.is_mutable,
+                                ty: Self::replace_self_type(&r.ty, &type_name),
+                            })
+                        } else {
+                            None
+                        };
+
+                        let params: Vec<_> = trait_method
+                            .params
+                            .iter()
+                            .map(|p| vex_ast::Param {
+                                name: p.name.clone(),
+                                ty: Self::replace_self_type(&p.ty, &type_name),
+                            })
+                            .collect();
+
+                        let return_type = trait_method
+                            .return_type
+                            .as_ref()
+                            .map(|t| Self::replace_self_type(t, &type_name));
+
+                        // Convert TraitMethod to Function for compilation
+                        let func = vex_ast::Function {
+                            attributes: vec![],
+                            is_async: false,
+                            is_gpu: false,
+                            name: method.to_string(),
+                            type_params: vec![],
+                            receiver,
+                            params,
+                            return_type,
+                            body: trait_method.body.clone().unwrap(), // Safe because we checked is_some()
+                        };
+
+                        // Declare and compile the default method for this specific type
+                        self.declare_trait_impl_method(&trait_name, &concrete_type, &func)?;
+                        self.compile_trait_impl_method(&trait_name, &concrete_type, &func)?;
+
+                        // Restore function context
+                        self.variables = saved_variables;
+                        self.variable_types = saved_variable_types;
+                        self.variable_struct_names = saved_variable_struct_names;
+                        self.current_function = saved_current_function;
+
+                        // Restore builder position if we have a current function
+                        if let Some(func) = self.current_function {
+                            if let Some(bb) = func.get_last_basic_block() {
+                                self.builder.position_at_end(bb);
+                            }
+                        }
+                    }
+
+                    default_method_name
+                } else {
+                    return Err(format!(
+                        "Method '{}' not found for struct '{}' (neither as struct method, trait method, nor default trait method)",
+                        method, struct_name
+                    ));
+                }
             }
         };
 
@@ -194,5 +363,51 @@ impl<'ctx> ASTCodeGen<'ctx> {
             .try_as_basic_value()
             .left()
             .ok_or_else(|| "Method call returned void".to_string())
+    }
+
+    /// Replace Self type with concrete type name (for default trait methods)
+    fn replace_self_type(ty: &Type, concrete_type: &str) -> Type {
+        match ty {
+            Type::Named(name) if name == "Self" => Type::Named(concrete_type.to_string()),
+            Type::Reference(inner, is_mut) => Type::Reference(
+                Box::new(Self::replace_self_type(inner, concrete_type)),
+                *is_mut,
+            ),
+            Type::Generic { name, type_args } => {
+                let new_name = if name == "Self" {
+                    concrete_type.to_string()
+                } else {
+                    name.clone()
+                };
+                Type::Generic {
+                    name: new_name,
+                    type_args: type_args
+                        .iter()
+                        .map(|t| Self::replace_self_type(t, concrete_type))
+                        .collect(),
+                }
+            }
+            Type::Array(inner, size) => Type::Array(
+                Box::new(Self::replace_self_type(inner, concrete_type)),
+                *size,
+            ),
+            Type::Slice(inner, is_mut) => Type::Slice(
+                Box::new(Self::replace_self_type(inner, concrete_type)),
+                *is_mut,
+            ),
+            Type::Union(types) => Type::Union(
+                types
+                    .iter()
+                    .map(|t| Self::replace_self_type(t, concrete_type))
+                    .collect(),
+            ),
+            Type::Intersection(types) => Type::Intersection(
+                types
+                    .iter()
+                    .map(|t| Self::replace_self_type(t, concrete_type))
+                    .collect(),
+            ),
+            _ => ty.clone(),
+        }
     }
 }

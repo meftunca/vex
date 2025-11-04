@@ -1,0 +1,17 @@
+// Simple pattern binding test
+
+enum Maybe {
+    Some(i32),
+    None,
+}
+
+fn main(): i32 {
+    let m = Maybe.Some(99);
+    
+    let result = match m {
+        Maybe.Some(x) => x,  // Return extracted value directly
+        Maybe.None => 0
+    };
+    
+    return result;
+}

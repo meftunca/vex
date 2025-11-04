@@ -1,4 +1,4 @@
-// std::fs::file - File operations
+// std.fs.file - File operations
 
 import { libc } from "../ffi";
 

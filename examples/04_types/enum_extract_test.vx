@@ -1,0 +1,19 @@
+// Simple data extraction test
+
+enum Maybe {
+    Some(i32),
+    None,
+}
+
+fn main(): i32 {
+    let m = Maybe.Some(42);
+    
+    // Try to extract value
+    let result = match m {
+        Maybe.Some(x) => x,
+        Maybe.None => 0
+    };
+    
+    // Should return 42
+    return result;
+}

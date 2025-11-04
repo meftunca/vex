@@ -1,0 +1,33 @@
+// Error Handling Test - ? Operator
+// Tests Result type and ? operator for error propagation
+
+enum Result<T, E> {
+    Ok(T),
+    Err(E)
+}
+
+// Function that can fail
+fn divide(a: i32, b: i32): Result<i32, string> {
+    if b == 0 {
+        return Result.Err("Division by zero");
+    }
+    return Result.Ok(a / b);
+}
+
+// Function using ? operator for error propagation
+fn calculate(): Result<i32, string> {
+    let x = divide(10, 2)?;  // Should unwrap to 5
+    let y = divide(x, 0)?;    // Should return Err early
+    return Result.Ok(x + y);  // Never reached
+}
+
+fn main(): i32 {
+    let result = calculate();
+    
+    let output = match result {
+        Result.Ok(val) => val,
+        Result.Err(msg) => -1  // Return -1 on error
+    };
+    
+    return output;  // Should return -1 (error case)
+}

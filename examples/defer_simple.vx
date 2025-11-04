@@ -1,0 +1,38 @@
+// Simple defer test demonstrating LIFO order
+
+fn step1(): i32 {
+    print("Step 1 cleanup");
+    return 0;
+}
+
+fn step2(): i32 {
+    print("Step 2 cleanup");
+    return 0;
+}
+
+fn step3(): i32 {
+    print("Step 3 cleanup");
+    return 0;
+}
+
+fn test_defer_order(): i32 {
+    print("--- Register defers in order: 1, 2, 3 ---");
+    
+    defer step1();
+    defer step2();
+    defer step3();
+    
+    print("--- Returning now ---");
+    return 0;
+    
+    // Expected output (LIFO):
+    // Step 3 cleanup (last registered, first executed)
+    // Step 2 cleanup
+    // Step 1 cleanup (first registered, last executed)
+}
+
+fn main(): i32 {
+    let result = test_defer_order();
+    print("--- Test completed ---");
+    return 0;
+}

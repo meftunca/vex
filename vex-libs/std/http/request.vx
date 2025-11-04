@@ -10,13 +10,13 @@ export enum HttpMethod {
 
 export fn (method: HttpMethod) to_string(): string {
     match method {
-        HttpMethod::GET => return "GET",
-        HttpMethod::POST => return "POST",
-        HttpMethod::PUT => return "PUT",
-        HttpMethod::DELETE => return "DELETE",
-        HttpMethod::PATCH => return "PATCH",
-        HttpMethod::HEAD => return "HEAD",
-        HttpMethod::OPTIONS => return "OPTIONS",
+        HttpMethod.GET => return "GET",
+        HttpMethod.POST => return "POST",
+        HttpMethod.PUT => return "PUT",
+        HttpMethod.DELETE => return "DELETE",
+        HttpMethod.PATCH => return "PATCH",
+        HttpMethod.HEAD => return "HEAD",
+        HttpMethod.OPTIONS => return "OPTIONS",
     }
 }
 
@@ -94,13 +94,13 @@ export fn parse_request(raw: string): (HttpRequest | error) {
     }
     
     method := match request_line[0] {
-        "GET" => HttpMethod::GET,
-        "POST" => HttpMethod::POST,
-        "PUT" => HttpMethod::PUT,
-        "DELETE" => HttpMethod::DELETE,
-        "PATCH" => HttpMethod::PATCH,
-        "HEAD" => HttpMethod::HEAD,
-        "OPTIONS" => HttpMethod::OPTIONS,
+        "GET" => HttpMethod.GET,
+        "POST" => HttpMethod.POST,
+        "PUT" => HttpMethod.PUT,
+        "DELETE" => HttpMethod.DELETE,
+        "PATCH" => HttpMethod.PATCH,
+        "HEAD" => HttpMethod.HEAD,
+        "OPTIONS" => HttpMethod.OPTIONS,
         _ => return error.new("Unknown HTTP method"),
     };
     

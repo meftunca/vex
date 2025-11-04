@@ -144,10 +144,13 @@ impl<'a> Parser<'a> {
                 self.advance(); // consume <
                 eprintln!("🟣 Generic check: after '<', next token={:?}", self.peek());
 
-                let looks_like_generic = matches!(
-                    self.peek(),
-                    Token::Ident(_)
-                        | Token::I32
+                // Better heuristic: check if this looks like a type argument list
+                // Generic: Foo<Type>, Foo<T>, Foo<i32, i64>
+                // Comparison: a < b, x < 10, foo() < bar()
+                let first_token = self.peek().clone();
+                let looks_like_type = matches!(
+                    first_token,
+                    Token::I32
                         | Token::I64
                         | Token::I8
                         | Token::I16
@@ -160,9 +163,22 @@ impl<'a> Parser<'a> {
                         | Token::String
                         | Token::Bool
                         | Token::LBracket
-                        | Token::LParen
                         | Token::Ampersand
                 );
+
+                // For identifier, check what comes after it (type parameter vs variable)
+                let looks_like_generic = if matches!(first_token, Token::Ident(_)) {
+                    self.advance(); // consume identifier
+                    let next = self.peek().clone();
+                    // Generic if followed by: >, comma, another type marker, OR < (nested generic!)
+                    matches!(
+                        next,
+                        Token::Gt | Token::Comma | Token::LBracket | Token::Ampersand | Token::Lt
+                    )
+                } else {
+                    looks_like_type
+                };
+
                 eprintln!(
                     "🟣 Generic check: looks_like_generic={}",
                     looks_like_generic
@@ -241,25 +257,109 @@ impl<'a> Parser<'a> {
                     fields,
                 };
             } else if self.match_token(&Token::Dot) {
-                // Field access or method call
+                // Field access, method call, or enum constructor
                 let field_or_method = self.consume_identifier()?;
 
                 if self.check(&Token::LParen) {
-                    // Method call: obj.method(args)
+                    // Could be: method call obj.method(args) OR enum constructor Enum.Variant(data)
+                    // Only treat as enum if left side is PascalCase identifier (starts with uppercase)
+                    let is_potential_enum = if let Expression::Ident(name) = &expr {
+                        name.chars()
+                            .next()
+                            .map(|c| c.is_uppercase())
+                            .unwrap_or(false)
+                    } else {
+                        false
+                    };
+
                     self.advance(); // consume '('
-                    let args = self.parse_arguments()?;
-                    self.consume(&Token::RParen, "Expected ')' after arguments")?;
-                    expr = Expression::MethodCall {
-                        receiver: Box::new(expr),
-                        method: field_or_method,
-                        args,
-                    };
+
+                    if is_potential_enum && !self.check(&Token::RParen) {
+                        // Parse single argument for enum constructor
+                        let first_arg = self.parse_expression()?;
+
+                        // If followed by ')', it's enum constructor with single data field
+                        // If followed by ',', it's a method call with multiple args
+                        if self.check(&Token::RParen) {
+                            self.advance(); // consume ')'
+                            let enum_name = match expr {
+                                Expression::Ident(name) => name,
+                                _ => unreachable!(),
+                            };
+                            expr = Expression::EnumLiteral {
+                                enum_name,
+                                variant: field_or_method,
+                                data: Some(Box::new(first_arg)),
+                            };
+                            continue; // Skip to next iteration
+                        } else {
+                            // Multiple args = method call, collect remaining args
+                            let mut args = vec![first_arg];
+                            while self.match_token(&Token::Comma) {
+                                args.push(self.parse_expression()?);
+                            }
+                            self.consume(&Token::RParen, "Expected ')' after arguments")?;
+                            expr = Expression::MethodCall {
+                                receiver: Box::new(expr),
+                                method: field_or_method,
+                                args,
+                            };
+                        }
+                    } else {
+                        // Empty parens or not potential enum - parse as method call
+                        let args = self.parse_arguments()?;
+                        self.consume(&Token::RParen, "Expected ')' after arguments")?;
+                        expr = Expression::MethodCall {
+                            receiver: Box::new(expr),
+                            method: field_or_method,
+                            args,
+                        };
+                    }
                 } else {
-                    // Field access: obj.field
-                    expr = Expression::FieldAccess {
-                        object: Box::new(expr),
-                        field: field_or_method,
-                    };
+                    // No parens - could be: field access obj.field OR unit enum Enum.Variant
+                    // If left is identifier, could be unit enum variant
+                    if matches!(expr, Expression::Ident(_)) {
+                        // Heuristic: If it looks like PascalCase (starts with uppercase), treat as enum
+                        // Otherwise, treat as field access
+                        let enum_name = match &expr {
+                            Expression::Ident(name) => name.clone(),
+                            _ => unreachable!(),
+                        };
+
+                        // Check if first char is uppercase (enum convention)
+                        let looks_like_enum = enum_name
+                            .chars()
+                            .next()
+                            .map(|c| c.is_uppercase())
+                            .unwrap_or(false);
+
+                        if looks_like_enum
+                            && field_or_method
+                                .chars()
+                                .next()
+                                .map(|c| c.is_uppercase())
+                                .unwrap_or(false)
+                        {
+                            // Both PascalCase = likely Enum.Variant
+                            expr = Expression::EnumLiteral {
+                                enum_name,
+                                variant: field_or_method,
+                                data: None,
+                            };
+                        } else {
+                            // Field access: obj.field
+                            expr = Expression::FieldAccess {
+                                object: Box::new(expr),
+                                field: field_or_method,
+                            };
+                        }
+                    } else {
+                        // Complex expression = definitely field access
+                        expr = Expression::FieldAccess {
+                            object: Box::new(expr),
+                            field: field_or_method,
+                        };
+                    }
                 }
             } else if self.match_token(&Token::LBracket) {
                 // Array indexing
@@ -308,6 +408,11 @@ impl<'a> Parser<'a> {
     }
 
     pub(crate) fn parse_primary(&mut self) -> Result<Expression, ParseError> {
+        // Closure/Lambda: |x, y| expr or |x: i32, y: i32| { body }
+        if self.match_token(&Token::Pipe) {
+            return self.parse_closure();
+        }
+
         // Integer literal
         if let Token::IntLiteral(n) = self.peek() {
             let n = *n;
@@ -449,8 +554,12 @@ impl<'a> Parser<'a> {
 
             self.consume(&Token::FatArrow, "Expected '=>' after pattern")?;
 
-            // Parse body expression
-            let body = self.parse_expression()?;
+            // Parse body: either a block expression { ... } or a single expression
+            let body = if self.check(&Token::LBrace) {
+                self.parse_block_expression()?
+            } else {
+                self.parse_expression()?
+            };
 
             arms.push(MatchArm {
                 pattern,
@@ -467,8 +576,26 @@ impl<'a> Parser<'a> {
         Ok(Expression::Match { value, arms })
     }
 
-    /// Parse pattern for match expressions
+    /// Parse pattern for match expressions (with Or support)
     fn parse_pattern(&mut self) -> Result<Pattern, ParseError> {
+        let first_pattern = self.parse_single_pattern()?;
+
+        // Check for Or pattern: 1 | 2 | 3 (using Pipe token)
+        if self.check(&Token::Pipe) {
+            let mut patterns = vec![first_pattern];
+
+            while self.match_token(&Token::Pipe) {
+                patterns.push(self.parse_single_pattern()?);
+            }
+
+            return Ok(Pattern::Or(patterns));
+        }
+
+        Ok(first_pattern)
+    }
+
+    /// Parse a single pattern (without Or)
+    fn parse_single_pattern(&mut self) -> Result<Pattern, ParseError> {
         // Wildcard: _
         if self.match_token(&Token::Underscore) {
             return Ok(Pattern::Wildcard);
@@ -487,7 +614,7 @@ impl<'a> Parser<'a> {
 
             // Parse patterns
             loop {
-                patterns.push(self.parse_pattern()?);
+                patterns.push(self.parse_single_pattern()?);
                 if !self.match_token(&Token::Comma) {
                     break;
                 }
@@ -508,6 +635,30 @@ impl<'a> Parser<'a> {
             let name = name.clone();
             self.advance();
 
+            // Check for enum pattern with dot: Result.Ok(x) or Option.None
+            if self.match_token(&Token::Dot) {
+                let variant = self.consume_identifier()?;
+
+                // Check for data: Variant(pattern)
+                let data = if self.match_token(&Token::LParen) {
+                    let inner_pattern = if !self.check(&Token::RParen) {
+                        Some(Box::new(self.parse_single_pattern()?))
+                    } else {
+                        None
+                    };
+                    self.consume(&Token::RParen, "Expected ')' after enum pattern")?;
+                    inner_pattern
+                } else {
+                    None
+                };
+
+                return Ok(Pattern::Enum {
+                    name,
+                    variant,
+                    data,
+                });
+            }
+
             // Check for struct pattern: Point { x, y }
             if self.check(&Token::LBrace) {
                 self.advance();
@@ -518,7 +669,7 @@ impl<'a> Parser<'a> {
 
                     // Check for field: pattern or just field (shorthand)
                     let field_pattern = if self.match_token(&Token::Colon) {
-                        self.parse_pattern()?
+                        self.parse_single_pattern()?
                     } else {
                         // Shorthand: { x, y } means { x: x, y: y }
                         Pattern::Ident(field_name.clone())
@@ -536,11 +687,11 @@ impl<'a> Parser<'a> {
                 return Ok(Pattern::Struct { name, fields });
             }
 
-            // Check for enum variant: Ok(x), Some(value)
+            // Check for old-style enum variant (backward compat): Ok(x), Some(value)
             if self.check(&Token::LParen) {
                 self.advance();
                 let inner_pattern = if !self.check(&Token::RParen) {
-                    Some(Box::new(self.parse_pattern()?))
+                    Some(Box::new(self.parse_single_pattern()?))
                 } else {
                     None
                 };
@@ -560,5 +711,62 @@ impl<'a> Parser<'a> {
         // Literal pattern
         let expr = self.parse_primary()?;
         Ok(Pattern::Literal(expr))
+    }
+
+    /// Parse closure/lambda: |x, y| expr or |x: i32| { body }
+    pub(crate) fn parse_closure(&mut self) -> Result<Expression, ParseError> {
+        // Parse parameters: |x, y| or |x: i32, y: i32|
+        let mut params = Vec::new();
+
+        if !self.check(&Token::Pipe) {
+            loop {
+                let param_name = self.consume_identifier()?;
+
+                // Optional type annotation: x: i32
+                let param_type = if self.match_token(&Token::Colon) {
+                    self.parse_type()?
+                } else {
+                    // TODO: Type inference for closures
+                    return Err(self.error("Closure parameters require type annotations for now"));
+                };
+
+                params.push(vex_ast::Param {
+                    name: param_name,
+                    ty: param_type,
+                });
+
+                if !self.match_token(&Token::Comma) {
+                    break;
+                }
+            }
+        }
+
+        self.consume(&Token::Pipe, "Expected '|' after closure parameters")?;
+
+        // Optional return type: |x: i32|: i32
+        let return_type = if self.match_token(&Token::Colon) {
+            Some(self.parse_type()?)
+        } else {
+            None
+        };
+
+        // Parse body: either expression or block
+        let body = if self.check(&Token::LBrace) {
+            // Block body: |x| { x + 1 }
+            let block = self.parse_block()?;
+            Box::new(Expression::Block {
+                statements: block.statements,
+                return_expr: block.return_expr.map(Box::new),
+            })
+        } else {
+            // Expression body: |x| x + 1
+            Box::new(self.parse_expression()?)
+        };
+
+        Ok(Expression::Closure {
+            params,
+            return_type,
+            body,
+        })
     }
 }

@@ -1,0 +1,64 @@
+// Defer with early returns - demonstrates cleanup in all paths
+
+fn log_entry(name: string): i32 {
+    print("Entering function");
+    return 0;
+}
+
+fn log_exit(name: string): i32 {
+    print("Exiting function");
+    return 0;
+}
+
+fn open_resource(): i32 {
+    print("Resource opened");
+    return 1;
+}
+
+fn close_resource(): i32 {
+    print("Resource closed");
+    return 0;
+}
+
+fn process_with_early_return(value: i32): i32 {
+    defer log_exit("process");
+    defer close_resource();
+    
+    let dummy1 = log_entry("process");
+    let dummy2 = open_resource();
+    
+    // Early return path 1
+    if value < 0 {
+        print("Error: negative value");
+        return -1;
+        // Defers execute here: close_resource(), then log_exit()
+    }
+    
+    // Early return path 2
+    if value == 0 {
+        print("Warning: zero value");
+        return 0;
+        // Defers execute here too!
+    }
+    
+    // Normal processing
+    print("Processing value");
+    let result = value * 2;
+    
+    return result;
+    // Defers execute on normal return as well
+}
+
+fn main(): i32 {
+    print("=== Test 1: Negative value (early return) ===");
+    let r1 = process_with_early_return(-5);
+    
+    print("\n=== Test 2: Zero value (early return) ===");
+    let r2 = process_with_early_return(0);
+    
+    print("\n=== Test 3: Positive value (normal return) ===");
+    let r3 = process_with_early_return(10);
+    
+    print("\n=== All paths executed cleanup! ===");
+    return 0;
+}

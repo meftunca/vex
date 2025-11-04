@@ -1,22 +1,22 @@
-// Interfaces
-// Demonstrates: interface definitions, method signatures
+// Traits (formerly interfaces)
+// Demonstrates: trait definitions, method signatures
 
-// Simple interface
-interface Writer {
-    fn write(data: i32) : i32 {}
+// Simple trait
+trait Writer {
+    fn write(data: i32): i32;
 }
 
-// Generic interface
-interface Container<T> {
-    fn get() : T {}
-    fn set(value: T) : i32 {}
+// Generic trait
+trait Container<T> {
+    fn get(): T;
+    fn set(value: T): i32;
 }
 
-// Multiple method interface
-interface Storage {
-    fn read() : i32 {}
-    fn write(value: i32) : i32 {}
-    fn clear() : i32 {}
+// Multiple method trait
+trait Storage {
+    fn read(): i32;
+    fn write(value: i32): i32;
+    fn clear(): i32;
 }
 
 // Struct that implements Writer

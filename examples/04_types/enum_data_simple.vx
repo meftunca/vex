@@ -1,0 +1,25 @@
+// Data-carrying enum test (simple)
+
+enum Result {
+    Ok(i32),
+    Err(i32),
+}
+
+fn divide(a: i32, b: i32): i32 {
+    if b == 0 {
+        // For now, return error tag manually
+        return Result.Err(-1);
+    } else {
+        let quotient = a / b;
+        return Result.Ok(quotient);
+    }
+}
+
+fn main(): i32 {
+    // Test with valid division
+    let r = divide(10, 2);
+    
+    // For now, just return the result
+    // Pattern matching with data extraction TODO
+    return 0;
+}

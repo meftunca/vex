@@ -1,4 +1,4 @@
-// std::testing - Layer 2: Testing Framework (100% Safe Native Vex)
+// std.testing - Layer 2: Testing Framework (100% Safe Native Vex)
 // Built-in test framework inspired by Go's testing package
 
 export struct TestContext {

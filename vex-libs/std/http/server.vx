@@ -52,7 +52,7 @@ fn handle_connection(stream: TcpStream, handler: Handler): (bool | error) {
             break;
         }
         
-        chunk := string::from_bytes(&buffer[0], bytes_read as usize);
+        chunk := string.from_bytes(&buffer[0], bytes_read as usize);
         request_data = request_data + chunk;
         
         if request_data.contains("\r\n\r\n") {

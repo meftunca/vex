@@ -1,4 +1,4 @@
-// std::regex - Regular expression matching using POSIX regex
+// std.regex - Regular expression matching using POSIX regex
 // Wrapper around regcomp/regexec for pattern matching
 
 import { libc } from "./ffi";

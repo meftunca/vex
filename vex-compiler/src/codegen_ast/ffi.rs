@@ -50,6 +50,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             BasicTypeEnum::ArrayType(t) => t.fn_type(&param_types, func.is_variadic),
             BasicTypeEnum::StructType(t) => t.fn_type(&param_types, func.is_variadic),
             BasicTypeEnum::VectorType(t) => t.fn_type(&param_types, func.is_variadic),
+            BasicTypeEnum::ScalableVectorType(t) => t.fn_type(&param_types, func.is_variadic),
         };
 
         // Add function to module with external linkage

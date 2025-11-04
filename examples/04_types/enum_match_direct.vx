@@ -1,0 +1,20 @@
+// Direct enum return test
+
+enum Status {
+    Ok,
+    Error,
+}
+
+fn main(): i32 {
+    let s = Status.Ok;
+    
+    // Direct match with return
+    match s {
+        Status.Ok => {
+            return 1;
+        }
+        Status.Error => {
+            return 3;
+        }
+    }
+}

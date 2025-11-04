@@ -1,0 +1,42 @@
+// Enum pattern matching with dot syntax
+
+enum Status {
+    Idle,
+    Running,
+    Stopped,
+}
+
+fn check_status(s: i32): i32 {
+    match s {
+        Status.Idle => {
+            print("System is idle");
+            return 0;
+        }
+        Status.Running => {
+            print("System is running");
+            return 1;
+        }
+        Status.Stopped => {
+            print("System is stopped");
+            return 2;
+        }
+        _ => {
+            print("Unknown status");
+            return -1;
+        }
+    }
+}
+
+fn main(): i32 {
+    let idle = Status.Idle;
+    let running = Status.Running;
+    let stopped = Status.Stopped;
+    
+    let r1 = check_status(idle);
+    let r2 = check_status(running);
+    let r3 = check_status(stopped);
+    
+    print("All status checks complete");
+    
+    return r2;  // Should return 1
+}

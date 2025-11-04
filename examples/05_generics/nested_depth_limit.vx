@@ -1,0 +1,16 @@
+// Depth Limit Test
+// Should compile and work (depth 2)
+
+struct Box<T> {
+    value: T,
+}
+
+fn main(): i32 {
+    // Depth 2: WORKS
+    let inner = Box<i32> { value: 42 };
+    let outer = Box<Box<i32>> { value: inner };
+    let middle = outer.value;
+    let result = middle.value;
+    
+    return result; // Should return 42
+}

@@ -1,0 +1,19 @@
+// Test match expression return value
+
+enum Color {
+    Red,
+    Green,
+}
+
+fn main(): i32 {
+    let c = Color.Green;
+    
+    // Match should return 42 for Green
+    let result = match c {
+        Color.Red => 10,
+        Color.Green => 42
+    };
+    
+    // Return result (should be 42)
+    return result;
+}

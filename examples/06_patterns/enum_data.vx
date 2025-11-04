@@ -1,0 +1,17 @@
+// Data-carrying enum pattern test
+
+enum Option<T> {
+    Some(T),
+    None,
+}
+
+fn main(): i32 {
+    let x = Option.Some(42);
+    
+    let result = match x {
+        Option.Some(val) => val,
+        Option.None => 0,
+    };
+    
+    return result;
+}

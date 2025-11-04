@@ -43,19 +43,32 @@ struct Borrow {
 }
 
 /// Tracks active borrows to enforce borrow rules
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct BorrowRulesChecker {
     /// Active borrows: reference -> borrow info
     active_borrows: HashMap<String, Vec<Borrow>>,
 
     /// Variables that are currently borrowed (cannot be moved or mutated)
     borrowed_vars: HashMap<String, Vec<BorrowKind>>,
+
+    /// Registry of builtin function metadata
+    builtin_registry: super::builtin_metadata::BuiltinBorrowRegistry,
+}
+
+impl Default for BorrowRulesChecker {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl BorrowRulesChecker {
     /// Create a new borrow rules checker
     pub fn new() -> Self {
-        Self::default()
+        Self {
+            active_borrows: HashMap::new(),
+            borrowed_vars: HashMap::new(),
+            builtin_registry: super::builtin_metadata::BuiltinBorrowRegistry::new(),
+        }
     }
 
     /// Check an entire program for borrow rule violations
@@ -148,12 +161,21 @@ impl BorrowRulesChecker {
             Statement::If {
                 condition,
                 then_block,
+                elif_branches,
                 else_block,
             } => {
                 self.check_expression_for_borrows(condition)?;
 
                 for stmt in &then_block.statements {
                     self.check_statement(stmt)?;
+                }
+
+                // Check elif branches
+                for (elif_cond, elif_block) in elif_branches {
+                    self.check_expression_for_borrows(elif_cond)?;
+                    for stmt in &elif_block.statements {
+                        self.check_statement(stmt)?;
+                    }
                 }
 
                 if let Some(else_blk) = else_block {
@@ -271,6 +293,62 @@ impl BorrowRulesChecker {
 
             Expression::Call { func, args } => {
                 self.check_expression_for_borrows(func)?;
+
+                // Check if this is a builtin function call
+                if let Expression::Ident(func_name) = func.as_ref() {
+                    if let Some(metadata) = self.builtin_registry.get(func_name).cloned() {
+                        // Check each argument against builtin metadata
+                        for (i, arg) in args.iter().enumerate() {
+                            if i < metadata.param_effects.len() {
+                                let effect = &metadata.param_effects[i];
+
+                                // Check if we're passing a borrowed variable to a mutating builtin
+                                if let Expression::Ident(var_name) = arg {
+                                    use super::builtin_metadata::ParamEffect;
+
+                                    match effect {
+                                        ParamEffect::BorrowsMut | ParamEffect::Mutates => {
+                                            // Check if variable is currently borrowed
+                                            if let Some(borrows) = self.borrowed_vars.get(var_name)
+                                            {
+                                                if !borrows.is_empty() {
+                                                    return Err(BorrowError::MutationWhileBorrowed {
+                                                        variable: var_name.clone(),
+                                                        borrowed_at: Some(format!(
+                                                            "builtin function '{}' requires mutable access",
+                                                            func_name
+                                                        )),
+                                                    });
+                                                }
+                                            }
+                                        }
+                                        ParamEffect::Moves => {
+                                            // Check if variable is currently borrowed (cannot move)
+                                            if let Some(borrows) = self.borrowed_vars.get(var_name)
+                                            {
+                                                if !borrows.is_empty() {
+                                                    return Err(BorrowError::MoveWhileBorrowed {
+                                                        variable: var_name.clone(),
+                                                        borrow_location: Some(format!(
+                                                            "builtin function '{}' takes ownership",
+                                                            func_name
+                                                        )),
+                                                    });
+                                                }
+                                            }
+                                        }
+                                        _ => {} // ReadOnly, BorrowsImmut are fine
+                                    }
+                                }
+                            }
+
+                            self.check_expression_for_borrows(arg)?;
+                        }
+                        return Ok(());
+                    }
+                }
+
+                // Not a builtin, check args normally
                 for arg in args {
                     self.check_expression_for_borrows(arg)?;
                 }

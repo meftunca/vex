@@ -85,28 +85,28 @@ impl Scheduler {
 static RUNTIME: Mutex<Option<Scheduler>> = Mutex::new(None);
 
 /// Initialize the native runtime
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn vex_native_runtime_init() {
     let mut rt = RUNTIME.lock().unwrap();
     *rt = Some(Scheduler::new());
 }
 
 /// Spawn a new task in native runtime
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn vex_native_runtime_spawn() -> usize {
     let mut rt = RUNTIME.lock().unwrap();
     rt.as_mut().unwrap().spawn()
 }
 
 /// Run the native runtime (blocking)
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn vex_native_runtime_run() {
     let mut rt = RUNTIME.lock().unwrap();
     rt.as_mut().unwrap().run();
 }
 
 /// Yield current task in native runtime
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn vex_native_runtime_yield(task_id: usize) {
     let mut rt = RUNTIME.lock().unwrap();
     rt.as_mut().unwrap().yield_now(task_id);

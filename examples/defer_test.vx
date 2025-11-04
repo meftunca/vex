@@ -1,0 +1,71 @@
+// Test defer statement functionality
+// Defer should execute in LIFO order before function returns
+
+fn cleanup(): i32 {
+    print("Cleanup called");
+    return 0;
+}
+
+fn open_file(): i32 {
+    print("File opened");
+    return 0;
+}
+
+fn close_file(): i32 {
+    print("File closed");
+    return 0;
+}
+
+fn test_basic_defer(): i32 {
+    print("Starting test");
+    
+    defer cleanup();
+    
+    print("Middle of function");
+    
+    return 42;
+    // cleanup() should be called here before return
+}
+
+fn test_multiple_defers(): i32 {
+    print("Test multiple defers");
+    
+    defer close_file();
+    defer cleanup();
+    defer open_file();
+    
+    print("Defers registered");
+    
+    return 0;
+    // Should print in LIFO order:
+    // 1. "File opened"
+    // 2. "Cleanup called"  
+    // 3. "File closed"
+}
+
+fn test_defer_with_implicit_return(): i32 {
+    print("Test implicit return");
+    
+    defer cleanup();
+    
+    print("No explicit return here");
+    
+    // cleanup() should be called before implicit return
+    // Should fail compilation: non-void needs explicit return
+    return 1;
+}
+
+fn main(): i32 {
+    print("=== Test 1: Basic defer ===");
+    let result1 = test_basic_defer();
+    
+    print("\n=== Test 2: Multiple defers (LIFO) ===");
+    let result2 = test_multiple_defers();
+    
+    print("\n=== Test 3: Defer with implicit return ===");
+    let result3 = test_defer_with_implicit_return();
+    
+    print("\n=== All tests completed ===");
+    
+    return 0;
+}

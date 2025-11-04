@@ -1,0 +1,13 @@
+// Depth 10 Test
+// Should work (under 64 limit)
+
+struct Box<T> {
+    value: T,
+}
+
+fn main(): i32 {
+    // Depth 10
+    let deep: Box<Box<Box<Box<Box<Box<Box<Box<Box<Box<i32>>>>>>>>>> = Box { value: Box { value: Box { value: Box { value: Box { value: Box { value: Box { value: Box { value: Box { value: Box { value: 42 } } } } } } } } } };
+    
+    return 0;
+}

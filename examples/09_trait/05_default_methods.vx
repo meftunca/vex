@@ -1,0 +1,45 @@
+// Test default trait methods
+// Trait with both required and default methods
+
+trait Logger {
+    // Required method (no body)
+    fn (self: &Self!) log(msg: string);
+    
+    // Default method (has body)
+    fn (self: &Self!) info(msg: string) {
+        // Default implementation calls log
+        self.log(msg);
+        return;
+    }
+    
+    // Another default method
+    fn (self: &Self!) debug(msg: string) {
+        self.log(msg);
+        return;
+    }
+}
+
+struct ConsoleLogger impl Logger {
+    prefix: string,
+    
+    // Must implement required method
+    fn (self: &ConsoleLogger!) log(msg: string) {
+        // For now, just return (no actual logging)
+        return;
+    }
+    
+    // info() and debug() inherited from trait defaults
+}
+
+fn main(): i32 {
+    let! logger = ConsoleLogger { prefix: ">>>" };
+    
+    // Call explicitly implemented method
+    logger.log("explicit");
+    
+    // Call default methods (should work!)
+    logger.info("info message");
+    logger.debug("debug message");
+    
+    return 0;
+}

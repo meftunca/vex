@@ -1,0 +1,132 @@
+// Vex Standard Library - Intrinsics Module
+// Low-level LLVM intrinsics and bit manipulation
+
+// Bit Manipulation
+
+// Count leading zeros
+export fn count_leading_zeros_i32(x: i32): i32 {
+    return ctlz(x);
+}
+
+export fn count_leading_zeros_i64(x: i64): i64 {
+    return ctlz(x);
+}
+
+// Count trailing zeros
+export fn count_trailing_zeros_i32(x: i32): i32 {
+    return cttz(x);
+}
+
+export fn count_trailing_zeros_i64(x: i64): i64 {
+    return cttz(x);
+}
+
+// Count number of 1 bits (population count)
+export fn count_ones_i32(x: i32): i32 {
+    return ctpop(x);
+}
+
+export fn count_ones_i64(x: i64): i64 {
+    return ctpop(x);
+}
+
+// Count number of 0 bits
+export fn count_zeros_i32(x: i32): i32 {
+    return 32 - ctpop(x);
+}
+
+export fn count_zeros_i64(x: i64): i64 {
+    return 64 - ctpop(x);
+}
+
+// Reverse byte order (endianness swap)
+export fn swap_bytes_i32(x: i32): i32 {
+    return bswap(x);
+}
+
+export fn swap_bytes_i64(x: i64): i64 {
+    return bswap(x);
+}
+
+// Reverse all bits
+export fn reverse_bits_i32(x: i32): i32 {
+    return bitreverse(x);
+}
+
+export fn reverse_bits_i64(x: i64): i64 {
+    return bitreverse(x);
+}
+
+// Overflow Checking Arithmetic
+
+// Add with overflow detection
+// Returns (result, overflow_flag)
+export fn add_with_overflow_i32(a: i32, b: i32): (i32, bool) {
+    let result = sadd_overflow(a, b);
+    // Intrinsic returns struct {result, overflow}
+    return result;
+}
+
+export fn add_with_overflow_i64(a: i64, b: i64): (i64, bool) {
+    let result = sadd_overflow(a, b);
+    return result;
+}
+
+// Subtract with overflow detection
+export fn sub_with_overflow_i32(a: i32, b: i32): (i32, bool) {
+    let result = ssub_overflow(a, b);
+    return result;
+}
+
+export fn sub_with_overflow_i64(a: i64, b: i64): (i64, bool) {
+    let result = ssub_overflow(a, b);
+    return result;
+}
+
+// Multiply with overflow detection
+export fn mul_with_overflow_i32(a: i32, b: i32): (i32, bool) {
+    let result = smul_overflow(a, b);
+    return result;
+}
+
+export fn mul_with_overflow_i64(a: i64, b: i64): (i64, bool) {
+    let result = smul_overflow(a, b);
+    return result;
+}
+
+// Compiler Hints
+
+// Tell compiler that condition is always true
+export fn assume(cond: bool) {
+    assume(cond);
+}
+
+// Branch prediction hints
+export fn likely(cond: bool): bool {
+    return likely(cond);
+}
+
+export fn unlikely(cond: bool): bool {
+    return unlikely(cond);
+}
+
+// Memory prefetch for cache optimization
+// locality: 0-3 (0=no temporal locality, 3=extreme temporal locality)
+// rw: 0=read, 1=write
+export fn prefetch(ptr: *void, locality: i32, rw: i32) {
+    prefetch(ptr, locality, rw);
+}
+
+// Example usage:
+// let x: i32 = 0b10101100;
+// println(intrinsics.count_ones_i32(x));        // 4
+// println(intrinsics.count_leading_zeros_i32(x)); // 24
+//
+// let (result, overflow) = intrinsics.add_with_overflow_i32(2147483647, 1);
+// if overflow {
+//     println("Integer overflow detected!");
+// }
+//
+// if intrinsics.likely(x > 0) {
+//     // Hot path - compiler optimizes for this branch
+// }

@@ -1,0 +1,12 @@
+// Test: Return reference to local variable (should fail)
+// Expected: Borrow checker error - cannot return reference to local variable
+
+fn get_reference(): &i32 {
+    let x = 42;
+    return &x;  // ERROR: x will be dropped when function exits
+}
+
+fn main(): i32 {
+    let r = get_reference();
+    return *r;
+}

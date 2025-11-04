@@ -1,0 +1,33 @@
+// Error Propagation Test - ? Operator
+// Test ? operator propagates errors early
+
+enum SimpleResult {
+    Ok(i32),
+    Err(i32)
+}
+
+fn divide(a: i32, b: i32): SimpleResult {
+    if b == 0 {
+        return SimpleResult.Err(-999);
+    }
+    return SimpleResult.Ok(a / b);
+}
+
+// Function that should propagate error
+fn calculate_error(): SimpleResult {
+    let x = divide(10, 2)?;   // Ok(5)
+    let y = divide(x, 0)?;    // Err(-999) - should early return here
+    let z = divide(100, 10)?; // Never reached
+    return SimpleResult.Ok(x + y + z);
+}
+
+fn main(): i32 {
+    let result = calculate_error();
+    
+    let output = match result {
+        SimpleResult.Ok(val) => val,
+        SimpleResult.Err(code) => code  // Should return -999
+    };
+    
+    return output;
+}

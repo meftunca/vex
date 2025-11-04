@@ -1,4 +1,4 @@
-// std::unsafe - Layer 1: Unsafe Primitives
+// std.unsafe - Layer 1: Unsafe Primitives
 // This module provides low-level unsafe operations.
 // Use with EXTREME caution!
 

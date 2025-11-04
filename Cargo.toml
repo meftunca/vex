@@ -18,23 +18,23 @@ repository = "https://github.com/yourusername/vex_lang"
 
 [workspace.dependencies]
 # Lexer & Parser
-logos = "0.13"
-lalrpop = "0.20"
-lalrpop-util = "0.20"
+logos = "0.15.1"
+lalrpop = "0.22.2"
+lalrpop-util = "0.22.2"
 
 # LLVM Backend
-inkwell = { version = "0.4", features = ["llvm16-0"] }
+inkwell = { version = "0.6", features = ["llvm16-0"] }
 
 # SPIR-V Backend
 rspirv = "0.12"
 spirv = "0.3"
 
 # Async Runtime
-tokio = { version = "1.35", features = ["full"] }
-tokio-uring = "0.4"
+tokio = { version = "1.48", features = ["full"] }
+tokio-uring = "0.5"
 
 # CLI
-clap = { version = "4.4", features = ["derive"] }
+clap = { version = "4.5.51", features = ["derive"] }
 
 # Utilities
 thiserror = "1.0"

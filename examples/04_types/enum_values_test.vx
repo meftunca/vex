@@ -1,0 +1,16 @@
+// Test enum value creation
+
+enum Color {
+    Red,     // Should be 0
+    Green,   // Should be 1
+    Blue,    // Should be 2
+}
+
+fn main(): i32 {
+    let red = Color.Red;
+    let green = Color.Green;
+    let blue = Color.Blue;
+    
+    // Return green (should be 1)
+    return green;
+}

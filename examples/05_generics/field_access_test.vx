@@ -1,0 +1,27 @@
+// Generic System Test - Field Access Bug Check
+// Tests: Generic struct field access, nested generics
+
+struct Container<T> {
+    data: T,
+}
+
+fn main(): i32 {
+    // Test 1: Simple generic struct
+    let c1 = Container<i32> { data: 42 };
+    let v1 = c1.data;  // Field access
+    
+    // Test 2: Multiple instances
+    let c2 = Container<i32> { data: 100 };
+    let v2 = c2.data;
+    
+    // Result: 42 + 100 = 142
+    return v1 + v2;
+}
+
+fn make_container<T>(value: T): Container<T> {
+    return Container<T> { data: value };
+}
+
+fn get_data<T>(c: Container<T>): T {
+    return c.data;  // Generic field access
+}

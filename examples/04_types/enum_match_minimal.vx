@@ -1,0 +1,19 @@
+// Minimal enum match test
+
+enum Color {
+    Red,
+    Green,
+}
+
+fn main(): i32 {
+    let c = Color.Red;
+    
+    // Match returns an expression value
+    let result = match c {
+        Color.Red => 1,
+        _ => 0
+    };
+    
+    print("Match completed");
+    return result;
+}

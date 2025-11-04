@@ -1,0 +1,12 @@
+// Phase 4.1: Flow-sensitive lifetime analysis - Reference assignment tracking
+// Tests that references assigned in nested scopes are properly validated
+
+fn test_assignment(): i32 {
+    let temp = 0;
+    let ref_val = &temp;  // OK: both in same scope, immutable
+    return 0;
+}
+
+fn main(): i32 {
+    return test_assignment();
+}

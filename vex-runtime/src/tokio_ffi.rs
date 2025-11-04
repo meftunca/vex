@@ -30,7 +30,7 @@ pub struct VexTask {
 
 /// Create a new multi-threaded tokio runtime
 /// Returns: Opaque pointer to VexRuntime
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn vex_runtime_new() -> *mut VexRuntime {
     let runtime = Builder::new_multi_thread()
         .worker_threads(num_cpus::get())
@@ -42,7 +42,7 @@ pub extern "C" fn vex_runtime_new() -> *mut VexRuntime {
 }
 
 /// Create a new single-threaded tokio runtime (for testing)
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn vex_runtime_new_current_thread() -> *mut VexRuntime {
     let runtime = Builder::new_current_thread()
         .enable_all()
@@ -53,7 +53,7 @@ pub extern "C" fn vex_runtime_new_current_thread() -> *mut VexRuntime {
 }
 
 /// Destroy runtime and free memory
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn vex_runtime_destroy(runtime: *mut VexRuntime) {
     if !runtime.is_null() {
         unsafe {
@@ -69,7 +69,7 @@ pub extern "C" fn vex_runtime_destroy(runtime: *mut VexRuntime) {
 /// Spawn a task on the runtime
 /// task_fn: Function pointer to async task
 /// user_data: Opaque pointer passed to task
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn vex_runtime_spawn(
     runtime: *mut VexRuntime,
     task_fn: extern "C" fn(*mut c_void),
@@ -95,7 +95,7 @@ pub extern "C" fn vex_runtime_spawn(
 }
 
 /// Block on a future (runs async task synchronously)
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn vex_runtime_block_on(
     runtime: *mut VexRuntime,
     task_fn: extern "C" fn(*mut c_void),
@@ -118,7 +118,7 @@ pub extern "C" fn vex_runtime_block_on(
 
 /// Async sleep for milliseconds (must be called from within tokio runtime)
 /// Returns a task handle that can be awaited
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn vex_async_sleep_ms(runtime: *mut VexRuntime, millis: u64) -> *mut VexTask {
     if runtime.is_null() {
         return std::ptr::null_mut();
@@ -134,7 +134,7 @@ pub extern "C" fn vex_async_sleep_ms(runtime: *mut VexRuntime, millis: u64) -> *
 
 /// Async sleep for seconds (must be called from within tokio runtime)
 /// Returns a task handle that can be awaited
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn vex_async_sleep_secs(runtime: *mut VexRuntime, secs: u64) -> *mut VexTask {
     if runtime.is_null() {
         return std::ptr::null_mut();
@@ -154,7 +154,7 @@ pub extern "C" fn vex_async_sleep_secs(runtime: *mut VexRuntime, secs: u64) -> *
 
 /// Async TCP connect
 /// Returns: File descriptor (>= 0) on success, -1 on error
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn vex_tcp_connect_async(
     host: *const c_char,
     port: u16,
@@ -192,7 +192,7 @@ pub extern "C" fn vex_tcp_connect_async(
 // ============================================================================
 
 /// Async file read
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn vex_file_read_async(
     path: *const c_char,
     callback: extern "C" fn(*const u8, usize, *mut c_void),
@@ -225,7 +225,7 @@ pub extern "C" fn vex_file_read_async(
 }
 
 /// Async file write
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn vex_file_write_async(
     path: *const c_char,
     data: *const u8,
@@ -257,13 +257,13 @@ pub extern "C" fn vex_file_write_async(
 // ============================================================================
 
 /// Get number of worker threads
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn vex_runtime_worker_threads() -> usize {
     num_cpus::get()
 }
 
 /// Check if running inside tokio runtime
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn vex_runtime_is_inside_runtime() -> bool {
     tokio::runtime::Handle::try_current().is_ok()
 }

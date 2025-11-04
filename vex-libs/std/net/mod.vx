@@ -1,5 +1,5 @@
 import { libc } from "../ffi";
-// std::net - Layer 2: Network Protocol (100% Safe Native Vex)
+// std.net - Layer 2: Network Protocol (100% Safe Native Vex)
 
 
 
@@ -7,7 +7,7 @@ export struct TcpStream {// This layer knows NOTHING about io_uring or unsafe co
 
     fd: i32,
 
-    remote_addr: string,export struct TcpStream {// It only knows about "files" (sockets) from std::io.
+    remote_addr: string,export struct TcpStream {// It only knows about "files" (sockets) from std.io.
 
     remote_port: u16,
 
@@ -21,7 +21,7 @@ export fn connect(host: string, port: u16): (TcpStream | error) {    remote_addr
     sockfd := unsafe { libc.socket(libc.AF_INET, libc.SOCK_STREAM, 0) };
 
 
-        remote_port: u16,import type { Reader, Writer } from "std::io";
+        remote_port: u16,import type { Reader, Writer } from "std.io";
 
 
     if sockfd < 0 {

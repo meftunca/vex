@@ -1,0 +1,19 @@
+// Test without data extraction
+
+enum Maybe {
+    Some(i32),
+    None,
+}
+
+fn main(): i32 {
+    let m = Maybe.Some(42);
+    
+    // Match without extracting data
+    let result = match m {
+        Maybe.Some(_) => 100,  // Wildcard, don't extract
+        Maybe.None => 0
+    };
+    
+    // Should return 100
+    return result;
+}

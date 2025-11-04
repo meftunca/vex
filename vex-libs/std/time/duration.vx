@@ -1,4 +1,4 @@
-// std::time::Duration - Represents a span of time
+// std.time.Duration - Represents a span of time
 // Zero-cost wrapper around nanoseconds
 
 export struct Duration {

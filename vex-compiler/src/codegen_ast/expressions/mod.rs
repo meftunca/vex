@@ -2,6 +2,7 @@
 // This module dispatches expression compilation and coordinates submodules
 
 use super::ASTCodeGen;
+use inkwell::types::BasicTypeEnum;
 use inkwell::values::BasicValueEnum;
 use inkwell::IntPredicate;
 use vex_ast::*;
@@ -45,36 +46,56 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }
 
             Expression::Ident(name) => {
-                let ptr = self
-                    .variables
-                    .get(name)
-                    .ok_or_else(|| format!("Variable {} not found", name))?;
-                let ty = self
-                    .variable_types
-                    .get(name)
-                    .ok_or_else(|| format!("Type for variable {} not found", name))?;
-
-                if name == "t" {
-                    eprintln!("[DEBUG VAR LOAD] Variable 't' type: {:?}", ty);
+                // Check if this is a function pointer parameter first
+                if let Some(fn_ptr) = self.function_params.get(name) {
+                    // Return function pointer directly
+                    return Ok((*fn_ptr).into());
                 }
 
-                let loaded = self
-                    .builder
-                    .build_load(*ty, *ptr, name)
-                    .map_err(|e| format!("Failed to load variable: {}", e))?;
+                // Check if this is a variable (includes regular parameters)
+                if let Some(ptr) = self.variables.get(name) {
+                    let ty = self
+                        .variable_types
+                        .get(name)
+                        .ok_or_else(|| format!("Type for variable {} not found", name))?;
 
-                if name == "t" {
-                    eprintln!(
-                        "[DEBUG VAR LOAD] Loaded value is_struct: {}",
-                        loaded.is_struct_value()
-                    );
-                    eprintln!(
-                        "[DEBUG VAR LOAD] Loaded value is_pointer: {}",
-                        loaded.is_pointer_value()
-                    );
+                    if name == "t" {
+                        eprintln!("[DEBUG VAR LOAD] Variable 't' type: {:?}", ty);
+                    }
+
+                    // IMPORTANT: For struct variables, return the pointer directly (zero-copy)
+                    // Struct types in LLVM are already pointers (ast_type_to_llvm returns pointer for structs)
+                    if self.variable_struct_names.contains_key(name) {
+                        // This is a struct variable - return pointer without loading
+                        return Ok((*ptr).into());
+                    }
+
+                    let loaded = self
+                        .builder
+                        .build_load(*ty, *ptr, name)
+                        .map_err(|e| format!("Failed to load variable: {}", e))?;
+
+                    if name == "t" {
+                        eprintln!(
+                            "[DEBUG VAR LOAD] Loaded value is_struct: {}",
+                            loaded.is_struct_value()
+                        );
+                        eprintln!(
+                            "[DEBUG VAR LOAD] Loaded value is_pointer: {}",
+                            loaded.is_pointer_value()
+                        );
+                    }
+
+                    return Ok(loaded);
                 }
 
-                Ok(loaded)
+                // Check if this is a global function name (for function pointers)
+                if let Some(func_val) = self.functions.get(name) {
+                    // Return function as a pointer value
+                    return Ok(func_val.as_global_value().as_pointer_value().into());
+                }
+
+                Err(format!("Variable or function {} not found", name))
             }
 
             Expression::Binary { left, op, right } => self.compile_binary_op(left, op, right),
@@ -118,10 +139,108 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
             Expression::Match { value, arms } => self.compile_match_expression(value, arms),
 
+            Expression::Block {
+                statements,
+                return_expr,
+            } => self.compile_block_expression(statements, return_expr),
+
             Expression::Try(expr) => {
-                // For now, try operator is a pass-through - compile the inner expression
-                // TODO: Proper error handling with Result type unwrapping and propagation
-                self.compile_expression(expr)
+                // ? operator: Unwrap Result, propagate Err
+                // Desugar: let x = expr? => match expr { Ok(v) => v, Err(e) => return Err(e) }
+
+                // Compile the Result expression
+                let result_val = self.compile_expression(expr)?;
+
+                // Check if this is a Result/Option enum (has tag + data struct)
+                if !result_val.is_struct_value() {
+                    return Err("? operator can only be used on Result/Option enums".to_string());
+                }
+
+                // Result is a struct value, but we need to work with it on stack
+                // Allocate temporary space and store it
+                let result_ptr = self
+                    .builder
+                    .build_alloca(result_val.get_type(), "result_tmp")
+                    .map_err(|e| format!("Failed to allocate result temp: {}", e))?;
+
+                self.builder
+                    .build_store(result_ptr, result_val)
+                    .map_err(|e| format!("Failed to store result: {}", e))?;
+
+                // Extract tag (field 0)
+                let tag_ptr = self
+                    .builder
+                    .build_struct_gep(result_val.get_type(), result_ptr, 0, "tag_ptr")
+                    .map_err(|e| format!("Failed to get tag pointer: {}", e))?;
+
+                let tag = self
+                    .builder
+                    .build_load(self.context.i32_type(), tag_ptr, "tag")
+                    .map_err(|e| format!("Failed to load tag: {}", e))?
+                    .into_int_value();
+
+                // Extract data (field 1)
+                let data_ptr = self
+                    .builder
+                    .build_struct_gep(result_val.get_type(), result_ptr, 1, "data_ptr")
+                    .map_err(|e| format!("Failed to get data pointer: {}", e))?;
+
+                // Create blocks for Ok and Err paths
+                let ok_block = self.context.append_basic_block(
+                    self.current_function.ok_or("? operator outside function")?,
+                    "try_ok",
+                );
+                let err_block = self.context.append_basic_block(
+                    self.current_function.ok_or("? operator outside function")?,
+                    "try_err",
+                );
+                let merge_block = self.context.append_basic_block(
+                    self.current_function.ok_or("? operator outside function")?,
+                    "try_merge",
+                );
+
+                // Check if tag == 0 (Ok variant)
+                let is_ok = self
+                    .builder
+                    .build_int_compare(
+                        inkwell::IntPredicate::EQ,
+                        tag,
+                        self.context.i32_type().const_int(0, false),
+                        "is_ok",
+                    )
+                    .map_err(|e| format!("Failed to compare tag: {}", e))?;
+
+                // Branch: if Ok goto ok_block, else goto err_block
+                self.builder
+                    .build_conditional_branch(is_ok, ok_block, err_block)
+                    .map_err(|e| format!("Failed to build conditional branch: {}", e))?;
+
+                // Ok block: unwrap data and continue
+                self.builder.position_at_end(ok_block);
+                let data_type = self.context.i32_type(); // TODO: Infer from Result<T, E>
+                let ok_value = self
+                    .builder
+                    .build_load(data_type, data_ptr, "ok_value")
+                    .map_err(|e| format!("Failed to load ok value: {}", e))?;
+                self.builder
+                    .build_unconditional_branch(merge_block)
+                    .map_err(|e| format!("Failed to branch to merge: {}", e))?;
+
+                // Err block: early return with Err
+                self.builder.position_at_end(err_block);
+
+                // Execute deferred statements before early return
+                self.execute_deferred_statements()?;
+
+                // Return the error Result value
+                self.builder
+                    .build_return(Some(&result_val))
+                    .map_err(|e| format!("Failed to build error return: {}", e))?;
+
+                // Merge block: continue with unwrapped value
+                self.builder.position_at_end(merge_block);
+
+                Ok(ok_value)
             }
 
             Expression::Go(expr) => {
@@ -137,6 +256,224 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
                 // Return a task ID (0 for now - placeholder)
                 Ok(self.context.i32_type().const_int(0, false).into())
+            }
+
+            Expression::Reference { is_mutable, expr } => {
+                // Take a reference to an expression: &expr or &expr!
+                // This creates a pointer to the value
+                match expr.as_ref() {
+                    Expression::Ident(name) => {
+                        // For identifiers, return the pointer directly (don't load)
+                        let ptr = self
+                            .variables
+                            .get(name)
+                            .ok_or_else(|| format!("Variable {} not found", name))?;
+                        Ok((*ptr).into())
+                    }
+                    _ => {
+                        // For other expressions, compile them, store in temporary, return pointer
+                        let value = self.compile_expression(expr)?;
+                        let value_type = value.get_type();
+                        let temp_name = if *is_mutable {
+                            "ref_temp_mut"
+                        } else {
+                            "ref_temp"
+                        };
+                        let temp_ptr =
+                            self.builder
+                                .build_alloca(value_type, temp_name)
+                                .map_err(|e| {
+                                    format!("Failed to allocate reference temporary: {}", e)
+                                })?;
+                        self.builder
+                            .build_store(temp_ptr, value)
+                            .map_err(|e| format!("Failed to store reference temporary: {}", e))?;
+                        Ok(temp_ptr.into())
+                    }
+                }
+            }
+
+            Expression::Deref(expr) => {
+                // Dereference a pointer: *ptr
+                // Try to infer the inner type from the expression
+                match expr.as_ref() {
+                    Expression::Ident(name) => {
+                        // For identifiers, we can load using the stored LLVM type
+                        let ptr = self
+                            .variables
+                            .get(name)
+                            .ok_or_else(|| format!("Variable {} not found", name))?;
+                        let var_type = self
+                            .variable_types
+                            .get(name)
+                            .ok_or_else(|| format!("Type for variable {} not found", name))?;
+
+                        // Load the pointer value first (variables store the reference)
+                        let ptr_loaded = self
+                            .builder
+                            .build_load(*var_type, *ptr, &format!("{}_ptr", name))
+                            .map_err(|e| format!("Failed to load pointer variable: {}", e))?;
+
+                        if !ptr_loaded.is_pointer_value() {
+                            return Err(format!(
+                                "Cannot dereference non-pointer variable {}",
+                                name
+                            ));
+                        }
+
+                        // Now dereference the pointer
+                        // For references, the inner type is what we need to load
+                        // Since we don't track AST types, we'll use a heuristic:
+                        // Try common types (i32, i64, f64, bool)
+                        // TODO: Add proper AST type tracking for variables
+                        let deref_ptr = ptr_loaded.into_pointer_value();
+
+                        // Try to determine the pointee type
+                        // For now, default to i32 (most common case)
+                        let inner_type = self.context.i32_type();
+                        let loaded = self
+                            .builder
+                            .build_load(inner_type, deref_ptr, "deref")
+                            .map_err(|e| format!("Failed to dereference pointer: {}", e))?;
+                        Ok(loaded)
+                    }
+                    _ => {
+                        // For other expressions, compile and dereference
+                        let ptr_value = self.compile_expression(expr)?;
+                        if !ptr_value.is_pointer_value() {
+                            return Err("Cannot dereference non-pointer value".to_string());
+                        }
+                        let ptr = ptr_value.into_pointer_value();
+
+                        // Default to i32 for now
+                        let inner_type = self.context.i32_type();
+                        let loaded = self
+                            .builder
+                            .build_load(inner_type, ptr, "deref")
+                            .map_err(|e| format!("Failed to dereference pointer: {}", e))?;
+                        Ok(loaded)
+                    }
+                }
+            }
+
+            Expression::EnumLiteral {
+                enum_name,
+                variant,
+                data,
+            } => {
+                // For now, treat enums as tagged unions (C-style for unit variants)
+                // Unit variants (no data): Just return the tag as i32
+                // Data-carrying variants: Need struct with tag + data (TODO: full implementation)
+
+                // Look up enum definition
+                if let Some(enum_def) = self.enum_ast_defs.get(enum_name) {
+                    // Find variant index
+                    let variant_index = enum_def
+                        .variants
+                        .iter()
+                        .position(|v| &v.name == variant)
+                        .ok_or_else(|| {
+                        format!("Variant {} not found in enum {}", variant, enum_name)
+                    })?;
+
+                    // Check if enum has ANY data-carrying variants
+                    let enum_has_data = enum_def.variants.iter().any(|v| v.data.is_some());
+
+                    if data.is_none() && !enum_has_data {
+                        // Pure unit enum (all variants are unit): just return the tag
+                        let tag = self
+                            .context
+                            .i32_type()
+                            .const_int(variant_index as u64, false);
+                        Ok(tag.into())
+                    } else {
+                        // Mixed enum (has data variants): create struct { tag: i32, data: T }
+                        // For unit variants in mixed enums, use enum's data type from definition
+
+                        let (data_value, actual_data_type) = if let Some(data_expr) = data {
+                            // Variant has data: compile expression
+                            let val = self.compile_expression(data_expr)?;
+                            let ty = val.get_type();
+                            (val, ty)
+                        } else {
+                            // Unit variant in mixed enum: use enum's largest data type with zero value
+                            let enum_llvm_type =
+                                self.ast_type_to_llvm(&Type::Named(enum_name.clone()));
+                            if let BasicTypeEnum::StructType(struct_ty) = enum_llvm_type {
+                                // Extract data field type (index 1)
+                                let data_field_type = struct_ty
+                                    .get_field_type_at_index(1)
+                                    .ok_or_else(|| "Enum struct missing data field".to_string())?;
+                                // Create zero/undef value for data field
+                                let zero_value = match data_field_type {
+                                    BasicTypeEnum::IntType(int_ty) => int_ty.const_zero().into(),
+                                    BasicTypeEnum::FloatType(float_ty) => {
+                                        float_ty.const_zero().into()
+                                    }
+                                    BasicTypeEnum::PointerType(ptr_ty) => {
+                                        ptr_ty.const_null().into()
+                                    }
+                                    _ => {
+                                        return Err(format!(
+                                            "Unsupported enum data type: {:?}",
+                                            data_field_type
+                                        ))
+                                    }
+                                };
+                                (zero_value, data_field_type)
+                            } else {
+                                return Err(format!(
+                                    "Expected struct type for mixed enum {}",
+                                    enum_name
+                                ));
+                            }
+                        };
+
+                        // Create struct type: { i32, T }
+                        let tag_type = self.context.i32_type();
+                        let struct_type = self
+                            .context
+                            .struct_type(&[tag_type.into(), actual_data_type], false);
+
+                        // Allocate struct on stack
+                        let struct_ptr = self
+                            .builder
+                            .build_alloca(struct_type, "enum_data_carrier")
+                            .map_err(|e| format!("Failed to allocate enum struct: {}", e))?;
+
+                        // Store tag at index 0
+                        let tag = self
+                            .context
+                            .i32_type()
+                            .const_int(variant_index as u64, false);
+                        let tag_ptr = self
+                            .builder
+                            .build_struct_gep(struct_type, struct_ptr, 0, "enum_tag_ptr")
+                            .map_err(|e| format!("Failed to get tag pointer: {}", e))?;
+                        self.builder
+                            .build_store(tag_ptr, tag)
+                            .map_err(|e| format!("Failed to store tag: {}", e))?;
+
+                        // Store data at index 1
+                        let data_ptr = self
+                            .builder
+                            .build_struct_gep(struct_type, struct_ptr, 1, "enum_data_ptr")
+                            .map_err(|e| format!("Failed to get data pointer: {}", e))?;
+                        self.builder
+                            .build_store(data_ptr, data_value)
+                            .map_err(|e| format!("Failed to store data: {}", e))?;
+
+                        // Load and return the struct value
+                        let struct_value = self
+                            .builder
+                            .build_load(struct_type, struct_ptr, "enum_with_data")
+                            .map_err(|e| format!("Failed to load enum struct: {}", e))?;
+
+                        Ok(struct_value)
+                    }
+                } else {
+                    Err(format!("Enum {} not found", enum_name))
+                }
             }
 
             _ => Err(format!("Expression not yet implemented: {:?}", expr)),
@@ -155,6 +492,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Compile the value to match against
         let mut match_value = self.compile_expression(value)?;
+        eprintln!(
+            "🟣 Match value compiled: type={:?}, is_struct={}",
+            match_value.get_type(),
+            match_value.is_struct_value()
+        );
 
         // Special handling for tuple literals/variables: load struct value for pattern matching
         if matches!(value, Expression::TupleLiteral(_)) && match_value.is_pointer_value() {
@@ -222,7 +564,22 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         match_value.is_struct_value()
                     );
                 }
-            } else if let Some(struct_name) = self.variable_struct_names.get(var_name) {
+            } else if match_value.is_pointer_value() {
+                // Load the value for pattern matching
+                // Could be struct, enum, or other composite type
+                let ptr = match_value.into_pointer_value();
+
+                // Get the actual type from variable_types map
+                if let Some(var_type) = self.variable_types.get(var_name) {
+                    match_value = self
+                        .builder
+                        .build_load(*var_type, ptr, "match_var_loaded")
+                        .map_err(|e| format!("Failed to load variable for match: {}", e))?;
+                }
+            }
+
+            // Also handle struct names for old code path
+            if let Some(struct_name) = self.variable_struct_names.get(var_name) {
                 // This variable holds a struct value, load it for pattern matching
                 if match_value.is_pointer_value() {
                     // Build struct type from definition
@@ -248,6 +605,45 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         )
                         .map_err(|e| format!("Failed to load struct variable for match: {}", e))?;
                 }
+            }
+
+            // Also handle enum variables
+            eprintln!("  → Checking enum tracking for var: {}", var_name);
+            eprintln!(
+                "  → variable_enum_names contains: {}",
+                self.variable_enum_names.contains_key(var_name)
+            );
+            if let Some(enum_name) = self.variable_enum_names.get(var_name) {
+                eprintln!(
+                    "  → Found enum: {}, is_pointer: {}",
+                    enum_name,
+                    match_value.is_pointer_value()
+                );
+                // This variable holds an enum value, load it for pattern matching
+                if match_value.is_pointer_value() {
+                    eprintln!("  → Loading enum from pointer...");
+                    // Use the stored type from variable_types
+                    if let Some(enum_type) = self.variable_types.get(var_name) {
+                        eprintln!("  → Found enum_type: {:?}", enum_type);
+                        match_value = self
+                            .builder
+                            .build_load(
+                                *enum_type,
+                                match_value.into_pointer_value(),
+                                "match_enum_var_loaded",
+                            )
+                            .map_err(|e| {
+                                format!("Failed to load enum variable for match: {}", e)
+                            })?;
+                        eprintln!("  ✅ Loaded enum value!");
+                    } else {
+                        eprintln!("  ❌ enum_type not found in variable_types");
+                    }
+                } else {
+                    eprintln!("  → Value is not pointer, skipping load");
+                }
+            } else {
+                eprintln!("  ❌ Enum name not found in variable_enum_names");
             }
         }
 
@@ -421,6 +817,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 .map_err(|e| format!("Failed to branch to merge: {}", e))?;
 
             current_block = else_block;
+            // CRITICAL: Position builder at else_block for next arm's check
+            self.builder.position_at_end(else_block);
         }
 
         // Position at merge block and load result
@@ -609,12 +1007,26 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 data,
             } => {
                 // Enum patterns: check variant tag
-                // Currently enums are represented as i32 tags
-                if !value.is_int_value() {
+                // Unit variants: value is i32 tag
+                // Data-carrying variants: value is struct { i32, T }
+
+                // Check if value is struct (data-carrying) or int (unit)
+                let is_data_carrying = value.is_struct_value();
+
+                if !is_data_carrying && !value.is_int_value() {
                     return Ok(self.context.bool_type().const_int(0, false));
                 }
 
-                let enum_val = value.into_int_value();
+                let enum_val = if is_data_carrying {
+                    // Extract tag from struct { tag, data }
+                    let struct_val = value.into_struct_value();
+                    self.builder
+                        .build_extract_value(struct_val, 0, "enum_tag")
+                        .map_err(|e| format!("Failed to extract enum tag: {}", e))?
+                        .into_int_value()
+                } else {
+                    value.into_int_value()
+                };
 
                 // Find enum definition and variant index
                 let enum_name = if name.is_empty() {
@@ -655,12 +1067,61 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     .build_int_compare(IntPredicate::EQ, enum_val, expected_tag, "enum_tag_check")
                     .map_err(|e| format!("Failed to compare enum tags: {}", e))?;
 
-                // TODO: If variant has data, also check inner pattern
-                if data.is_some() {
-                    return Err("Data-carrying enum patterns not yet implemented".to_string());
+                // If variant has data, also check inner pattern
+                if let Some(inner_pattern) = data {
+                    if is_data_carrying {
+                        // Extract data from struct { tag, data }
+                        let struct_val = value.into_struct_value();
+                        let data_val = self
+                            .builder
+                            .build_extract_value(struct_val, 1, "enum_data")
+                            .map_err(|e| format!("Failed to extract enum data: {}", e))?;
+
+                        // Recursively check inner pattern
+                        let data_matches = self.compile_pattern_check(inner_pattern, data_val)?;
+
+                        // Combine: tag matches AND data matches
+                        let combined = self
+                            .builder
+                            .build_and(tag_matches, data_matches, "enum_full_match")
+                            .map_err(|e| format!("Failed to combine enum pattern checks: {}", e))?;
+
+                        return Ok(combined);
+                    } else {
+                        // Pattern expects data but value is unit variant
+                        return Ok(self.context.bool_type().const_int(0, false));
+                    }
                 }
 
                 Ok(tag_matches)
+            }
+
+            Pattern::Or(patterns) => {
+                // Or pattern: 1 | 2 | 3 | 4 | 5
+                // Check each pattern and combine with OR
+                // This will be vectorized with SIMD in future optimizations
+
+                if patterns.is_empty() {
+                    return Ok(self.context.bool_type().const_int(0, false));
+                }
+
+                // Check first pattern
+                let mut combined_result = self.compile_pattern_check(&patterns[0], value)?;
+
+                // OR with remaining patterns
+                for (i, pattern) in patterns.iter().enumerate().skip(1) {
+                    let pattern_matches = self.compile_pattern_check(pattern, value)?;
+                    combined_result = self
+                        .builder
+                        .build_or(
+                            combined_result,
+                            pattern_matches,
+                            &format!("or_pattern_{}", i),
+                        )
+                        .map_err(|e| format!("Failed to combine OR patterns: {}", e))?;
+                }
+
+                Ok(combined_result)
             }
         }
     }
@@ -757,15 +1218,62 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }
 
             Pattern::Enum {
-                name: _name,
-                variant: _variant,
+                name: enum_name,
+                variant,
                 data,
             } => {
+                eprintln!(
+                    "🔵 Pattern binding - Enum: {}::{}, has_data={}",
+                    enum_name,
+                    variant,
+                    data.is_some()
+                );
                 // For unit variants (no data), no binding needed
-                // For data-carrying variants, we'd need to extract the data
-                if data.is_some() {
-                    return Err("Data-carrying enum patterns not yet implemented".to_string());
+                // For data-carrying variants, extract and bind the data
+                if let Some(inner_pattern) = data {
+                    eprintln!("  → Has inner pattern: {:?}", inner_pattern);
+                    eprintln!("  → Value is struct: {}", value.is_struct_value());
+                    eprintln!("  → Value type: {:?}", value.get_type());
+                    // Check if value is struct (data-carrying enum)
+                    if value.is_struct_value() {
+                        // Extract data from struct { tag, data }
+                        let struct_val = value.into_struct_value();
+                        let data_val = self
+                            .builder
+                            .build_extract_value(struct_val, 1, "enum_data_bind")
+                            .map_err(|e| {
+                                format!("Failed to extract enum data for binding: {}", e)
+                            })?;
+
+                        eprintln!("  ✅ Extracted enum data, binding to pattern...");
+                        // Recursively bind inner pattern
+                        self.compile_pattern_binding(inner_pattern, data_val)?;
+                    } else {
+                        eprintln!("  ⚠️ Value is not struct, skipping data extraction");
+                    }
                 }
+                Ok(())
+            }
+
+            Pattern::Or(patterns) => {
+                // Or patterns don't bind variables (they only match)
+                // If needed, bind variables from the first matching pattern
+                // For now, or patterns are only used for literals (1 | 2 | 3)
+                // which don't have bindings
+                if patterns.is_empty() {
+                    return Ok(());
+                }
+
+                // Check if any pattern has bindings (identifiers)
+                // For now, we only support Or patterns with literals
+                for pattern in patterns {
+                    if matches!(pattern, Pattern::Ident(_)) {
+                        return Err(
+                            "Or patterns with identifier bindings not yet supported".to_string()
+                        );
+                    }
+                }
+
                 Ok(())
             }
         }
@@ -846,6 +1354,26 @@ impl<'ctx> ASTCodeGen<'ctx> {
             Pattern::Enum { .. } => {
                 // TODO: Implement enum pattern matching
                 Ok(self.context.bool_type().const_int(1, false))
+            }
+
+            Pattern::Or(patterns) => {
+                // Or pattern in old compile_pattern_match
+                // Check each pattern and combine with OR
+                if patterns.is_empty() {
+                    return Ok(self.context.bool_type().const_int(0, false));
+                }
+
+                let mut combined_result = self.compile_pattern_match(&patterns[0], value)?;
+
+                for (i, pattern) in patterns.iter().enumerate().skip(1) {
+                    let pattern_matches = self.compile_pattern_match(pattern, value)?;
+                    combined_result = self
+                        .builder
+                        .build_or(combined_result, pattern_matches, &format!("or_match_{}", i))
+                        .map_err(|e| format!("Failed to combine OR patterns: {}", e))?;
+                }
+
+                Ok(combined_result)
             }
         }
     }

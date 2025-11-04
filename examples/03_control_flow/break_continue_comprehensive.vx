@@ -1,0 +1,77 @@
+// Break and Continue - Comprehensive Test
+// Tests all break/continue scenarios
+
+fn test_break(): i32 {
+    let! sum = 0;
+    let! i = 0;
+    while i < 10 {
+        if i == 5 {
+            break;
+        }
+        sum = sum + i;
+        i = i + 1;
+    }
+    return sum;  // 0+1+2+3+4 = 10
+}
+
+fn test_continue(): i32 {
+    let! count = 0;
+    let! i = 0;
+    while i < 10 {
+        i = i + 1;
+        if i == 3 {
+            continue;
+        }
+        if i == 7 {
+            continue;
+        }
+        count = count + 1;
+    }
+    return count;  // 8 iterations (skipped 3, 7)
+}
+
+fn test_nested_break(): i32 {
+    let! total = 0;
+    let! outer = 0;
+    while outer < 3 {
+        let! inner = 0;
+        while inner < 5 {
+            if inner == 2 {
+                break;
+            }
+            total = total + 1;
+            inner = inner + 1;
+        }
+        outer = outer + 1;
+    }
+    return total;  // 3 * 2 = 6
+}
+
+fn test_nested_continue(): i32 {
+    let! total = 0;
+    let! outer = 0;
+    while outer < 3 {
+        outer = outer + 1;
+        if outer == 2 {
+            continue;
+        }
+        let! inner = 0;
+        while inner < 3 {
+            inner = inner + 1;
+            if inner == 2 {
+                continue;
+            }
+            total = total + 1;
+        }
+    }
+    return total;  // 2 outer * 2 valid inner = 4
+}
+
+fn main(): i32 {
+    let a = test_break();         // 10
+    let b = test_continue();      // 8
+    let c = test_nested_break();  // 6
+    let d = test_nested_continue(); // 4
+    
+    return a + b + c + d;  // 10 + 8 + 6 + 4 = 28
+}

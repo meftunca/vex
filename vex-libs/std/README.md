@@ -1,29 +1,136 @@
 # Vex Standard Library (std)
 
+**Version:** 0.2.0  
+**Status:** Early Development  
+**Last Updated:** November 3, 2025
+
 The Vex standard library follows a layered architecture for maximum safety and performance.
 
-## Architecture Overview
+## 🏗️ Architecture Overview
 
 ```
 Layer 3: Application (100% Safe Vex)
-├── std::http     - HTTP client/server
-├── std::json     - JSON parsing (TODO)
-└── std::xml      - XML parsing (TODO)
+├── std::http        - HTTP client/server (TODO)
+├── std::json        - JSON parsing (TODO)
+└── std::xml         - XML parsing (TODO)
 
-Layer 2: Protocol (100% Safe Vex)
-├── std::net      - TCP/UDP networking
-├── std::sync     - Concurrency primitives
-└── std::testing  - Test framework
+Layer 2: Protocol & Collections (Safe Vex)
+├── std::collections - ✅ HashMap, Set, BTree
+├── std::array       - ✅ Array utilities
+├── std::string      - ✅ String manipulation
+├── std::net         - TCP/UDP networking (TODO)
+├── std::sync        - Concurrency primitives (TODO)
+└── std::testing     - Test framework (TODO)
 
-Layer 1: I/O Core (Unsafe Bridge)
-├── std::io       - File I/O with Reader/Writer traits
-├── std::unsafe   - Raw pointers, memory operations
-├── std::ffi      - Foreign Function Interface
-└── std::hpc      - GPU/SIMD acceleration
+Layer 1: Core Utilities (Safe Vex wrapping builtins)
+├── std::mem         - ✅ Memory operations
+├── std::intrinsics  - ✅ LLVM intrinsics
+├── std::reflect     - ✅ Type reflection
+├── std::io          - File I/O (TODO)
+├── std::fs          - Filesystem (TODO)
+└── std::time        - Time/Date (TODO)
 
-Layer 0: Vex Runtime (Rust)
-└── io_uring, async scheduler, GPU runtime
+Layer 0: Builtins (Compiler-level, LLVM IR)
+└── 53 builtin functions (see builtins/)
 ```
+
+---
+
+## 📦 Implemented Modules
+
+### ✅ std::collections - Data Structures
+
+**Status:** HashMap implemented
+
+```vex
+import { HashMap } from "std::collections";
+
+let! map = HashMap::new();
+map.insert("name", "Alice");
+
+if map.contains_key("name") {
+    println("Found!");
+}
+
+map.free();
+```
+
+### ✅ std::array - Array Operations
+
+**Status:** 14 core functions
+
+```vex
+import { array } from "std";
+
+let! numbers = [1, 2, 3, 4, 5];
+println(array::sum_i32(numbers));
+array::reverse(numbers);
+```
+
+### ✅ std::string - String Utilities
+
+**Status:** Core + UTF-8 support
+
+```vex
+import { string } from "std";
+
+let text = "Hello 👋 World";
+println(string::char_count(text)); // Unicode-aware
+```
+
+### ✅ std::mem - Memory Management
+
+**Status:** Safe wrappers complete
+
+```vex
+import { mem } from "std";
+
+let ptr = mem::allocate(1024);
+mem::zero(ptr, 1024);
+mem::deallocate(ptr);
+```
+
+### ✅ std::intrinsics - LLVM Intrinsics
+
+**Status:** Bit ops + overflow checking
+
+```vex
+import { intrinsics } from "std";
+
+let (result, overflow) = intrinsics::add_with_overflow_i32(x, y);
+```
+
+### ✅ std::reflect - Type Reflection
+
+**Status:** RTTI complete
+
+```vex
+import { reflect } from "std";
+
+println(reflect::type_name(x));    // "i32"
+println(reflect::size_of(x));      // 4
+```
+
+---
+
+## 📊 Implementation Status
+
+| Module          | Status | Functions | Description          |
+| --------------- | ------ | --------- | -------------------- |
+| **collections** | ✅     | 10        | HashMap (SwissTable) |
+| **array**       | ✅     | 14        | Array utilities      |
+| **string**      | ✅     | 12        | String + UTF-8       |
+| **mem**         | ✅     | 9         | Memory ops           |
+| **intrinsics**  | ✅     | 20        | LLVM intrinsics      |
+| **reflect**     | ✅     | 9         | Type reflection      |
+| **io**          | ❌     | -         | File I/O (planned)   |
+| **fs**          | ❌     | -         | Filesystem (planned) |
+| **time**        | ❌     | -         | Time/Date (planned)  |
+
+**Total:** 74 functions across 6 modules  
+**Coverage:** ~30% of planned stdlib
+
+---
 
 ## Philosophy
 
@@ -46,8 +153,8 @@ await io.write_string("output.txt", "Hello, World!");
 
 // Manual file operations
 let file = await io.open("data.bin");
-let mut buffer = make([byte], 1024);
-let n = await file.read(&mut buffer);
+let! buffer = make([byte], 1024);
+let n = await file.read(&buffer!);
 await file.close();
 ```
 
@@ -63,16 +170,16 @@ await file.close();
 import { net } from "std";
 
 // TCP client
-let mut conn = await net.connect("example.com", 80);
+let! conn = await net.connect("example.com", 80);
 await conn.write("GET / HTTP/1.1\r\n\r\n".as_bytes());
-let mut buf = make([byte], 4096);
-let n = await conn.read(&mut buf);
+let! buf = make([byte], 4096);
+let n = await conn.read(&buf!);
 await conn.close();
 
 // TCP server
 let listener = await net.listen("0.0.0.0", 8080);
 loop {
-    let mut client = await listener.accept();
+    let! client = await listener.accept();
     // Handle client...
 }
 
@@ -116,7 +223,7 @@ await server.handle_request(fn(req) {
 import { sync } from "std";
 
 // Mutex for shared state
-let mut counter = sync.new_mutex(0);
+let! counter = sync.new_mutex(0);
 go {
     let val = counter.lock();
     *val = *val + 1;
@@ -124,14 +231,14 @@ go {
 };
 
 // Channel for message passing
-let mut ch = sync.new_channel<i32>(10);
+let! ch = sync.new_channel<i32>(10);
 go {
     await ch.send(42);
 };
 let value = await ch.recv();
 
 // WaitGroup for coordination
-let mut wg = sync.new_waitgroup();
+let! wg = sync.new_waitgroup();
 wg.add(3);
 for i := 0; i < 3; i++ {
     go {
@@ -147,13 +254,13 @@ await wg.wait();
 ```vex
 import { testing } from "std";
 
-fn test_addition(t: &mut testing.TestContext) {
+fn test_addition(t: &testing.TestContext) {
     t.assert_eq(2 + 2, 4, "addition works");
     t.assert(true, "always passes");
 }
 
 fn main() -> i32 {
-    let mut suite = testing.new_suite("My Tests");
+    let! suite = testing.new_suite("My Tests");
     suite.add_test("addition", test_addition);
     let (passed, failed) = suite.run();
     return if failed > 0 { 1 } else { 0 };
@@ -166,7 +273,7 @@ fn main() -> i32 {
 import { hpc } from "std";
 
 // GPU kernel
-fn add_kernel(a: &[f32], b: &[f32], c: &mut [f32], n: i32) {
+fn add_kernel(a: &[f32], b: &[f32], c: &[f32]!, n: i32) {
     let idx = hpc.thread_idx().x;
     if idx < n {
         c[idx] = a[idx] + b[idx];
@@ -174,7 +281,7 @@ fn add_kernel(a: &[f32], b: &[f32], c: &mut [f32], n: i32) {
 }
 
 // Launch on GPU
-launch add_kernel(&a, &b, &mut c, n) {
+launch add_kernel(&a, &b, &c, n) {
     grid: (256, 1, 1),
     block: (256, 1, 1),
 };
@@ -199,12 +306,12 @@ let value = unsafe.deref(ptr);
 
 // Memory operations
 let src = [1, 2, 3, 4];
-let mut dest = make([i32], 4);
-unsafe.copy(&mut dest[0] as *mut i32, &src[0] as *i32, 4);
+let! dest = make([i32], 4);
+unsafe.copy(&dest[0] as *i32!, &src[0] as *i32, 4);
 
 // Atomic operations
-let mut counter = 0;
-unsafe.atomic_add(&mut counter, 1);
+let! counter = 0;
+unsafe.atomic_add(&counter!, 1);
 ```
 
 ### std::ffi - Foreign Function Interface

@@ -1,4 +1,4 @@
-// std::time - Time measurement and representation
+// std.time - Time measurement and representation
 
 export { Duration } from "./duration";
 export { Instant } from "./instant";

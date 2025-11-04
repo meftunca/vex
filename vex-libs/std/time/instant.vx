@@ -1,4 +1,4 @@
-// std::time::Instant - Monotonic time for measuring durations
+// std.time.Instant - Monotonic time for measuring durations
 // Never goes backwards, immune to system clock changes
 
 import { libc } from "../ffi";

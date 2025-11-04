@@ -74,7 +74,7 @@ export fn (client: &HttpClient) request(req: HttpRequest): (HttpResponse | error
             break;
         }
         
-        chunk := string::from_bytes(&buffer[0], bytes_read as usize);
+        chunk := string.from_bytes(&buffer[0], bytes_read as usize);
         response_data = response_data + chunk;
         
         if response_data.contains("\r\n\r\n") {
@@ -101,24 +101,24 @@ export fn (client: &HttpClient) request(req: HttpRequest): (HttpResponse | error
 }
 
 export fn (client: &HttpClient) get(url: string): (HttpResponse | error) {
-    req := new_request(HttpMethod::GET, url);
+    req := new_request(HttpMethod.GET, url);
     return client.request(req);
 }
 
 export fn (client: &HttpClient) post(url: string, body: string): (HttpResponse | error) {
-    mut req := new_request(HttpMethod::POST, url);
+    mut req := new_request(HttpMethod.POST, url);
     req.set_body(body);
     return client.request(req);
 }
 
 export fn (client: &HttpClient) put(url: string, body: string): (HttpResponse | error) {
-    mut req := new_request(HttpMethod::PUT, url);
+    mut req := new_request(HttpMethod.PUT, url);
     req.set_body(body);
     return client.request(req);
 }
 
 export fn (client: &HttpClient) delete(url: string): (HttpResponse | error) {
-    req := new_request(HttpMethod::DELETE, url);
+    req := new_request(HttpMethod.DELETE, url);
     return client.request(req);
 }
 

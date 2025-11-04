@@ -1,0 +1,16 @@
+// Minimal method test
+
+struct Counter {
+    value: i32,
+}
+
+// Immutable method
+fn (self: &Counter) get(): i32 {
+    return self.value;
+}
+
+fn main(): i32 {
+    let c = Counter { value: 42 };
+    let result = c.get();
+    return result;  // Should return 42
+}

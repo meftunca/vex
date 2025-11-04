@@ -1,4 +1,4 @@
-// std::thread - Threading support (High-level)
+// std.thread - Threading support (High-level)
 // Wrapper around POSIX threads (pthread)
 
 import { libc } from "../ffi";
@@ -20,7 +20,7 @@ type ThreadFunc = fn():*byte;
 // Spawn a new thread
 export fn spawn(f: ThreadFunc):(JoinHandle | error) {
     // Allocate space for pthread_t
-    handle := unsafe { libc.malloc(size_of::<libc.pthread_t>()) } as *libc.pthread_t;
+    handle := unsafe { libc.malloc(size_of.<libc.pthread_t>()) } as *libc.pthread_t;
     
     // Create thread
     result := unsafe { 
@@ -120,8 +120,8 @@ export fn (b: &Builder) stack_size(size: usize):&Builder {
 // Spawn thread with builder settings
 export fn (b: &Builder) spawn(f: ThreadFunc):(JoinHandle | error) {
     // Allocate space for pthread_t and pthread_attr_t
-    handle := unsafe { libc.malloc(size_of::<libc.pthread_t>()) } as *libc.pthread_t;
-    attr := unsafe { libc.malloc(size_of::<libc.pthread_attr_t>()) } as *libc.pthread_attr_t;
+    handle := unsafe { libc.malloc(size_of.<libc.pthread_t>()) } as *libc.pthread_t;
+    attr := unsafe { libc.malloc(size_of.<libc.pthread_attr_t>()) } as *libc.pthread_attr_t;
     
     // Initialize attributes
     init_result := unsafe { libc.pthread_attr_init(attr) };
@@ -213,7 +213,7 @@ export fn yield_now() {
 // Real park/unpark requires condition variables
 export fn park() {
     // TODO: Implement proper park/unpark with condvar
-    sleep(Duration::from_millis(100));
+    sleep(Duration.from_millis(100));
 }
 
 // ============================================================================

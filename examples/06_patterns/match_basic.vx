@@ -1,0 +1,63 @@
+// Match Pattern Matching
+// Demonstrates: match expressions, Or patterns (SIMD-ready)
+//
+// Or patterns (1 | 2 | 3) generate chained OR instructions
+// that can be vectorized with SIMD for parallel comparisons.
+// This makes match faster than if-elif chains for multiple values.
+
+fn main() : i32 {
+    // Simple value matching
+    let x = 2;
+    let result1 = match_number(x);  // Returns 20
+    
+    // Enum matching
+    let color = 1;  // Red
+    let result2 = match_color(color);  // Returns 10
+    
+    // Age classification
+    let age = 15;
+    let result3 = classify_age(age);  // Returns 3
+    
+    return result1 + result2 + result3;  // Returns 33
+}
+
+// Simple match expression
+fn match_number(n: i32) : i32 {
+    return match n {
+        1 => 10,
+        2 => 20,
+        3 => 30,
+        _ => 0,
+    };
+}
+
+// Match with complex patterns
+fn match_color(color: i32) : i32 {
+    return match color {
+        1 => 10,   // Red
+        2 => 20,   // Green  
+        3 => 30,   // Blue
+        _ => 0,    // Unknown
+    };
+}
+
+// Match with ranges
+// Match with Or patterns (SIMD-optimizable)
+fn classify_age(age: i32) : i32 {
+    return match age {
+        0 => 0,
+        1 | 2 | 3 | 4 | 5 => 1,           // Child
+        6 | 7 | 8 | 9 | 10 | 11 | 12 => 2, // Preteen
+        13 | 14 | 15 | 16 | 17 | 18 | 19 => 3, // Teen
+        _ => 4,                            // Adult
+    };
+}
+
+// Match with computation
+fn factorial_match(n: i32) : i32 {
+    return match n {
+        0 => 1,
+        1 => 1,
+        _ => n * factorial_match(n - 1),
+    };
+}

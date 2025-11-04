@@ -7,6 +7,31 @@ use vex_lexer::Token;
 
 impl<'a> Parser<'a> {
     pub(crate) fn parse_type(&mut self) -> Result<Type, ParseError> {
+        // Function type: fn(T1, T2) -> R
+        if self.check(&Token::Fn) {
+            self.advance();
+            self.consume(&Token::LParen, "Expected '(' after 'fn'")?;
+
+            let mut params = Vec::new();
+            if !self.check(&Token::RParen) {
+                loop {
+                    params.push(self.parse_type()?);
+                    if !self.match_token(&Token::Comma) {
+                        break;
+                    }
+                }
+            }
+
+            self.consume(&Token::RParen, "Expected ')' after function parameters")?;
+            self.consume(&Token::Arrow, "Expected '->' in function type")?;
+            let return_type = Box::new(self.parse_type()?);
+
+            return Ok(Type::Function {
+                params,
+                return_type,
+            });
+        }
+
         // Reference type: &T or &T!, or Slice type: &[T] or &[T]!
         if self.check(&Token::Ampersand) {
             self.advance();

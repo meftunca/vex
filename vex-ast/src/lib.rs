@@ -10,6 +10,14 @@ pub struct Program {
 /// File is an alias for Program (used in parser)
 pub type File = Program;
 
+/// Generic type parameter with optional trait bounds
+/// Examples: T, T: Display, T: Display + Clone
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct TypeParam {
+    pub name: String,
+    pub bounds: Vec<String>, // Trait bounds: Display, Clone, etc.
+}
+
 /// Import kind - how the import is structured
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ImportKind {
@@ -58,7 +66,7 @@ pub struct Function {
     pub is_gpu: bool,
     pub receiver: Option<Receiver>, // For methods
     pub name: String,
-    pub type_params: Vec<String>, // Generic type parameters: <T, U>
+    pub type_params: Vec<TypeParam>, // Generic type parameters with bounds: <T: Display, U: Clone>
     pub params: Vec<Param>,
     pub return_type: Option<Type>,
     pub body: Block,
@@ -83,8 +91,8 @@ pub struct Param {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Struct {
     pub name: String,
-    pub type_params: Vec<String>, // Generic type parameters: <T>
-    pub impl_traits: Vec<String>, // Traits this struct implements (inline declaration)
+    pub type_params: Vec<TypeParam>, // Generic type parameters with bounds: <T: Display>
+    pub impl_traits: Vec<String>,    // Traits this struct implements (inline declaration)
     pub fields: Vec<Field>,
     pub methods: Vec<Function>, // Methods defined inline (including trait implementations)
 }
@@ -101,7 +109,7 @@ pub struct Field {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TypeAlias {
     pub name: String,
-    pub type_params: Vec<String>, // Generic type parameters
+    pub type_params: Vec<TypeParam>, // Generic type parameters with bounds
     pub ty: Type,
 }
 
@@ -109,7 +117,7 @@ pub struct TypeAlias {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Enum {
     pub name: String,
-    pub type_params: Vec<String>,
+    pub type_params: Vec<TypeParam>, // Generic type parameters with bounds
     pub variants: Vec<EnumVariant>,
 }
 
@@ -189,8 +197,8 @@ pub struct InterfaceMethod {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Trait {
     pub name: String,
-    pub type_params: Vec<String>, // Generic type parameters: Converter<T>
-    pub super_traits: Vec<String>, // Trait inheritance: trait A: B, C
+    pub type_params: Vec<TypeParam>, // Generic type parameters with bounds: Converter<T: Display>
+    pub super_traits: Vec<String>,   // Trait inheritance: trait A: B, C
     pub methods: Vec<TraitMethod>,
 }
 
@@ -210,9 +218,9 @@ pub struct TraitMethod {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TraitImpl {
     pub trait_name: String,
-    pub type_params: Vec<String>, // Generic params for the impl
-    pub for_type: Type,           // Type implementing the trait
-    pub methods: Vec<Function>,   // Method implementations
+    pub type_params: Vec<TypeParam>, // Generic params with bounds for the impl
+    pub for_type: Type,              // Type implementing the trait
+    pub methods: Vec<Function>,      // Method implementations
 }
 
 /// Type system
@@ -223,12 +231,16 @@ pub enum Type {
     I16,
     I32,
     I64,
+    I128,
     U8,
     U16,
     U32,
     U64,
+    U128,
+    // F16,
     F32,
     F64,
+    F128,
     Bool,
     String,
     Byte,
@@ -261,6 +273,12 @@ pub enum Type {
 
     /// Tuple: (T1, T2, ...)
     Tuple(Vec<Type>),
+
+    /// Function type: fn(T1, T2) -> R
+    Function {
+        params: Vec<Type>,
+        return_type: Box<Type>,
+    },
 
     /// Conditional type: T extends U ? X : Y
     Conditional {
@@ -310,10 +328,21 @@ pub enum Statement {
     /// Return statement
     Return(Option<Expression>),
 
-    /// If statement
+    /// Break statement
+    Break,
+
+    /// Continue statement
+    Continue,
+
+    /// Defer statement (Go-style): defer cleanup();
+    /// Executes when function exits (LIFO order)
+    Defer(Box<Statement>),
+
+    /// If statement with elif support
     If {
         condition: Expression,
         then_block: Block,
+        elif_branches: Vec<(Expression, Block)>, // (condition, block) pairs
         else_block: Option<Block>,
     },
 
@@ -397,6 +426,8 @@ pub enum Pattern {
         variant: String,
         data: Option<Box<Pattern>>,
     },
+    /// Or pattern: 1 | 2 | 3 (for SIMD-optimized matching)
+    Or(Vec<Pattern>),
 }
 
 /// Compound assignment operators
@@ -473,6 +504,13 @@ pub enum Expression {
         fields: Vec<(String, Expression)>,
     },
 
+    /// Enum constructor: Result::Ok(42) or Option::None
+    EnumLiteral {
+        enum_name: String,
+        variant: String,
+        data: Option<Box<Expression>>, // Some(expr) or None for unit variants
+    },
+
     /// Range: 0..10
     Range {
         start: Box<Expression>,
@@ -501,6 +539,12 @@ pub enum Expression {
     Match {
         value: Box<Expression>,
         arms: Vec<MatchArm>,
+    },
+
+    /// Block expression: { stmt1; stmt2; expr }
+    Block {
+        statements: Vec<Statement>,
+        return_expr: Option<Box<Expression>>,
     },
 
     /// Launch (HPC): launch func[x, y](args)
@@ -533,6 +577,13 @@ pub enum Expression {
 
     /// Error creation: error.new("message")
     ErrorNew(Box<Expression>),
+
+    /// Closure/Lambda: |x, y| expr or |x, y| { stmts; expr }
+    Closure {
+        params: Vec<Param>,        // Closure parameters
+        return_type: Option<Type>, // Optional return type annotation
+        body: Box<Expression>,     // Body expression (can be Block)
+    },
 }
 
 /// Binary operators

@@ -12,14 +12,32 @@ impl<'ctx> ASTCodeGen<'ctx> {
         object: &Expression,
         field: &str,
     ) -> Result<BasicValueEnum<'ctx>, String> {
-        // For now, we'll handle simple cases:
-        // 1. Variable that is a struct
-        // 2. Struct literal
+        // Handle chained field access: outer.value.value
+        // Strategy: Recursively compile object expression, determine its struct type
 
-        // We need to know the struct type and field index
-        // For now, we'll handle the "error" struct specially
-        // In a full implementation, we'd have a struct type registry
+        // Case 1: Nested field access (chained)
+        if let Expression::FieldAccess {
+            object: inner_obj,
+            field: inner_field,
+        } = object
+        {
+            // Recursively get intermediate value
+            let intermediate_value = self.compile_field_access(inner_obj, inner_field)?;
 
+            // Determine struct type of intermediate value from inner object's struct
+            let intermediate_struct_name = self.get_field_struct_type(inner_obj, inner_field)?;
+
+            if let Some(struct_name) = intermediate_struct_name {
+                // Now access field on the intermediate struct value
+                return self.compile_field_access_on_value(intermediate_value, &struct_name, field);
+            } else {
+                return Err(format!(
+                    "Cannot determine struct type for chained field access"
+                ));
+            }
+        }
+
+        // Case 2: Simple variable field access
         if let Expression::Ident(var_name) = object {
             // Check if this variable is tracked as a struct
             if let Some(struct_name) = self.variable_struct_names.get(var_name).cloned() {
@@ -77,15 +95,14 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     )
                     .map_err(|e| format!("Failed to get field pointer: {}", e))?;
 
-                // Get field type
-                let field_type = struct_type
-                    .get_field_type_at_index(field_index)
-                    .ok_or_else(|| format!("Field {} not found at index {}", field, field_index))?;
+                // Get field type from AST definition (critical for nested generics!)
+                let (_, field_ast_type) = &struct_def.fields[field_index as usize];
+                let field_llvm_type = self.ast_type_to_llvm(field_ast_type);
 
                 // Load and return field value
                 return self
                     .builder
-                    .build_load(field_type, field_ptr, &format!("{}_val", field))
+                    .build_load(field_llvm_type, field_ptr, &format!("{}_val", field))
                     .map_err(|e| format!("Failed to load field: {}", e));
             }
         }
@@ -359,5 +376,111 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
             Ok(element_ptr)
         }
+    }
+
+    /// Get the struct type name of a field from an object expression
+    fn get_field_struct_type(
+        &mut self,
+        object: &Expression,
+        field: &str,
+    ) -> Result<Option<String>, String> {
+        match object {
+            Expression::Ident(var_name) => {
+                // Get struct name of variable
+                if let Some(struct_name) = self.variable_struct_names.get(var_name).cloned() {
+                    // Look up field type in struct definition (clone to avoid borrow issues)
+                    let field_type_opt = self
+                        .struct_defs
+                        .get(&struct_name)
+                        .and_then(|def| def.fields.iter().find(|(f, _)| f == field))
+                        .map(|(_, t)| t.clone());
+
+                    if let Some(field_type) = field_type_opt {
+                        // Check if field is a struct type
+                        match field_type {
+                            Type::Named(field_struct_name) => {
+                                if self.struct_defs.contains_key(&field_struct_name) {
+                                    return Ok(Some(field_struct_name));
+                                }
+                            }
+                            Type::Generic { name, type_args } => {
+                                // Generic struct field - get mangled name
+                                match self.instantiate_generic_struct(&name, &type_args) {
+                                    Ok(mangled) => return Ok(Some(mangled)),
+                                    Err(_) => return Ok(None),
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                Ok(None)
+            }
+            Expression::FieldAccess {
+                object: inner_obj,
+                field: inner_field,
+            } => {
+                // Recursively get type of inner field access
+                self.get_field_struct_type(inner_obj, inner_field)
+            }
+            _ => Ok(None),
+        }
+    }
+
+    /// Compile field access on an already-loaded struct value
+    fn compile_field_access_on_value(
+        &mut self,
+        struct_value: BasicValueEnum<'ctx>,
+        struct_name: &str,
+        field: &str,
+    ) -> Result<BasicValueEnum<'ctx>, String> {
+        // Get struct definition
+        let struct_def = self
+            .struct_defs
+            .get(struct_name)
+            .cloned()
+            .ok_or_else(|| format!("Struct '{}' not found", struct_name))?;
+
+        // Find field index
+        let field_index = struct_def
+            .fields
+            .iter()
+            .position(|(name, _)| name == field)
+            .ok_or_else(|| format!("Field '{}' not found in struct '{}'", field, struct_name))?
+            as u32;
+
+        // Value must be pointer to struct
+        if !struct_value.is_pointer_value() {
+            return Err(format!("Expected pointer value for struct field access"));
+        }
+
+        let struct_ptr = struct_value.into_pointer_value();
+
+        // Rebuild struct type
+        let field_types: Vec<BasicTypeEnum> = struct_def
+            .fields
+            .iter()
+            .map(|(_, ty)| self.ast_type_to_llvm(ty))
+            .collect();
+        let struct_type = self.context.struct_type(&field_types, false);
+
+        // Get field pointer
+        let field_ptr = self
+            .builder
+            .build_struct_gep(
+                struct_type,
+                struct_ptr,
+                field_index,
+                &format!("field_{}", field),
+            )
+            .map_err(|e| format!("Failed to get field pointer: {}", e))?;
+
+        // Get field type and load
+        let (_, field_ast_type) = &struct_def.fields[field_index as usize];
+        let field_llvm_type = self.ast_type_to_llvm(field_ast_type);
+
+        self.builder
+            .build_load(field_llvm_type, field_ptr, &format!("{}_val", field))
+            .map_err(|e| format!("Failed to load field: {}", e))
     }
 }

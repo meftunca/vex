@@ -1,0 +1,31 @@
+// Data-carrying enum test
+// Option<T> enum with Some(value) and None variants
+
+enum Option<T> {
+    Some(T),
+    None,
+}
+
+fn unwrap_or<T>(opt: Option<T>, fallback: T): T {
+    return match opt {
+        Option.Some(val) => val,
+        Option.None => fallback,
+    };
+}
+
+fn main(): i32 {
+    // Test with Some value
+    let opt1 = Option.Some(42);
+    let result1 = match opt1 {
+        Option.Some(val) => val,
+        Option.None => 0,
+    };
+    // Test with None
+    let opt2 = Option.None;
+    let result2 = match opt2 {
+        Option.Some(val) => val,
+        Option.None => 99,
+    };
+    
+    return result1;  // Returns 42
+}

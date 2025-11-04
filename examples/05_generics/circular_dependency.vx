@@ -1,0 +1,18 @@
+// Test: Circular generic dependency detection
+// Expected: Compilation error (not stack overflow)
+
+struct A<T> {
+    value: T,
+    b: B<T>
+}
+
+struct B<T> {
+    value: T,
+    a: A<T>
+}
+
+fn main(): i32 {
+    // This should fail at compile time, not runtime
+    let x = A<i32> { value: 42, b: B<i32> { value: 10, a: ??? } };
+    return 0;
+}

@@ -1,0 +1,42 @@
+// Complete data-carrying enum test with pattern matching
+
+enum Result {
+    Ok(i32),
+    Err(i32),
+}
+
+fn divide(a: i32, b: i32): Result {
+    if b == 0 {
+        return Result.Err(-1);
+    } else {
+        let quotient = a / b;
+        return Result.Ok(quotient);
+    }
+}
+
+fn main(): i32 {
+    // Test successful division
+    let r1 = divide(10, 2);
+    
+    // Pattern match with data extraction
+    let result1 = match r1 {
+        Result.Ok(value) => value,    // Extract value from Ok
+        Result.Err(code) => code      // Extract code from Err
+    };
+    
+    print("First division result extracted");
+    
+    // Test division by zero
+    let r2 = divide(10, 0);
+    
+    let result2 = match r2 {
+        Result.Ok(value) => value,
+        Result.Err(code) => code
+    };
+    
+    print("Second division result extracted");
+    
+    // result1 should be 5, result2 should be -1
+    // Return 5 to verify
+    return result1;
+}

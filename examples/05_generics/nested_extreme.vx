@@ -1,0 +1,20 @@
+// Extreme Depth Test
+// Should fail with "nesting too deep" error
+
+struct Box<T> {
+    value: T,
+}
+
+fn main(): i32 {
+    // This should fail: depth 70 > 64 limit
+    let extreme: Box<Box<Box<Box<Box<Box<Box<Box<Box<Box<
+                 Box<Box<Box<Box<Box<Box<Box<Box<Box<Box<
+                 Box<Box<Box<Box<Box<Box<Box<Box<Box<Box<
+                 Box<Box<Box<Box<Box<Box<Box<Box<Box<Box<
+                 Box<Box<Box<Box<Box<Box<Box<Box<Box<Box<
+                 Box<Box<Box<Box<Box<Box<Box<Box<Box<Box<
+                 Box<Box<Box<Box<Box<Box<Box<Box<Box<Box<
+                 i32>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>;
+    
+    return 0;
+}

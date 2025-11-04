@@ -1,4 +1,4 @@
-// std::async - Async runtime (High-level wrapper around tokio)
+// std.async - Async runtime (High-level wrapper around tokio)
 
 import { tokio } from "../ffi";
 import { Duration } from "../time";
@@ -98,12 +98,12 @@ export fn is_inside_runtime(): bool {
 import { async } from "std";
 
 export fn main() {
-    runtime := async::new_runtime();
+    runtime := async.new_runtime();
     
     runtime.block_on(async {
         println("Starting async task...");
         
-        await async::sleep_secs(runtime, 1);
+        await async.sleep_secs(runtime, 1);
         
         println("Task completed after 1 second!");
     });

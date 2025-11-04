@@ -1,0 +1,16 @@
+// Simple Closure Test
+// Test basic lambda syntax and execution
+
+fn apply(f: fn(i32): i32, x: i32): i32 {
+    return f(x);
+}
+
+fn main(): i32 {
+    // Simple closure: double a number
+    let double = |x: i32| x * 2;
+    
+    // Apply closure
+    let result = apply(double, 21);
+    
+    return result;  // Should return 42
+}

@@ -1,4 +1,4 @@
-// std::ffi::lz4 - LZ4 compression library bindings
+// std.ffi.lz4 - LZ4 compression library bindings
 // Extremely fast compression (faster than zstd, less compression)
 
 #[link(name = "lz4")]

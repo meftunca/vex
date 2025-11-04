@@ -1,4 +1,4 @@
-// std::ffi::platform::posix_types - POSIX type definitions
+// std.ffi.platform.posix_types - POSIX type definitions
 // Platform-specific struct layouts for stat, dirent
 
 #[cfg(unix)]

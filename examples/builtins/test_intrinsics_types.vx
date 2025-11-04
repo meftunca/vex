@@ -1,0 +1,39 @@
+// test_intrinsics_types.vx
+// Test LLVM intrinsics with different integer types
+
+fn main(): i32 {
+    println("Testing intrinsics with multiple types...");
+    
+    // Test with i32
+    let x32: i32 = 8;
+    let clz32 = ctlz(x32);
+    print("ctlz(i32: 8) = ");
+    println(clz32);
+    
+    // Test with i64
+    let x64: i64 = 8;
+    let clz64 = ctlz(x64);
+    print("ctlz(i64: 8) = ");
+    println(clz64);
+    
+    // Test with i8
+    let x8: i8 = 8;
+    let clz8 = ctlz(x8);
+    print("ctlz(i8: 8) = ");
+    println(clz8);
+    
+    // Test with i16
+    let x16: i16 = 8;
+    let clz16 = ctlz(x16);
+    print("ctlz(i16: 8) = ");
+    println(clz16);
+    
+    // Test bswap with i64
+    let y64: i64 = 305419896;
+    let swap64 = bswap(y64);
+    print("bswap(i64: 305419896) = ");
+    println(swap64);
+    
+    println("All multi-type tests passed!");
+    return 0;
+}

@@ -73,6 +73,33 @@ examples/
 - ✅ While loops
 - ✅ For loops
 
+### Defer Statement (Resource Management) ✅ NEW
+
+| File              | Description               | Features                 |
+| ----------------- | ------------------------- | ------------------------ |
+| `defer_simple.vx` | LIFO execution order      | Basic defer, 3 functions |
+| `defer_test.vx`   | Comprehensive defer tests | Multiple scenarios       |
+
+**Key Concepts:**
+
+- ✅ **Go-style defer**: Deferred function calls execute before function returns
+- ✅ **LIFO execution**: Last registered defer executes first (stack-based)
+- ✅ **Automatic cleanup**: Runs on `return`, function exit, `break`, `continue`
+- ✅ **Syntax**: `defer function_call();` (block syntax pending)
+
+**Example:**
+
+```vex
+fn cleanup(): i32 { print("Cleanup"); return 0; }
+
+fn example(): i32 {
+    defer cleanup();  // Registers cleanup
+    print("Work");
+    return 0;         // cleanup() executes here
+}
+// Output: Work Cleanup
+```
+
 ### 04_types/ - Type System
 
 | File                 | Description      | Features                  |
@@ -94,18 +121,23 @@ examples/
 
 ### 05_generics/ - Generics
 
-| File            | Description        | Features             |
-| --------------- | ------------------ | -------------------- |
-| `functions.vx`  | Generic functions  | Type parameters      |
-| `interfaces.vx` | Generic interfaces | Interface<T>         |
-| `structs.vx`    | Generic structs    | Option<T>, Result<T> |
+| File                 | Description            | Features                   |
+| -------------------- | ---------------------- | -------------------------- |
+| `functions.vx`       | Generic functions      | Type parameters            |
+| `interfaces.vx`      | Generic interfaces     | Interface<T>               |
+| `structs.vx`         | Generic structs        | Option<T>, Result<T>       |
+| `nested_generics.vx` | Nested generic types   | Box<Box<T>>, Pair<Box<T>>  |
+| `nested_simple.vx`   | Simple nested test     | Box<Box<i32>> field access |
+| `nested_debug.vx`    | Debug nested w/ annots | Type annotations           |
 
 **Key Concepts:**
 
 - ✅ Generic functions with `<T>`
 - ✅ Generic structs
+- ✅ Nested generics (Box<Box<T>>)
 - ✅ Interface definitions
-- ⚠️ Monomorphization (partial)
+- ✅ Monomorphization
+- ⚠️ Chained field access (a.b.c) requires intermediate variables
 
 ### 06_patterns/ - Pattern Matching
 

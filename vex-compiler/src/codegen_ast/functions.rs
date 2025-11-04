@@ -2,7 +2,7 @@
 
 use super::ASTCodeGen;
 use inkwell::types::{BasicMetadataTypeEnum, BasicTypeEnum};
-use inkwell::values::FunctionValue;
+use inkwell::values::{BasicValueEnum, FunctionValue};
 use std::collections::HashMap;
 use vex_ast::*;
 
@@ -135,6 +135,15 @@ impl<'ctx> ASTCodeGen<'ctx> {
         self.struct_defs
             .insert(struct_def.name.clone(), StructDef { fields });
 
+        // Register inline trait implementations
+        // This allows default trait methods to be found
+        for trait_name in &struct_def.impl_traits {
+            let key = (trait_name.clone(), struct_def.name.clone());
+            // Convert inline methods to Function format
+            let methods: Vec<Function> = struct_def.methods.clone();
+            self.trait_impls.insert(key, methods);
+        }
+
         Ok(())
     }
 
@@ -173,7 +182,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 return Err(format!(
                     "Trait implementations currently only support named types, got: {:?}",
                     trait_impl.for_type
-                ))
+                ));
             }
         };
 
@@ -190,7 +199,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
     }
 
     /// Declare a trait impl method with proper name mangling
-    fn declare_trait_impl_method(
+    pub(crate) fn declare_trait_impl_method(
         &mut self,
         trait_name: &str,
         for_type: &Type,
@@ -232,6 +241,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             BasicTypeEnum::StructType(t) => t.fn_type(&param_types, false),
             BasicTypeEnum::PointerType(t) => t.fn_type(&param_types, false),
             BasicTypeEnum::VectorType(t) => t.fn_type(&param_types, false),
+            BasicTypeEnum::ScalableVectorType(t) => t.fn_type(&param_types, false),
         };
 
         let fn_val = self.module.add_function(&mangled_name, fn_type, None);
@@ -246,7 +256,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
     }
 
     /// Compile a trait impl method body
-    fn compile_trait_impl_method(
+    pub(crate) fn compile_trait_impl_method(
         &mut self,
         trait_name: &str,
         for_type: &Type,
@@ -331,6 +341,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
             self.variables.insert(param.name.clone(), alloca);
             self.variable_types.insert(param.name.clone(), param_ty);
+
+            // Track struct parameters (handles both Named and Generic types)
+            self.track_param_struct_name(&param.name, &param.ty);
         }
 
         // Compile function body
@@ -398,6 +411,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             BasicTypeEnum::StructType(t) => t.fn_type(&param_types, false),
             BasicTypeEnum::PointerType(t) => t.fn_type(&param_types, false),
             BasicTypeEnum::VectorType(t) => t.fn_type(&param_types, false),
+            BasicTypeEnum::ScalableVectorType(t) => t.fn_type(&param_types, false),
         };
 
         let fn_val = self.module.add_function(&mangled_name, fn_type, None);
@@ -487,6 +501,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
             self.variables.insert(param.name.clone(), alloca);
             self.variable_types.insert(param.name.clone(), param_ty);
+
+            // Track struct parameters (handles both Named and Generic types)
+            self.track_param_struct_name(&param.name, &param.ty);
         }
 
         // Compile function body
@@ -520,13 +537,69 @@ impl<'ctx> ASTCodeGen<'ctx> {
     /// For C-style enums: Color::Red -> Color_Red() returns i32 (tag value)
     /// For data-carrying enums: Option::Some(T) -> Option_Some(value: T) returns struct
     fn generate_enum_constructors(&mut self, enum_def: &Enum) -> Result<(), String> {
-        // For now, generate simple tag-returning functions for C-style enums
-        // Data-carrying enums will need more complex struct-based representation
+        // Data-carrying enums are represented as structs with two fields:
+        // - tag: i32 (variant discriminant)
+        // - data: union of all variant data types
+        // For simplicity, we'll use the largest data type and cast as needed
 
         for (tag_index, variant) in enum_def.variants.iter().enumerate() {
             let constructor_name = format!("{}_{}", enum_def.name, variant.name);
 
-            if variant.data.is_none() {
+            if let Some(ref data_type) = variant.data {
+                // Data-carrying variant: create constructor function that takes the data
+                // and returns a struct {tag: i32, data: T}
+
+                let data_llvm_type = self.ast_type_to_llvm(data_type);
+
+                // Get or create enum struct type: {i32, T}
+                let i32_type = self.context.i32_type();
+                let enum_struct_type = self
+                    .context
+                    .struct_type(&[i32_type.into(), data_llvm_type], false);
+
+                // Constructor function: fn(data: T) -> {i32, T}
+                let fn_type = enum_struct_type.fn_type(&[data_llvm_type.into()], false);
+                let function = self.module.add_function(&constructor_name, fn_type, None);
+
+                // Create function body
+                let entry = self.context.append_basic_block(function, "entry");
+                self.builder.position_at_end(entry);
+
+                // Get data parameter
+                let data_param = function
+                    .get_nth_param(0)
+                    .ok_or_else(|| "Missing data parameter".to_string())?;
+
+                // Create enum struct value
+                let undef_struct = enum_struct_type.get_undef();
+
+                // Insert tag value at index 0
+                let tag_value = i32_type.const_int(tag_index as u64, false);
+                let with_tag = self
+                    .builder
+                    .build_insert_value(undef_struct, tag_value, 0, "with_tag")
+                    .map_err(|e| format!("Failed to insert tag: {}", e))?;
+
+                // Insert data value at index 1
+                let enum_value = self
+                    .builder
+                    .build_insert_value(with_tag, data_param, 1, "enum_value")
+                    .map_err(|e| format!("Failed to insert data: {}", e))?;
+
+                // Convert AggregateValueEnum to BasicValueEnum
+                let enum_basic_value: BasicValueEnum = match enum_value {
+                    inkwell::values::AggregateValueEnum::ArrayValue(v) => v.into(),
+                    inkwell::values::AggregateValueEnum::StructValue(v) => v.into(),
+                };
+
+                // Return the constructed enum value
+                self.builder
+                    .build_return(Some(&enum_basic_value))
+                    .map_err(|e| format!("Failed to build return: {}", e))?;
+
+                // Store function for later use
+                self.functions.insert(constructor_name, function);
+            } else {
                 // Unit variant: just return tag value (i32)
                 let i32_type = self.context.i32_type();
                 let fn_type = i32_type.fn_type(&[], false);
@@ -545,7 +618,6 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 // Store function for later use
                 self.functions.insert(constructor_name, function);
             }
-            // TODO: Handle data-carrying variants (Option::Some(T))
         }
 
         Ok(())
@@ -573,7 +645,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 _ => {
                     return Err(
                         "Receiver must be a named type or reference to named type".to_string()
-                    )
+                    );
                 }
             };
 
@@ -596,7 +668,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Build return type
         let ret_type = if let Some(ref ty) = func.return_type {
-            self.ast_type_to_llvm(ty)
+            let llvm_ret = self.ast_type_to_llvm(ty);
+            eprintln!(
+                "🟢 Function {} return type: {:?} → LLVM: {:?}",
+                fn_name, ty, llvm_ret
+            );
+            llvm_ret
         } else {
             BasicTypeEnum::IntType(self.context.i32_type()) // Default to i32
         };
@@ -612,7 +689,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 return Err(format!(
                     "Unsupported return type for function {}",
                     func.name
-                ))
+                ));
             }
         };
 
@@ -646,7 +723,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 _ => {
                     return Err(
                         "Receiver must be a named type or reference to named type".to_string()
-                    )
+                    );
                 }
             };
             format!("{}_{}", type_name, func.name)
@@ -669,6 +746,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
         self.variables.clear();
         self.variable_types.clear();
         self.variable_struct_names.clear();
+        self.function_params.clear();
+        self.function_param_types.clear();
 
         let mut param_offset = 0;
 
@@ -717,25 +796,65 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 .ok_or_else(|| format!("Parameter {} not found", param.name))?;
 
             let param_type = self.ast_type_to_llvm(&param.ty);
-            // v0.9: Function parameters are always mutable (local binding)
-            let alloca = self.create_entry_block_alloca(&param.name, &param.ty, true)?;
-            self.builder
-                .build_store(alloca, param_val)
-                .map_err(|e| format!("Failed to store parameter: {}", e))?;
-            self.variables.insert(param.name.clone(), alloca);
-            self.variable_types.insert(param.name.clone(), param_type);
 
-            // Track struct parameters
-            if let Type::Named(struct_name) = &param.ty {
-                if self.struct_defs.contains_key(struct_name) {
-                    self.variable_struct_names
-                        .insert(param.name.clone(), struct_name.clone());
+            // Special handling for function type parameters
+            // Function types are passed as pointers and don't need alloca
+            if matches!(param.ty, Type::Function { .. }) {
+                // Store function parameter directly as a pointer value - no alloca
+                if let BasicValueEnum::PointerValue(fn_ptr) = param_val {
+                    self.function_params.insert(param.name.clone(), fn_ptr);
+                    self.function_param_types
+                        .insert(param.name.clone(), param.ty.clone());
+                } else {
+                    return Err(format!(
+                        "Function parameter {} is not a pointer",
+                        param.name
+                    ));
+                }
+            } else {
+                // v0.9: Function parameters are always mutable (local binding)
+                let alloca = self.create_entry_block_alloca(&param.name, &param.ty, true)?;
+                self.builder
+                    .build_store(alloca, param_val)
+                    .map_err(|e| format!("Failed to store parameter: {}", e))?;
+                self.variables.insert(param.name.clone(), alloca);
+                self.variable_types.insert(param.name.clone(), param_type);
+
+                // Track struct parameters
+                match &param.ty {
+                    Type::Named(struct_name) => {
+                        if self.struct_defs.contains_key(struct_name) {
+                            self.variable_struct_names
+                                .insert(param.name.clone(), struct_name.clone());
+                        }
+                    }
+                    Type::Generic { name, type_args } => {
+                        // Generic struct parameter: Pair<i32, i32>
+                        // Instantiate to get mangled name: Pair_i32_i32
+                        if let Ok(mangled_name) = self.instantiate_generic_struct(name, type_args) {
+                            self.variable_struct_names
+                                .insert(param.name.clone(), mangled_name);
+                        }
+                    }
+                    _ => {}
                 }
             }
         }
 
         // Compile function body
         self.compile_block(&func.body)?;
+
+        // Execute deferred statements before function exit
+        // (explicit returns already handle this in compile_statement)
+        if let Some(current_block) = self.builder.get_insert_block() {
+            if current_block.get_terminator().is_none() {
+                // Only execute defers if block is not already terminated
+                self.execute_deferred_statements()?;
+            }
+        }
+
+        // Clear deferred statements for next function
+        self.clear_deferred_statements();
 
         // If no return statement, add default return
         if let Some(current_block) = self.builder.get_insert_block() {
@@ -786,7 +905,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let mut type_subst = HashMap::new();
         for (i, type_param) in func_def.type_params.iter().enumerate() {
             if let Some(concrete_type) = type_args.get(i) {
-                type_subst.insert(type_param.clone(), concrete_type.clone());
+                type_subst.insert(type_param.name.clone(), concrete_type.clone());
             }
         }
 
@@ -830,6 +949,19 @@ impl<'ctx> ASTCodeGen<'ctx> {
     ) -> Result<String, String> {
         use super::StructDef;
 
+        // Check depth limit for all type arguments
+        for type_arg in type_args {
+            let depth = self.get_generic_depth(type_arg);
+            if depth > super::MAX_GENERIC_DEPTH {
+                return Err(format!(
+                    "Generic type nesting too deep (depth {}, max {}): {}",
+                    depth,
+                    super::MAX_GENERIC_DEPTH,
+                    self.type_to_string(type_arg)
+                ));
+            }
+        }
+
         // Check if already instantiated (memoization)
         let type_arg_strings: Vec<String> =
             type_args.iter().map(|t| self.type_to_string(t)).collect();
@@ -859,7 +991,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         // Create type substitution map: T -> i32, U -> f64
         let mut type_subst = HashMap::new();
         for (param, arg) in struct_ast.type_params.iter().zip(type_args.iter()) {
-            type_subst.insert(param.clone(), arg.clone());
+            type_subst.insert(param.name.clone(), arg.clone());
         }
 
         // Generate mangled name: Box<i32> -> Box_i32
@@ -888,6 +1020,27 @@ impl<'ctx> ASTCodeGen<'ctx> {
             .insert(cache_key, mangled_name.clone());
 
         Ok(mangled_name)
+    }
+
+    /// Track struct name for a parameter (handles both Named and Generic types)
+    fn track_param_struct_name(&mut self, param_name: &str, param_ty: &Type) {
+        match param_ty {
+            Type::Named(struct_name) => {
+                if self.struct_defs.contains_key(struct_name) {
+                    self.variable_struct_names
+                        .insert(param_name.to_string(), struct_name.clone());
+                }
+            }
+            Type::Generic { name, type_args } => {
+                // Generic struct parameter: Pair<i32, i32>
+                // Instantiate to get mangled name: Pair_i32_i32
+                if let Ok(mangled_name) = self.instantiate_generic_struct(name, type_args) {
+                    self.variable_struct_names
+                        .insert(param_name.to_string(), mangled_name);
+                }
+            }
+            _ => {}
+        }
     }
 
     /// Infer type arguments from function call arguments

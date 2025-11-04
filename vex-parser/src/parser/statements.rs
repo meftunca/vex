@@ -41,6 +41,40 @@ impl<'a> Parser<'a> {
             return Ok(Statement::Return(expr));
         }
 
+        // Break statement
+        if self.match_token(&Token::Break) {
+            self.consume(&Token::Semicolon, "Expected ';' after break")?;
+            return Ok(Statement::Break);
+        }
+
+        // Continue statement
+        if self.match_token(&Token::Continue) {
+            self.consume(&Token::Semicolon, "Expected ';' after continue")?;
+            return Ok(Statement::Continue);
+        }
+
+        // Defer statement (Go-style)
+        // defer cleanup();
+        // defer { /* block */ };
+        if self.match_token(&Token::Defer) {
+            let deferred_stmt = if self.check(&Token::LBrace) {
+                // defer { block } - parse as unsafe block style
+                let _block = self.parse_block()?;
+                // For now, just parse and return as expression statement
+                // TODO: Support block in defer properly
+                return Err(
+                    self.error("defer with block not yet fully supported, use defer func();")
+                );
+            } else {
+                // defer function_call();
+                let expr = self.parse_expression()?;
+                self.consume(&Token::Semicolon, "Expected ';' after defer statement")?;
+                Box::new(Statement::Expression(expr))
+            };
+
+            return Ok(Statement::Defer(deferred_stmt));
+        }
+
         // If statement
         if self.match_token(&Token::If) {
             eprintln!("🟡 If: parsing condition, token={:?}", self.peek());
@@ -49,6 +83,18 @@ impl<'a> Parser<'a> {
             let then_block = self.parse_block()?;
             eprintln!("🟡 If: then_block done, token={:?}", self.peek());
 
+            // Parse elif branches
+            let mut elif_branches = Vec::new();
+            while self.match_token(&Token::Elif) {
+                eprintln!("🟡 Elif: parsing condition, token={:?}", self.peek());
+                let elif_condition = self.parse_expression()?;
+                eprintln!("🟡 Elif: condition done, token={:?}", self.peek());
+                let elif_block = self.parse_block()?;
+                eprintln!("🟡 Elif: block done, token={:?}", self.peek());
+                elif_branches.push((elif_condition, elif_block));
+            }
+
+            // Parse else block (if present)
             let else_block = if self.match_token(&Token::Else) {
                 let block = self.parse_block()?;
                 Some(block)
@@ -59,6 +105,7 @@ impl<'a> Parser<'a> {
             return Ok(Statement::If {
                 condition,
                 then_block,
+                elif_branches,
                 else_block,
             });
         }
@@ -154,13 +201,46 @@ impl<'a> Parser<'a> {
             };
             self.consume(&Token::Semicolon, "Expected ';' after for condition")?;
 
-            // Post
+            // Post (can be assignment or expression, no semicolon before brace)
             let post = if !self.check(&Token::LBrace) {
-                Some(Box::new(self.parse_expression_statement()?))
+                eprintln!(
+                    "🟢 For loop: parsing post, current token: {:?}",
+                    self.peek()
+                );
+
+                // Try to parse as assignment first (i = i + 1)
+                let checkpoint = self.current;
+                if let Ok(expr) = self.parse_expression() {
+                    if self.check(&Token::Eq) {
+                        // It's an assignment: i = expr
+                        self.current = checkpoint; // Backtrack
+                        let target = self.parse_expression()?;
+                        self.consume(&Token::Eq, "Expected '='")?;
+                        let value = self.parse_expression()?;
+                        eprintln!(
+                            "🟢 For loop: parsed assignment post, current token: {:?}",
+                            self.peek()
+                        );
+                        Some(Box::new(Statement::Assign { target, value }))
+                    } else {
+                        // Just an expression
+                        eprintln!(
+                            "🟢 For loop: parsed expression post, current token: {:?}",
+                            self.peek()
+                        );
+                        Some(Box::new(Statement::Expression(expr)))
+                    }
+                } else {
+                    None
+                }
             } else {
                 None
             };
 
+            eprintln!(
+                "🟢 For loop: about to parse body, current token: {:?}",
+                self.peek()
+            );
             let body = self.parse_block()?;
 
             return Ok(Statement::For {

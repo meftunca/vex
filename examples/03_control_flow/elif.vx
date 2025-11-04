@@ -1,0 +1,63 @@
+// Elif Control Flow
+// Demonstrates: if, elif, else chains
+
+fn main() : i32 {
+    let score1 = 95;
+    let score2 = 75;
+    let score3 = 55;
+    let score4 = 40;
+    
+    let grade1 = letter_grade(score1);  // Should be 5 (A)
+    let grade2 = letter_grade(score2);  // Should be 3 (C)
+    let grade3 = letter_grade(score3);  // Should be 2 (D)
+    let grade4 = letter_grade(score4);  // Should be 1 (F)
+    
+    return grade1 + grade2 + grade3 + grade4;  // Returns 11
+}
+
+// Simple elif chain
+fn letter_grade(score: i32) : i32 {
+    if score >= 90 {
+        return 5;  // A
+    } elif score >= 80 {
+        return 4;  // B
+    } elif score >= 70 {
+        return 3;  // C
+    } elif score >= 60 {
+        return 2;  // D
+    } else {
+        return 1;  // F
+    }
+}
+
+// Multiple elif with complex conditions
+fn classify_temperature(celsius: i32) : i32 {
+    if celsius < -20 {
+        return 1;  // Extremely cold
+    } elif celsius < 0 {
+        return 2;  // Freezing
+    } elif celsius < 10 {
+        return 3;  // Cold
+    } elif celsius < 20 {
+        return 4;  // Cool
+    } elif celsius < 30 {
+        return 5;  // Warm
+    } elif celsius < 40 {
+        return 6;  // Hot
+    } else {
+        return 7;  // Extremely hot
+    }
+}
+
+// Elif with multiple conditions
+fn ticket_price(age: i32, is_student: i32) : i32 {
+    if age < 12 {
+        return 5;  // Child ticket
+    } elif age >= 65 {
+        return 8;  // Senior ticket
+    } elif is_student == 1 {
+        return 10;  // Student ticket
+    } else {
+        return 15;  // Regular ticket
+    }
+}

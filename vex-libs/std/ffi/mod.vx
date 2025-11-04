@@ -1,4 +1,4 @@
-// std::ffi - Foreign Function Interface (FFI)
+// std.ffi - Foreign Function Interface (FFI)
 // Production-ready FFI with zero-overhead C interop
 
 // Import core libc bindings

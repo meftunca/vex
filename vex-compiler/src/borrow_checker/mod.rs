@@ -2,15 +2,20 @@
 // Phase 1: Basic Immutability Check
 // Phase 2: Move Semantics
 // Phase 3: Borrow Rules
+// Phase 4: Lifetime Analysis
 
 pub mod borrows;
+pub mod builtin_metadata;
 pub mod errors;
 pub mod immutability;
+pub mod lifetimes;
 pub mod moves;
 
 pub use borrows::BorrowRulesChecker;
+pub use builtin_metadata::{BuiltinBorrowRegistry, BuiltinMetadata, ParamEffect};
 pub use errors::{BorrowError, BorrowResult};
 pub use immutability::ImmutabilityChecker;
+pub use lifetimes::LifetimeChecker;
 pub use moves::MoveChecker;
 
 use vex_ast::Program;
@@ -20,6 +25,7 @@ pub struct BorrowChecker {
     immutability: ImmutabilityChecker,
     moves: MoveChecker,
     borrows: BorrowRulesChecker,
+    lifetimes: LifetimeChecker,
 }
 
 impl BorrowChecker {
@@ -28,6 +34,7 @@ impl BorrowChecker {
             immutability: ImmutabilityChecker::new(),
             moves: MoveChecker::new(),
             borrows: BorrowRulesChecker::new(),
+            lifetimes: LifetimeChecker::new(),
         }
     }
 
@@ -42,7 +49,8 @@ impl BorrowChecker {
         // Phase 3: Check borrow rules (1 mutable XOR N immutable)
         self.borrows.check_program(program)?;
 
-        // Phase 4: TODO (Lifetimes)
+        // Phase 4: Lifetime analysis (dangling references)
+        self.lifetimes.check_program(program)?;
 
         Ok(())
     }

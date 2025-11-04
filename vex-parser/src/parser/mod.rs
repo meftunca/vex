@@ -56,6 +56,7 @@ impl<'a> Parser<'a> {
                 items.push(Item::Function(func));
             } else if self.check(&Token::Fn) {
                 self.advance(); // consume 'fn'
+                                // Note: parse_function() handles receiver syntax: fn (self: Type) name()
                 items.push(Item::Function(self.parse_function()?));
             } else if self.check(&Token::Struct) {
                 items.push(self.parse_struct()?);
@@ -202,6 +203,57 @@ impl<'a> Parser<'a> {
         Ok(Block { statements })
     }
 
+    /// Parse block as expression: { stmt1; stmt2; expr }
+    /// Last expression without semicolon becomes the return value
+    pub(crate) fn parse_block_expression(&mut self) -> Result<Expression, ParseError> {
+        self.consume(&Token::LBrace, "Expected '{'")?;
+        let mut statements = Vec::new();
+        let mut return_expr = None;
+
+        while !self.check(&Token::RBrace) && !self.is_at_end() {
+            // Try to parse as expression first (peek for semicolon)
+            let checkpoint = self.current;
+
+            // If next token is not a statement keyword, might be an expression
+            if !self.check(&Token::Let)
+                && !self.check(&Token::Return)
+                && !self.check(&Token::If)
+                && !self.check(&Token::While)
+                && !self.check(&Token::For)
+                && !self.check(&Token::Break)
+                && !self.check(&Token::Continue)
+                && !self.check(&Token::Switch)
+                && !self.check(&Token::Defer)
+            {
+                // Try to parse expression
+                if let Ok(expr) = self.parse_expression() {
+                    // If no semicolon follows and we're at closing brace, this is the return expr
+                    if !self.match_token(&Token::Semicolon) && self.check(&Token::RBrace) {
+                        return_expr = Some(Box::new(expr));
+                        break;
+                    } else {
+                        // Expression statement
+                        statements.push(Statement::Expression(expr));
+                        continue;
+                    }
+                } else {
+                    // Failed to parse as expression, restore and try statement
+                    self.current = checkpoint;
+                }
+            }
+
+            // Parse as statement
+            statements.push(self.parse_statement()?);
+        }
+
+        self.consume(&Token::RBrace, "Expected '}'")?;
+
+        Ok(Expression::Block {
+            statements,
+            return_expr,
+        })
+    }
+
     pub(crate) fn parse_block_until_case_or_brace(&mut self) -> Result<Block, ParseError> {
         let mut statements = Vec::new();
 
@@ -215,5 +267,38 @@ impl<'a> Parser<'a> {
         }
 
         Ok(Block { statements })
+    }
+
+    /// Parse generic type parameters with optional trait bounds
+    /// Examples: <T>, <T: Display>, <T: Display + Clone, U: Debug>
+    pub(crate) fn parse_type_params(&mut self) -> Result<Vec<TypeParam>, ParseError> {
+        if !self.match_token(&Token::Lt) {
+            return Ok(Vec::new());
+        }
+
+        let mut params = Vec::new();
+        loop {
+            let name = self.consume_identifier()?;
+
+            // Optional trait bounds: T: Display + Clone
+            let mut bounds = Vec::new();
+            if self.match_token(&Token::Colon) {
+                loop {
+                    bounds.push(self.consume_identifier()?);
+                    if !self.match_token(&Token::Plus) {
+                        break;
+                    }
+                }
+            }
+
+            params.push(TypeParam { name, bounds });
+
+            if !self.match_token(&Token::Comma) {
+                break;
+            }
+        }
+
+        self.consume(&Token::Gt, "Expected '>' after type parameters")?;
+        Ok(params)
     }
 }

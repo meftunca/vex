@@ -33,10 +33,18 @@ pub enum Token {
     Try,
     #[token("return")]
     Return,
+    #[token("defer")]
+    Defer,
+    #[token("break")]
+    Break,
+    #[token("continue")]
+    Continue,
     #[token("if")]
     If,
     #[token("else")]
     Else,
+    #[token("elif")]
+    Elif,
     #[token("for")]
     For,
     #[token("while")]
@@ -177,6 +185,8 @@ pub enum Token {
     Comma,
     #[token(";")]
     Semicolon,
+    #[token("::")]
+    DoubleColon,
     #[token(":")]
     Colon,
     #[token(".")]
@@ -187,8 +197,6 @@ pub enum Token {
     Arrow,
     #[token("=>")]
     FatArrow,
-    #[token("_")]
-    Underscore,
     #[token("#")]
     Hash,
     #[token("...")]
@@ -235,9 +243,13 @@ pub enum Token {
     })]
     Tag(String),
 
-    // Identifiers
+    // Identifiers - defined first
     #[regex(r"[a-zA-Z_][a-zA-Z0-9_]*", |lex| lex.slice().to_string())]
     Ident(String),
+
+    // Underscore wildcard - higher priority than Ident
+    #[token("_", priority = 10)]
+    Underscore,
 
     // Comments (skip)
     #[regex(r"//[^\n]*", logos::skip)]

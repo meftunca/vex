@@ -1,4 +1,4 @@
-// std::ffi::zlib - zlib compression library bindings
+// std.ffi.zlib - zlib compression library bindings
 // Widely used compression library (HTTP, PNG, etc.)
 
 #[link(name = "z")]

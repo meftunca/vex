@@ -1,4 +1,4 @@
-// std::time::SystemTime - Wall clock time
+// std.time.SystemTime - Wall clock time
 // Can go backwards if system clock is adjusted
 
 import { libc } from "../ffi";

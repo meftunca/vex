@@ -1,0 +1,29 @@
+// Simple data-carrying enum test
+// Result<T, E> enum with Ok(value) and Err(error) variants
+
+enum Result {
+    Ok(i32),
+    Err(i32),
+}
+
+fn divide(a: i32, b: i32): Result {
+    if b == 0 {
+        // Return error variant (Vex style with .)
+        return Result.Err(-1);
+    } else {
+        // Return ok variant with value
+        let result = a / b;
+        return Result.Ok(result);
+    }
+}
+
+fn main(): i32 {
+    // Test successful division
+    let r1 = divide(10, 2);
+    
+    // Pattern match on result
+    return match r1 {
+        Result.Ok(val) => val,
+        Result.Err(code) => code,
+    };
+}

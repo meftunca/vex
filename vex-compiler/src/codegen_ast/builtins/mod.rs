@@ -1,0 +1,304 @@
+// Builtin functions registry for Vex compiler
+// Modular structure for maintainability
+
+use super::ASTCodeGen;
+use inkwell::values::BasicValueEnum;
+use std::collections::HashMap;
+
+// Submodules
+mod array;
+mod core;
+mod hashmap;
+mod hints;
+mod intrinsics;
+mod memory;
+mod memory_ops;
+mod reflection;
+mod string;
+mod utf8;
+
+// Re-export all builtin implementations
+pub use array::*;
+pub use core::*;
+pub use hashmap::*;
+pub use hints::*;
+pub use intrinsics::*;
+pub use memory::*;
+pub use memory_ops::*;
+pub use reflection::*;
+pub use string::*;
+pub use utf8::*;
+
+/// Builtin function generator type
+pub type BuiltinGenerator<'ctx> =
+    fn(&mut ASTCodeGen<'ctx>, &[BasicValueEnum<'ctx>]) -> Result<BasicValueEnum<'ctx>, String>;
+
+/// Registry of all builtin functions
+pub struct BuiltinRegistry<'ctx> {
+    functions: HashMap<&'static str, BuiltinGenerator<'ctx>>,
+}
+
+impl<'ctx> BuiltinRegistry<'ctx> {
+    pub fn new() -> Self {
+        let mut registry = Self {
+            functions: HashMap::new(),
+        };
+
+        // Register core builtins (print, panic, assert)
+        registry.register("print", core::builtin_print);
+        registry.register("println", core::builtin_println);
+        registry.register("panic", core::builtin_panic);
+        registry.register("assert", core::builtin_assert);
+        registry.register("unreachable", core::builtin_unreachable);
+
+        // Register memory builtins (alloc, free, sizeof, alignof)
+        registry.register("alloc", memory::builtin_alloc);
+        registry.register("free", memory::builtin_free);
+        registry.register("realloc", memory::builtin_realloc);
+        registry.register("sizeof", memory::builtin_sizeof);
+        registry.register("alignof", memory::builtin_alignof);
+
+        // Register LLVM intrinsics - bit manipulation
+        registry.register("ctlz", intrinsics::builtin_ctlz);
+        registry.register("cttz", intrinsics::builtin_cttz);
+        registry.register("ctpop", intrinsics::builtin_ctpop);
+        registry.register("bswap", intrinsics::builtin_bswap);
+        registry.register("bitreverse", intrinsics::builtin_bitreverse);
+
+        // Register LLVM intrinsics - overflow checking
+        registry.register("sadd_overflow", intrinsics::builtin_sadd_overflow);
+        registry.register("ssub_overflow", intrinsics::builtin_ssub_overflow);
+        registry.register("smul_overflow", intrinsics::builtin_smul_overflow);
+
+        // Register compiler hints
+        registry.register("assume", hints::builtin_assume);
+        registry.register("likely", hints::builtin_likely);
+        registry.register("unlikely", hints::builtin_unlikely);
+        registry.register("prefetch", hints::builtin_prefetch);
+
+        // Register runtime string functions
+        registry.register("strlen", string::builtin_strlen);
+        registry.register("strcmp", string::builtin_strcmp);
+        registry.register("strcpy", string::builtin_strcpy);
+        registry.register("strcat", string::builtin_strcat);
+        registry.register("strdup", string::builtin_strdup);
+
+        // Register runtime memory operations
+        registry.register("memcpy", memory_ops::builtin_memcpy);
+        registry.register("memset", memory_ops::builtin_memset);
+        registry.register("memcmp", memory_ops::builtin_memcmp);
+        registry.register("memmove", memory_ops::builtin_memmove);
+
+        // Register runtime UTF-8 functions
+        registry.register("utf8_valid", utf8::builtin_utf8_valid);
+        registry.register("utf8_char_count", utf8::builtin_utf8_char_count);
+        registry.register("utf8_char_at", utf8::builtin_utf8_char_at);
+
+        // Register runtime array functions
+        registry.register("array_len", array::builtin_array_len);
+        registry.register("array_get", array::builtin_array_get);
+        registry.register("array_set", array::builtin_array_set);
+        registry.register("array_append", array::builtin_array_append);
+
+        // Register type reflection functions
+        registry.register("typeof", reflection::builtin_typeof);
+        registry.register("type_id", reflection::builtin_type_id);
+        registry.register("type_size", reflection::builtin_type_size);
+        registry.register("type_align", reflection::builtin_type_align);
+        registry.register("is_int_type", reflection::builtin_is_int_type);
+        registry.register("is_float_type", reflection::builtin_is_float_type);
+        registry.register("is_pointer_type", reflection::builtin_is_pointer_type);
+
+        // Register HashMap functions
+        registry.register("hashmap_new", hashmap::builtin_hashmap_new);
+        registry.register("hashmap_insert", hashmap::builtin_hashmap_insert);
+        registry.register("hashmap_get", hashmap::builtin_hashmap_get);
+        registry.register("hashmap_len", hashmap::builtin_hashmap_len);
+        registry.register("hashmap_free", hashmap::builtin_hashmap_free);
+        registry.register("hashmap_contains", hashmap::builtin_hashmap_contains);
+        registry.register("hashmap_remove", hashmap::builtin_hashmap_remove);
+        registry.register("hashmap_clear", hashmap::builtin_hashmap_clear);
+
+        registry
+    }
+
+    fn register(&mut self, name: &'static str, generator: BuiltinGenerator<'ctx>) {
+        self.functions.insert(name, generator);
+    }
+
+    pub fn get(&self, name: &str) -> Option<BuiltinGenerator<'ctx>> {
+        self.functions.get(name).copied()
+    }
+
+    #[allow(dead_code)]
+    pub fn is_builtin(&self, name: &str) -> bool {
+        self.functions.contains_key(name)
+    }
+}
+
+impl<'ctx> Default for BuiltinRegistry<'ctx> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+// ============================================================================
+// HELPER DECLARATIONS FOR ASTCodeGen
+// ============================================================================
+
+use inkwell::values::FunctionValue;
+use inkwell::AddressSpace;
+
+impl<'ctx> ASTCodeGen<'ctx> {
+    /// Declare vex_malloc from runtime
+    pub(crate) fn declare_vex_malloc(&mut self) -> FunctionValue<'ctx> {
+        if let Some(func) = self.module.get_function("vex_malloc") {
+            return func;
+        }
+
+        let i8_ptr_type = self.context.i8_type().ptr_type(AddressSpace::default());
+        let size_type = self.context.i64_type(); // size_t
+
+        let fn_type = i8_ptr_type.fn_type(&[size_type.into()], false);
+        self.module.add_function("vex_malloc", fn_type, None)
+    }
+
+    /// Declare vex_free from runtime
+    pub(crate) fn declare_vex_free(&mut self) -> FunctionValue<'ctx> {
+        if let Some(func) = self.module.get_function("vex_free") {
+            return func;
+        }
+
+        let i8_ptr_type = self.context.i8_type().ptr_type(AddressSpace::default());
+        let void_type = self.context.void_type();
+
+        let fn_type = void_type.fn_type(&[i8_ptr_type.into()], false);
+        self.module.add_function("vex_free", fn_type, None)
+    }
+
+    /// Declare vex_realloc from runtime
+    pub(crate) fn declare_vex_realloc(&mut self) -> FunctionValue<'ctx> {
+        if let Some(func) = self.module.get_function("vex_realloc") {
+            return func;
+        }
+
+        let i8_ptr_type = self.context.i8_type().ptr_type(AddressSpace::default());
+        let size_type = self.context.i64_type(); // size_t
+
+        let fn_type = i8_ptr_type.fn_type(&[i8_ptr_type.into(), size_type.into()], false);
+        self.module.add_function("vex_realloc", fn_type, None)
+    }
+
+    /// Declare abort() from libc
+    pub(crate) fn declare_abort(&mut self) -> FunctionValue<'ctx> {
+        if let Some(func) = self.module.get_function("abort") {
+            return func;
+        }
+
+        let void_type = self.context.void_type();
+        let fn_type = void_type.fn_type(&[], false);
+        self.module.add_function("abort", fn_type, None)
+    }
+
+    /// Declare LLVM intrinsic function with basic return type
+    pub(crate) fn declare_llvm_intrinsic(
+        &mut self,
+        name: &str,
+        param_types: &[inkwell::types::BasicMetadataTypeEnum<'ctx>],
+        return_type: inkwell::types::BasicMetadataTypeEnum<'ctx>,
+    ) -> FunctionValue<'ctx> {
+        // Check if already declared
+        if let Some(func) = self.module.get_function(name) {
+            return func;
+        }
+
+        // Create function type
+        use inkwell::types::BasicMetadataTypeEnum;
+
+        let fn_type = match return_type {
+            BasicMetadataTypeEnum::IntType(int_type) => int_type.fn_type(param_types, false),
+            BasicMetadataTypeEnum::FloatType(float_type) => float_type.fn_type(param_types, false),
+            BasicMetadataTypeEnum::PointerType(ptr_type) => ptr_type.fn_type(param_types, false),
+            BasicMetadataTypeEnum::StructType(struct_type) => {
+                struct_type.fn_type(param_types, false)
+            }
+            BasicMetadataTypeEnum::ArrayType(arr_type) => arr_type.fn_type(param_types, false),
+            BasicMetadataTypeEnum::VectorType(vec_type) => vec_type.fn_type(param_types, false),
+            BasicMetadataTypeEnum::ScalableVectorType(svec_type) => {
+                svec_type.fn_type(param_types, false)
+            }
+            BasicMetadataTypeEnum::MetadataType(_) => {
+                // Metadata type - use i8 as placeholder
+                self.context.i8_type().fn_type(param_types, false)
+            }
+        };
+
+        self.module.add_function(name, fn_type, None)
+    }
+
+    /// Declare LLVM intrinsic function with void return type
+    pub(crate) fn declare_llvm_intrinsic_void(
+        &mut self,
+        name: &str,
+        param_types: &[inkwell::types::BasicMetadataTypeEnum<'ctx>],
+    ) -> FunctionValue<'ctx> {
+        // Check if already declared
+        if let Some(func) = self.module.get_function(name) {
+            return func;
+        }
+
+        let fn_type = self.context.void_type().fn_type(param_types, false);
+        self.module.add_function(name, fn_type, None)
+    }
+
+    /// Generic runtime function declaration helper
+    pub(crate) fn declare_runtime_fn(
+        &mut self,
+        name: &str,
+        param_types: &[inkwell::types::BasicMetadataTypeEnum<'ctx>],
+        return_type: inkwell::types::BasicMetadataTypeEnum<'ctx>,
+    ) -> FunctionValue<'ctx> {
+        // Check if already declared
+        if let Some(func) = self.module.get_function(name) {
+            return func;
+        }
+
+        // Create function type based on return type
+        use inkwell::types::BasicMetadataTypeEnum;
+
+        let fn_type = match return_type {
+            BasicMetadataTypeEnum::IntType(int_type) => int_type.fn_type(param_types, false),
+            BasicMetadataTypeEnum::FloatType(float_type) => float_type.fn_type(param_types, false),
+            BasicMetadataTypeEnum::PointerType(ptr_type) => ptr_type.fn_type(param_types, false),
+            BasicMetadataTypeEnum::StructType(struct_type) => {
+                struct_type.fn_type(param_types, false)
+            }
+            BasicMetadataTypeEnum::ArrayType(arr_type) => arr_type.fn_type(param_types, false),
+            BasicMetadataTypeEnum::VectorType(vec_type) => vec_type.fn_type(param_types, false),
+            BasicMetadataTypeEnum::ScalableVectorType(svec_type) => {
+                svec_type.fn_type(param_types, false)
+            }
+            BasicMetadataTypeEnum::MetadataType(_) => {
+                // Metadata shouldn't be used as return type
+                self.context.i8_type().fn_type(param_types, false)
+            }
+        };
+
+        self.module.add_function(name, fn_type, None)
+    }
+
+    /// Runtime function declaration helper for void return type
+    pub(crate) fn declare_runtime_fn_void(
+        &mut self,
+        name: &str,
+        param_types: &[inkwell::types::BasicMetadataTypeEnum<'ctx>],
+    ) -> FunctionValue<'ctx> {
+        // Check if already declared
+        if let Some(func) = self.module.get_function(name) {
+            return func;
+        }
+
+        let fn_type = self.context.void_type().fn_type(param_types, false);
+        self.module.add_function(name, fn_type, None)
+    }
+}

@@ -1,0 +1,17 @@
+// Minimal data-carrying enum test
+
+enum Result {
+    Ok(i32),
+    Err(i32),
+}
+
+fn main(): i32 {
+    let x = Result.Ok(42);
+    
+    let output = match x {
+        Result.Ok(val) => val,
+        Result.Err(code) => code,
+    };
+    
+    return output;
+}

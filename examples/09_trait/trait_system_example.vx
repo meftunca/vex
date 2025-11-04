@@ -49,11 +49,13 @@ struct ConsoleLogger impl Logger {
     // Use default info() and error() methods
 }
 
-fn main() {
+fn main(): i32 {
     let! file_log = FileLogger { path: "/var/log/app.log" };
-    file_log.info("Starting app");
+    file_log.log("INFO", "Starting app");
     file_log.warn("Something went wrong");
     
     let! console_log = ConsoleLogger { prefix: "[APP]" };
-    console_log.info("Hello");
+    console_log.log("INFO", "Hello");
+    
+    return 0;
 }

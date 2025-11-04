@@ -93,4 +93,25 @@ impl<'ctx> ASTCodeGen<'ctx> {
             Err("Can only increment/decrement variables".to_string())
         }
     }
+
+    /// Compile block expression: { stmt1; stmt2; expr }
+    /// Last expression without semicolon becomes the return value
+    pub(crate) fn compile_block_expression(
+        &mut self,
+        statements: &[Statement],
+        return_expr: &Option<Box<Expression>>,
+    ) -> Result<BasicValueEnum<'ctx>, String> {
+        // Compile all statements
+        for stmt in statements {
+            self.compile_statement(stmt)?;
+        }
+
+        // If there's a return expression, compile and return it
+        if let Some(expr) = return_expr {
+            self.compile_expression(expr)
+        } else {
+            // No return value, return unit (i32 0)
+            Ok(self.context.i32_type().const_int(0, false).into())
+        }
+    }
 }

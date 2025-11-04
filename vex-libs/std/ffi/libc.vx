@@ -1,4 +1,4 @@
-// std::libc - Core C library bindings (zero-overhead FFI)
+// std.libc - Core C library bindings (zero-overhead FFI)
 // This module provides direct access to libc functions
 
 // Memory allocation
@@ -650,7 +650,7 @@ export fn get_monotonic_time_ns():(i64 | error) {
 // ============================================================================
 // POSIX Threads - Safe Wrappers
 // WARNING: These are BLOCKING operations. Do NOT use in async tasks!
-// Use Vex's native async runtime (std::async) for concurrent tasks.
+// Use Vex's native async runtime (std.async) for concurrent tasks.
 // ============================================================================
 
 // Safe mutex operations

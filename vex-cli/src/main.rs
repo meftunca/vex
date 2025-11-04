@@ -135,6 +135,11 @@ fn main() -> Result<()> {
             }
             println!("   ✅ Borrow check passed");
 
+            // Initialize trait bounds checker
+            let mut trait_checker = vex_compiler::TraitBoundsChecker::new();
+            trait_checker.initialize(&ast);
+            println!("   📋 Trait bounds checker initialized");
+
             // Resolve imports if any
             if !ast.imports.is_empty() {
                 println!("   📦 Resolving {} import(s)...", ast.imports.len());
@@ -348,6 +353,14 @@ fn main() -> Result<()> {
             let mut ast = parser.parse_file()?;
 
             println!("   ✅ Parsed {} successfully", filename);
+
+            // Run borrow checker (Phase 1-4: Immutability, Moves, Borrows, Lifetimes)
+            println!("   🔍 Running borrow checker...");
+            let mut borrow_checker = vex_compiler::BorrowChecker::new();
+            if let Err(e) = borrow_checker.check_program(&ast) {
+                anyhow::bail!("⚠️  Borrow checker error: {}", e);
+            }
+            println!("   ✅ Borrow check passed");
 
             // Codegen
             let context = Context::create();

@@ -41,8 +41,23 @@ pub enum BorrowError {
         borrowed_at: Option<String>,
     },
 
+    /// Move while borrowed (Phase 3)
+    MoveWhileBorrowed {
+        variable: String,
+        borrow_location: Option<String>,
+    },
+
     /// Returns reference to local variable (Phase 4)
     ReturnLocalReference { variable: String },
+
+    /// Dangling reference - referenced variable out of scope (Phase 4)
+    DanglingReference { reference: String, referent: String },
+
+    /// Use after scope end (Phase 4)
+    UseAfterScopeEnd { variable: String },
+
+    /// Return dangling reference to local variable (Phase 4)
+    ReturnDanglingReference { variable: String },
 }
 
 impl fmt::Display for BorrowError {
@@ -124,6 +139,17 @@ impl fmt::Display for BorrowError {
                 Ok(())
             }
 
+            BorrowError::MoveWhileBorrowed {
+                variable,
+                borrow_location,
+            } => {
+                write!(f, "cannot move `{}` because it is borrowed", variable)?;
+                if let Some(location) = borrow_location {
+                    write!(f, "\nnote: {}", location)?;
+                }
+                Ok(())
+            }
+
             BorrowError::ReturnLocalReference { variable } => {
                 write!(
                     f,
@@ -131,6 +157,42 @@ impl fmt::Display for BorrowError {
                     variable
                 )?;
                 write!(f, "\nhelp: consider returning an owned value instead")
+            }
+
+            BorrowError::DanglingReference {
+                reference,
+                referent,
+            } => {
+                write!(
+                    f,
+                    "dangling reference: `{}` references `{}` which is out of scope",
+                    reference, referent
+                )?;
+                write!(
+                    f,
+                    "\nhelp: ensure the referenced value outlives the reference"
+                )
+            }
+
+            BorrowError::UseAfterScopeEnd { variable } => {
+                write!(
+                    f,
+                    "use of variable `{}` after it has gone out of scope",
+                    variable
+                )?;
+                write!(f, "\nhelp: ensure the variable is in scope before using it")
+            }
+
+            BorrowError::ReturnDanglingReference { variable } => {
+                write!(
+                    f,
+                    "cannot return reference to local variable `{}`\nthe variable will be dropped at the end of the function",
+                    variable
+                )?;
+                write!(
+                    f,
+                    "\nhelp: consider returning an owned value or accepting a reference parameter"
+                )
             }
         }
     }

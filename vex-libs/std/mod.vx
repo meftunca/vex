@@ -1,97 +1,37 @@
-// std - Minimal Standard Library
+// Vex Standard Library - Main Module
+// Root module for the standard library
+// 
+// Usage:
+//   import { array, string, HashMap } from "std";
+//   import * as std from "std";
 
-export struct error {
-    message: string,
-}
+// Re-export all implemented modules for convenience
+import * as array from "./array/mod.vx";
+import * as string from "./string/mod.vx";
+import * as mem from "./mem/mod.vx";
+import * as intrinsics from "./intrinsics/mod.vx";
+import * as reflect from "./reflect/mod.vx";
+import { HashMap } from "./collections/hashmap.vx";
 
-export fn new_error(msg: string) : error {
-    return error { message: msg };
-}
+// Re-export everything
+export { array, string, mem, intrinsics, reflect, HashMap };
 
-// Placeholder io module functions
-export fn io_print(s: string) {
-    print(s);
-}
-
-export fn io_println(s: string) {
-    print(s);
-}
-
-// Placeholder log module functions
-export fn log_info(s: string) {
-    print(s);
-}
-
-export fn log_error(s: string) {
-    print(s);
-}
-
-export fn log_warn(s: string) {
-    print(s);
-}
-
-export struct io {
-    x: i32,
-}
-
-export struct log {
-    y: i32,
-}
-
-// ============================================================
-// Standard Library Version
-// ============================================================
-
-export const VERSION: string = "0.1.0";
-export const COMPILER_VERSION: string = "0.2.0";
-
-// ============================================================
-// Module Documentation
-// ============================================================
-
-// std::io - File and I/O operations
-//   - File: read/write files
-//   - Reader/Writer: generic I/O traits
-//   - open(), create(), read_to_string(), write_string()
-
-// std::net - Network programming
-//   - TcpStream: TCP client connections
-//   - TcpListener: TCP server
-//   - UdpSocket: UDP communication
-//   - connect(), listen(), bind_udp()
-
-// std::http - HTTP client and server
-//   - get(), post() : HTTP requests
-//   - Server: HTTP server
-//   - Response, Request, Header structs
-
-// std::sync - Concurrency and synchronization
-//   - Mutex<T>: mutual exclusion lock
-//   - Channel<T>: async message passing
-//   - WaitGroup: coordinate multiple tasks
-//   - Semaphore: limit concurrent access
-//   - RwLock<T>: multiple readers, single writer
-
-// std::testing - Test framework
-//   - TestContext: test assertions
-//   - TestSuite: organize tests
-//   - run_test(), benchmark()
-//   - assert_eq(), assert(), assert_ne()
-
-// std::unsafe - Low-level unsafe operations
-//   - Raw pointer manipulation
-//   - Memory operations (copy, zero)
-//   - Atomic operations
-//   - Inline assembly
-
-// std::ffi - Foreign Function Interface
-//   - CString: C string conversion
-//   - load_library(), get_symbol()
-//   - C type aliases (c_int, c_char, etc.)
-
-// std::hpc - High Performance Computing
-//   - launch_kernel() : GPU kernel execution
-//   - SIMD vector types (Vec4f, Vec4i)
-//   - parallel_for() : multi-core parallelism
-//   - Matrix operations
-//   - GPU memory management
+// TODO: Implement these modules
+// import * as io from "./io/mod.vx";
+// import * as fs from "./fs/mod.vx";
+// import * as time from "./time/mod.vx";
+// import * as net from "./net/mod.vx";
+// import * as http from "./http/mod.vx";
+// import * as sync from "./sync/mod.vx";
+// import * as thread from "./thread/mod.vx";
+// import * as async from "./async/mod.vx";
+// import * as encoding from "./encoding/mod.vx";
+// import * as crypto from "./crypto/mod.vx";
+// import * as compress from "./compress/mod.vx";
+// import * as regex from "./regex/mod.vx";
+// import * as unsafe from "./unsafe/mod.vx";
+// import * as ffi from "./ffi/mod.vx";
+// import * as hpc from "./hpc/mod.vx";
+// import * as testing from "./testing/mod.vx";
+// import * as log from "./log/mod.vx";
+// import * as process from "./process/mod.vx";

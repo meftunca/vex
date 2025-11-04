@@ -1,4 +1,4 @@
-// std::compress - Compression utilities (High-level)
+// std.compress - Compression utilities (High-level)
 // Wrappers around zlib, zstd, and lz4
 
 import { zlib, zstd, lz4 } from "../ffi";

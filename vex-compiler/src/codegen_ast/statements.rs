@@ -33,39 +33,80 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 // v0.9: is_mutable determines if variable is mutable (let vs let!)
                 // FIRST: Determine struct name from expression BEFORE compiling
                 // (because after compilation, we lose the expression structure)
+                eprintln!(
+                    "🔷 Let statement: var={}, has_type_annotation={}",
+                    name,
+                    ty.is_some()
+                );
                 let struct_name_from_expr = if ty.is_none() {
+                    eprintln!("  → Type inference needed, analyzing expression...");
                     match value {
-                        Expression::StructLiteral { name: s_name, .. } => {
-                            if self.struct_defs.contains_key(s_name) {
+                        Expression::StructLiteral {
+                            name: s_name,
+                            type_args,
+                            ..
+                        } => {
+                            eprintln!("  → StructLiteral: {}", s_name);
+
+                            // Handle generic struct literals: Box<i32> -> Box_i32
+                            if !type_args.is_empty() {
+                                // Instantiate the generic struct to get the mangled name
+                                match self.instantiate_generic_struct(s_name, type_args) {
+                                    Ok(mangled_name) => Some(mangled_name),
+                                    Err(_) => None,
+                                }
+                            } else if self.struct_defs.contains_key(s_name) {
                                 Some(s_name.clone())
                             } else {
                                 None
                             }
                         }
                         Expression::Call { func, .. } => {
+                            eprintln!("  → Call expression");
                             if let Expression::Ident(func_name) = func.as_ref() {
+                                eprintln!("    → Function: {}", func_name);
                                 if let Some(func_def) = self.function_defs.get(func_name) {
+                                    eprintln!(
+                                        "    → Found func_def, return_type: {:?}",
+                                        func_def.return_type
+                                    );
                                     if let Some(Type::Named(s_name)) = &func_def.return_type {
+                                        eprintln!("    → Named return type: {}", s_name);
                                         if self.struct_defs.contains_key(s_name) {
+                                            eprintln!("    ✅ Struct: {}", s_name);
+                                            Some(s_name.clone())
+                                        } else if self.enum_ast_defs.contains_key(s_name) {
+                                            eprintln!("    ✅ Enum: {}", s_name);
+                                            // Function returns enum - track it!
                                             Some(s_name.clone())
                                         } else {
+                                            eprintln!("    ❌ Type not found: {}", s_name);
                                             None
                                         }
                                     } else {
+                                        eprintln!("    → Return type is not Named");
                                         None
                                     }
                                 } else {
+                                    eprintln!("    ❌ func_def not found");
                                     None
                                 }
                             } else {
+                                eprintln!("    → Not an Ident");
                                 None
                             }
                         }
-                        _ => None,
+                        _ => {
+                            eprintln!("  → Other expression type");
+                            None
+                        }
                     }
                 } else {
+                    eprintln!("  → Type annotation present, skipping inference");
                     None
                 };
+
+                eprintln!("  → struct_name_from_expr: {:?}", struct_name_from_expr);
 
                 // Special handling for tuple literals: pre-compute struct type before compilation
                 let tuple_struct_type = if let Expression::TupleLiteral(elements) = value {
@@ -96,7 +137,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 }
 
                 // Determine type from value or explicit type
-                let (var_type, llvm_type) = if let Some(ref t) = ty {
+                let (var_type, llvm_type) = if let Some(t) = ty {
                     (t.clone(), self.ast_type_to_llvm(t))
                 } else if let Some(struct_ty) = tuple_struct_type {
                     // Use the pre-computed tuple struct type
@@ -112,16 +153,87 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
                 // Track struct type name if this is a named struct type or inferred from expression
                 let final_var_type = if let Type::Named(struct_name) = &var_type {
-                    if self.struct_defs.contains_key(struct_name) {
+                    // Check if this is actually an enum (inferred as AnonymousStruct)
+                    if struct_name == "AnonymousStruct" {
+                        // Check if we have type info from expression analysis
+                        if let Some(type_name) = struct_name_from_expr.as_ref() {
+                            eprintln!("  → AnonymousStruct resolved to: {}", type_name);
+                            if self.struct_defs.contains_key(type_name) {
+                                eprintln!("  ✅ Tracking as struct (from expr): {}", type_name);
+                                self.variable_struct_names
+                                    .insert(name.clone(), type_name.clone());
+                                Type::Named(type_name.clone())
+                            } else if self.enum_ast_defs.contains_key(type_name) {
+                                eprintln!("  ✅ Tracking as enum (from expr): {}", type_name);
+                                self.variable_enum_names
+                                    .insert(name.clone(), type_name.clone());
+                                Type::Named(type_name.clone())
+                            } else {
+                                var_type.clone()
+                            }
+                        } else if let Expression::EnumLiteral { enum_name, .. } = value {
+                            // Fallback: Check if value is an enum literal
+                            self.variable_enum_names
+                                .insert(name.clone(), enum_name.clone());
+                            Type::Named(enum_name.clone())
+                        } else {
+                            var_type.clone()
+                        }
+                    } else if self.struct_defs.contains_key(struct_name) {
                         self.variable_struct_names
                             .insert(name.clone(), struct_name.clone());
+                        var_type.clone()
+                    } else if self.enum_ast_defs.contains_key(struct_name) {
+                        // This is an enum type annotation
+                        self.variable_enum_names
+                            .insert(name.clone(), struct_name.clone());
+                        var_type.clone()
+                    } else {
+                        var_type.clone()
                     }
-                    var_type.clone()
-                } else if let Some(struct_name) = struct_name_from_expr {
-                    // We found struct name from expression analysis
-                    self.variable_struct_names
-                        .insert(name.clone(), struct_name.clone());
-                    Type::Named(struct_name)
+                } else if let Type::Generic {
+                    name: struct_name,
+                    type_args,
+                } = &var_type
+                {
+                    // Generic type annotation: Box<i32>, Pair<T, U>
+                    // Instantiate to get mangled name and track it
+                    match self.instantiate_generic_struct(struct_name, type_args) {
+                        Ok(mangled_name) => {
+                            self.variable_struct_names
+                                .insert(name.clone(), mangled_name.clone());
+                            Type::Generic {
+                                name: struct_name.clone(),
+                                type_args: type_args.clone(),
+                            }
+                        }
+                        Err(_) => var_type.clone(),
+                    }
+                } else if let Some(type_name) = struct_name_from_expr {
+                    // We found type name from expression analysis (could be struct or enum)
+                    eprintln!("  → Checking type_name: {}", type_name);
+                    eprintln!(
+                        "    → Is struct: {}",
+                        self.struct_defs.contains_key(&type_name)
+                    );
+                    eprintln!(
+                        "    → Is enum: {}",
+                        self.enum_ast_defs.contains_key(&type_name)
+                    );
+                    if self.struct_defs.contains_key(&type_name) {
+                        eprintln!("  ✅ Tracking as struct: {}", type_name);
+                        self.variable_struct_names
+                            .insert(name.clone(), type_name.clone());
+                        Type::Named(type_name)
+                    } else if self.enum_ast_defs.contains_key(&type_name) {
+                        eprintln!("  ✅ Tracking as enum: {} = {}", name, type_name);
+                        self.variable_enum_names
+                            .insert(name.clone(), type_name.clone());
+                        Type::Named(type_name)
+                    } else {
+                        eprintln!("  ❌ Type {} not found!", type_name);
+                        Type::Named(type_name)
+                    }
                 } else if ty.is_none() {
                     // Type inference: check value expression type
                     match value {
@@ -137,22 +249,124 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                 var_type.clone()
                             }
                         }
-                        // Function call that returns a struct
+                        // Enum literal: EnumName.Variant(...)
+                        Expression::EnumLiteral { enum_name, .. } => {
+                            if self.enum_ast_defs.contains_key(enum_name) {
+                                self.variable_enum_names
+                                    .insert(name.clone(), enum_name.clone());
+                                Type::Named(enum_name.clone())
+                            } else {
+                                var_type.clone()
+                            }
+                        }
+                        // Function call that returns a struct or enum
                         Expression::Call { func, .. } => {
-                            if let Expression::Ident(func_name) = func.as_ref() {
+                            // Check if this is an enum constructor call: EnumName.Variant(...)
+                            if let Expression::FieldAccess { object, field: _ } = func.as_ref() {
+                                if let Expression::Ident(enum_name) = object.as_ref() {
+                                    if self.enum_ast_defs.contains_key(enum_name) {
+                                        // This is an enum constructor call
+                                        self.variable_enum_names
+                                            .insert(name.clone(), enum_name.clone());
+                                        Type::Named(enum_name.clone())
+                                    } else {
+                                        var_type.clone()
+                                    }
+                                } else {
+                                    var_type.clone()
+                                }
+                            } else if let Expression::Ident(func_name) = func.as_ref() {
                                 // Look up function's return type in function_defs
+                                eprintln!(
+                                    "  → Function call: {}, checking return type...",
+                                    func_name
+                                );
                                 if let Some(func_def) = self.function_defs.get(func_name) {
-                                    if let Some(Type::Named(struct_name)) = &func_def.return_type {
-                                        if self.struct_defs.contains_key(struct_name) {
+                                    eprintln!(
+                                        "  → Found func_def, return_type: {:?}",
+                                        func_def.return_type
+                                    );
+                                    if let Some(Type::Named(type_name)) = &func_def.return_type {
+                                        eprintln!("  → Named type: {}", type_name);
+                                        if self.struct_defs.contains_key(type_name) {
+                                            eprintln!("  ✅ Tracking as struct: {}", type_name);
                                             self.variable_struct_names
-                                                .insert(name.clone(), struct_name.clone());
+                                                .insert(name.clone(), type_name.clone());
                                             // Override the inferred type with the correct struct type
-                                            Type::Named(struct_name.clone())
+                                            Type::Named(type_name.clone())
+                                        } else if self.enum_ast_defs.contains_key(type_name) {
+                                            eprintln!("  ✅ Tracking as enum: {}", type_name);
+                                            self.variable_enum_names
+                                                .insert(name.clone(), type_name.clone());
+                                            // Override the inferred type with the correct enum type
+                                            Type::Named(type_name.clone())
                                         } else {
+                                            eprintln!("  ❌ Type {} not found in struct_defs or enum_ast_defs", type_name);
                                             var_type.clone()
                                         }
                                     } else {
                                         var_type.clone()
+                                    }
+                                } else {
+                                    var_type.clone()
+                                }
+                            } else {
+                                var_type.clone()
+                            }
+                        }
+                        // Field access: obj.field (returns struct type)
+                        Expression::FieldAccess { object, field } => {
+                            // Need to determine the type of the field being accessed
+                            // First, get the struct type of the object
+                            let object_struct_name = self.get_expression_struct_name(object)?;
+
+                            if let Some(struct_name) = object_struct_name {
+                                // Look up the struct definition to get field type
+                                // Clone field_type to avoid borrow issues with instantiate_generic_struct
+                                let field_type_opt =
+                                    self.struct_defs.get(&struct_name).and_then(|struct_def| {
+                                        struct_def
+                                            .fields
+                                            .iter()
+                                            .find(|(f, _)| f == field)
+                                            .map(|(_, t)| t.clone())
+                                    });
+
+                                if let Some(field_type) = field_type_opt {
+                                    // Check if field type is a struct
+                                    match field_type {
+                                        Type::Named(field_struct_name) => {
+                                            if self.struct_defs.contains_key(&field_struct_name) {
+                                                self.variable_struct_names.insert(
+                                                    name.clone(),
+                                                    field_struct_name.clone(),
+                                                );
+                                                Type::Named(field_struct_name)
+                                            } else {
+                                                var_type.clone()
+                                            }
+                                        }
+                                        Type::Generic {
+                                            name: field_struct_name,
+                                            type_args,
+                                        } => {
+                                            // Field is generic type like Box<i32>
+                                            match self.instantiate_generic_struct(
+                                                &field_struct_name,
+                                                &type_args,
+                                            ) {
+                                                Ok(mangled_name) => {
+                                                    self.variable_struct_names
+                                                        .insert(name.clone(), mangled_name.clone());
+                                                    Type::Generic {
+                                                        name: field_struct_name,
+                                                        type_args,
+                                                    }
+                                                }
+                                                Err(_) => var_type.clone(),
+                                            }
+                                        }
+                                        _ => var_type.clone(),
                                     }
                                 } else {
                                     var_type.clone()
@@ -168,14 +382,27 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 };
 
                 // Recalculate LLVM type if we found a struct
-                // BUT: Skip for tuple variables (they already have correct llvm_type)
+                // BUT: Skip for tuple and enum variables (they already have correct llvm_type)
+                // IMPORTANT: For struct variables, use the VALUE type from expression, not pointer type
                 let final_llvm_type = if let Type::Named(type_name) = &final_var_type {
                     if type_name == "Tuple" {
                         // Tuple variables already have correct struct type in llvm_type
                         llvm_type
+                    } else if self.enum_ast_defs.contains_key(type_name) {
+                        // Enum variables: use the inferred LLVM type from value
+                        llvm_type
+                    } else if self.struct_defs.contains_key(type_name) {
+                        // CRITICAL FIX: For struct variables, the value from compile_expression
+                        // is already a pointer (from struct literal). We need to store that pointer,
+                        // so we allocate a pointer-sized slot, NOT another pointer to pointer!
+                        // Solution: Use the actual pointer type we got from the value
+                        llvm_type
                     } else {
                         self.ast_type_to_llvm(&final_var_type)
                     }
+                } else if let Type::Generic { .. } = &final_var_type {
+                    // Generic struct: use value type from expression
+                    llvm_type
                 } else {
                     llvm_type
                 };
@@ -333,7 +560,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }
 
             Statement::Return(expr) => {
-                if let Some(ref e) = expr {
+                // Execute deferred statements in reverse order before returning
+                self.execute_deferred_statements()?;
+
+                if let Some(e) = expr {
                     let val = self.compile_expression(e)?;
                     self.builder
                         .build_return(Some(&val))
@@ -346,12 +576,49 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 }
             }
 
+            Statement::Break => {
+                // Execute deferred statements before break
+                self.execute_deferred_statements()?;
+
+                // Get current loop context
+                if let Some((_, break_block)) = self.loop_context_stack.last() {
+                    let break_block = *break_block;
+                    self.builder
+                        .build_unconditional_branch(break_block)
+                        .map_err(|e| format!("Failed to build break branch: {}", e))?;
+                } else {
+                    return Err("Break statement outside of loop".to_string());
+                }
+            }
+
+            Statement::Continue => {
+                // Execute deferred statements before continue
+                self.execute_deferred_statements()?;
+
+                // Get current loop context
+                if let Some((continue_block, _)) = self.loop_context_stack.last() {
+                    let continue_block = *continue_block;
+                    self.builder
+                        .build_unconditional_branch(continue_block)
+                        .map_err(|e| format!("Failed to build continue branch: {}", e))?;
+                } else {
+                    return Err("Continue statement outside of loop".to_string());
+                }
+            }
+
+            Statement::Defer(stmt) => {
+                // Add statement to defer stack (LIFO)
+                // Don't execute now, execute on function exit
+                self.deferred_statements.push(stmt.as_ref().clone());
+            }
+
             Statement::If {
                 condition,
                 then_block,
+                elif_branches,
                 else_block,
             } => {
-                self.compile_if_statement(condition, then_block, else_block)?;
+                self.compile_if_statement(condition, then_block, elif_branches, else_block)?;
             }
 
             Statement::For {
@@ -385,11 +652,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
         Ok(())
     }
 
-    /// Compile if statement
+    /// Compile if statement with elif support
     fn compile_if_statement(
         &mut self,
         condition: &Expression,
         then_block: &Block,
+        elif_branches: &[(Expression, Block)],
         else_block: &Option<Block>,
     ) -> Result<(), String> {
         let cond_val = self.compile_expression(condition)?;
@@ -407,12 +675,34 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let fn_val = self.current_function.ok_or("No current function")?;
 
         let then_bb = self.context.append_basic_block(fn_val, "then");
-        let else_bb = self.context.append_basic_block(fn_val, "else");
         let merge_bb = self.context.append_basic_block(fn_val, "ifcont");
 
-        // Build conditional branch
+        // Create blocks for elif branches
+        let mut elif_blocks = Vec::new();
+        for (i, _) in elif_branches.iter().enumerate() {
+            let elif_cond_bb = self
+                .context
+                .append_basic_block(fn_val, &format!("elif.cond.{}", i));
+            let elif_then_bb = self
+                .context
+                .append_basic_block(fn_val, &format!("elif.then.{}", i));
+            elif_blocks.push((elif_cond_bb, elif_then_bb));
+        }
+
+        // Else block or final fallthrough
+        let else_bb = self.context.append_basic_block(fn_val, "else");
+
+        // Build initial conditional branch
         self.builder
-            .build_conditional_branch(bool_val, then_bb, else_bb)
+            .build_conditional_branch(
+                bool_val,
+                then_bb,
+                if !elif_blocks.is_empty() {
+                    elif_blocks[0].0
+                } else {
+                    else_bb
+                },
+            )
             .map_err(|e| format!("Failed to build branch: {}", e))?;
 
         // Compile then block
@@ -430,9 +720,56 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 .map_err(|e| format!("Failed to build branch: {}", e))?;
         }
 
+        // Compile elif branches
+        let mut any_unterminated = !then_terminated;
+        for (i, (elif_cond, elif_body)) in elif_branches.iter().enumerate() {
+            let (cond_bb, then_bb) = elif_blocks[i];
+
+            // Position at condition block
+            self.builder.position_at_end(cond_bb);
+
+            // Evaluate elif condition
+            let cond_val = self.compile_expression(elif_cond)?;
+            let bool_val = if let BasicValueEnum::IntValue(iv) = cond_val {
+                let zero = iv.get_type().const_int(0, false);
+                self.builder
+                    .build_int_compare(IntPredicate::NE, iv, zero, "elifcond")
+                    .map_err(|e| format!("Failed to compare: {}", e))?
+            } else {
+                return Err("Elif condition must be integer value".to_string());
+            };
+
+            // Branch to elif body or next elif/else
+            let next_bb = if i + 1 < elif_blocks.len() {
+                elif_blocks[i + 1].0
+            } else {
+                else_bb
+            };
+
+            self.builder
+                .build_conditional_branch(bool_val, then_bb, next_bb)
+                .map_err(|e| format!("Failed to build elif branch: {}", e))?;
+
+            // Compile elif body
+            self.builder.position_at_end(then_bb);
+            self.compile_block(elif_body)?;
+            let elif_terminated = self
+                .builder
+                .get_insert_block()
+                .unwrap()
+                .get_terminator()
+                .is_some();
+            if !elif_terminated {
+                self.builder
+                    .build_unconditional_branch(merge_bb)
+                    .map_err(|e| format!("Failed to build branch: {}", e))?;
+                any_unterminated = true;
+            }
+        }
+
         // Compile else block
         self.builder.position_at_end(else_bb);
-        if let Some(ref eb) = else_block {
+        if let Some(eb) = else_block {
             self.compile_block(eb)?;
         }
         let else_terminated = self
@@ -445,15 +782,14 @@ impl<'ctx> ASTCodeGen<'ctx> {
             self.builder
                 .build_unconditional_branch(merge_bb)
                 .map_err(|e| format!("Failed to build branch: {}", e))?;
+            any_unterminated = true;
         }
 
-        // Continue at merge block ONLY if at least one branch didn't terminate
-        // If both branches terminated (return/break/continue), merge block is unreachable
-        if !then_terminated || !else_terminated {
+        // Continue at merge block if at least one branch didn't terminate
+        if any_unterminated {
             self.builder.position_at_end(merge_bb);
         } else {
-            // Both branches terminated - merge block is unreachable
-            // We need to add a terminator to it to satisfy LLVM
+            // All branches terminated - merge block is unreachable
             self.builder.position_at_end(merge_bb);
             self.builder
                 .build_unreachable()
@@ -493,7 +829,18 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Body block
         self.builder.position_at_end(loop_body);
-        self.compile_block(body)?;
+
+        // Push loop context for break/continue
+        // continue → jump to loop_cond, break → jump to loop_end
+        self.loop_context_stack.push((loop_cond, loop_end));
+
+        let compile_result = self.compile_block(body);
+
+        // Pop loop context
+        self.loop_context_stack.pop();
+
+        compile_result?;
+
         if self
             .builder
             .get_insert_block()
@@ -523,7 +870,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let fn_val = self.current_function.ok_or("No current function")?;
 
         // Compile init statement
-        if let Some(ref i) = init {
+        if let Some(i) = init {
             self.compile_statement(i)?;
         }
 
@@ -539,7 +886,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Condition block
         self.builder.position_at_end(loop_cond);
-        if let Some(ref cond) = condition {
+        if let Some(cond) = condition {
             let cond_val = self.compile_expression(cond)?;
             let bool_val = if let BasicValueEnum::IntValue(iv) = cond_val {
                 let zero = iv.get_type().const_int(0, false);
@@ -561,7 +908,18 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Body block
         self.builder.position_at_end(loop_body);
-        self.compile_block(body)?;
+
+        // Push loop context for break/continue
+        // continue → jump to loop_post, break → jump to loop_end
+        self.loop_context_stack.push((loop_post, loop_end));
+
+        let compile_result = self.compile_block(body);
+
+        // Pop loop context
+        self.loop_context_stack.pop();
+
+        compile_result?;
+
         if self
             .builder
             .get_insert_block()
@@ -576,7 +934,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Post block
         self.builder.position_at_end(loop_post);
-        if let Some(ref p) = post {
+        if let Some(p) = post {
             self.compile_statement(p)?;
         }
         self.builder
@@ -597,7 +955,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         default_case: &Option<Block>,
     ) -> Result<(), String> {
         // Evaluate the switch value
-        let switch_val = if let Some(ref val_expr) = value {
+        let switch_val = if let Some(val_expr) = value {
             self.compile_expression(val_expr)?
         } else {
             return Err("Type switches not yet supported".to_string());
@@ -662,7 +1020,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Compile default case
         self.builder.position_at_end(default_bb);
-        if let Some(ref def_block) = default_case {
+        if let Some(def_block) = default_case {
             self.compile_block(def_block)?;
         }
         if self

@@ -1,4 +1,4 @@
-// std::crypto - Cryptographic utilities (High-level)
+// std.crypto - Cryptographic utilities (High-level)
 // Wrappers around OpenSSL/LibreSSL
 
 import { openssl } from "../ffi";

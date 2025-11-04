@@ -1,0 +1,9 @@
+// Phase 4: Lifetime Analysis - Reference outlives referent (should pass for now)
+// This test demonstrates that Phase 4 currently only checks return statements
+// Full flow-sensitive analysis would catch this, but is not yet implemented
+
+fn main(): i32 {
+    let temp = 0;
+    let ref_val = &temp;  // OK: temp lives for whole function
+    return 0;
+}

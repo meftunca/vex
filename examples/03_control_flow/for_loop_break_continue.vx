@@ -1,0 +1,63 @@
+// For Loop Break/Continue Comprehensive Test
+// Tests break and continue in C-style for loops
+
+fn test_for_break(): i32 {
+    let! sum = 0;
+    for let! i = 0; i < 10; i = i + 1 {
+        if i == 5 {
+            break;
+        }
+        sum = sum + i;
+    }
+    // Should sum 0+1+2+3+4 = 10
+    return sum;
+}
+
+fn test_for_continue(): i32 {
+    let! sum = 0;
+    for let! i = 0; i < 10; i = i + 1 {
+        if i == 5 {
+            continue;
+        }
+        sum = sum + i;
+    }
+    // Should sum 0+1+2+3+4+6+7+8+9 = 40 (skips 5)
+    return sum;
+}
+
+fn test_nested_for_break(): i32 {
+    let! sum = 0;
+    for let! i = 0; i < 5; i = i + 1 {
+        for let! j = 0; j < 5; j = j + 1 {
+            if j == 2 {
+                break;  // Break inner loop only
+            }
+            sum = sum + 1;
+        }
+    }
+    // Outer runs 5 times, inner runs 2 times each = 10
+    return sum;
+}
+
+fn test_nested_for_continue(): i32 {
+    let! count = 0;
+    for let! i = 0; i < 4; i = i + 1 {
+        for let! j = 0; j < 4; j = j + 1 {
+            if j == 1 {
+                continue;  // Skip j=1
+            }
+            count = count + 1;
+        }
+    }
+    // Outer 4 times, inner 3 times each (0,2,3) = 12
+    return count;
+}
+
+fn main(): i32 {
+    let result1 = test_for_break();        // 10
+    let result2 = test_for_continue();     // 40
+    let result3 = test_nested_for_break(); // 10
+    let result4 = test_nested_for_continue(); // 12
+    
+    return result1 + result2 + result3 + result4;  // 10 + 40 + 10 + 12 = 72
+}

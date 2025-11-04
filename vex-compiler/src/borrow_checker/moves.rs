@@ -159,6 +159,7 @@ impl MoveChecker {
             Statement::If {
                 condition,
                 then_block,
+                elif_branches,
                 else_block,
             } => {
                 self.check_expression(condition)?;
@@ -166,6 +167,14 @@ impl MoveChecker {
                 // Check then branch
                 for stmt in &then_block.statements {
                     self.check_statement(stmt)?;
+                }
+
+                // Check elif branches
+                for (elif_cond, elif_block) in elif_branches {
+                    self.check_expression(elif_cond)?;
+                    for stmt in &elif_block.statements {
+                        self.check_statement(stmt)?;
+                    }
                 }
 
                 // Check else branch
@@ -429,12 +438,15 @@ impl MoveChecker {
             | Type::I16
             | Type::I32
             | Type::I64
+            | Type::I128
             | Type::U8
             | Type::U16
             | Type::U32
             | Type::U64
+            | Type::U128
             | Type::F32
             | Type::F64
+            | Type::F128
             | Type::Bool
             | Type::Byte => false,
 
@@ -455,6 +467,9 @@ impl MoveChecker {
 
             // Tuples are Move if any element is Move
             Type::Tuple(types) => types.iter().any(|t| self.is_move_type(t)),
+
+            // Function types are Copy (function pointers)
+            Type::Function { .. } => false,
 
             // Complex types are Move
             Type::Union(_) | Type::Intersection(_) | Type::Conditional { .. } => true,

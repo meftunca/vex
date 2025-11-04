@@ -1,6 +1,6 @@
 // Prime number checker
 
-fn is_prime(n: i32) :bool {
+fn is_prime(n: i32): bool {
     if n <= 1 {
         return false;
     }
@@ -11,7 +11,7 @@ fn is_prime(n: i32) :bool {
         return false;
     }
     
-    i := 3;
+    let! i = 3;
     while i * i <= n {
         if n % i == 0 {
             return false;
@@ -21,13 +21,14 @@ fn is_prime(n: i32) :bool {
     return true;
 }
 
-fn main() {
+fn main(): i32 {
     // Test some numbers
-    test1 := is_prime(17);  // true (1)
-    test2 := is_prime(20);  // false (0)
-    test3 := is_prime(97);  // true (1)
+    let test1 = is_prime(17);  // true (1)
+    let test2 = is_prime(20);  // false (0)
+    let test3 = is_prime(97);  // true (1)
     
-    print(test1);
-    print(test2);
-    print(test3);
+    println(test1);
+    println(test2);
+    println(test3);
+    return 0;
 }
