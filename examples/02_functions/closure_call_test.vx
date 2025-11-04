@@ -1,0 +1,13 @@
+// Test actually calling a closure with captured environment
+
+fn main(): i32 {
+    let x = 10;
+    
+    // Create closure that captures x
+    let add_x = |y: i32| x + y;
+    
+    // Actually call the closure
+    let result = add_x(5);
+    
+    return result;  // Should return 15 (10 + 5)
+}

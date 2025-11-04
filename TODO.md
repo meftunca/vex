@@ -1,8 +1,26 @@
 # Vex Language - TODO
 
-## 🎯 Session Summary (Latest - November 4, 2025)
+## 🎯 Session Summary (Latest - November 5, 2025)
 
 **✅ COMPLETED TODAY:**
+
+1. **Closure Parser Fix** ✅ **[CRITICAL!]**
+   - **Bug:** `|x: i32| x * 2` failed with "Expected '|' after closure parameters"
+   - **Root Cause:** `parse_type()` treated `|` as union type operator
+   - **Solution:** Use `parse_type_primary()` for closure parameter types
+   - **Files Modified:**
+     - `vex-parser/src/parser/expressions.rs` line 738
+     - `vex-parser/src/parser/types.rs` line 26 (Arrow → Colon for function types)
+     - `examples/02_functions/higher_order.vx` (fixed syntax)
+   - **Impact:**
+     - ✅ Closure parsing now works
+     - ✅ `higher_order.vx` compiles and returns correct result (35)
+     - ✅ Function pointers already work in codegen!
+   - **Next:** Fix borrow checker closure scoping bug, then implement `compile_closure()`
+
+## 🎯 Previous Session (November 4, 2025)
+
+**✅ COMPLETED:**
 
 1. **Rust 1.91.0 Compatibility** ✅
 
@@ -91,9 +109,19 @@
 ### 1. Essential Language Features (~9 days) - START HERE
 
 - [x] **If-Else Parser Bug** - ✅ FIXED! `<` detection works
-- [ ] **Break/Continue** 🔴 - Full loop context (~1 day) ⬅️ NEXT
-- [ ] **Method Syntax Sugar** 🔴 - `self.method()` ergonomics (~1 day)
+- [x] **Break/Continue** 🔴 - Full loop context (~1 day)
+- [x] **Method Syntax Sugar** ✅ - Parser implementation complete, codegen pending
+  - `identifier(args)` in method bodies → `self.identifier(args)`
+  - Parser flag `in_method_body` tracks context
+  - Borrow checker accepts syntax sugar
+  - Codegen method resolution needs update
 - [ ] **Closures & Lambdas** 🔴 - `|x| x + 1` syntax, capture (~5 days)
+  - **Parser**: ✅ FIXED (Nov 5, 2025) - See `CLOSURE_PARSER_FIX_SUMMARY.md`
+  - **Function Pointers**: ✅ Already working in codegen
+  - **TODO 1**: Fix borrow checker closure parameter scoping (~2 hours)
+  - **TODO 2**: Implement `compile_closure()` in codegen (~5 days)
+  - **TODO 3**: Add environment capture mechanism (~2 days)
+  - **TODO 4**: Closure traits (Fn, FnMut, FnOnce) (~2 days)
   - Critical for functional programming
   - Needed before standard library
 - [ ] **Error Handling** 🔴 - `Result<T, E>` with `?` operator (~2 days)

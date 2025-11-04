@@ -1,0 +1,14 @@
+// Test closure with multiple captured variables
+
+fn main(): i32 {
+    let x = 10;
+    let y = 20;
+    let z = 5;
+    
+    // Closure captures three variables
+    let compute = |a: i32| x + y - z + a;
+    
+    let result = compute(7);
+    
+    return result;  // Should return 32 (10 + 20 - 5 + 7)
+}

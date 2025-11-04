@@ -54,8 +54,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 return builtin_fn(self, &arg_basic_vals);
             }
 
-            // Check if this is a function parameter (stored in function_params)
-            if self.function_params.contains_key(func_name) {
+            // Check if this is a local variable (could be a closure stored in a variable)
+            if self.variables.contains_key(func_name) {
+                // This is a variable - fall through to complex expression handling
+                // It will be loaded and might be a closure with environment
+            } else if self.function_params.contains_key(func_name) {
                 // This is a function pointer parameter - fall through to complex expression handling
                 // (it will be looked up via compile_expression -> Expression::Ident)
             } else {
@@ -97,9 +100,29 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // It should be a pointer value (function pointer)
         if let BasicValueEnum::PointerValue(fn_ptr) = func_val {
-            // For indirect calls through function pointers, we need the function type
-            // Check if this is a function parameter with known type
+            // Check if this is a closure with captured environment
+            // First check if the variable name is a tracked closure
+            let (has_environment, env_ptr_opt) = if let Expression::Ident(name) = func_expr {
+                if let Some((_, env_ptr)) = self.closure_variables.get(name) {
+                    eprintln!("🎯 Found closure variable '{}' with environment", name);
+                    (true, Some(*env_ptr))
+                } else if let Some(env_ptr) = self.closure_envs.get(&fn_ptr) {
+                    (true, Some(*env_ptr))
+                } else {
+                    (false, None)
+                }
+            } else {
+                // Try direct lookup
+                if let Some(env_ptr) = self.closure_envs.get(&fn_ptr) {
+                    (true, Some(*env_ptr))
+                } else {
+                    (false, None)
+                }
+            };
+
+            // Get function type - we need to infer it from the closure or look it up
             let fn_type = if let Expression::Ident(name) = func_expr {
+                // Try to get type from function_param_types (for function parameters)
                 if let Some(param_type) = self.function_param_types.get(name) {
                     if let Type::Function {
                         params,
@@ -112,16 +135,53 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         return Err(format!("Parameter {} is not a function type", name));
                     }
                 } else {
-                    return Err(format!("Function type for {} not found", name));
+                    // This might be a closure stored in a variable
+                    // For now, assume it takes the same args as provided and returns i32
+                    // TODO: Store closure types when creating them
+                    eprintln!("⚠️  Inferring closure type from call arguments");
+
+                    // Build function type from arguments
+                    let mut param_types: Vec<inkwell::types::BasicMetadataTypeEnum> = vec![];
+                    if has_environment {
+                        // Add environment pointer as first parameter
+                        param_types.push(
+                            self.context
+                                .ptr_type(inkwell::AddressSpace::default())
+                                .into(),
+                        );
+                    }
+                    for arg_val in &arg_basic_vals {
+                        param_types.push(arg_val.get_type().into());
+                    }
+
+                    // Assume i32 return type for now (should be stored with closure)
+                    let ret_type = self.context.i32_type();
+                    ret_type.fn_type(&param_types, false)
                 }
             } else {
                 return Err("Complex function expressions not yet supported".to_string());
             };
 
+            // If this closure has an environment, prepend it to arguments
+            let final_args = if has_environment {
+                let env_ptr = env_ptr_opt.ok_or("Closure environment pointer missing")?;
+                eprintln!(
+                    "🎯 Calling closure with captured environment: {:?}",
+                    env_ptr
+                );
+
+                // Prepend environment pointer to arguments
+                let mut closure_args = vec![env_ptr.into()];
+                closure_args.extend(arg_vals);
+                closure_args
+            } else {
+                arg_vals
+            };
+
             // Build indirect call using the function pointer
             let call_site = self
                 .builder
-                .build_indirect_call(fn_type, fn_ptr, &arg_vals, "indirect_call")
+                .build_indirect_call(fn_type, fn_ptr, &final_args, "indirect_call")
                 .map_err(|e| format!("Failed to build indirect call: {}", e))?;
 
             return call_site

@@ -1,310 +1,249 @@
 # Vex Language Compiler - AI Agent Instructions
 
-**Project:** Vex - Modern systems programming language with Rust's safety and Go's simplicity  
+**Project:** Vex - Modern systems programming language  
 **Version:** 0.2.0 (Syntax v0.9)  
-**Last Updated:** November 3, 2025
+**Last Updated:** November 4, 2025  
+**Test Status:** 86/101 passing (85.1%)
 
-## 🏗️ Architecture Overview
+## 🎯 Core Principles
 
-**Rust Workspace with 6 Crates:**
+1. **Check reference documentation first** - See TODO.md, docs/*.md for specs
+2. **No shortcuts** - Implement features properly, not quick hacks
+3. **Comprehensive testing** - Test all edge cases, not just happy paths
+4. **Parallel development** - If feature A needs feature B enhancement, develop both
+5. **Work silently** - No chat discussion during implementation, only final progress summary
+6. **Use absolute paths** - Binary is at `~/.cargo/target/debug/vex`
+7. **Follow Vex syntax v0.9** - Not Rust syntax (no `mut`, `->`, `::`)
+
+## 📁 Project Structure
 
 ```
-vex-lexer (logos) → vex-parser (recursive descent) → vex-ast
-  → vex-compiler (LLVM/inkwell) → vex-cli (clap) → vex-runtime (tokio)
+vex_lang/
+├── .github/
+│   └── copilot-instructions.md          # This file
+├── vex-lexer/                           # Tokenization (logos)
+├── vex-parser/                          # Recursive descent parser
+│   └── src/parser/
+│       ├── expressions.rs               # Expression parsing
+│       ├── items.rs                     # Functions, traits, structs
+│       └── types.rs                     # Type parsing
+├── vex-ast/                             # Abstract Syntax Tree
+│   └── src/lib.rs                       # All AST node definitions
+├── vex-compiler/                        # LLVM codegen
+│   └── src/
+│       ├── codegen_ast/
+│       │   ├── mod.rs                   # Core ASTCodeGen struct
+│       │   ├── types.rs                 # AST↔LLVM type conversion
+│       │   ├── statements.rs            # Let, if, while, for, return
+│       │   ├── functions.rs             # Function compilation, generics
+│       │   └── expressions/
+│       │       ├── mod.rs               # Expression dispatcher
+│       │       ├── binary_ops.rs        # Arithmetic, comparisons
+│       │       ├── calls.rs             # Function/method calls
+│       │       ├── literals.rs          # Arrays, structs, tuples
+│       │       ├── access.rs            # Field access, indexing
+│       │       └── special.rs           # Unary, postfix, closures
+│       ├── borrow_checker/
+│       │   ├── mod.rs                   # Entry point
+│       │   ├── immutability.rs          # Phase 1: let vs let!
+│       │   ├── moves.rs                 # Phase 2: Use-after-move
+│       │   ├── borrows.rs               # Phase 3: Borrow rules
+│       │   └── lifetimes.rs             # Phase 4: Lifetime analysis
+│       └── module_resolver.rs           # Import system
+├── vex-cli/                             # Command-line interface
+├── vex-runtime/                         # Runtime (async, SIMD, C ABI)
+│   ├── src/                             # Rust FFI bindings
+│   ├── c/                               # ⚠️ C ABI RUNTIME (CRITICAL)
+│   │   ├── vex.h                        # Main C header
+│   │   ├── vex_intrinsics.h             # Intrinsic functions
+│   │   ├── vex_alloc.c                  # Memory allocation
+│   │   ├── vex_array.c                  # Array operations
+│   │   ├── vex_string.c                 # String handling
+│   │   ├── vex_simd_utf.c               # SIMD UTF-8 (simdutf)
+│   │   ├── vex_swisstable.c             # HashMap (Google Swiss Tables)
+│   │   ├── vex_io.c                     # I/O operations
+│   │   ├── vex_file.c                   # File operations
+│   │   ├── vex_time.c                   # Time operations
+│   │   ├── vex_error.c                  # Error handling
+│   │   ├── vex_testing.c                # Test utilities
+│   │   └── async_runtime/               # Async/await runtime (C)
+│   │       ├── include/runtime.h        # Runtime API
+│   │       ├── src/                     # Event loop, scheduler
+│   │       └── tests/                   # Runtime tests
+│   ├── README.md                        # Runtime documentation
+│   ├── IMPLEMENTATION_STATUS.md         # Feature status
+│   ├── UTF8_SUPPORT.md                  # UTF-8 implementation
+│   └── ARRAY_SAFETY.md                  # Array safety details
+├── vex-libs/                            # Standard library
+│   └── std/                             # Vex stdlib modules
+├── examples/                            # Test examples (.vx files)
+│   ├── 00_borrow_checker/               # Borrow checker tests
+│   ├── 01_basics/                       # Variables, types
+│   ├── 02_functions/                    # Functions, closures
+│   ├── 03_control_flow/                 # If, loops, match
+│   ├── 04_types/                        # Structs, enums
+│   ├── 05_generics/                     # Generic functions
+│   ├── 06_patterns/                     # Pattern matching
+│   ├── 07_strings/                      # String operations
+│   ├── 08_algorithms/                   # Fibonacci, factorial
+│   └── 09_trait/                        # Trait system
+├── docs/                                # Documentation
+│   ├── CLOSURE_IMPLEMENTATION_COMPLETE.md
+│   ├── VARIABLE_SYSTEM_V09.md
+│   └── ...
+├── TODO.md                              # ⚠️ PRIMARY TASK LIST
+├── README.md                            # Project overview
+├── Specification.md                     # Language spec (Turkish)
+├── SYNTAX.md                            # Syntax reference
+└── test_all.sh                          # Run all tests
+
+Binary location: ~/.cargo/target/debug/vex (NOT ./target/)
+Build output:    vex-builds/              (LLVM IR and binaries)
 ```
 
-**Key Design Philosophy:**
+## 📚 Reference Documentation (Always Check These First!)
 
-- Go's simplicity (interfaces, clean syntax) + Rust's safety (borrow checker) + TypeScript's type system (generics, unions)
-- Compiler is in Rust, target language is Vex (`.vx` files)
-- 71% test coverage, 29/59 examples passing
+### Primary References
+- **`TODO.md`** - Current tasks, priorities, recent completions, test status
+- **`SYNTAX.md`** - Language syntax reference
+- **`Specification.md`** - Detailed language specification (Turkish)
+- **`README.md`** - Quick start, feature overview
 
-## ⚠️ Critical Build Information
+### Feature Documentation
+- **`docs/CLOSURE_IMPLEMENTATION_COMPLETE.md`** - Closure implementation details
+- **`docs/VARIABLE_SYSTEM_V09.md`** - let/let! syntax, references
+- **`DEFER_IMPLEMENTATION.md`** - Defer statement implementation
+- **`CLOSURE_PARSER_FIX_SUMMARY.md`** - Closure parsing fix details
 
-**Cargo builds to ~/.cargo/target/, NOT workspace directory!**
+### Architecture
+- **`REFACTORING_PLAN.md`** - Codegen module organization
+- **`vex-libs/std/README.md`** - Standard library structure
+- **`examples/README.md`** - Example organization and status
 
-```bash
-# ✅ CORRECT binary locations:
-~/.cargo/target/debug/vex
-~/.cargo/target/release/vex
+### Test Results
+- **`TEST_RESULTS.md`** - Historical test data
+- **`test_all.sh`** - Run to get current test status
 
-# ❌ NEVER use ./target/ - Cargo.toml workspace config sets:
-#    target-dir = "~/.cargo/target"
-```
-
-**Always use absolute paths when running the compiler:**
+## ⚙️ Build & Run Commands
 
 ```bash
 # Build
-cargo build --release
+cargo build
 
-# Run examples
-~/.cargo/target/debug/vex run examples/01_basics/hello_world.vx
-~/.cargo/target/debug/vex compile examples/08_algorithms/fibonacci.vx -o fib.o
+# Run file
+~/.cargo/target/debug/vex run examples/02_functions/closure_simple.vx
+
+# Run inline code
+~/.cargo/target/debug/vex run -c "fn main(): i32 { return 42; }"
+
+# Compile to binary
+~/.cargo/target/debug/vex compile examples/08_algorithms/fibonacci.vx
+
+# Run all tests
+./test_all.sh
+
+# Emit LLVM IR
+~/.cargo/target/debug/vex compile examples/test.vx --emit-llvm
+cat vex-builds/test.ll
 ```
 
-## 📋 Syntax v0.9 Conventions (Nov 2025)
+## 🔑 Key Syntax Rules (v0.9)
 
-**Variable System (Unified):**
-
+### Variables
 ```vex
-let x = 42;              // Immutable (default, Rust-style)
-let! counter = 0;        // Mutable (explicit with !)
-counter = counter + 1;   // OK, marked mutable
+let x = 42;              // Immutable (default)
+let! counter = 0;        // Mutable (! suffix)
 const MAX = 100;         // Compile-time constant
 ```
 
-**References:**
-
+### References
 ```vex
 &T                       // Immutable reference
 &T!                      // Mutable reference (NOT &mut T)
 ```
 
-**Deprecated Keywords:**
-
-- ❌ `mut` keyword removed from lexer (use `!` suffix instead)
-- ❌ `interface` keyword returns parser error (use `trait`)
-- ❌ `:=` operator removed (use `let` instead)
-
-**See:** `docs/VARIABLE_SYSTEM_V09.md` for full specification
-
-## 🔍 Module Structure & Entry Points
-
-### Compiler Pipeline (vex-compiler/src/)
-
-**Core Files:**
-
-- `lib.rs` - Public API exports
-- `codegen.rs` - Legacy standalone examples (hello_world, fibonacci, etc.)
-- `codegen_ast/mod.rs` - Main `ASTCodeGen<'ctx>` struct (184 lines)
-- `module_resolver.rs` - Import system, loads from `vex-libs/std/`
-- `borrow_checker/mod.rs` - 3-phase checker (immutability, moves, borrows)
-
-**Modular Codegen Structure (see REFACTORING_SUCCESS.md):**
-
-```
-codegen_ast/
-├── mod.rs              - Core struct, helpers, printf
-├── types.rs            - AST↔LLVM type conversions (230 lines)
-├── statements.rs       - Let, if, while, for, return (408 lines)
-├── functions.rs        - Program compilation, generics (540 lines)
-├── builtins.rs         - Built-in functions registry
-└── expressions/
-    ├── mod.rs          - Main dispatcher
-    ├── binary_ops.rs   - Arithmetic, comparisons
-    ├── calls.rs        - Function/method calls
-    ├── literals.rs     - Arrays, structs, tuples
-    ├── access.rs       - Field access, indexing
-    └── special.rs      - Unary, postfix ops
-```
-
-**When modifying codegen:**
-
-1. Identify the expression/statement type from `vex-ast/src/lib.rs`
-2. Find the relevant module in `codegen_ast/`
-3. Add case to dispatcher or extend existing `impl<'ctx> ASTCodeGen<'ctx>` block
-4. Follow LLVM patterns from existing code (use `IntValue`, `BasicBlock`, etc.)
-
-### Parser (vex-parser/src/)
-
-**Entry Point:** `grammar.lalrpop` (LALRPOP grammar) - currently being migrated  
-**Recursive Descent:** `parser/` directory (items.rs, expressions.rs, types.rs)
-
-**Parser is in flux** - check `TODO.md` for migration status
-
-### Borrow Checker (vex-compiler/src/borrow_checker/)
-
-**3-Phase System:**
-
-1. **Immutability** (`immutability.rs`) - Enforces `let` vs `let!` semantics (7 tests ✅)
-2. **Move Semantics** (`moves.rs`) - Prevents use-after-move (5 tests ✅)
-3. **Borrow Rules** (`borrows.rs`) - 1 mutable XOR N immutable refs (5 tests ✅)
-4. **Phase 4 TODO:** Lifetime analysis (5-6 days estimated)
-
-**Integration:** Automatically runs on `vex compile` and `vex run` via `vex-cli/src/main.rs`
-
-## 🧪 Testing & Development Workflow
-
-**Test Scripts:**
-
-```bash
-# Run all examples (shell script)
-./test_all.sh
-
-# Individual example test
-~/.cargo/target/debug/vex run examples/02_functions/recursion.vx
-echo $?  # Check exit code
-```
-
-**Working Examples (29/59 passing):**
-
-- `examples/01_basics/` - Variables, types
-- `examples/02_functions/` - Recursion, methods
-- `examples/03_control_flow/` - If, switch, loops
-- `examples/08_algorithms/` - Fibonacci (returns 55), factorial, GCD
-
-**Borrow Checker Tests:**
-
-```bash
-# All tests in examples/00_borrow_checker/
-~/.cargo/target/debug/vex run examples/00_borrow_checker/01_immutable_assign.vx
-# Should fail with borrow error
-```
-
-**Trait System Tests:**
-
-```bash
-# All tests in examples/09_trait/
-~/.cargo/target/debug/vex run examples/09_trait/01_basic_trait.vx
-```
-
-**Unit Tests:**
-
-```bash
-# Run Rust tests in specific crate
-cargo test -p vex-lexer
-cargo test -p vex-compiler
-
-# Run all workspace tests
-cargo test --workspace
-```
-
-## 🎯 Feature Implementation Status (see TODO.md)
-
-**✅ Fully Working:**
-
-- Basic types: i8/16/32/64, u8/16/32/64, f32/64, bool, string
-- Variables: `let`, `let!`, `const` with v0.9 syntax
-- Functions: Basic, generic, recursive, methods with receivers
-- Control flow: if/else, switch/case, while, for
-- Data structures: Structs, enums (C-style), tuples (parsed)
-- Pattern matching: Basic match, tuple/struct destructuring
-- Borrow checker: Phases 1-3 complete (17 tests passing)
-- Trait system v1.3: Inline implementation (`struct Foo impl Trait`)
-
-**🚧 Partial/In Progress:**
-
-- Generics: Monomorphization works, edge cases remain
-- F-strings: Parsing complete, interpolation limited
-- Default trait methods: AST ready, codegen pending
-- Data-carrying enums: `Some(x)`, `Ok(val)` pattern matching pending
-
-**❌ Not Yet Implemented:**
-
-- Async/await: Parser exists, no runtime integration
-- Dynamic dispatch: Vtable generation pending
-- Closures/lambdas
-- Advanced optimizations
-
-## 📦 Standard Library (vex-libs/std/)
-
-**Layered Architecture (see vex-libs/std/README.md):**
-
-```
-Layer 3: Application (100% Safe Vex) - http, json, xml
-Layer 2: Protocol (100% Safe Vex)    - net, sync, testing
-Layer 1: I/O Core (Unsafe Bridge)    - io, ffi, unsafe, hpc
-Layer 0: Vex Runtime (Rust)          - io_uring, async scheduler
-```
-
-**Import Resolution:**
-
-- ModuleResolver in `vex-compiler/src/module_resolver.rs`
-- Path conversion: `"std::io"` → `vex-libs/std/io/mod.vx`
-- Imports merged into main AST before codegen
-
-**Example Import:**
-
+### Function Types
 ```vex
-import { io, log } from "std";  // Loads from vex-libs/std/
+fn(i32, i32): i32        // Use : not ->
+fn add(x: i32): i32      // Return type with :
 ```
 
-## 🔧 Common Tasks
-
-### Adding a New Built-in Function
-
-1. Register in `codegen_ast/builtins.rs` → `BuiltinRegistry::new()`
-2. Implement generator function with signature `fn(&mut ASTCodeGen, Vec<Expression>) -> Result<BasicValueEnum, String>`
-3. Add test in examples with `@intrinsic` or direct call
-
-### Adding a New Statement Type
-
-1. Define AST node in `vex-ast/src/lib.rs` → `Statement` enum
-2. Add parser case in `vex-parser/src/parser/items.rs`
-3. Implement codegen in `vex-compiler/src/codegen_ast/statements.rs`
-4. Add borrow checker logic if needed in `borrow_checker/` modules
-5. Create test in `examples/` with expected behavior
-
-### Debugging LLVM Issues
-
-```bash
-# Emit LLVM IR to inspect
-~/.cargo/target/debug/vex compile examples/test.vx --emit-llvm
-
-# Check generated IR in vex-builds/
-cat vex-builds/test.ll
-
-# Verify LLVM module validity
-# Look for verify_module() calls in codegen
+### Closures
+```vex
+|x: i32| x * 2           // Basic closure
+|x: i32|: i32 { x * 2 }  // With explicit return type
 ```
 
-**Common LLVM Patterns:**
+### Deprecated (Will Error)
+```vex
+❌ mut x = 42;           // Use let! instead
+❌ fn(): i32 -> { }      // Use : not ->
+❌ interface Foo {}      // Use trait instead
+❌ x := 42;              // Use let instead
+```
 
-- Use `builder.position_at_end(block)` before emitting instructions
-- Check terminator with `block.get_terminator().is_some()` before adding branches
-- Float comparisons need `FloatPredicate`, ints need `IntPredicate`
+## 🎯 Current Implementation Status
 
-## 📚 Key Documentation Files
+### Implementation Status (See TODO.md)
+- ✅ Variables, functions, control flow, structs, enums, pattern matching
+- ✅ Trait system v1.3, borrow checker (4 phases), defer statement
+- ✅ Closures: parser, borrow checker, basic codegen, environment detection
+- 🚧 Closure environment binding, closure traits (Fn/FnMut/FnOnce)
+- ❌ Async/await runtime, dynamic dispatch, full optimizations
 
-- `README.md` - Quick start, feature overview
-- `TODO.md` - Active development tasks with priorities (🔴🟡🟢)
-- `LANGUAGE_FEATURES.md` - Complete feature list with test status
-- `REFACTORING_SUCCESS.md` - Codegen modular structure explanation
-- `Specification.md` - Language spec (Turkish, detailed syntax rules)
-- `examples/README.md` - All examples organized by category with status
-- `vex-libs/std/README.md` - Standard library API documentation
+## ⚠️ C ABI Runtime (Critical)
 
-## 🎨 Code Style & Patterns
+**Why C?** SIMD-optimized (20 GB/s UTF-8), Swiss Tables HashMap, cross-platform
 
-**Rust Conventions:**
+**Key Files:**
+```
+vex-runtime/c/
+├── vex.h, vex_intrinsics.h  - API headers
+├── vex_alloc.c, vex_array.c - Memory, arrays
+├── vex_simd_utf.c           - SIMD UTF-8 (simdutf)
+├── vex_swisstable.c         - HashMap
+└── async_runtime/           - Async event loop
+```
 
-- Use `Result<T, String>` for errors in codegen
-- LLVM lifetimes: `ASTCodeGen<'ctx>` tracks Inkwell context
-- Prefer pattern matching over if-let chains
-- Use `log::info!()` / `log::debug!()` for debugging
+**Add C function:** vex.h → vex_*.c → builtins.rs → test  
+**Build:** `cd vex-runtime/c && ./build.sh`
 
-**Vex Language Conventions:**
+## 🛠️ Development Workflow
 
-- File extension: `.vx`
-- Main entry point: `fn main(): i32 { return 0; }`
-- Comments: `//` and `/* */` C-style
-- Naming: snake_case for variables/functions, PascalCase for types
+### Implementation Standards
+- **No quick fixes** - Implement properly from the start
+- **Test exhaustively** - All edge cases, error paths, boundary conditions
+- **Parallel features** - If implementing X requires Y enhancement, do both
+- **Silent execution** - Work without asking, report final summary only
 
-## 🚨 Known Gotchas
+### Process
+1. Read `TODO.md` + relevant `docs/`
+2. Implement feature fully (parser → AST → codegen → borrow checker)
+3. Add comprehensive tests (happy path + edge cases + errors)
+4. Run `./test_all.sh`
+5. Update `TODO.md` + documentation
+6. **Report final progress summary**
 
-1. **Cargo binary location** - Always use `~/.cargo/target/` not `./target/`
-2. **`mut` keyword removed** - Use `let!` instead, parser will error on `mut`
-3. **Module imports** - Must match directory structure in `vex-libs/std/`
-4. **Generic monomorphization** - Each type instantiation generates new function
-5. **Borrow checker runs automatically** - No need to invoke separately in CLI
-6. **Trait vs Interface** - `interface` keyword deprecated, use `trait` only
-7. **Pattern matching** - Data-carrying enum destructuring not yet implemented
+## 🐛 Common Issues
 
-## 🎯 Current Development Focus (November 2025)
+| Issue | Solution |
+|-------|----------|
+| Binary not found | Use `~/.cargo/target/debug/vex` not `./target/` |
+| Rust syntax errors | Use Vex v0.9: `let!` not `mut`, `:` not `->` |
+| LLVM codegen crash | Check builder position, block terminators |
+| C runtime undefined ref | `cd vex-runtime/c && ./build.sh` |
+| Borrow checker miss | Check all 4 phases handle new feature |
 
-**Active Work (see TODO.md):**
+## 📊 Testing
 
-- Phase 4: Lifetime Analysis (high priority 🔴)
-- Default trait methods implementation
-- Data-carrying enum pattern matching (`Some(x)`, `Ok(val)`)
+**Status:** 86/101 passing (85.1%) - See `./test_all.sh`
 
-**Next Up:**
-
-- Trait bounds in generics
-- Dynamic dispatch with vtables
-- Closures and lambda expressions
+**Add test:** Create `.vx` in `examples/` → run `./test_all.sh` → update README
 
 ---
 
-**For Questions:** Check `TODO.md` for priorities, `LANGUAGE_FEATURES.md` for implementation status, or search `examples/` for working code patterns.
+**Critical Reminder:**
+1. **No shortcuts** - Implement fully, test exhaustively
+2. **Parallel features** - Develop dependencies together
+3. **Silent work** - Only report final progress summary
+4. **Check TODO.md** for current priorities

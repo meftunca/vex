@@ -80,6 +80,14 @@ pub struct ASTCodeGen<'ctx> {
         inkwell::basic_block::BasicBlock<'ctx>,
         inkwell::basic_block::BasicBlock<'ctx>,
     )>,
+
+    // Closure environment tracking
+    // Maps closure function pointer to its environment pointer
+    // Used to pass captured variables when closure is called
+    pub(crate) closure_envs: HashMap<PointerValue<'ctx>, PointerValue<'ctx>>,
+
+    // Track which variables hold closures (variable name -> (fn_ptr, env_ptr))
+    pub(crate) closure_variables: HashMap<String, (PointerValue<'ctx>, PointerValue<'ctx>)>,
 }
 
 impl<'ctx> ASTCodeGen<'ctx> {
@@ -113,6 +121,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
             printf_fn: None,
             deferred_statements: Vec::new(),
             loop_context_stack: Vec::new(),
+            closure_envs: HashMap::new(),
+            closure_variables: HashMap::new(),
         }
     }
 

@@ -9,7 +9,7 @@ fn square(x: i32): i32 {
     return x * x;
 }
 
-fn apply(f: fn(i32) -> i32, value: i32): i32 {
+fn apply(f: fn(i32): i32, value: i32): i32 {
     return f(value);
 }
 

@@ -292,6 +292,21 @@ impl ImmutabilityChecker {
             | Expression::BoolLiteral(_)
             | Expression::Ident(_) => Ok(()),
 
+            Expression::Closure { params, body, .. } => {
+                // Register closure parameters as immutable variables
+                for param in params {
+                    self.immutable_vars.insert(param.name.clone());
+                }
+
+                // Check closure body
+                self.check_expression(body)?;
+
+                // Note: We don't remove params from scope here because
+                // ImmutabilityChecker doesn't track scopes, just tracks
+                // which variables are mutable vs immutable across the whole program
+                Ok(())
+            }
+
             _ => Ok(()),
         }
     }

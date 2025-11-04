@@ -1,0 +1,24 @@
+struct Counter {
+    value: i32;
+}
+
+impl Counter {
+    fn new(): Counter {
+        return Counter { value: 0 };
+    }
+
+    fn increment(&self): i32 {
+        // Method syntax sugar: self.value yerine value yazabilmek
+        return value + 1;
+    }
+
+    fn get(&self): i32 {
+        return value;
+    }
+}
+
+fn main(): i32 {
+    let counter = Counter::new();
+    let result = counter.increment();
+    return result;
+}

@@ -16,6 +16,7 @@ pub struct Parser<'a> {
     pub(crate) tokens: Vec<TokenSpan>,
     pub(crate) current: usize,
     pub(crate) source: &'a str,
+    pub(crate) in_method_body: bool,
 }
 
 impl<'a> Parser<'a> {
@@ -28,6 +29,7 @@ impl<'a> Parser<'a> {
             tokens,
             current: 0,
             source,
+            in_method_body: false,
         })
     }
 

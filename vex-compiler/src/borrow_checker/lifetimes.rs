@@ -578,9 +578,24 @@ impl LifetimeChecker {
 
             Expression::ErrorNew(expr) => self.check_expression(expr),
 
-            Expression::Closure { body, .. } => {
-                // TODO: Implement proper closure capture analysis
-                self.check_expression(body)
+            Expression::Closure { params, body, .. } => {
+                // Enter a new scope for closure parameters
+                self.enter_scope();
+
+                // Register closure parameters in scope
+                for param in params {
+                    self.variable_scopes
+                        .insert(param.name.clone(), self.current_scope);
+                    self.in_scope.insert(param.name.clone());
+                }
+
+                // Check closure body with parameters in scope
+                self.check_expression(body)?;
+
+                // Exit closure scope
+                self.exit_scope();
+
+                Ok(())
             }
         }
     }

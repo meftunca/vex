@@ -423,6 +423,22 @@ impl MoveChecker {
             | Expression::BoolLiteral(_)
             | Expression::Nil => Ok(()),
 
+            Expression::Closure { params, body, .. } => {
+                // Register closure parameters as valid variables
+                for param in params {
+                    self.valid_vars.insert(param.name.clone());
+                    self.var_types.insert(param.name.clone(), param.ty.clone());
+                }
+
+                // Check closure body
+                self.check_expression(body)?;
+
+                // Note: We don't remove params from scope here because
+                // MoveChecker doesn't track scopes, just tracks which variables
+                // are valid vs moved across the whole expression
+                Ok(())
+            }
+
             _ => Ok(()), // Other expressions don't affect moves
         }
     }

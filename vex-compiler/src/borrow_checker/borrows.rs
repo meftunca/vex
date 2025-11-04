@@ -427,6 +427,13 @@ impl BorrowRulesChecker {
                 Ok(())
             }
 
+            Expression::Closure { body, .. } => {
+                // Check closure body for borrow violations
+                // Note: Closure parameters are validated by LifetimeChecker
+                self.check_expression_for_borrows(body)?;
+                Ok(())
+            }
+
             // Literals and identifiers don't create borrows
             _ => Ok(()),
         }

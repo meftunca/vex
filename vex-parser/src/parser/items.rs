@@ -258,7 +258,10 @@ impl<'a> Parser<'a> {
         };
 
         // Method body
+        let was_in_method = self.in_method_body;
+        self.in_method_body = receiver.is_some();
         let body = self.parse_block()?;
+        self.in_method_body = was_in_method;
 
         Ok(Function {
             attributes: Vec::new(),
@@ -578,8 +581,15 @@ impl<'a> Parser<'a> {
             None
         };
 
+        // Set method body flag for method syntax sugar
+        let was_in_method = self.in_method_body;
+        self.in_method_body = receiver.is_some();
+
         // parse_block() already consumes { and }
         let body = self.parse_block()?;
+
+        // Restore previous state
+        self.in_method_body = was_in_method;
 
         Ok(Function {
             attributes: Vec::new(), // TODO: Parse attributes before function

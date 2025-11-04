@@ -7,7 +7,7 @@ use vex_lexer::Token;
 
 impl<'a> Parser<'a> {
     pub(crate) fn parse_type(&mut self) -> Result<Type, ParseError> {
-        // Function type: fn(T1, T2) -> R
+        // Function type: fn(T1, T2): R (Vex uses : not ->)
         if self.check(&Token::Fn) {
             self.advance();
             self.consume(&Token::LParen, "Expected '(' after 'fn'")?;
@@ -23,7 +23,7 @@ impl<'a> Parser<'a> {
             }
 
             self.consume(&Token::RParen, "Expected ')' after function parameters")?;
-            self.consume(&Token::Arrow, "Expected '->' in function type")?;
+            self.consume(&Token::Colon, "Expected ':' in function type")?;
             let return_type = Box::new(self.parse_type()?);
 
             return Ok(Type::Function {

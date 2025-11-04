@@ -61,6 +61,39 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                 None
                             }
                         }
+                        Expression::MethodCall {
+                            receiver, method, ..
+                        } => {
+                            eprintln!("  → MethodCall expression");
+                            eprintln!("    → Method: {}", method);
+                            // Get struct type from receiver
+                            let struct_name = if let Expression::Ident(var_name) = receiver.as_ref()
+                            {
+                                if var_name == "self" {
+                                    // Look up self's struct type
+                                    self.variable_struct_names.get(var_name).cloned()
+                                } else {
+                                    self.variable_struct_names.get(var_name).cloned()
+                                }
+                            } else {
+                                None
+                            };
+
+                            if let Some(struct_name) = struct_name {
+                                let method_func_name = format!("{}_{}", struct_name, method);
+                                if let Some(func_def) = self.function_defs.get(&method_func_name) {
+                                    if let Some(Type::Named(s_name)) = &func_def.return_type {
+                                        Some(s_name.clone())
+                                    } else {
+                                        None
+                                    }
+                                } else {
+                                    None
+                                }
+                            } else {
+                                None
+                            }
+                        }
                         Expression::Call { func, .. } => {
                             eprintln!("  → Call expression");
                             if let Expression::Ident(func_name) = func.as_ref() {
@@ -442,6 +475,18 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     .map_err(|e| format!("Failed to store variable: {}", e))?;
                 self.variables.insert(name.clone(), alloca);
                 self.variable_types.insert(name.clone(), final_llvm_type);
+
+                // Check if this variable holds a closure with environment
+                if let BasicValueEnum::PointerValue(fn_ptr) = val {
+                    if let Some(env_ptr) = self.closure_envs.get(&fn_ptr) {
+                        eprintln!(
+                            "📝 Tracking closure variable: {} -> fn={:?}, env={:?}",
+                            name, fn_ptr, env_ptr
+                        );
+                        self.closure_variables
+                            .insert(name.clone(), (fn_ptr, *env_ptr));
+                    }
+                }
             }
 
             Statement::Assign { target, value } => {

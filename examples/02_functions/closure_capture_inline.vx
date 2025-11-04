@@ -1,0 +1,13 @@
+// Simple inline closure with capture
+// Test capturing a variable in same scope
+
+fn main(): i32 {
+    let x = 5;
+    
+    // Create closure that captures x
+    let add_x = |y: i32| x + y;
+    
+    // Call immediately (if supported)
+    // For now, just return x to verify compilation
+    return x;
+}
