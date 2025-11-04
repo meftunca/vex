@@ -776,6 +776,7 @@ impl<'a> Parser<'a> {
             params,
             return_type,
             body: Box::new(body),
+            capture_mode: CaptureMode::Infer, // Will be determined by borrow checker
         })
     }
 }

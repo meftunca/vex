@@ -273,6 +273,7 @@ impl<'a> Parser<'a> {
 
     /// Parse generic type parameters with optional trait bounds
     /// Examples: <T>, <T: Display>, <T: Display + Clone, U: Debug>
+    /// Closure traits: <F: Callable(i32): i32>, <F: CallableMut(T, U): bool>
     pub(crate) fn parse_type_params(&mut self) -> Result<Vec<TypeParam>, ParseError> {
         if !self.match_token(&Token::Lt) {
             return Ok(Vec::new());
@@ -282,11 +283,46 @@ impl<'a> Parser<'a> {
         loop {
             let name = self.consume_identifier()?;
 
-            // Optional trait bounds: T: Display + Clone
+            // Optional trait bounds: T: Display + Clone or F: Callable(i32): i32
             let mut bounds = Vec::new();
             if self.match_token(&Token::Colon) {
                 loop {
-                    bounds.push(self.consume_identifier()?);
+                    // Check if this is a closure trait bound (Callable, CallableMut, CallableOnce)
+                    let bound_name = self.consume_identifier()?;
+
+                    if (bound_name == "Callable"
+                        || bound_name == "CallableMut"
+                        || bound_name == "CallableOnce")
+                        && self.check(&Token::LParen)
+                    {
+                        // Parse closure trait: Callable(T, U): ReturnType
+                        self.consume(&Token::LParen, "Expected '(' after closure trait name")?;
+
+                        let mut param_types = Vec::new();
+                        if !self.check(&Token::RParen) {
+                            loop {
+                                param_types.push(self.parse_type()?);
+                                if !self.match_token(&Token::Comma) {
+                                    break;
+                                }
+                            }
+                        }
+
+                        self.consume(&Token::RParen, "Expected ')' after closure parameters")?;
+                        self.consume(&Token::Colon, "Expected ':' before closure return type")?;
+
+                        let return_type = Box::new(self.parse_type()?);
+
+                        bounds.push(TraitBound::Callable {
+                            trait_name: bound_name,
+                            param_types,
+                            return_type,
+                        });
+                    } else {
+                        // Simple trait bound
+                        bounds.push(TraitBound::Simple(bound_name));
+                    }
+
                     if !self.match_token(&Token::Plus) {
                         break;
                     }

@@ -301,6 +301,16 @@ impl<'a> Parser<'a> {
     pub(crate) fn parse_expression_statement(&mut self) -> Result<Statement, ParseError> {
         let expr = self.parse_expression()?;
 
+        // Check for assignment operator (supports field assignment like self.x = value)
+        if self.match_token(&Token::Eq) {
+            let value = self.parse_expression()?;
+            self.consume(&Token::Semicolon, "Expected ';' after assignment")?;
+            return Ok(Statement::Assign {
+                target: expr,
+                value,
+            });
+        }
+
         // Check for compound assignment operators
         if self.match_tokens(&[Token::PlusEq, Token::MinusEq, Token::StarEq, Token::SlashEq]) {
             let op = match self.previous() {

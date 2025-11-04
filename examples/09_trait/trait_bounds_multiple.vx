@@ -2,22 +2,22 @@
 // Expected: Compiles successfully
 
 trait Display {
-    fn display(self: &Self!): string;
+    fn (self: &Self!)display(): string;
 }
 
 trait Clone {
-    fn clone(self: &Self!): Self;
+    fn (self: &Self!)clone(): Self;
 }
 
 struct Point impl Display, Clone {
     x: i32,
     y: i32,
     
-    fn display(self: &Point): string {
+    fn (self: &Point) display(): string {
         return "Point";
     }
     
-    fn clone(self: &Point): Point {
+    fn (self: &Point) clone(): Point {
         return Point { x: self.x, y: self.y };
     }
 }

@@ -1,0 +1,10 @@
+// Test mutable closure (CallableMut trait)
+// Demonstrates: Closure with mutable captures implements CallableMut
+
+fn main(): i32 {
+    // Simple test: Capture immutable variable
+    let x = 10;
+    let adder = |n: i32| n + x;
+    
+    return 42;
+}

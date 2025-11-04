@@ -21,11 +21,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
             field: inner_field,
         } = object
         {
-            // Recursively get intermediate value
-            let intermediate_value = self.compile_field_access(inner_obj, inner_field)?;
-
-            // Determine struct type of intermediate value from inner object's struct
-            let intermediate_struct_name = self.get_field_struct_type(inner_obj, inner_field)?;
+            // Recursively get intermediate value AND its struct type
+            let (intermediate_value, intermediate_struct_name) =
+                self.compile_field_access_with_type(inner_obj, inner_field)?;
 
             if let Some(struct_name) = intermediate_struct_name {
                 // Now access field on the intermediate struct value
@@ -39,26 +37,34 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Case 2: Simple variable field access
         if let Expression::Ident(var_name) = object {
+            let func_name = self
+                .current_function
+                .map(|f| f.get_name().to_string_lossy().to_string())
+                .unwrap_or_else(|| "None".to_string());
+            eprintln!(
+                "🔍 Field access: {}.{} (in function: {})",
+                var_name, field, func_name
+            );
+            eprintln!(
+                "   variables = {:?}",
+                self.variables.keys().collect::<Vec<_>>()
+            );
+            eprintln!(
+                "   variable_struct_names = {:?}",
+                self.variable_struct_names
+            );
             // Check if this variable is tracked as a struct
             if let Some(struct_name) = self.variable_struct_names.get(var_name).cloned() {
+                eprintln!("   ✅ Found struct: {}", struct_name);
                 let var_ptr = *self
                     .variables
                     .get(var_name)
                     .ok_or_else(|| format!("Variable {} not found", var_name))?;
 
-                let ty = *self
-                    .variable_types
-                    .get(var_name)
-                    .ok_or_else(|| format!("Type for variable {} not found", var_name))?;
-
-                // Structs are stored as pointers (zero-copy!)
-                // Load the struct pointer (the variable holds a pointer to the struct)
-                let struct_ptr = self
-                    .builder
-                    .build_load(ty, var_ptr, &format!("{}_ptr", var_name))
-                    .map_err(|e| format!("Failed to load struct pointer: {}", e))?;
-
-                let struct_ptr_val = struct_ptr.into_pointer_value();
+                // CRITICAL FIX: After struct variable storage fix, self.variables[name] now holds
+                // the DIRECT pointer to the struct (not a pointer to a pointer variable).
+                // So we should use var_ptr directly, NOT load it!
+                let struct_ptr_val = var_ptr;
 
                 // Get struct definition from registry
                 let struct_def = self
@@ -107,7 +113,23 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }
         }
 
+        eprintln!("❌ Field access FAILED for field: {}", field);
         Err(format!("Cannot access field {} on non-struct value", field))
+    }
+
+    /// Compile field access and return both value and struct type name (for chained access)
+    fn compile_field_access_with_type(
+        &mut self,
+        object: &Expression,
+        field: &str,
+    ) -> Result<(BasicValueEnum<'ctx>, Option<String>), String> {
+        // Compile the field access to get the value
+        let value = self.compile_field_access(object, field)?;
+
+        // Determine the struct type of the resulting value
+        let struct_type = self.get_field_struct_type(object, field)?;
+
+        Ok((value, struct_type))
     }
 
     /// Compile array indexing
@@ -420,8 +442,39 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 object: inner_obj,
                 field: inner_field,
             } => {
-                // Recursively get type of inner field access
-                self.get_field_struct_type(inner_obj, inner_field)
+                // CRITICAL FIX: For chained field access, we need to:
+                // 1. Get the type of the inner field access (e.g., b3.value -> Box<Box<i32>>)
+                // 2. Then get the type of 'field' from that result type
+
+                // First, get the struct type of the inner field access
+                let inner_struct_type = self.get_field_struct_type(inner_obj, inner_field)?;
+
+                if let Some(inner_struct_name) = inner_struct_type {
+                    // Now look up 'field' in that struct type
+                    let field_type_opt = self
+                        .struct_defs
+                        .get(&inner_struct_name)
+                        .and_then(|def| def.fields.iter().find(|(f, _)| f == field))
+                        .map(|(_, t)| t.clone());
+
+                    if let Some(field_type) = field_type_opt {
+                        match field_type {
+                            Type::Named(field_struct_name) => {
+                                if self.struct_defs.contains_key(&field_struct_name) {
+                                    return Ok(Some(field_struct_name));
+                                }
+                            }
+                            Type::Generic { name, type_args } => {
+                                match self.instantiate_generic_struct(&name, &type_args) {
+                                    Ok(mangled) => return Ok(Some(mangled)),
+                                    Err(_) => return Ok(None),
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                Ok(None)
             }
             _ => Ok(None),
         }
@@ -479,6 +532,53 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let (_, field_ast_type) = &struct_def.fields[field_index as usize];
         let field_llvm_type = self.ast_type_to_llvm(field_ast_type);
 
+        // CRITICAL: If field is a struct type, return pointer (zero-copy)
+        // Otherwise load the value normally
+        match field_ast_type {
+            Type::Named(field_type_name) => {
+                if self.struct_defs.contains_key(field_type_name) {
+                    // Field is a struct - return pointer without loading (zero-copy)
+                    return Ok(field_ptr.into());
+                }
+            }
+            Type::Generic { name, type_args } => {
+                // Generic struct (e.g., Box<i32>) - calculate mangled name
+                // Use the same mangling strategy as instantiate_generic_struct
+                let mangled_type_args: Vec<String> = type_args
+                    .iter()
+                    .map(|ty| match ty {
+                        Type::Named(n) => n.clone(),
+                        Type::I32 => "i32".to_string(),
+                        Type::I64 => "i64".to_string(),
+                        Type::F32 => "f32".to_string(),
+                        Type::F64 => "f64".to_string(),
+                        Type::Bool => "bool".to_string(),
+                        Type::String => "string".to_string(),
+                        Type::Generic {
+                            name: gn,
+                            type_args: gta,
+                        } => {
+                            // Nested generic: Box<Box<i32>> -> Box_Box_i32
+                            let inner_mangled: Vec<String> = gta
+                                .iter()
+                                .map(|t| format!("{:?}", t).replace("\"", ""))
+                                .collect();
+                            format!("{}_{}", gn, inner_mangled.join("_"))
+                        }
+                        _ => format!("{:?}", ty),
+                    })
+                    .collect();
+                let mangled_name = format!("{}_{}", name, mangled_type_args.join("_"));
+
+                if self.struct_defs.contains_key(&mangled_name) {
+                    // Field is a generic struct - return pointer without loading
+                    return Ok(field_ptr.into());
+                }
+            }
+            _ => {}
+        }
+
+        // Non-struct field: load normally
         self.builder
             .build_load(field_llvm_type, field_ptr, &format!("{}_val", field))
             .map_err(|e| format!("Failed to load field: {}", e))

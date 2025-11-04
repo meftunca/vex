@@ -480,7 +480,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 params,
                 return_type,
                 body,
-            } => self.compile_closure(params, return_type, body),
+                capture_mode,
+            } => self.compile_closure(params, return_type, body, capture_mode),
 
             _ => Err(format!("Expression not yet implemented: {:?}", expr)),
         }

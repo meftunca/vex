@@ -26,6 +26,19 @@ while IFS= read -r file; do
         continue
     fi
     
+    # Circular dependency tests should FAIL with error (expected behavior)
+    if [[ "$file" == *"circular_dependency.vx"* ]] || [[ "$file" == *"circular_self.vx"* ]]; then
+        echo -n "Testing $name... "
+        if "$VEX_BIN" compile "$file" > /dev/null 2>&1; then
+            echo "❌ FAIL (should have detected circular dependency)"
+            ((FAIL++))
+        else
+            echo "✅ PASS (correctly detected circular dependency)"
+            ((SUCCESS++))
+        fi
+        continue
+    fi
+    
     echo -n "Testing $name... "
     
     # Try to compile

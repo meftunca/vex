@@ -5,7 +5,7 @@ enum Result {
     Err(i32),
 }
 
-fn divide(a: i32, b: i32): i32 {
+fn divide(a: i32, b: i32): Result {
     if b == 0 {
         // For now, return error tag manually
         return Result.Err(-1);

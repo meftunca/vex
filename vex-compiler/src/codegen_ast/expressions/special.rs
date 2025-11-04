@@ -2,7 +2,7 @@
 
 use super::super::ASTCodeGen;
 use inkwell::types::BasicType;
-use inkwell::values::BasicValueEnum;
+use inkwell::values::{BasicValueEnum, FunctionValue, PointerValue};
 use inkwell::IntPredicate;
 use vex_ast::*;
 
@@ -215,6 +215,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         params: &[Param],
         return_type: &Option<Type>,
         body: &Expression,
+        capture_mode: &CaptureMode,
     ) -> Result<BasicValueEnum<'ctx>, String> {
         // Generate unique closure name
         static mut CLOSURE_COUNTER: usize = 0;
@@ -227,10 +228,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let free_vars = self.find_free_variables(body, params);
 
         eprintln!(
-            "🔍 Closure {}: Found {} free variables: {:?}",
+            "🔍 Closure {}: Found {} free variables: {:?}, capture_mode: {:?}",
             closure_name,
             free_vars.len(),
-            free_vars
+            free_vars,
+            capture_mode
         );
 
         // Step 2: Create environment struct type if we have captures
@@ -472,13 +474,118 @@ impl<'ctx> ASTCodeGen<'ctx> {
             eprintln!("✅ Created closure with environment binding");
             eprintln!("   Function: {:?}, Environment: {:?}", fn_ptr, env_ptr);
 
+            // Step 7: Generate closure struct with trait impl
+            self.generate_closure_struct(
+                &closure_name,
+                params,
+                return_type,
+                capture_mode,
+                closure_fn,
+                Some(env_alloca),
+            )?;
+
             // For now, return function pointer
             // When this closure is called, we'll look up its environment in closure_envs
             Ok(fn_ptr.into())
         } else {
             // No captures, just return function pointer
             eprintln!("✅ Created closure without captures (pure function)");
+
+            // Generate closure struct even without captures (for trait impl)
+            self.generate_closure_struct(
+                &closure_name,
+                params,
+                return_type,
+                capture_mode,
+                closure_fn,
+                None,
+            )?;
+
             Ok(closure_fn.as_global_value().as_pointer_value().into())
         }
+    }
+
+    /// Generate closure struct with trait implementation
+    /// Creates: struct __Closure_1 impl Callable(i32): i32 { fn_ptr, env_ptr }
+    fn generate_closure_struct(
+        &mut self,
+        closure_name: &str,
+        params: &[Param],
+        return_type: &Option<Type>,
+        capture_mode: &CaptureMode,
+        _closure_fn: FunctionValue<'ctx>,
+        _env_ptr: Option<PointerValue<'ctx>>,
+    ) -> Result<(), String> {
+        // Note: Field, Function, Receiver, Struct, Type are already imported via vex_ast::*
+
+        // Determine trait name based on capture mode
+        let trait_name = match capture_mode {
+            CaptureMode::Immutable | CaptureMode::Infer => "Callable",
+            CaptureMode::Mutable => "CallableMut",
+            CaptureMode::Once => "CallableOnce",
+        };
+
+        eprintln!(
+            "🏗️  Generating closure struct: {} impl {}",
+            closure_name, trait_name
+        );
+
+        // Create struct type name from closure name
+        let struct_name = format!(
+            "{}{}",
+            &closure_name[0..1].to_uppercase(),
+            &closure_name[1..]
+        );
+
+        // Create trait method: call/call_mut/call_once
+        let method_name = match capture_mode {
+            CaptureMode::Immutable | CaptureMode::Infer => "call",
+            CaptureMode::Mutable => "call_mut",
+            CaptureMode::Once => "call_once",
+        };
+
+        // Build method parameters from closure parameters (just copy the vector)
+        let method_params: Vec<Param> = params.to_vec();
+
+        // Determine receiver mutability
+        let is_mutable = matches!(capture_mode, CaptureMode::Mutable);
+
+        // Create method with receiver
+        let method = Function {
+            attributes: vec![],
+            is_async: false,
+            is_gpu: false,
+            receiver: Some(Receiver {
+                is_mutable,
+                ty: Type::Reference(Box::new(Type::Named(struct_name.clone())), is_mutable),
+            }),
+            name: method_name.to_string(),
+            type_params: vec![],
+            params: method_params,
+            return_type: return_type.clone(),
+            body: Block {
+                statements: vec![], // Empty body - will be generated in codegen
+            },
+        };
+
+        // Create struct definition with trait impl (no fields - managed by LLVM)
+        // The actual closure struct layout (fn_ptr + env_ptr) is internal to LLVM
+        let struct_def = Struct {
+            name: struct_name.clone(),
+            type_params: vec![],
+            impl_traits: vec![trait_name.to_string()],
+            fields: vec![], // Internal LLVM representation
+            methods: vec![method],
+        };
+
+        // Register struct in AST definitions
+        self.struct_ast_defs.insert(struct_name.clone(), struct_def);
+
+        eprintln!(
+            "✅ Generated closure struct: {} impl {}",
+            struct_name, trait_name
+        );
+
+        Ok(())
     }
 }

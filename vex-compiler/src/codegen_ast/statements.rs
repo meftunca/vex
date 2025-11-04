@@ -470,11 +470,37 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     self.create_entry_block_alloca(name, &final_var_type, *is_mutable)?
                 };
 
-                self.builder
-                    .build_store(alloca, val)
-                    .map_err(|e| format!("Failed to store variable: {}", e))?;
-                self.variables.insert(name.clone(), alloca);
-                self.variable_types.insert(name.clone(), final_llvm_type);
+                // CRITICAL FIX: For struct variables, the value is already a pointer to stack-allocated struct
+                // We should NOT allocate another slot and store the pointer - just use the struct pointer directly!
+                if let Type::Named(type_name) = &final_var_type {
+                    if self.struct_defs.contains_key(type_name) {
+                        // Struct variable: val is already the pointer to the struct on stack
+                        // Just register this pointer directly as the variable
+                        if let BasicValueEnum::PointerValue(struct_ptr) = val {
+                            self.variables.insert(name.clone(), struct_ptr);
+                            self.variable_types.insert(name.clone(), final_llvm_type);
+                        } else {
+                            return Err(format!(
+                                "Struct literal should return pointer, got {:?}",
+                                val
+                            ));
+                        }
+                    } else {
+                        // Non-struct variable: normal store
+                        self.builder
+                            .build_store(alloca, val)
+                            .map_err(|e| format!("Failed to store variable: {}", e))?;
+                        self.variables.insert(name.clone(), alloca);
+                        self.variable_types.insert(name.clone(), final_llvm_type);
+                    }
+                } else {
+                    // Non-named type: normal store
+                    self.builder
+                        .build_store(alloca, val)
+                        .map_err(|e| format!("Failed to store variable: {}", e))?;
+                    self.variables.insert(name.clone(), alloca);
+                    self.variable_types.insert(name.clone(), final_llvm_type);
+                }
 
                 // Check if this variable holds a closure with environment
                 if let BasicValueEnum::PointerValue(fn_ptr) = val {
@@ -492,20 +518,93 @@ impl<'ctx> ASTCodeGen<'ctx> {
             Statement::Assign { target, value } => {
                 let val = self.compile_expression(value)?;
 
-                // Get target pointer
-                if let Expression::Ident(name) = target {
-                    let ptr = self
-                        .variables
-                        .get(name)
-                        .ok_or_else(|| format!("Variable {} not found", name))?;
-                    self.builder
-                        .build_store(*ptr, val)
-                        .map_err(|e| format!("Failed to assign: {}", e))?;
-                } else {
-                    return Err(
-                        "Complex assignment targets not yet supported (field access, etc.)"
-                            .to_string(),
-                    );
+                match target {
+                    // Simple variable assignment: x = value
+                    Expression::Ident(name) => {
+                        let ptr = self
+                            .variables
+                            .get(name)
+                            .ok_or_else(|| format!("Variable {} not found", name))?;
+                        self.builder
+                            .build_store(*ptr, val)
+                            .map_err(|e| format!("Failed to assign: {}", e))?;
+                    }
+
+                    // Field assignment: obj.field = value
+                    Expression::FieldAccess { object, field } => {
+                        // Get field pointer using similar logic to compile_field_access
+                        if let Expression::Ident(var_name) = &**object {
+                            // Get struct name from tracking
+                            let struct_name = self
+                                .variable_struct_names
+                                .get(var_name)
+                                .ok_or_else(|| format!("Variable {} is not a struct", var_name))?
+                                .clone();
+
+                            // Get variable pointer
+                            let var_ptr = *self
+                                .variables
+                                .get(var_name)
+                                .ok_or_else(|| format!("Variable {} not found", var_name))?;
+
+                            // CRITICAL FIX: After struct variable storage fix, self.variables[name] now holds
+                            // the DIRECT pointer to the struct (not a pointer to a pointer variable).
+                            // So we should use var_ptr directly, NOT load it!
+                            let struct_ptr_val = var_ptr;
+
+                            // Get struct definition
+                            let struct_def = self
+                                .struct_defs
+                                .get(&struct_name)
+                                .cloned()
+                                .ok_or_else(|| format!("Struct '{}' not found", struct_name))?;
+
+                            // Find field index
+                            let field_index = struct_def
+                                .fields
+                                .iter()
+                                .position(|(name, _)| name == field)
+                                .ok_or_else(|| {
+                                    format!(
+                                        "Field '{}' not found in struct '{}'",
+                                        field, struct_name
+                                    )
+                                })? as u32;
+
+                            // Build struct type
+                            let field_types: Vec<inkwell::types::BasicTypeEnum> = struct_def
+                                .fields
+                                .iter()
+                                .map(|(_, ty)| self.ast_type_to_llvm(ty))
+                                .collect();
+                            let struct_type = self.context.struct_type(&field_types, false);
+
+                            // Get field pointer
+                            let field_ptr = self
+                                .builder
+                                .build_struct_gep(
+                                    struct_type,
+                                    struct_ptr_val,
+                                    field_index,
+                                    &format!("{}.{}", var_name, field),
+                                )
+                                .map_err(|e| format!("Failed to get field pointer: {}", e))?;
+
+                            // Store value
+                            self.builder
+                                .build_store(field_ptr, val)
+                                .map_err(|e| format!("Failed to store field: {}", e))?;
+                        } else {
+                            return Err("Complex field assignment not yet supported".to_string());
+                        }
+                    }
+
+                    _ => {
+                        return Err(
+                            "Complex assignment targets not yet supported (array indexing, etc.)"
+                                .to_string(),
+                        );
+                    }
                 }
             }
 

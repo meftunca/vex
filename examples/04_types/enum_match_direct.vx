@@ -8,13 +8,11 @@ enum Status {
 fn main(): i32 {
     let s = Status.Ok;
     
-    // Direct match with return
-    match s {
-        Status.Ok => {
-            return 1;
-        }
-        Status.Error => {
-            return 3;
-        }
-    }
+    // Match expression returning value
+    let result = match s {
+        Status.Ok => 1,
+        Status.Error => 3,
+    };
+    
+    return result;
 }

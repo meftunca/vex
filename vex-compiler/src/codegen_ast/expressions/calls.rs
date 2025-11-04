@@ -16,6 +16,27 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let mut arg_basic_vals: Vec<BasicValueEnum> = Vec::new();
         for arg in args {
             let val = self.compile_expression(arg)?;
+
+            // If argument is a struct, we need to pass it by pointer (alloca)
+            // Check if this is a struct variable
+            let is_struct = if let Expression::Ident(name) = arg {
+                self.variable_struct_names.contains_key(name)
+            } else {
+                false
+            };
+
+            if is_struct {
+                // Argument is a struct stored in a variable
+                // Pass the pointer (alloca) instead of loading the value
+                if let Expression::Ident(name) = arg {
+                    if let Some(struct_ptr) = self.variables.get(name) {
+                        arg_vals.push((*struct_ptr).into());
+                        arg_basic_vals.push((*struct_ptr).into());
+                        continue;
+                    }
+                }
+            }
+
             arg_vals.push(val.into());
             arg_basic_vals.push(val);
         }

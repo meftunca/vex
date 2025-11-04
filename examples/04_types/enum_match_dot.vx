@@ -7,24 +7,14 @@ enum Status {
 }
 
 fn check_status(s: i32): i32 {
-    match s {
-        Status.Idle => {
-            print("System is idle");
-            return 0;
-        }
-        Status.Running => {
-            print("System is running");
-            return 1;
-        }
-        Status.Stopped => {
-            print("System is stopped");
-            return 2;
-        }
-        _ => {
-            print("Unknown status");
-            return -1;
-        }
-    }
+    let result = match s {
+        Status.Idle => 0,
+        Status.Running => 1,
+        Status.Stopped => 2,
+        _ => -1,
+    };
+    
+    return result;
 }
 
 fn main(): i32 {

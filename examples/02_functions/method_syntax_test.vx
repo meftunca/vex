@@ -1,19 +1,19 @@
 // Method syntax test
 // Test method calls work properly
 trait Pointxx {
-    fn new(x: i32, y: i32): Point {
+    fn create(x: i32, y: i32): Point {
         return Point { x: x, y: y };
     }
     
-    fn get_x(self: &Point): i32 {
+    fn (self: &Point)get_x(): i32 {
         return self.x;
     }
     
-    fn get_y(self: &Point): i32 {
+    fn (self: &Point)get_y(): i32 {
         return self.y;
     }
     
-    fn add(self: &Point, other: &Point): i32 {
+    fn (self: &Point)add( other: &Point): i32 {
         return self.x + other.x + self.y + other.y;
     }
 }
@@ -25,8 +25,8 @@ struct Point impl Pointxx{
 
 
 fn main(): i32 {
-    let p1 = Point.new(10, 20);
-    let p2 = Point.new(5, 3);
+    let p1 = Point.create(10, 20);
+    let p2 = Point.create(5, 3);
     
     // Method calls
     let x = p1.get_x();  // 10

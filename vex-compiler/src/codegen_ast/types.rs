@@ -324,6 +324,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
             Expression::FStringLiteral(_) => Ok(Type::String),
             Expression::BoolLiteral(_) => Ok(Type::Bool),
             Expression::Ident(name) => {
+                // Check if this is a struct variable
+                if let Some(struct_name) = self.variable_struct_names.get(name) {
+                    return Ok(Type::Named(struct_name.clone()));
+                }
+
                 // Try to get type from variable
                 if let Some(llvm_type) = self.variable_types.get(name) {
                     // Convert LLVM type back to AST type (simplified)

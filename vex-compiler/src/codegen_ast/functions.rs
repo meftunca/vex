@@ -3,12 +3,12 @@
 use super::ASTCodeGen;
 use inkwell::types::{BasicMetadataTypeEnum, BasicTypeEnum};
 use inkwell::values::{BasicValueEnum, FunctionValue};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use vex_ast::*;
 
 impl<'ctx> ASTCodeGen<'ctx> {
     pub fn compile_program(&mut self, program: &Program) -> Result<(), String> {
-        // First pass: register type aliases, structs, enums, traits, and extern blocks
+        // First pass: register types and function signatures
         for item in &program.items {
             if let Item::TypeAlias(type_alias) = item {
                 self.register_type_alias(type_alias)?;
@@ -24,6 +24,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 self.compile_extern_block(extern_block)?;
             }
         }
+
+        // Check for circular dependencies in struct definitions
+        self.check_circular_struct_dependencies(&program)?;
 
         // Second pass: store and declare non-generic functions
         for item in &program.items {
@@ -57,17 +60,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }
         }
 
-        // Third pass: compile non-generic function bodies
-        for item in &program.items {
-            if let Item::Function(func) = item {
-                // Skip generic functions - they'll be compiled when instantiated
-                if func.type_params.is_empty() {
-                    self.compile_function(func)?;
-                }
-            }
-        }
-
-        // Fourth pass: compile trait impl method bodies
+        // Third pass: compile trait impl method bodies
+        // MUST come before function bodies, as functions may call trait methods
         for item in &program.items {
             if let Item::TraitImpl(trait_impl) = item {
                 for method in &trait_impl.methods {
@@ -80,13 +74,33 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }
         }
 
-        // Fifth pass: compile inline struct method bodies (new trait system v1.3)
+        // Fourth pass: compile inline struct method bodies (new trait system v1.3)
+        // MUST come before function bodies, as generic instantiation may need these methods
+        eprintln!("📋 Fourth pass: compiling inline struct method bodies...");
         for item in &program.items {
             if let Item::Struct(struct_def) = item {
+                eprintln!(
+                    "   Struct: {} (generic: {}, methods: {})",
+                    struct_def.name,
+                    !struct_def.type_params.is_empty(),
+                    struct_def.methods.len()
+                );
                 if struct_def.type_params.is_empty() {
                     for method in &struct_def.methods {
+                        eprintln!("      - Compiling method: {}", method.name);
                         self.compile_struct_method(&struct_def.name, method)?;
                     }
+                }
+            }
+        }
+
+        // Fifth pass: compile non-generic function bodies
+        // Comes AFTER struct methods, so generic instantiation can use them
+        for item in &program.items {
+            if let Item::Function(func) = item {
+                // Skip generic functions - they'll be compiled when instantiated
+                if func.type_params.is_empty() {
+                    self.compile_function(func)?;
                 }
             }
         }
@@ -110,6 +124,106 @@ impl<'ctx> ASTCodeGen<'ctx> {
             .insert(type_alias.name.clone(), resolved_type);
 
         Ok(())
+    }
+
+    /// Check for circular dependencies in struct definitions
+    fn check_circular_struct_dependencies(&self, program: &Program) -> Result<(), String> {
+        use std::collections::{HashMap, HashSet};
+
+        // Build dependency graph: struct_name -> [dependent_struct_names]
+        let mut dependencies: HashMap<String, Vec<String>> = HashMap::new();
+
+        for item in &program.items {
+            if let Item::Struct(struct_def) = item {
+                let mut deps = Vec::new();
+
+                // Check each field for struct types
+                for field in &struct_def.fields {
+                    if let Some(dep_name) = self.extract_struct_dependency(&field.ty) {
+                        deps.push(dep_name);
+                    }
+                }
+
+                dependencies.insert(struct_def.name.clone(), deps);
+            }
+        }
+
+        // Check for cycles using DFS
+        for struct_name in dependencies.keys() {
+            let mut visited = HashSet::new();
+            let mut path = Vec::new();
+
+            if self.has_cycle(&dependencies, struct_name, &mut visited, &mut path) {
+                return Err(format!(
+                    "Circular dependency detected in struct definitions: {}",
+                    path.join(" -> ")
+                ));
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Extract struct name from a type (for dependency analysis)
+    fn extract_struct_dependency(&self, ty: &Type) -> Option<String> {
+        match ty {
+            Type::Named(name) => {
+                // Only return if it's actually a struct
+                if self.struct_ast_defs.contains_key(name) {
+                    Some(name.clone())
+                } else {
+                    None
+                }
+            }
+            Type::Generic { name, .. } => {
+                // Generic types like Box<T> or A<T>
+                if self.struct_ast_defs.contains_key(name) {
+                    Some(name.clone())
+                } else {
+                    None
+                }
+            }
+            Type::Array(inner, _) => self.extract_struct_dependency(inner),
+            Type::Reference(inner, _) => self.extract_struct_dependency(inner),
+            _ => None,
+        }
+    }
+
+    /// DFS cycle detection
+    fn has_cycle(
+        &self,
+        dependencies: &HashMap<String, Vec<String>>,
+        current: &str,
+        visited: &mut HashSet<String>,
+        path: &mut Vec<String>,
+    ) -> bool {
+        // If we've seen this node in current path, we have a cycle
+        if path.contains(&current.to_string()) {
+            path.push(current.to_string());
+            return true;
+        }
+
+        // If we've already checked this node in a different path, skip
+        if visited.contains(current) {
+            return false;
+        }
+
+        // Mark as visited and add to path
+        visited.insert(current.to_string());
+        path.push(current.to_string());
+
+        // Check all dependencies
+        if let Some(deps) = dependencies.get(current) {
+            for dep in deps {
+                if self.has_cycle(dependencies, dep, visited, path) {
+                    return true;
+                }
+            }
+        }
+
+        // Remove from path when backtracking
+        path.pop();
+        false
     }
 
     /// Register a struct definition in the struct registry
@@ -313,11 +427,20 @@ impl<'ctx> ASTCodeGen<'ctx> {
             self.variable_types.insert("self".to_string(), receiver_ty);
 
             // Track struct type for self
-            if let Type::Reference(inner, _) = &receiver.ty {
-                if let Type::Named(struct_name) = &**inner {
-                    self.variable_struct_names
-                        .insert("self".to_string(), struct_name.clone());
+            let struct_name_opt = match &receiver.ty {
+                Type::Named(name) => Some(name.clone()),
+                Type::Reference(inner, _) => {
+                    if let Type::Named(name) = &**inner {
+                        Some(name.clone())
+                    } else {
+                        None
+                    }
                 }
+                _ => None,
+            };
+
+            if let Some(name) = struct_name_opt {
+                self.variable_struct_names.insert("self".to_string(), name);
             }
 
             param_offset = 1;
@@ -473,11 +596,28 @@ impl<'ctx> ASTCodeGen<'ctx> {
             self.variable_types.insert("self".to_string(), receiver_ty);
 
             // Track struct name for method calls on self
-            if let Type::Reference(inner, _) = &receiver.ty {
-                if let Type::Named(struct_name) = &**inner {
-                    self.variable_struct_names
-                        .insert("self".to_string(), struct_name.clone());
+            let struct_name_opt = match &receiver.ty {
+                Type::Named(name) => Some(name.clone()),
+                Type::Reference(inner, _) => {
+                    if let Type::Named(name) = &**inner {
+                        Some(name.clone())
+                    } else {
+                        None
+                    }
                 }
+                _ => None,
+            };
+
+            eprintln!(
+                "🔧 compile_struct_method: struct={}, receiver.ty={:?}, struct_name_opt={:?}",
+                struct_name, receiver.ty, struct_name_opt
+            );
+
+            if let Some(name) = struct_name_opt {
+                eprintln!("   ✅ Tracking 'self' as struct: {}", name);
+                self.variable_struct_names.insert("self".to_string(), name);
+            } else {
+                eprintln!("   ❌ No struct name extracted from receiver type!");
             }
 
             param_offset = 1;
@@ -663,7 +803,22 @@ impl<'ctx> ASTCodeGen<'ctx> {
         }
 
         for param in &func.params {
-            param_types.push(self.ast_type_to_llvm(&param.ty).into());
+            let param_llvm_type = self.ast_type_to_llvm(&param.ty);
+
+            // Structs should be passed by pointer, not by value
+            // Check if this is a struct type
+            let is_struct = match &param.ty {
+                Type::Named(type_name) => self.struct_defs.contains_key(type_name),
+                _ => false,
+            };
+
+            if is_struct {
+                // Pass struct by pointer
+                let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                param_types.push(ptr_type.into());
+            } else {
+                param_types.push(param_llvm_type.into());
+            }
         }
 
         // Build return type
@@ -702,6 +857,16 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
     /// Compile a function with its body
     pub(crate) fn compile_function(&mut self, func: &Function) -> Result<(), String> {
+        eprintln!(
+            "🔨 compile_function: {} (receiver: {})",
+            func.name,
+            func.receiver.is_some()
+        );
+        eprintln!("   Body has {} statements", func.body.statements.len());
+        if !func.body.statements.is_empty() {
+            eprintln!("   First stmt: {:?}", func.body.statements[0]);
+        }
+
         // Special handling for async functions
         if func.is_async {
             return self.compile_async_function(func);
@@ -780,7 +945,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
             };
 
             if let Some(struct_name) = type_name {
-                if self.struct_defs.contains_key(&struct_name) {
+                // Check in both struct_defs and struct_ast_defs (for generic instantiation)
+                if self.struct_defs.contains_key(&struct_name)
+                    || self.struct_ast_defs.contains_key(&struct_name)
+                {
                     self.variable_struct_names
                         .insert("self".to_string(), struct_name);
                 }
@@ -820,14 +988,33 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 self.variables.insert(param.name.clone(), alloca);
                 self.variable_types.insert(param.name.clone(), param_type);
 
-                // Track struct parameters
-                match &param.ty {
-                    Type::Named(struct_name) => {
-                        if self.struct_defs.contains_key(struct_name) {
-                            self.variable_struct_names
-                                .insert(param.name.clone(), struct_name.clone());
+                // Track struct parameters (including through references)
+                let extract_struct_name = |ty: &Type| -> Option<String> {
+                    match ty {
+                        Type::Named(name) => Some(name.clone()),
+                        Type::Reference(inner, _) => {
+                            if let Type::Named(name) = &**inner {
+                                Some(name.clone())
+                            } else {
+                                None
+                            }
                         }
+                        Type::Generic { name, .. } => Some(name.clone()),
+                        _ => None,
                     }
+                };
+
+                if let Some(struct_name) = extract_struct_name(&param.ty) {
+                    if self.struct_defs.contains_key(&struct_name)
+                        || self.struct_ast_defs.contains_key(&struct_name)
+                    {
+                        self.variable_struct_names
+                            .insert(param.name.clone(), struct_name.clone());
+                    }
+                }
+
+                // Keep old logic for nested generics
+                match &param.ty {
                     Type::Generic { name, type_args } => {
                         // Generic struct parameter: Pair<i32, i32>
                         // Instantiate to get mangled name: Pair_i32_i32

@@ -1,0 +1,17 @@
+// Simple Golang-style method test
+
+struct Point {
+    x: i32,
+    y: i32,
+}
+
+// Method with immutable receiver
+fn (self: &Point) get_x(): i32 {
+    return self.x;
+}
+
+fn main(): i32 {
+    let p = Point { x: 42, y: 10 };
+    let x = p.get_x();
+    return x;  // Should return 42
+}

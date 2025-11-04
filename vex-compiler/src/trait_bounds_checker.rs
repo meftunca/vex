@@ -2,7 +2,7 @@
 // Verifies that type arguments satisfy trait bounds at compile time
 
 use std::collections::HashMap;
-use vex_ast::{Function, Program, Struct, Trait, TraitImpl, Type, TypeParam};
+use vex_ast::{Function, Program, Struct, Trait, TraitBound, TraitImpl, Type, TypeParam};
 
 pub struct TraitBoundsChecker {
     // Maps struct/type names to their trait implementations
@@ -112,11 +112,31 @@ impl TraitBoundsChecker {
 
         // Check each required trait bound
         for required_trait in &type_param.bounds {
-            if !self.type_implements_trait(&type_name, required_trait) {
-                return Err(format!(
-                    "Type '{}' does not implement trait '{}' required by type parameter '{}'",
-                    type_name, required_trait, type_param.name
-                ));
+            match required_trait {
+                TraitBound::Simple(trait_name) => {
+                    if !self.type_implements_trait(&type_name, trait_name) {
+                        return Err(format!(
+                            "Type '{}' does not implement trait '{}' required by type parameter '{}'",
+                            type_name, trait_name, type_param.name
+                        ));
+                    }
+                }
+                TraitBound::Callable { trait_name, .. } => {
+                    // For closure traits, check if type is a function/closure type
+                    // For now, we accept function types as satisfying closure traits
+                    match concrete_type {
+                        Type::Function { .. } => {
+                            // Function types satisfy all closure traits
+                            // TODO: More precise checking based on capture mode
+                        }
+                        _ => {
+                            return Err(format!(
+                                "Type '{}' does not implement closure trait '{}' required by type parameter '{}'",
+                                type_name, trait_name, type_param.name
+                            ));
+                        }
+                    }
+                }
             }
         }
 

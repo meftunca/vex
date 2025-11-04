@@ -1,0 +1,16 @@
+// Test closure trait implementation codegen
+// Demonstrates automatic trait impl generation for closures
+
+fn main(): i32 {
+    // Test 1: Immutable closure (Callable)
+    let x = 10;
+    let immutable_closure = |n: i32| n + x;
+    
+    // Test 2: Closure without captures (also Callable)
+    let pure_closure = |a: i32, b: i32| a * b;
+    
+    // For now, just test that closures compile
+    // Next step: Enable calling closures through trait methods
+    
+    return 42;
+}

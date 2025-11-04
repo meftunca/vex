@@ -127,10 +127,10 @@ fn main() -> Result<()> {
 
             println!("   ✅ Parsed {} successfully", filename);
 
-            // Run borrow checker (Phase 1: Immutability)
+            // Run borrow checker (Phase 1-5: Immutability, Moves, Borrows, Lifetimes, Closure Traits)
             println!("   🔍 Running borrow checker...");
             let mut borrow_checker = vex_compiler::BorrowChecker::new();
-            if let Err(e) = borrow_checker.check_program(&ast) {
+            if let Err(e) = borrow_checker.check_program(&mut ast) {
                 anyhow::bail!("⚠️  Borrow checker error: {}", e);
             }
             println!("   ✅ Borrow check passed");
@@ -354,10 +354,10 @@ fn main() -> Result<()> {
 
             println!("   ✅ Parsed {} successfully", filename);
 
-            // Run borrow checker (Phase 1-4: Immutability, Moves, Borrows, Lifetimes)
+            // Run borrow checker (Phase 1-5: Immutability, Moves, Borrows, Lifetimes, Closure Traits)
             println!("   🔍 Running borrow checker...");
             let mut borrow_checker = vex_compiler::BorrowChecker::new();
-            if let Err(e) = borrow_checker.check_program(&ast) {
+            if let Err(e) = borrow_checker.check_program(&mut ast) {
                 anyhow::bail!("⚠️  Borrow checker error: {}", e);
             }
             println!("   ✅ Borrow check passed");

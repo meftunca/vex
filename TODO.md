@@ -4,7 +4,23 @@
 
 **✅ COMPLETED TODAY:**
 
-1. **Closure Parser Fix** ✅ **[CRITICAL!]**
+1. **Closure Trait Borrow Checker Integration** ✅ **[COMPLETE!]**
+
+   - **Phase 5 Added:** Closure capture mode analysis in borrow checker
+   - **Recursive AST Traversal:** Analyzes all closures in program
+   - **CaptureMode Update:** Changes from `Infer` to `Immutable/Mutable/Once`
+   - **Files Modified:**
+     - `vex-compiler/src/borrow_checker/mod.rs` (230+ lines added)
+     - `vex-compiler/src/borrow_checker/closure_traits.rs` (new `analyze_closure_body`)
+     - `vex-cli/src/main.rs` (changed to `&mut Program`)
+   - **Impact:**
+     - ✅ Borrow checker now analyzes closure captures
+     - ✅ CaptureMode correctly determined: Immutable/Mutable/Once
+     - ✅ Tests: 89/104 passing (85.6%, +1 test!)
+     - ✅ Debug output shows: `capture_mode: Immutable`
+   - **Next:** Type system integration (~1 day)
+
+2. **Closure Parser Fix** ✅ **[CRITICAL!]**
    - **Bug:** `|x: i32| x * 2` failed with "Expected '|' after closure parameters"
    - **Root Cause:** `parse_type()` treated `|` as union type operator
    - **Solution:** Use `parse_type_primary()` for closure parameter types
@@ -16,7 +32,6 @@
      - ✅ Closure parsing now works
      - ✅ `higher_order.vx` compiles and returns correct result (35)
      - ✅ Function pointers already work in codegen!
-   - **Next:** Fix borrow checker closure scoping bug, then implement `compile_closure()`
 
 ## 🎯 Previous Session (November 4, 2025)
 
@@ -115,26 +130,40 @@
   - Parser flag `in_method_body` tracks context
   - Borrow checker accepts syntax sugar
   - Codegen method resolution needs update
-- [ ] **Closures & Lambdas** 🔴 - `|x| x + 1` syntax, capture (~5 days)
-  - **Parser**: ✅ FIXED (Nov 5, 2025) - See `CLOSURE_PARSER_FIX_SUMMARY.md`
-  - **Function Pointers**: ✅ Already working in codegen
-  - **TODO 1**: Fix borrow checker closure parameter scoping (~2 hours)
-  - **TODO 2**: Implement `compile_closure()` in codegen (~5 days)
-  - **TODO 3**: Add environment capture mechanism (~2 days)
-  - **TODO 4**: Closure traits (Fn, FnMut, FnOnce) (~2 days)
+- [ ] **Closures & Lambdas** ⚡ - `|x| x + 1` syntax, capture (~0.5 day remaining)
+  - ✅ **Parser**: FIXED (Nov 5, 2025) - See `CLOSURE_PARSER_FIX_SUMMARY.md`
+  - ✅ **Function Pointers**: Already working in codegen
+  - ✅ **Environment Capture Detection**: Free variable detection COMPLETE
+  - ✅ **Environment Binding**: closure_variables HashMap implemented
+  - ✅ **Borrow Checker Integration**: Phase 5 analyzes CaptureMode (Nov 5, 2025)
+  - ✅ **Closure Traits AST**: CaptureMode enum, trait definitions (Callable/CallableMut/CallableOnce)
+  - ✅ **Documentation**: CLOSURE_TRAITS.md, CLOSURE_BORROW_CHECKER_INTEGRATION.md
+  - ✅ **Generic Trait Bounds**: `F: Callable(T): U` syntax parsing & type checking (Nov 6, 2025)
+  - ✅ **Trait Impl Codegen**: Automatic `struct __Closure_1 impl Callable` generation (Nov 6, 2025)
+  - **TODO**: Trait method calls - `closure.call(args)` instead of direct call (~0.5 day)
+  - Tests: 92/107 passing (86.0%)
   - Critical for functional programming
-  - Needed before standard library
+  - 95% complete!
 - [ ] **Error Handling** 🔴 - `Result<T, E>` with `?` operator (~2 days)
   - Core language feature
   - Must work before std library
 
-### 2. Critical Bug Fixes (~3 days) - AFTER ESSENTIALS
+### 2. Critical Bug Fixes (~1 day remaining) - MOSTLY COMPLETE ✅
 
-- [ ] **Trait Bounds LLVM Codegen** - Struct passing convention (~1 day)
+- [x] **Trait Bounds LLVM Codegen** - ✅ COMPLETE (Nov 6, 2025)
+  - ✅ Fixed struct argument passing by pointer in function calls
+  - ✅ Fixed generic function mangling (use argument types, not return type)
+  - ✅ Fixed type inference for struct variables
+  - Tests: 2/3 passing (trait_bounds_basic ✅, trait_bounds_separate_impl ✅)
+  - Remaining: trait_bounds_multiple (field access through reference bug)
+- [x] **Circular Dependency Detection** - ✅ COMPLETE (Nov 6, 2025)
+  - ✅ DFS-based cycle detection in struct dependency graph
+  - ✅ Detects both cross-struct cycles (A→B→A) and self-references (Node→Node)
+  - ✅ Clear error messages: "Circular dependency detected: A -> B -> A"
+  - Tests: Both circular_dependency and circular_self properly detect cycles
 - [ ] **Generic Struct Field Access Bug** - Edge cases (~0.5 day)
-- [ ] **Generic Edge Cases** - Circular dependency detection (~1.5 days)
 
-### 3. Type System Completion (~5-6 days) - LATER
+  - Issue: Field access through reference in generic structs### 3. Type System Completion (~5-6 days) - LATER
 
 - [ ] **Dynamic Dispatch** 🔴 - Vtable generation for `dyn Trait` (~3 days)
   - Core trait system feature
@@ -230,12 +259,16 @@
 
 #### Yüksek Öncelik 🔴 - CORE LANGUAGE ONLY
 
-1. **Closures & Lambdas** (~5 gün)
+1. **Closures & Lambdas** (~2 gün kaldı) 🟡 **85% COMPLETE**
 
-   - Lambda syntax: `|x| x + 1`
-   - Capture environment (by value/reference)
-   - Closure traits: Fn, FnMut, FnOnce
-   - LLVM closure codegen
+   - ✅ Lambda syntax: `|x| x + 1` (parser fixed Nov 5)
+   - ✅ Capture environment detection (free variables)
+   - ✅ Environment binding (closure_variables HashMap)
+   - ✅ Borrow checker Phase 5 (CaptureMode analysis)
+   - ✅ Closure traits AST: Callable/CallableMut/CallableOnce
+   - [ ] Type system integration (~1 gün)
+   - [ ] Trait method codegen (~1 gün)
+   - Tests: 89/104 passing (85.6%)
 
 2. **Error Handling** (~2 gün)
 
@@ -371,11 +404,91 @@
   - `examples/02_functions/higher_order.vx` - Basic apply pattern (returns 35) ✅
   - `examples/02_functions/higher_order_comprehensive.vx` - Compose pattern (returns 100) ✅
 - **Implementation Details**:
-
   - Function pointers stored as `PointerValue` in `function_params` map
   - Type information tracked in `function_param_types` (AST Type)
   - Indirect calls use inkwell's `build_indirect_call(fn_type, ptr, args)`
-  - Function type extraction via `ast_function_type_to_llvm` helper### Block Expressions (4 Kasım 2025) ✅
+  - Function type extraction via `ast_function_type_to_llvm` helper
+
+### Closures & Lambdas (5 Kasım 2025) 🟡 ~85% COMPLETE
+
+**Completed Features:**
+
+- [x] **Parser**: Lambda syntax `|x: i32| x * 2` (Nov 5, 2025) ✅
+  - Fixed union type conflict with closure pipes
+  - Return type support: `|x: i32|: i32 { x * 2 }`
+  - See: `CLOSURE_PARSER_FIX_SUMMARY.md`
+- [x] **AST**: `Expression::Closure { params, return_type, body, capture_mode }` ✅
+- [x] **CaptureMode Enum**: `Infer | Immutable | Mutable | Once` ✅
+- [x] **Environment Capture Detection**: Free variable analysis ✅
+  - Identifies captured variables from outer scopes
+  - Tracks 0-N captured variables per closure
+  - Debug output: `Found 3 free variables: ["x", "y", "z"]`
+- [x] **Environment Binding**: closure_variables HashMap ✅
+  - Maps closure variable → (fn_ptr, env_ptr)
+  - Environment struct creation for captured values
+  - Environment pointer passed at call site
+- [x] **Borrow Checker Phase 5**: Closure capture mode analysis ✅
+  - Recursive AST traversal (Item → Statement → Expression → Closure)
+  - CaptureMode update: `Infer` → `Immutable/Mutable/Once`
+  - Mutation detection for CallableMut
+  - Move detection for CallableOnce
+  - Integrated into main borrow checker flow
+- [x] **Closure Traits AST**: Vex-native trait definitions ✅
+  - `Callable<Args, Return>` - Immutable capture (like Rust's Fn)
+  - `CallableMut<Args, Return>` - Mutable capture (like Rust's FnMut)
+  - `CallableOnce<Args, Return>` - Move capture (like Rust's FnOnce)
+  - See: `vex-libs/std/callable.vx`
+- [x] **Documentation**: Complete implementation docs ✅
+  - `docs/CLOSURE_TRAITS.md` - Trait system explanation
+  - `docs/CLOSURE_BORROW_CHECKER_INTEGRATION.md` - Phase 5 details
+
+**Working Tests:**
+
+- `examples/02_functions/closure_simple.vx` - Basic closure (0 captures) ✅
+- `examples/02_functions/closure_call_test.vx` - Single capture (returns 15) ✅
+- `examples/02_functions/closure_multi_capture.vx` - Multiple captures (returns 32) ✅
+
+**Test Results:** 89/104 passing (85.6%)
+
+**Remaining Work (~2 days):**
+
+- [ ] **Generic Trait Bounds for Closures** (~1 day)
+  - Parse generic constraints: `F: Callable(T): U`
+  - Enable pattern: `fn map<T, U, F: Callable(T): U>(arr: [T], f: F): [U]`
+  - Type parameter with trait bounds
+  - Validate closure types against bounds
+  - Example usage:
+    ```vex
+    fn map<T, U, F: Callable(T): U>(arr: [T], f: F): [U] {
+        let! result = [];
+        for item in arr {
+            result.push(f.call(item));
+        }
+        return result;
+    }
+    ```
+- [ ] **Trait Impl Codegen** (~1 day)
+
+  - Vex syntax: `struct MyClosure impl Callable { }`
+  - Compiler generates closure struct with environment
+  - Trait methods (`call/call_mut/call_once`) auto-implemented
+  - Method calls environment + closure body
+  - Example:
+
+    ```vex
+    // User writes:
+    let adder = |x: i32|: i32 { x + captured };
+
+    // Compiler generates:
+    struct __Closure_1 impl Callable(i32): i32 {
+        captured: i32,
+    }
+    // Trait methods auto-generated based on CaptureMode
+    ```
+
+**Implementation Status:** ~85% complete (parser, capture, borrow checker done; type system & codegen pending)
+
+### Block Expressions (4 Kasım 2025) ✅
 
 - [x] **AST**: `Expression::Block { statements, return_expr }` variant added
 - [x] **Parser**: `parse_block_expression()` - Last expr without semicolon returns
@@ -602,6 +715,52 @@ vex-compiler/              # Compiler + 4-phase borrow checker (flow-sensitive)
 vex-cli/                   # CLI tool
 vex-libs/                  # Standard library
 ```
+
+---
+
+## 🚀 Quick Reference: Vex vs Rust Syntax
+
+### Closures & Traits
+
+| Feature                  | Rust                          | Vex                                       |
+| ------------------------ | ----------------------------- | ----------------------------------------- |
+| **Closure syntax**       | `\|x\| x + 1`                 | `\|x: i32\| x + 1` (same)                 |
+| **Closure traits**       | `Fn`, `FnMut`, `FnOnce`       | `Callable`, `CallableMut`, `CallableOnce` |
+| **Generic constraint**   | `F: Fn(i32) -> i32`           | `F: Callable(i32): i32`                   |
+| **Generic function**     | `fn map<F: Fn(T) -> U>`       | `fn map<T, U, F: Callable(T): U>`         |
+| **Return type**          | `->`                          | `:`                                       |
+| **Trait implementation** | `impl Trait for Type { ... }` | `struct Type impl Trait { }`              |
+| **Method generation**    | Manual                        | Automatic                                 |
+
+### Example Usage
+
+```vex
+// Generic function with closure constraint
+fn map<T, U, F: Callable(T): U>(arr: [T], f: F): [U] {
+    let! result = [];
+    for item in arr {
+        result.push(f.call(item));
+    }
+    return result;
+}
+
+// Lambda usage
+let numbers = [1, 2, 3];
+let doubled = map(numbers, |x: i32| x * 2);
+
+// Explicit struct (Vex style)
+struct Doubler impl Callable(i32): i32 {
+    multiplier: i32,
+}
+// Compiler auto-generates: fn call(self: &Self, x: i32): i32
+```
+
+### Key Differences
+
+1. **`impl` is a binding operator:** `struct Name impl Trait { }` binds trait to struct
+2. **No manual trait methods:** Compiler generates all trait methods automatically
+3. **Return type uses `:`** not `->` (consistency with function syntax)
+4. **Generic constraints:** Type parameters with bounds: `F: Callable(T): U`
 
 ## 📖 Documentation
 

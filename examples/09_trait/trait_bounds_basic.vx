@@ -2,19 +2,18 @@
 // Expected: Compiles successfully (runtime checking not yet implemented)
 
 trait Display {
-    fn display(self: &Self!): string;
+    fn (self: &Self!)display(): string;
 }
 
-struct Point {
+struct Point impl Display {
     x: i32,
-    y: i32
-}
-
-impl Display for Point {
-    fn display(self: &Point): string {
+    y: i32,
+    fn (self: &Point)display(): string {
         return "Point";
     }
 }
+
+ 
 
 // Function with trait bound
 fn print_value<T: Display>(value: T): i32 {

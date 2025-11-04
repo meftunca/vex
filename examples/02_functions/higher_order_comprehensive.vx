@@ -14,12 +14,12 @@ fn add_ten(x: i32): i32 {
 }
 
 // Higher-order function: apply function to value
-fn apply(f: fn(i32) -> i32, value: i32): i32 {
+fn apply(f: fn(i32): i32, value: i32): i32 {
     return f(value);
 }
 
 // Higher-order function: compose two functions
-fn compose(f: fn(i32) -> i32, g: fn(i32) -> i32, value: i32): i32 {
+fn compose(f: fn(i32): i32, g: fn(i32): i32, value: i32): i32 {
     return f(g(value));
 }
 

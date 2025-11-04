@@ -11,11 +11,66 @@ pub struct Program {
 pub type File = Program;
 
 /// Generic type parameter with optional trait bounds
-/// Examples: T, T: Display, T: Display + Clone
+/// Examples: T, T: Display, T: Display + Clone, F: Callable(i32): i32
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct TypeParam {
     pub name: String,
-    pub bounds: Vec<String>, // Trait bounds: Display, Clone, etc.
+    pub bounds: Vec<TraitBound>, // Trait bounds: Display, Callable(i32): i32, etc.
+}
+
+/// Trait bound - can be a simple trait or a closure trait with signature
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum TraitBound {
+    /// Simple trait: Display, Clone, etc.
+    Simple(String),
+    /// Closure trait: Callable(T): U, CallableMut(i32, i32): i32, etc.
+    Callable {
+        trait_name: String,     // Callable, CallableMut, CallableOnce
+        param_types: Vec<Type>, // Input parameter types
+        return_type: Box<Type>, // Return type
+    },
+}
+
+// Manual Eq and Hash implementations for TraitBound (Type doesn't implement these)
+impl Eq for TraitBound {}
+
+impl std::hash::Hash for TraitBound {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        match self {
+            TraitBound::Simple(name) => {
+                0u8.hash(state);
+                name.hash(state);
+            }
+            TraitBound::Callable { trait_name, .. } => {
+                1u8.hash(state);
+                trait_name.hash(state);
+                // Skip param_types and return_type as Type doesn't implement Hash
+                // This is acceptable as trait_name is usually unique enough
+            }
+        }
+    }
+}
+
+impl std::fmt::Display for TraitBound {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TraitBound::Simple(name) => write!(f, "{}", name),
+            TraitBound::Callable {
+                trait_name,
+                param_types,
+                return_type,
+            } => {
+                write!(f, "{}(", trait_name)?;
+                for (i, ty) in param_types.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{:?}", ty)?; // Use Debug as Type doesn't have Display
+                }
+                write!(f, "): {:?}", return_type)
+            }
+        }
+    }
 }
 
 /// Import kind - how the import is structured
@@ -583,7 +638,24 @@ pub enum Expression {
         params: Vec<Param>,        // Closure parameters
         return_type: Option<Type>, // Optional return type annotation
         body: Box<Expression>,     // Body expression (can be Block)
+        capture_mode: CaptureMode, // How closure captures variables
     },
+}
+
+/// Closure capture mode (determines which trait it implements)
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum CaptureMode {
+    /// Inferred - will be determined during borrow checking
+    Infer,
+    /// Immutable capture - implements Callable trait (like Rust's Fn)
+    /// Can be called multiple times, captures by immutable reference
+    Immutable,
+    /// Mutable capture - implements CallableMut trait (like Rust's FnMut)
+    /// Can be called multiple times, captures by mutable reference
+    Mutable,
+    /// Move capture - implements CallableOnce trait (like Rust's FnOnce)
+    /// Can only be called once, takes ownership of captures
+    Once,
 }
 
 /// Binary operators

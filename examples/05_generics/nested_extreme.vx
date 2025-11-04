@@ -14,7 +14,7 @@ fn main(): i32 {
                  Box<Box<Box<Box<Box<Box<Box<Box<Box<Box<
                  Box<Box<Box<Box<Box<Box<Box<Box<Box<Box<
                  Box<Box<Box<Box<Box<Box<Box<Box<Box<Box<
-                 i32>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>;
+                 i32>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>;
     
     return 0;
 }

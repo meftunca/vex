@@ -1,0 +1,24 @@
+// Test closure trait analysis
+// Demonstrates immutable capture (Callable trait)
+
+fn main(): i32 {
+    // Test 1: Immutable capture (Callable trait)
+    let x = 10;
+    let add_x = |y: i32|: i32 { x + y };
+    
+    // Test 2: Another immutable capture
+    let z = 20;
+    let add_z = |y: i32|: i32 { z + y };
+    
+    // Test 3: Multiple captures
+    let a = 5;
+    let b = 3;
+    let multiply_add = |y: i32|: i32 { a * b + y };
+    
+    // Call closures
+    let r1 = add_x(5);      // 10 + 5 = 15
+    let r2 = add_z(10);     // 20 + 10 = 30
+    let r3 = multiply_add(7); // 5 * 3 + 7 = 22
+    
+    return r1 + r2 + r3;  // 15 + 30 + 22 = 67
+}
