@@ -8,117 +8,131 @@
 
 ## 📊 Quick Summary
 
-| Priority | Range | Files | Status |
-|----------|-------|-------|--------|
-| 🔴 CRITICAL | 1000+ lines | 6 | **Split now** |
-| 🟡 HIGH | 700-999 lines | 6 | Split before adding code |
-| 🟠 MEDIUM | 500-699 lines | 6 | Monitor, split at 600+ |
-| 🟢 SAFE | < 500 lines | All others | Monitor only |
+| Priority    | Range         | Files      | Status                   |
+| ----------- | ------------- | ---------- | ------------------------ |
+| 🔴 CRITICAL | 1000+ lines   | 6          | **Split now**            |
+| 🟡 HIGH     | 700-999 lines | 6          | Split before adding code |
+| 🟠 MEDIUM   | 500-699 lines | 6          | Monitor, split at 600+   |
+| 🟢 SAFE     | < 500 lines   | All others | Monitor only             |
 
 **Total affected:** 18 files need refactoring  
 **Check command:** `find vex-*/src -name "*.rs" -exec wc -l {} \; | awk '$1 > 400' | sort -rn`
 
 ---
 
-## 🚨 Critical Files (1000+ lines) - SPLIT IMMEDIATELY
+## � Priority 1: Critical (1000+ lines) - SPLIT NOW
 
-### 1. expressions/mod.rs (1418 lines) → Target: <400 lines
+### 1. codegen_ast/expressions/mod.rs (1418 lines)
 
-**Current:** Giant dispatcher with all expression logic  
-**Impact:** Extremely difficult to navigate and modify
+**Problem:** Monolithic expression compiler  
+**Target:** 350 lines
 
-**Split Plan:**
+**Action:**
 
 ```
 expressions/
-├── mod.rs (~350 lines)            # Dispatcher + compile_expression entry point
-├── unary_control.rs (~350 lines)  # NEW - Unary ops + if/match/block
-└── (keep existing):
-    ├── binary_ops.rs (150 lines)
-    ├── pattern_matching.rs (957 lines) → needs split
-    ├── calls.rs (820 lines) → needs split
-    ├── access.rs (762 lines) → needs split
-    ├── special.rs (723 lines) → needs split
-    └── literals.rs (388 lines)
+├── mod.rs (~350 lines)           # Dispatcher only
+└── unary_control.rs (~350 lines) # NEW: Unary/if/match/block/cast
 ```
 
-**Extract to unary_control.rs:**
+**Move to unary_control.rs:**
 
-- Unary operations (!, -, &, &!)
-- If/match expression compilation
-- Block expressions, cast expressions
+- `compile_unary_op()` - !, -, &, &!
+- `compile_if_expression()`, `compile_match_expression()`
+- `compile_block()`, `compile_cast()`
+
+**Lines saved:** 1418 → 700 (50% reduction)
 
 ---
 
-### 2. statements.rs (1408 lines) → Target: <400 lines
+### 2. codegen_ast/statements.rs (1408 lines)
 
-**Current:** All statement compilation in one file  
-**Impact:** Hard to find specific statement logic
+**Problem:** All statement types in one file  
+**Target:** 350 lines
 
-**Split Plan:**
+**Action:**
 
 ```
 statements/
-├── mod.rs (~350 lines)            # Let statements + dispatcher
-├── control_flow.rs (~350 lines)   # NEW - while/for/loop/return
-├── defer_break.rs (~300 lines)    # NEW - defer/break/continue
-└── type_injection.rs (~400 lines) # NEW - Generic type helpers
+├── mod.rs (~350 lines)            # Let + dispatcher
+├── control_flow.rs (~350 lines)   # NEW: while/for/loop/return
+├── defer_break.rs (~300 lines)    # NEW: defer/break/continue
+└── type_injection.rs (~400 lines) # NEW: Generic type helpers
 ```
+
+**Lines saved:** 1408 → 1400 (4 files, better organization)
 
 ---
 
-### 3. functions.rs (1353 lines) → Target: <400 lines
+### 3. codegen_ast/functions.rs (1353 lines)
 
-**Current:** Function + generic + closure compilation  
-**Impact:** Mixing multiple concerns
+**Problem:** Function + generics + closures mixed  
+**Target:** 400 lines
 
-**Split Plan:**
+**Action:**
 
 ```
 functions/
-├── mod.rs (~400 lines)            # Function compilation core
-├── generics.rs (~400 lines)       # NEW - Generic monomorphization
-└── closure_env.rs (~350 lines)    # NEW - Closure environment handling
+├── mod.rs (~400 lines)            # Core function compilation
+├── generics.rs (~400 lines)       # NEW: Monomorphization
+└── closure_env.rs (~350 lines)    # NEW: Closure environment
 ```
+
+**Lines saved:** 1353 → 1150 (3 files)
 
 ---
 
-### 4. pattern_matching.rs (957 lines) → Target: <400 lines
+### 4. codegen_ast/expressions/pattern_matching.rs (957 lines)
 
-**Split Plan:**
+**Problem:** All pattern types together  
+**Target:** 300 lines
+
+**Action:**
 
 ```
 expressions/pattern_matching/
 ├── mod.rs (~300 lines)            # Pattern dispatcher
-├── destructuring.rs (~350 lines)  # NEW - Struct/tuple/array patterns
-└── enum_guards.rs (~300 lines)    # NEW - Enum patterns + guards
+├── destructuring.rs (~350 lines)  # NEW: Struct/tuple/array
+└── enum_guards.rs (~300 lines)    # NEW: Enum + guards
 ```
+
+**Lines saved:** 957 → 950 (3 files, clearer structure)
 
 ---
 
-### 5. builtin_types.rs (917 lines) → Target: <400 lines
+### 5. codegen_ast/builtins/builtin_types.rs (917 lines)
 
-**Split Plan:**
+**Problem:** All builtin constructors in one file  
+**Target:** 250 lines
+
+**Action:**
 
 ```
 builtins/builtin_types/
-├── mod.rs (~250 lines)            # Type registry + dispatcher
-├── option_result.rs (~350 lines)  # NEW - Option<T> + Result<T,E>
-└── collections.rs (~350 lines)    # NEW - Vec<T>, Box<T>, Tuple
+├── mod.rs (~250 lines)            # Registry
+├── option_result.rs (~350 lines)  # NEW: Option/Result
+└── collections.rs (~350 lines)    # NEW: Vec/Box/Tuple
 ```
+
+**Lines saved:** 917 → 950 (3 files, easier to find)
 
 ---
 
-### 6. parser/expressions.rs (902 lines) → Target: <400 lines
+### 6. parser/expressions.rs (902 lines)
 
-**Split Plan:**
+**Problem:** All expression parsing logic  
+**Target:** 300 lines
+
+**Action:**
 
 ```
 parser/expressions/
-├── mod.rs (~300 lines)            # Expression dispatcher
-├── primary.rs (~300 lines)        # NEW - Literals + identifiers
-└── operators.rs (~300 lines)      # NEW - Binary/unary parsing
+├── mod.rs (~300 lines)            # Dispatcher
+├── primary.rs (~300 lines)        # NEW: Literals/identifiers
+└── operators.rs (~300 lines)      # NEW: Binary/unary
 ```
+
+**Lines saved:** 902 → 900 (3 files)
 
 ---
 
