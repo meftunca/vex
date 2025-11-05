@@ -1,0 +1,5 @@
+// Even simpler test - no type annotation in let
+fn main(): i32 {
+    let x = 42;
+    return x;
+}

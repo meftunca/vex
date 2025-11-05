@@ -1,0 +1,23 @@
+// Phase 0.4: Enum Constructor Test
+// Test Some(), Ok(), Err() (None requires type inference)
+
+fn test_option_some(): Option<i32> {
+    return Some(42);
+}
+
+fn test_result_ok(): Result<i32, i32> {
+    return Ok(100);
+}
+
+fn test_result_err(): Result<i32, i32> {
+    return Err(999);
+}
+
+fn main(): i32 {
+    // Test if constructors compile
+    let opt = test_option_some();
+    let res = test_result_ok();
+    let res2 = test_result_err();
+    
+    return 0;
+}

@@ -1,0 +1,12 @@
+// Test stdlib logger module
+
+fn main(): i32 {
+    print("Testing logger...");
+    println("");
+    
+    // TODO: Import logger when module system is ready
+    // import { logger } from "std";
+    // logger.info("Hello from Vex!");
+    
+    return 0;
+}

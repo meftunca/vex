@@ -1,0 +1,32 @@
+// Phase 0.8: Option<T> Constructor Tests
+// Test Some(value) and None constructors
+
+fn test_option_some_i32(): Option<i32> {
+    return Some(42);
+}
+
+fn test_option_none_i32(): Option<i32> {
+    return None;
+}
+
+fn test_option_some_bool(): Option<bool> {
+    return Some(true);
+}
+
+fn test_option_some_string(): Option<string> {
+    return Some("hello");
+}
+
+fn main(): i32 {
+    // Test type inference
+    let some_val = Some(100);
+    let none_val = None;
+    
+    // Test explicit types
+    let explicit_some: Option<i32> = Some(200);
+    let explicit_none: Option<i32> = None;
+    
+    println("Option constructor tests passed!");
+    
+    return 0;
+}

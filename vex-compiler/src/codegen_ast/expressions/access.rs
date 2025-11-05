@@ -12,6 +12,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
         object: &Expression,
         field: &str,
     ) -> Result<BasicValueEnum<'ctx>, String> {
+        // Phase 0.8: Check if this is tuple field access (field is numeric: "0", "1", "2", etc.)
+        if let Ok(tuple_index) = field.parse::<u32>() {
+            return self.compile_tuple_field_access(object, tuple_index);
+        }
+
         // Handle chained field access: outer.value.value
         // Strategy: Recursively compile object expression, determine its struct type
 
@@ -54,7 +59,24 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 self.variable_struct_names
             );
             // Check if this variable is tracked as a struct
-            if let Some(struct_name) = self.variable_struct_names.get(var_name).cloned() {
+            let maybe_struct_name = self.variable_struct_names.get(var_name).cloned();
+
+            if maybe_struct_name.is_none() {
+                eprintln!("   ⚠️ Variable not tracked in variable_struct_names");
+                eprintln!("   → Checking type annotation...");
+
+                // Fallback: Try to infer from type annotation stored during Let statement
+                // This happens when type annotation is present: let inner: Box<i32> = ...
+                // In such cases, we might have tracked the type but not the struct name
+                // Look at variable_types to see if we can infer the struct name
+                if let Some(var_type) = self.variable_types.get(var_name) {
+                    eprintln!("   → Found type in variable_types: {:?}", var_type);
+                    // For now, we can't easily extract struct name from LLVM type
+                    // This is a limitation - we need better type tracking
+                }
+            }
+
+            if let Some(struct_name) = maybe_struct_name {
                 eprintln!("   ✅ Found struct: {}", struct_name);
                 let var_ptr = *self
                     .variables
@@ -104,6 +126,26 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 // Get field type from AST definition (critical for nested generics!)
                 let (_, field_ast_type) = &struct_def.fields[field_index as usize];
                 let field_llvm_type = self.ast_type_to_llvm(field_ast_type);
+
+                // CRITICAL: Check if field is a struct type - return pointer for zero-copy
+                match field_ast_type {
+                    Type::Named(field_type_name) => {
+                        if self.struct_defs.contains_key(field_type_name) {
+                            return Ok(field_ptr.into());
+                        }
+                    }
+                    Type::Generic { name, type_args } => {
+                        let mangled_name = self.type_to_string(field_ast_type);
+                        if self.struct_defs.contains_key(&mangled_name) {
+                            return Ok(field_ptr.into());
+                        }
+                    }
+                    Type::Box(_) | Type::Vec(_) | Type::Option(_) | Type::Result(_, _) => {
+                        // Phase 0 builtin types - always structs, return pointer
+                        return Ok(field_ptr.into());
+                    }
+                    _ => {}
+                }
 
                 // Load and return field value
                 return self
@@ -401,7 +443,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
     }
 
     /// Get the struct type name of a field from an object expression
-    fn get_field_struct_type(
+    pub(crate) fn get_field_struct_type(
         &mut self,
         object: &Expression,
         field: &str,
@@ -422,18 +464,43 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         match field_type {
                             Type::Named(field_struct_name) => {
                                 if self.struct_defs.contains_key(&field_struct_name) {
+                                    eprintln!(
+                                        "  → Field type is Named struct: {}",
+                                        field_struct_name
+                                    );
                                     return Ok(Some(field_struct_name));
                                 }
                             }
                             Type::Generic { name, type_args } => {
                                 // Generic struct field - get mangled name
+                                eprintln!("  → Field type is Generic: {}<??>", name);
                                 match self.instantiate_generic_struct(&name, &type_args) {
-                                    Ok(mangled) => return Ok(Some(mangled)),
-                                    Err(_) => return Ok(None),
+                                    Ok(mangled) => {
+                                        eprintln!("  → Mangled name: {}", mangled);
+                                        return Ok(Some(mangled));
+                                    }
+                                    Err(e) => {
+                                        eprintln!("  → Instantiation failed: {}", e);
+                                        return Ok(None);
+                                    }
                                 }
                             }
-                            _ => {}
+                            Type::Box(inner_ty) => {
+                                // Phase 0: Box<T> builtin type
+                                eprintln!("  → Field type is Box<?>");
+                                let mangled =
+                                    format!("Box_{}", self.type_to_string(inner_ty.as_ref()));
+                                eprintln!("  → Box mangled: {}", mangled);
+                                if self.struct_defs.contains_key(&mangled) {
+                                    return Ok(Some(mangled));
+                                }
+                            }
+                            _ => {
+                                eprintln!("  → Field type is not struct: {:?}", field_type);
+                            }
                         }
+                    } else {
+                        eprintln!("  → Field not found in struct definition");
                     }
                 }
                 Ok(None)
@@ -468,6 +535,38 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                 match self.instantiate_generic_struct(&name, &type_args) {
                                     Ok(mangled) => return Ok(Some(mangled)),
                                     Err(_) => return Ok(None),
+                                }
+                            }
+                            Type::Box(inner_ty) => {
+                                // Chained Box<T> access
+                                let mangled =
+                                    format!("Box_{}", self.type_to_string(inner_ty.as_ref()));
+                                if self.struct_defs.contains_key(&mangled) {
+                                    return Ok(Some(mangled));
+                                }
+                            }
+                            Type::Vec(inner_ty) => {
+                                let mangled =
+                                    format!("Vec_{}", self.type_to_string(inner_ty.as_ref()));
+                                if self.struct_defs.contains_key(&mangled) {
+                                    return Ok(Some(mangled));
+                                }
+                            }
+                            Type::Option(inner_ty) => {
+                                let mangled =
+                                    format!("Option_{}", self.type_to_string(inner_ty.as_ref()));
+                                if self.struct_defs.contains_key(&mangled) {
+                                    return Ok(Some(mangled));
+                                }
+                            }
+                            Type::Result(ok_ty, err_ty) => {
+                                let mangled = format!(
+                                    "Result_{}_{}",
+                                    self.type_to_string(ok_ty.as_ref()),
+                                    self.type_to_string(err_ty.as_ref())
+                                );
+                                if self.struct_defs.contains_key(&mangled) {
+                                    return Ok(Some(mangled));
                                 }
                             }
                             _ => {}
@@ -541,6 +640,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     return Ok(field_ptr.into());
                 }
             }
+            Type::Box(_) | Type::Vec(_) | Type::Option(_) | Type::Result(_, _) => {
+                // Phase 0 builtin types - always structs, return pointer
+                return Ok(field_ptr.into());
+            }
             Type::Generic { name, type_args } => {
                 // Generic struct (e.g., Box<i32>) - calculate mangled name
                 // Use the same mangling strategy as instantiate_generic_struct
@@ -580,7 +683,80 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Non-struct field: load normally
         self.builder
-            .build_load(field_llvm_type, field_ptr, &format!("{}_val", field))
+            .build_load(field_llvm_type, field_ptr, "field_val")
             .map_err(|e| format!("Failed to load field: {}", e))
+    }
+
+    /// Phase 0.8: Compile tuple field access: tuple.0, tuple.1, etc.
+    fn compile_tuple_field_access(
+        &mut self,
+        object: &Expression,
+        field_index: u32,
+    ) -> Result<BasicValueEnum<'ctx>, String> {
+        // Compile the tuple expression
+        let tuple_val = self.compile_expression(object)?;
+
+        // Tuple is represented as a pointer to anonymous struct
+        if !tuple_val.is_pointer_value() {
+            return Err("Tuple field access requires pointer value".to_string());
+        }
+
+        let tuple_ptr = tuple_val.into_pointer_value();
+
+        // CRITICAL: With LLVM 15+ opaque pointers, we need to reconstruct the tuple type
+        // We'll inspect the tuple variable to get its type
+        // This is a temporary workaround - ideally we'd track tuple types separately
+
+        // For direct variable access (tuple.0), get type from variable_types
+        let tuple_struct_type = if let Expression::Ident(var_name) = object {
+            if let Some(var_type) = self.variable_types.get(var_name) {
+                if let BasicTypeEnum::StructType(st) = var_type {
+                    *st
+                } else {
+                    return Err(format!(
+                        "Variable '{}' is not a tuple (struct type)",
+                        var_name
+                    ));
+                }
+            } else {
+                return Err(format!("Variable '{}' type not found", var_name));
+            }
+        } else {
+            // For complex expressions, we need to store tuple metadata
+            // For now, return an error
+            return Err(
+                "Tuple field access only supported on direct variables for now".to_string(),
+            );
+        };
+
+        // Check if field index is within bounds
+        let field_count = tuple_struct_type.count_fields();
+        if field_index >= field_count {
+            return Err(format!(
+                "Tuple field index {} out of bounds (tuple has {} fields)",
+                field_index, field_count
+            ));
+        }
+
+        // Get pointer to field
+        let field_ptr = self
+            .builder
+            .build_struct_gep(
+                tuple_struct_type,
+                tuple_ptr,
+                field_index,
+                &format!("tuple_field_{}", field_index),
+            )
+            .map_err(|e| format!("Failed to get tuple field pointer: {}", e))?;
+
+        // Get field type
+        let field_type = tuple_struct_type
+            .get_field_type_at_index(field_index)
+            .ok_or_else(|| format!("Cannot get field type at index {}", field_index))?;
+
+        // Load and return field value
+        self.builder
+            .build_load(field_type, field_ptr, "tuple_field_val")
+            .map_err(|e| format!("Failed to load tuple field: {}", e))
     }
 }

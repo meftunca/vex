@@ -96,6 +96,18 @@ impl LifetimeChecker {
             "hashmap_contains",
             "hashmap_remove",
             "hashmap_clear",
+            // Phase 0.4b: Builtin type constructors
+            "vec_new",
+            "vec_free",
+            "box_new",
+            "box_free",
+            // Phase 0.7: Numeric to string conversions
+            "vex_i32_to_string",
+            "vex_i64_to_string",
+            "vex_u32_to_string",
+            "vex_u64_to_string",
+            "vex_f32_to_string",
+            "vex_f64_to_string",
         ];
 
         for name in &builtins {

@@ -348,6 +348,21 @@ pub enum Type {
 
     /// Unit type (void)
     Unit,
+
+    // ============================================================
+    // Builtin Types - Phase 0 (No imports needed, zero-overhead)
+    // ============================================================
+    /// Option<T> - Nullable type (Some(T) or None)
+    Option(Box<Type>),
+
+    /// Result<T, E> - Error handling (Ok(T) or Err(E))
+    Result(Box<Type>, Box<Type>), // (Ok type, Err type)
+
+    /// Vec<T> - Dynamic array (growable, heap-allocated)
+    Vec(Box<Type>),
+
+    /// Box<T> - Heap allocation (enables recursive types)
+    Box(Box<Type>),
 }
 
 /// Block of statements

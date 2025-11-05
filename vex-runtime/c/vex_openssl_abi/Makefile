@@ -2,8 +2,8 @@ CC ?= clang
 CFLAGS ?= -std=c11 -O2 -Wall -Wextra -fPIC
 PKG ?= pkg-config
 
-OPENSSL_CFLAGS := $(shell $(PKG) -S -emit-llvm  --cflags openssl 2>/dev/null)
-OPENSSL_LIBS   := $(shell $(PKG) -S -emit-llvm  --libs openssl 2>/dev/null)
+OPENSSL_CFLAGS := $(shell $(PKG)  --cflags openssl 2>/dev/null)
+OPENSSL_LIBS   := $(shell $(PKG)  --libs openssl 2>/dev/null)
 
 INC = -Iinclude $(OPENSSL_CFLAGS)
 LIBS = $(OPENSSL_LIBS)

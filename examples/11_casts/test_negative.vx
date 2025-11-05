@@ -1,0 +1,7 @@
+// Test negative cast alone
+fn main(): i32 {
+    let neg: i32 = -42;
+    let as_float: f64 = neg as f64;
+    let back: i32 = as_float as i32;
+    return back;  // Should be -42
+}

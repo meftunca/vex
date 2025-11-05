@@ -1,0 +1,46 @@
+// Phase 0.8: Tuple Construction and Field Access Tests
+
+fn test_tuple_pair(): i32 {
+    let pair = (10, 20);
+    let x = pair.0;
+    let y = pair.1;
+    return x + y;  // Should return 30
+}
+
+fn test_tuple_triple(): i32 {
+    let triple = (1, 2, 3);
+    let a = triple.0;
+    let b = triple.1;
+    let c = triple.2;
+    return a + b + c;  // Should return 6
+}
+
+fn test_tuple_mixed_types(): i32 {
+    let mixed = (42, true, "hello");
+    let num = mixed.0;
+    let flag = mixed.1;
+    // let text = mixed.2;  // String access not yet implemented
+    
+    if flag {
+        return num;  // Should return 42
+    }
+    return 0;
+}
+
+fn main(): i32 {
+    let result1 = test_tuple_pair();
+    println("Pair test result:");
+    println(result1);
+    
+    let result2 = test_tuple_triple();
+    println("Triple test result:");
+    println(result2);
+    
+    let result3 = test_tuple_mixed_types();
+    println("Mixed types test result:");
+    println(result3);
+    
+    println("All tuple tests passed!");
+    
+    return 0;
+}

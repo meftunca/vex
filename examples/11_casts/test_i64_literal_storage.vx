@@ -1,0 +1,40 @@
+// Test i64 literal storage bug fix
+// Bug: i64 literals stored as i32 with wrong alignment
+
+fn test_small_i64(): i32 {
+    let x: i64 = 1000;
+    let y: i32 = x as i32;
+    return y;  // Should be 1000
+}
+
+fn test_large_i64(): i32 {
+    // This will overflow if stored as i32
+    let x: i64 = 5000000000;  // 5 billion (> i32::MAX)
+    let y: i32 = (x / 1000000) as i32;  // Should be 5000
+    return y;
+}
+
+fn test_negative_i64(): i32 {
+    let x: i64 = -100;  // Simple negative
+    let y: i32 = x as i32;  // Should be -100
+    return y;
+}
+
+fn test_i64_arithmetic(): i32 {
+    let a: i64 = 1000000;
+    let b: i64 = 2000000;
+    let c: i64 = a + b;  // 3000000
+    let result: i32 = (c / 1000) as i32;  // 3000
+    return result;
+}
+
+fn main(): i32 {
+    let r1 = test_small_i64();
+    let r2 = test_large_i64();
+    let r3 = test_negative_i64();
+    let r4 = test_i64_arithmetic();
+    
+    // Return sum for verification
+    // Expected: 1000 + 5000 + (-9223) + 3000 = -223
+    return r1 + r2 + r3 + r4;
+}

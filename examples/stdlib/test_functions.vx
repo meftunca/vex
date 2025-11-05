@@ -1,0 +1,36 @@
+fn test_arithmetic(): i32 {
+    let a = 10;
+    let b = 20;
+    let sum = a + b;
+    
+    print("Sum: ");
+    println(sum);
+    
+    return sum;
+}
+
+fn test_comparison(): bool {
+    let x = 5;
+    let y = 10;
+    let result = x < y;
+    
+    print("5 < 10: ");
+    if result {
+        println("true");
+    } else {
+        println("false");
+    }
+    
+    return result;
+}
+
+fn main(): i32 {
+    println("=== Basic Tests ===");
+    
+    let sum_result = test_arithmetic();
+    let cmp_result = test_comparison();
+    
+    println("All tests passed!");
+    
+    return 0;
+}

@@ -1,0 +1,7 @@
+// Simple i64 literal test
+fn main(): i32 {
+    let x: i64 = 1000;
+    let y: i64 = 2000;
+    let z: i64 = x + y;  // 3000
+    return (z / 100) as i32;  // Should be 30
+}

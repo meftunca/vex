@@ -23,7 +23,7 @@ use std::collections::{HashMap, HashSet};
 use vex_ast::{Expression, Item, Program, Statement, Type};
 
 /// Tracks which variables have been moved and are no longer accessible
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct MoveChecker {
     /// Variables that have been moved (and are now invalid)
     moved_vars: HashSet<String>,
@@ -33,12 +33,20 @@ pub struct MoveChecker {
 
     /// Type information for variables (to determine Copy vs Move)
     var_types: HashMap<String, Type>,
+
+    /// Builtin function registry for identifying builtin functions
+    builtin_registry: super::builtin_metadata::BuiltinBorrowRegistry,
 }
 
 impl MoveChecker {
     /// Create a new move checker
     pub fn new() -> Self {
-        Self::default()
+        Self {
+            moved_vars: HashSet::new(),
+            valid_vars: HashSet::new(),
+            var_types: HashMap::new(),
+            builtin_registry: super::builtin_metadata::BuiltinBorrowRegistry::new(),
+        }
     }
 
     /// Check an entire program for move violations
@@ -271,6 +279,11 @@ impl MoveChecker {
     fn check_expression(&mut self, expr: &Expression) -> BorrowResult<()> {
         match expr {
             Expression::Ident(name) => {
+                // Skip builtin functions - they're not variables
+                if self.builtin_registry.is_builtin(name) {
+                    return Ok(());
+                }
+
                 // Check if this variable has been moved
                 if self.moved_vars.contains(name) {
                     return Err(BorrowError::UseAfterMove {
@@ -471,6 +484,12 @@ impl MoveChecker {
 
             // String is Move
             Type::String => true,
+
+            // Builtin types are Move (Phase 0)
+            Type::Option(_) => true,    // Option<T> is Move (contains T)
+            Type::Result(_, _) => true, // Result<T,E> is Move
+            Type::Vec(_) => true,       // Vec<T> is Move (owns heap data)
+            Type::Box(_) => true,       // Box<T> is Move (owns heap allocation)
 
             // Named types are Move by default (structs, enums)
             Type::Named(_) => true,

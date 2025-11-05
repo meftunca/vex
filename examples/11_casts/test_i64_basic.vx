@@ -1,0 +1,7 @@
+// Very simple i64 test
+fn main(): i32 {
+    let a: i64 = 100;
+    let b: i64 = 50;
+    let c = a + b;  // 150
+    return c as i32;
+}

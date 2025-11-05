@@ -159,20 +159,55 @@ impl<'a> Parser<'a> {
             Token::Ident(_) => {
                 let name = self.consume_identifier()?;
 
-                // Check for generic type arguments: Vec<T>, Option<String>
-                if self.match_token(&Token::Lt) {
-                    let mut type_args = Vec::new();
-                    loop {
-                        type_args.push(self.parse_type()?);
-                        if !self.match_token(&Token::Comma) {
-                            break;
+                // Check for builtin types (Phase 0: Option, Result, Vec, Box)
+                // These are parsed specially to generate Type enum variants
+                match name.as_str() {
+                    "Option" => {
+                        // Option<T>
+                        self.consume(&Token::Lt, "Expected '<' after 'Option'")?;
+                        let inner_type = Box::new(self.parse_type()?);
+                        self.consume(&Token::Gt, "Expected '>' after Option type argument")?;
+                        Type::Option(inner_type)
+                    }
+                    "Result" => {
+                        // Result<T, E>
+                        self.consume(&Token::Lt, "Expected '<' after 'Result'")?;
+                        let ok_type = Box::new(self.parse_type()?);
+                        self.consume(&Token::Comma, "Expected ',' in Result type")?;
+                        let err_type = Box::new(self.parse_type()?);
+                        self.consume(&Token::Gt, "Expected '>' after Result type arguments")?;
+                        Type::Result(ok_type, err_type)
+                    }
+                    "Vec" => {
+                        // Vec<T>
+                        self.consume(&Token::Lt, "Expected '<' after 'Vec'")?;
+                        let elem_type = Box::new(self.parse_type()?);
+                        self.consume(&Token::Gt, "Expected '>' after Vec type argument")?;
+                        Type::Vec(elem_type)
+                    }
+                    "Box" => {
+                        // Box<T>
+                        self.consume(&Token::Lt, "Expected '<' after 'Box'")?;
+                        let inner_type = Box::new(self.parse_type()?);
+                        self.consume(&Token::Gt, "Expected '>' after Box type argument")?;
+                        Type::Box(inner_type)
+                    }
+                    _ => {
+                        // Generic type or named type
+                        if self.match_token(&Token::Lt) {
+                            let mut type_args = Vec::new();
+                            loop {
+                                type_args.push(self.parse_type()?);
+                                if !self.match_token(&Token::Comma) {
+                                    break;
+                                }
+                            }
+                            self.consume(&Token::Gt, "Expected '>' after type arguments")?;
+                            Type::Generic { name, type_args }
+                        } else {
+                            Type::Named(name)
                         }
                     }
-                    self.consume(&Token::Gt, "Expected '>' after type arguments")?;
-
-                    Type::Generic { name, type_args }
-                } else {
-                    Type::Named(name)
                 }
             }
             // Allow keywords as custom type names (e.g., "error" struct)

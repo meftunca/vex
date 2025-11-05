@@ -1,21 +1,21 @@
 // Debug test: Match on function result
 // Expected: Returns 50
 
-enum Result {
+enum MyResult {
     Ok(i32),
     Err(i32)
 }
 
-fn calculate(x: i32): Result {
-    return Result.Ok(x * 10);
+fn calculate(x: i32): MyResult {
+    return MyResult.Ok(x * 10);
 }
 
 fn main(): i32 {
     let! result = calculate(5);
     
     let output = match result {
-        Result.Ok(val) => val,
-        Result.Err(code) => code
+        MyResult.Ok(val) => val,
+        MyResult.Err(code) => code
     };
     
     return output;

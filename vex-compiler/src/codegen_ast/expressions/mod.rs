@@ -361,6 +361,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 variant,
                 data,
             } => {
+                // Phase 0.4: Handle builtin enums (Option, Result) specially
+                if enum_name == "Option" || enum_name == "Result" {
+                    return self.compile_builtin_enum_literal(enum_name, variant, data);
+                }
+
                 // For now, treat enums as tagged unions (C-style for unit variants)
                 // Unit variants (no data): Just return the tag as i32
                 // Data-carrying variants: Need struct with tag + data (TODO: full implementation)
@@ -380,7 +385,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     let enum_has_data = enum_def.variants.iter().any(|v| v.data.is_some());
 
                     if data.is_none() && !enum_has_data {
-                        // Pure unit enum (all variants are unit): just return the tag
+                        // Pure unit enum (all variants are unit): return tag as i32 for compatibility
+                        // (Variables expect i32, return statements expect i32)
                         let tag = self
                             .context
                             .i32_type()
@@ -429,7 +435,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                             }
                         };
 
-                        // Create struct type: { i32, T }
+                        // Create struct type: { i32, T } (consistent with ast_type_to_llvm)
                         let tag_type = self.context.i32_type();
                         let struct_type = self
                             .context
@@ -441,7 +447,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                             .build_alloca(struct_type, "enum_data_carrier")
                             .map_err(|e| format!("Failed to allocate enum struct: {}", e))?;
 
-                        // Store tag at index 0
+                        // Store tag at index 0 (i32 type - consistent with struct definition)
                         let tag = self
                             .context
                             .i32_type()
@@ -482,6 +488,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 body,
                 capture_mode,
             } => self.compile_closure(params, return_type, body, capture_mode),
+
+            Expression::Cast { expr, target_type } => {
+                self.compile_cast_expression(expr, target_type)
+            }
 
             _ => Err(format!("Expression not yet implemented: {:?}", expr)),
         }
@@ -1064,7 +1074,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         format!("Variant '{}' not found in enum '{}'", variant, enum_name)
                     })?;
 
-                // Compare tag value
+                // Compare tag value - use i32 for tag type (consistent with enum codegen)
                 let expected_tag = self
                     .context
                     .i32_type()

@@ -1,11 +1,11 @@
 // Complete data-carrying enum test with pattern matching
 
-enum Result {
-    Ok(i32),
-    Err(i32),
+enum Result<T, E> {
+    Ok(T),
+    Err(E),
 }
 
-fn divide(a: i32, b: i32): Result {
+fn divide(a: i32, b: i32): Result<i32, i32> {
     if b == 0 {
         return Result.Err(-1);
     } else {

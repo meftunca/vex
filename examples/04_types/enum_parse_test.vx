@@ -1,0 +1,12 @@
+// Test pattern parse
+
+enum Status { Idle, Running }
+
+fn main(): i32 {
+    let s = Status.Idle;
+    let result = match s {
+        Status.Idle => 0,
+        _ => 1,
+    };
+    return result;
+}

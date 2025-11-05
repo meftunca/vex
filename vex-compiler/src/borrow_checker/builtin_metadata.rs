@@ -222,6 +222,20 @@ impl BuiltinBorrowRegistry {
             ],
         );
 
+        // Phase 0.4b: Builtin type constructors (free functions)
+        registry.register("vec_new", vec![]); // No args, returns new Vec
+        registry.register("vec_free", vec![ParamEffect::BorrowsMut]); // Takes &Vec
+        registry.register("box_new", vec![ParamEffect::ReadOnly]); // Takes value by copy
+        registry.register("box_free", vec![ParamEffect::Moves]); // Takes Box by value
+
+        // Phase 0.7: Numeric to string conversions (all read-only)
+        registry.register("vex_i32_to_string", vec![ParamEffect::ReadOnly]);
+        registry.register("vex_i64_to_string", vec![ParamEffect::ReadOnly]);
+        registry.register("vex_u32_to_string", vec![ParamEffect::ReadOnly]);
+        registry.register("vex_u64_to_string", vec![ParamEffect::ReadOnly]);
+        registry.register("vex_f32_to_string", vec![ParamEffect::ReadOnly]);
+        registry.register("vex_f64_to_string", vec![ParamEffect::ReadOnly]);
+
         registry
     }
 

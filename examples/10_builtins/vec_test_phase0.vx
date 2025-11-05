@@ -1,0 +1,8 @@
+// Test: Basic Vec<i32> operations
+// Should compile with zero-overhead LLVM IR linking
+
+fn main(): i32 {
+    // For now just test basic compilation
+    // Vec operations will come after AST/Parser updates
+    return 42;
+}

@@ -1,0 +1,51 @@
+// Vex Standard Library - Time Module
+// High-precision timing
+
+// Get current timestamp (seconds)
+fn now(): i64 {
+    // TODO: Call vex_time_now_sec from C runtime
+    return 0;
+}
+
+// Get high-resolution time (nanoseconds)
+fn high_res(): i64 {
+    // TODO: Call vex_time_high_res from C runtime
+    return 0;
+}
+
+// Sleep for milliseconds
+fn sleep_ms(ms: i64) {
+    // TODO: Call vex_sleep_ms from C runtime
+}
+    
+    /**
+     * Get time as nanoseconds
+     */
+    pub fn as_nanos(&self): i64 {
+        return self.nanos;
+    }
+}
+
+/**
+ * Duration representation
+ */
+pub struct Duration {
+    nanos: i64,
+}
+
+impl Duration {
+    /**
+     * Create duration from seconds
+     */
+    pub fn from_secs(secs: i64): Duration {
+        return Duration { nanos: secs * 1_000_000_000 };
+    }
+    
+    /**
+     * Create duration from milliseconds
+     */
+    pub fn from_millis(millis: i64): Duration {
+        return Duration { nanos: millis * 1_000_000 };
+    }
+
+export { now, high_res, sleep_ms };

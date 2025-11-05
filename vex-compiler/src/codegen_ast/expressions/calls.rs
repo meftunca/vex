@@ -222,6 +222,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
         method: &str,
         args: &[Expression],
     ) -> Result<BasicValueEnum<'ctx>, String> {
+        // Phase 0.4c: Check for builtin type instance methods (vec.push, vec.len, etc.)
+        if let Some(result) = self.try_compile_builtin_method(receiver, method, args)? {
+            return Ok(result);
+        }
+
         // Check if this is a module-level function call (io.print, log.info, etc.)
         if let Expression::Ident(module_name) = receiver {
             // Check if this is a known module namespace
@@ -489,6 +494,327 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     .collect(),
             ),
             _ => ty.clone(),
+        }
+    }
+
+    /// Try to compile builtin type instance methods (Phase 0.4c)
+    /// Returns Some(value) if handled, None if not a builtin method
+    fn try_compile_builtin_method(
+        &mut self,
+        receiver: &Expression,
+        method: &str,
+        args: &[Expression],
+    ) -> Result<Option<BasicValueEnum<'ctx>>, String> {
+        // Get receiver variable to check its type
+        let var_name = match receiver {
+            Expression::Ident(name) => name.clone(),
+            _ => return Ok(None), // Not a simple identifier, skip
+        };
+
+        // Phase 0.4b: Check if this is a builtin type (Vec, Box)
+        let struct_name = self.variable_struct_names.get(&var_name).cloned();
+
+        if let Some(type_name) = struct_name {
+            // Handle builtin type methods
+            match type_name.as_str() {
+                "Vec" => return self.compile_vec_method(&var_name, method, args),
+                "Box" => return self.compile_box_method(&var_name, method, args),
+                _ => return Ok(None), // Not a builtin type
+            }
+        }
+
+        // Fallback: Try LLVM type detection (backward compatibility)
+        let receiver_type = self
+            .variable_types
+            .get(&var_name)
+            .ok_or_else(|| format!("Variable {} not found", var_name))?
+            .clone();
+
+        if let inkwell::types::BasicTypeEnum::StructType(st) = receiver_type {
+            // Check if this looks like a Vec: { ptr, i64, i64, i64 }
+            if st.count_fields() == 4 {
+                match method {
+                    "push" => {
+                        // vec.push(value) -> vex_vec_push(&vec, &value)
+                        if args.len() != 1 {
+                            return Err("Vec.push() requires exactly 1 argument".to_string());
+                        }
+
+                        // Get vec pointer (clone to avoid borrow issues)
+                        let vec_ptr = *self
+                            .variables
+                            .get(&var_name)
+                            .ok_or_else(|| format!("Vec variable {} not found", var_name))?;
+
+                        // Compile argument value
+                        let value = self.compile_expression(&args[0])?;
+
+                        // Allocate value on stack to get pointer
+                        let value_ptr =
+                            self.builder
+                                .build_alloca(value.get_type(), "push_value")
+                                .map_err(|e| format!("Failed to allocate push value: {}", e))?;
+                        self.builder
+                            .build_store(value_ptr, value)
+                            .map_err(|e| format!("Failed to store push value: {}", e))?;
+
+                        // Get vex_vec_push function
+                        let push_fn = self.get_vex_vec_push();
+
+                        // Call vex_vec_push(vec_ptr, value_ptr)
+                        let void_ptr = self
+                            .builder
+                            .build_pointer_cast(
+                                value_ptr,
+                                self.context
+                                    .i8_type()
+                                    .ptr_type(inkwell::AddressSpace::default()),
+                                "value_void_ptr",
+                            )
+                            .map_err(|e| format!("Failed to cast value pointer: {}", e))?;
+
+                        self.builder
+                            .build_call(push_fn, &[vec_ptr.into(), void_ptr.into()], "vec_push")
+                            .map_err(|e| format!("Failed to call vex_vec_push: {}", e))?;
+
+                        // push returns void, return unit value (i8 zero)
+                        let unit = self.context.i8_type().const_zero();
+                        return Ok(Some(unit.into()));
+                    }
+                    "len" => {
+                        // vec.len() -> vex_vec_len(&vec)
+                        if !args.is_empty() {
+                            return Err("Vec.len() takes no arguments".to_string());
+                        }
+
+                        // Get vec pointer (clone to avoid borrow issues)
+                        let vec_ptr = *self
+                            .variables
+                            .get(&var_name)
+                            .ok_or_else(|| format!("Vec variable {} not found", var_name))?;
+
+                        // Get vex_vec_len function
+                        let len_fn = self.get_vex_vec_len();
+
+                        // Call vex_vec_len(vec_ptr)
+                        let call_site = self
+                            .builder
+                            .build_call(len_fn, &[vec_ptr.into()], "vec_len")
+                            .map_err(|e| format!("Failed to call vex_vec_len: {}", e))?;
+
+                        let len_value = call_site
+                            .try_as_basic_value()
+                            .left()
+                            .ok_or_else(|| "vex_vec_len returned void".to_string())?;
+
+                        // Convert i64 to i32 for now (most common return type)
+                        let len_i32 = self
+                            .builder
+                            .build_int_truncate(
+                                len_value.into_int_value(),
+                                self.context.i32_type(),
+                                "len_i32",
+                            )
+                            .map_err(|e| format!("Failed to truncate len: {}", e))?;
+
+                        return Ok(Some(len_i32.into()));
+                    }
+                    _ => return Ok(None), // Not a Vec method
+                }
+            }
+
+            // Check if this looks like a Box: { ptr, i64 }
+            if st.count_fields() == 2 {
+                match method {
+                    "get" => {
+                        // box.get() -> vex_box_get(&box)
+                        if !args.is_empty() {
+                            return Err("Box.get() takes no arguments".to_string());
+                        }
+
+                        // Get box pointer (clone to avoid borrow issues)
+                        let box_ptr = *self
+                            .variables
+                            .get(&var_name)
+                            .ok_or_else(|| format!("Box variable {} not found", var_name))?;
+
+                        // Get vex_box_get function
+                        let get_fn = self.get_vex_box_get();
+
+                        // Call vex_box_get(box_ptr)
+                        let call_site = self
+                            .builder
+                            .build_call(get_fn, &[box_ptr.into()], "box_get")
+                            .map_err(|e| format!("Failed to call vex_box_get: {}", e))?;
+
+                        let ptr_value = call_site
+                            .try_as_basic_value()
+                            .left()
+                            .ok_or_else(|| "vex_box_get returned void".to_string())?;
+
+                        return Ok(Some(ptr_value));
+                    }
+                    _ => return Ok(None), // Not a Box method
+                }
+            }
+        }
+
+        Ok(None) // Not a builtin type or method
+    }
+
+    /// Compile Vec instance methods (Phase 0.4b)
+    fn compile_vec_method(
+        &mut self,
+        var_name: &str,
+        method: &str,
+        args: &[Expression],
+    ) -> Result<Option<BasicValueEnum<'ctx>>, String> {
+        match method {
+            "push" => {
+                if args.len() != 1 {
+                    return Err("Vec.push() requires exactly 1 argument".to_string());
+                }
+
+                // Get alloca pointer for Vec variable
+                let vec_alloca_ptr = *self
+                    .variables
+                    .get(var_name)
+                    .ok_or_else(|| format!("Vec variable {} not found", var_name))?;
+
+                // Load the actual vex_vec_t* pointer from alloca
+                let vec_opaque_type = self.context.opaque_struct_type("vex_vec_s");
+                let vec_ptr_type = vec_opaque_type.ptr_type(inkwell::AddressSpace::default());
+                let vec_ptr = self
+                    .builder
+                    .build_load(vec_ptr_type, vec_alloca_ptr, "vec_ptr_load")
+                    .map_err(|e| format!("Failed to load vec pointer: {}", e))?;
+
+                let value = self.compile_expression(&args[0])?;
+
+                let value_ptr = self
+                    .builder
+                    .build_alloca(value.get_type(), "push_value")
+                    .map_err(|e| format!("Failed to allocate push value: {}", e))?;
+                self.builder
+                    .build_store(value_ptr, value)
+                    .map_err(|e| format!("Failed to store push value: {}", e))?;
+
+                let push_fn = self.get_vex_vec_push();
+
+                let void_ptr = self
+                    .builder
+                    .build_pointer_cast(
+                        value_ptr,
+                        self.context
+                            .i8_type()
+                            .ptr_type(inkwell::AddressSpace::default()),
+                        "value_void_ptr",
+                    )
+                    .map_err(|e| format!("Failed to cast value pointer: {}", e))?;
+
+                self.builder
+                    .build_call(push_fn, &[vec_ptr.into(), void_ptr.into()], "vec_push")
+                    .map_err(|e| format!("Failed to call vex_vec_push: {}", e))?;
+
+                Ok(Some(self.context.i8_type().const_zero().into()))
+            }
+            "len" => {
+                if !args.is_empty() {
+                    return Err("Vec.len() takes no arguments".to_string());
+                }
+
+                // Get alloca pointer for Vec variable
+                let vec_alloca_ptr = *self
+                    .variables
+                    .get(var_name)
+                    .ok_or_else(|| format!("Vec variable {} not found", var_name))?;
+
+                // Load the actual vex_vec_t* pointer from alloca
+                let vec_opaque_type = self.context.opaque_struct_type("vex_vec_s");
+                let vec_ptr_type = vec_opaque_type.ptr_type(inkwell::AddressSpace::default());
+                let vec_ptr = self
+                    .builder
+                    .build_load(vec_ptr_type, vec_alloca_ptr, "vec_ptr_load")
+                    .map_err(|e| format!("Failed to load vec pointer: {}", e))?;
+
+                let len_fn = self.get_vex_vec_len();
+
+                let call_site = self
+                    .builder
+                    .build_call(len_fn, &[vec_ptr.into()], "vec_len")
+                    .map_err(|e| format!("Failed to call vex_vec_len: {}", e))?;
+
+                let len_value = call_site
+                    .try_as_basic_value()
+                    .left()
+                    .ok_or_else(|| "vex_vec_len returned void".to_string())?;
+
+                let len_i32 = self
+                    .builder
+                    .build_int_truncate(
+                        len_value.into_int_value(),
+                        self.context.i32_type(),
+                        "len_i32",
+                    )
+                    .map_err(|e| format!("Failed to truncate len: {}", e))?;
+
+                Ok(Some(len_i32.into()))
+            }
+            _ => Ok(None),
+        }
+    }
+
+    /// Compile Box instance methods (Phase 0.4b)
+    fn compile_box_method(
+        &mut self,
+        var_name: &str,
+        method: &str,
+        args: &[Expression],
+    ) -> Result<Option<BasicValueEnum<'ctx>>, String> {
+        match method {
+            "get" => {
+                if !args.is_empty() {
+                    return Err("Box.get() takes no arguments".to_string());
+                }
+
+                // Get alloca pointer for Box variable
+                let box_alloca_ptr = *self
+                    .variables
+                    .get(var_name)
+                    .ok_or_else(|| format!("Box variable {} not found", var_name))?;
+
+                // Load the actual vex_box_t* pointer from alloca
+                let box_type = self.context.struct_type(
+                    &[
+                        self.context
+                            .i8_type()
+                            .ptr_type(inkwell::AddressSpace::default())
+                            .into(),
+                        self.context.i64_type().into(),
+                    ],
+                    false,
+                );
+                let box_ptr_type = box_type.ptr_type(inkwell::AddressSpace::default());
+                let box_ptr = self
+                    .builder
+                    .build_load(box_ptr_type, box_alloca_ptr, "box_ptr_load")
+                    .map_err(|e| format!("Failed to load box pointer: {}", e))?;
+
+                let get_fn = self.get_vex_box_get();
+
+                let call_site = self
+                    .builder
+                    .build_call(get_fn, &[box_ptr.into()], "box_get")
+                    .map_err(|e| format!("Failed to call vex_box_get: {}", e))?;
+
+                let ptr_value = call_site
+                    .try_as_basic_value()
+                    .left()
+                    .ok_or_else(|| "vex_box_get returned void".to_string())?;
+
+                Ok(Some(ptr_value))
+            }
+            _ => Ok(None),
         }
     }
 }

@@ -16,6 +16,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
             return Err("Match expression must have at least one arm".to_string());
         }
 
+        // Debug: print patterns
+        eprintln!("🔵 Match arms:");
+        for (i, arm) in arms.iter().enumerate() {
+            eprintln!("  Arm {}: pattern={:?}", i, arm.pattern);
+        }
+
         // Compile the value to match against
         let mut match_value = self.compile_expression(value)?;
         eprintln!(
@@ -44,6 +50,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     )
                     .map_err(|e| format!("Failed to load tuple literal for match: {}", e))?;
             }
+        } else if matches!(value, Expression::EnumLiteral { .. }) && match_value.is_struct_value() {
+            // Enum literals: Already struct values, no need to load
+            // match_value is already correct
         } else if matches!(value, Expression::StructLiteral { .. })
             && match_value.is_pointer_value()
         {
@@ -134,23 +143,13 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }
 
             // Also handle enum variables
-            eprintln!("  → Checking enum tracking for var: {}", var_name);
-            eprintln!(
-                "  → variable_enum_names contains: {}",
-                self.variable_enum_names.contains_key(var_name)
-            );
-            if let Some(enum_name) = self.variable_enum_names.get(var_name) {
-                eprintln!(
-                    "  → Found enum: {}, is_pointer: {}",
-                    enum_name,
-                    match_value.is_pointer_value()
-                );
-                // This variable holds an enum value, load it for pattern matching
-                if match_value.is_pointer_value() {
-                    eprintln!("  → Loading enum from pointer...");
+            // Only load if it's a pointer (data enum stored on stack)
+            // Unit enums are already i32 values, no load needed
+            if match_value.is_pointer_value() {
+                if let Some(enum_name) = self.variable_enum_names.get(var_name) {
+                    eprintln!("  → Found enum: {}, loading from pointer", enum_name);
                     // Use the stored type from variable_types
                     if let Some(enum_type) = self.variable_types.get(var_name) {
-                        eprintln!("  → Found enum_type: {:?}", enum_type);
                         match_value = self
                             .builder
                             .build_load(
@@ -161,15 +160,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
                             .map_err(|e| {
                                 format!("Failed to load enum variable for match: {}", e)
                             })?;
-                        eprintln!("  ✅ Loaded enum value!");
-                    } else {
-                        eprintln!("  ❌ enum_type not found in variable_types");
                     }
-                } else {
-                    eprintln!("  → Value is not pointer, skipping load");
                 }
-            } else {
-                eprintln!("  ❌ Enum name not found in variable_enum_names");
             }
         }
 
@@ -388,6 +380,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
                 if is_enum_variant {
                     // Treat as unit enum variant pattern
+                    eprintln!(
+                        "🔵 Pattern::Ident as enum variant: {}, variant_index={}",
+                        name, variant_index
+                    );
                     if !value.is_int_value() {
                         return Ok(self.context.bool_type().const_int(0, false));
                     }
@@ -397,6 +393,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         .context
                         .i32_type()
                         .const_int(variant_index as u64, false);
+                    eprintln!(
+                        "🔵 Pattern::Ident check - expected_tag type: {:?}, enum_val type: {:?}",
+                        expected_tag.get_type(),
+                        enum_val.get_type()
+                    );
                     let tag_matches = self
                         .builder
                         .build_int_compare(
@@ -532,9 +533,15 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 variant,
                 data,
             } => {
+                eprintln!(
+                    "🔵 Pattern::Enum check called - enum={}, variant={}, has_data={}",
+                    name,
+                    variant,
+                    data.is_some()
+                );
                 // Enum patterns: check variant tag
-                // Unit variants: value is i32 tag
-                // Data-carrying variants: value is struct { i32, T }
+                // Unit variants: value is i8 tag
+                // Data-carrying variants: value is struct { i8, T }
 
                 // Check if value is struct (data-carrying) or int (unit)
                 let is_data_carrying = value.is_struct_value();
@@ -544,14 +551,32 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 }
 
                 let enum_val = if is_data_carrying {
-                    // Extract tag from struct { tag, data }
+                    // Extract tag from struct { i8, data }
                     let struct_val = value.into_struct_value();
-                    self.builder
+                    let tag_val = self
+                        .builder
                         .build_extract_value(struct_val, 0, "enum_tag")
                         .map_err(|e| format!("Failed to extract enum tag: {}", e))?
-                        .into_int_value()
+                        .into_int_value();
+
+                    // Tag is i32 (unified type for all enums)
+                    if tag_val.get_type().get_bit_width() != 32 {
+                        self.builder
+                            .build_int_z_extend(tag_val, self.context.i32_type(), "enum_tag_i32")
+                            .map_err(|e| format!("Failed to cast enum tag to i32: {}", e))?
+                    } else {
+                        tag_val
+                    }
                 } else {
-                    value.into_int_value()
+                    let int_val = value.into_int_value();
+                    // Cast to i32 if needed
+                    if int_val.get_type().get_bit_width() != 32 {
+                        self.builder
+                            .build_int_z_extend(int_val, self.context.i32_type(), "enum_tag_i32")
+                            .map_err(|e| format!("Failed to cast enum tag to i32: {}", e))?
+                    } else {
+                        int_val
+                    }
                 };
 
                 // Find enum definition and variant index
@@ -583,11 +608,16 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         format!("Variant '{}' not found in enum '{}'", variant, enum_name)
                     })?;
 
-                // Compare tag value
+                // Compare tag value - use i32 for tag type (unified with unit enum literals)
                 let expected_tag = self
                     .context
                     .i32_type()
                     .const_int(variant_index as u64, false);
+                eprintln!(
+                    "🔵 Pattern::Enum check - expected_tag type: {:?}, enum_val type: {:?}",
+                    expected_tag.get_type(),
+                    enum_val.get_type()
+                );
                 let tag_matches = self
                     .builder
                     .build_int_compare(IntPredicate::EQ, enum_val, expected_tag, "enum_tag_check")
@@ -925,5 +955,3 @@ impl<'ctx> ASTCodeGen<'ctx> {
         }
     }
 }
-
-

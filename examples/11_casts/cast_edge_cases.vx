@@ -1,0 +1,41 @@
+// Cast edge cases and safety tests
+
+// Test 1: Narrowing cast with data loss warning
+fn test_narrowing(): i32 {
+    let large: i32 = 300;
+    let small: i32 = large as i32;  // No actual narrowing (same type)
+    return small;  // 300
+}
+
+// Test 2: Float truncation
+fn test_float_truncate(): i32 {
+    let f: f64 = 99.9;
+    let i: i32 = f as i32;  // Should truncate to 99
+    return i;
+}
+
+// Test 3: Negative numbers
+fn test_negative_cast(): i32 {
+    let neg: i32 = -42;
+    let pos_f: f64 = neg as f64;
+    let back: i32 = pos_f as i32;
+    return back;  // -42
+}
+
+// Test 4: Zero casts
+fn test_zero(): i32 {
+    let z: i32 = 0;
+    let zf: f64 = z as f64;
+    let zi: i32 = zf as i32;
+    return zi;  // 0
+}
+
+fn main(): i32 {
+    let t1: i32 = test_narrowing();     // 300
+    let t2: i32 = test_float_truncate(); // 99
+    let t3: i32 = test_negative_cast();  // -42
+    let t4: i32 = test_zero();           // 0
+    
+    // Return sum: 300 + 99 - 42 + 0 = 357
+    return t1 + t2 + t3 + t4;
+}

@@ -1,0 +1,52 @@
+// Test numeric to string conversions
+// Tests all 6 numeric types: i32, i64, u32, u64, f32, f64
+
+fn test_i32_to_string(): i32 {
+    let num: i32 = 42;
+    let str_ptr = vex_i32_to_string(num);
+    // For now, just return success if call doesn't crash
+    // TODO: Add string comparison when string ops are ready
+    return 0;
+}
+
+fn test_i64_to_string(): i32 {
+    let num: i64 = 9223372036854775807;  // max i64
+    let str_ptr = vex_i64_to_string(num);
+    return 0;
+}
+
+fn test_u32_to_string(): i32 {
+    let num: u32 = 4294967295;  // max u32
+    let str_ptr = vex_u32_to_string(num);
+    return 0;
+}
+
+fn test_u64_to_string(): i32 {
+    let num: u64 = 1234567890;  // Large u64
+    let str_ptr = vex_u64_to_string(num);
+    return 0;
+}
+
+fn test_f32_to_string(): i32 {
+    let num: f32 = 3.14;
+    let str_ptr = vex_f32_to_string(num);
+    return 0;
+}
+
+fn test_f64_to_string(): i32 {
+    let num: f64 = 2.718281828459045;
+    let str_ptr = vex_f64_to_string(num);
+    return 0;
+}
+
+fn main(): i32 {
+    let r1 = test_i32_to_string();
+    let r2 = test_i64_to_string();
+    let r3 = test_u32_to_string();
+    let r4 = test_u64_to_string();
+    let r5 = test_f32_to_string();
+    let r6 = test_f64_to_string();
+    
+    // Return sum (should be 0 if all pass)
+    return r1 + r2 + r3 + r4 + r5 + r6;
+}

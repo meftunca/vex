@@ -7,6 +7,7 @@ use std::collections::HashMap;
 
 // Submodules
 mod array;
+mod builtin_types; // Phase 0: Vec, Option, Result, Box
 mod core;
 mod hashmap;
 mod hints;
@@ -14,11 +15,16 @@ mod intrinsics;
 mod memory;
 mod memory_ops;
 mod reflection;
+mod stdlib; // Zero-cost stdlib C runtime declarations
+mod stdlib_logger; // Stdlib: logger module
+mod stdlib_testing;
+mod stdlib_time; // Stdlib: time module
 mod string;
-mod utf8;
+mod utf8; // Stdlib: testing module
 
 // Re-export all builtin implementations
 pub use array::*;
+pub use builtin_types::*; // Phase 0 builtin types
 pub use core::*;
 pub use hashmap::*;
 pub use hints::*;
@@ -26,6 +32,10 @@ pub use intrinsics::*;
 pub use memory::*;
 pub use memory_ops::*;
 pub use reflection::*;
+pub use stdlib::*; // Stdlib runtime functions
+pub use stdlib_logger::*; // Stdlib logger implementations
+pub use stdlib_testing::*; // Stdlib testing implementations
+pub use stdlib_time::*; // Stdlib time implementations
 pub use string::*;
 pub use utf8::*;
 
@@ -118,6 +128,70 @@ impl<'ctx> BuiltinRegistry<'ctx> {
         registry.register("hashmap_contains", hashmap::builtin_hashmap_contains);
         registry.register("hashmap_remove", hashmap::builtin_hashmap_remove);
         registry.register("hashmap_clear", hashmap::builtin_hashmap_clear);
+
+        // Phase 0.4b: Builtin type constructors (free functions)
+        registry.register("vec_new", builtin_types::builtin_vec_new);
+        registry.register("vec_free", builtin_types::builtin_vec_free);
+        registry.register("box_new", builtin_types::builtin_box_new);
+        registry.register("box_free", builtin_types::builtin_box_free);
+
+        // Phase 0.8: Option<T> and Result<T,E> constructors
+        registry.register("Some", builtin_types::builtin_option_some);
+        registry.register("None", builtin_types::builtin_option_none);
+        registry.register("Ok", builtin_types::builtin_result_ok);
+        registry.register("Err", builtin_types::builtin_result_err);
+
+        // Phase 0.7: Numeric to string conversions
+        registry.register(
+            "vex_i32_to_string",
+            builtin_types::builtin_vex_i32_to_string,
+        );
+        registry.register(
+            "vex_i64_to_string",
+            builtin_types::builtin_vex_i64_to_string,
+        );
+        registry.register(
+            "vex_u32_to_string",
+            builtin_types::builtin_vex_u32_to_string,
+        );
+        registry.register(
+            "vex_u64_to_string",
+            builtin_types::builtin_vex_u64_to_string,
+        );
+        registry.register(
+            "vex_f32_to_string",
+            builtin_types::builtin_vex_f32_to_string,
+        );
+
+        // ========================================================================
+        // STDLIB MODULE FUNCTIONS
+        // ========================================================================
+
+        // Logger module (std.logger)
+        registry.register("logger::debug", stdlib_logger::stdlib_logger_debug);
+        registry.register("logger::info", stdlib_logger::stdlib_logger_info);
+        registry.register("logger::warn", stdlib_logger::stdlib_logger_warn);
+        registry.register("logger::error", stdlib_logger::stdlib_logger_error);
+
+        // Time module (std.time)
+        registry.register("time::now", stdlib_time::stdlib_time_now);
+        registry.register("time::high_res", stdlib_time::stdlib_time_high_res);
+        registry.register("time::sleep_ms", stdlib_time::stdlib_time_sleep_ms);
+
+        // Testing module (std.testing)
+        registry.register("testing::assert", stdlib_testing::stdlib_testing_assert);
+        registry.register(
+            "testing::assert_eq",
+            stdlib_testing::stdlib_testing_assert_eq,
+        );
+        registry.register(
+            "testing::assert_ne",
+            stdlib_testing::stdlib_testing_assert_ne,
+        );
+        registry.register(
+            "vex_f64_to_string",
+            builtin_types::builtin_vex_f64_to_string,
+        );
 
         registry
     }

@@ -98,7 +98,44 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 .find(|(name, _)| name == field_name)
                 .ok_or_else(|| format!("Missing field '{}' in struct literal", field_name))?;
 
-            let field_val = self.compile_expression(&field_expr.1)?;
+            // CRITICAL FIX: If field value is a StructLiteral with empty type_args
+            // but field_ty is Generic, inject type_args recursively
+            let adjusted_field_expr = if let Expression::StructLiteral {
+                name: lit_name,
+                type_args: ref lit_type_args,
+                fields: ref lit_fields,
+            } = &field_expr.1
+            {
+                if lit_type_args.is_empty() {
+                    if let Type::Generic {
+                        name: expected_name,
+                        type_args: ref expected_args,
+                    } = field_ty
+                    {
+                        if lit_name == expected_name {
+                            eprintln!(
+                                "  🔧 Recursively injecting type args into nested struct literal: {:?}",
+                                expected_args
+                            );
+                            Expression::StructLiteral {
+                                name: lit_name.clone(),
+                                type_args: expected_args.clone(),
+                                fields: lit_fields.clone(),
+                            }
+                        } else {
+                            field_expr.1.clone()
+                        }
+                    } else {
+                        field_expr.1.clone()
+                    }
+                } else {
+                    field_expr.1.clone()
+                }
+            } else {
+                field_expr.1.clone()
+            };
+
+            let field_val = self.compile_expression(&adjusted_field_expr)?;
             field_types.push(self.ast_type_to_llvm(field_ty));
             field_values.push(field_val);
         }
@@ -160,6 +197,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
         // Create anonymous struct type for the tuple
         let tuple_struct_type = self.context.struct_type(&element_types, false);
 
+        // Save struct type for Let statement to read
+        self.last_compiled_tuple_type = Some(tuple_struct_type);
+
         // Allocate tuple on stack
         let tuple_ptr = self
             .builder
@@ -185,5 +225,164 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Return the tuple pointer
         Ok(tuple_ptr.into())
+    }
+
+    /// Compile builtin enum literals (Option, Result) - Phase 0.4
+    pub(crate) fn compile_builtin_enum_literal(
+        &mut self,
+        enum_name: &str,
+        variant: &str,
+        data: &Option<Box<Expression>>,
+    ) -> Result<BasicValueEnum<'ctx>, String> {
+        match enum_name {
+            "Option" => {
+                // Option<T> = { i32 tag, T value }
+                // None = tag=0, Some(x) = tag=1
+                let tag_value = if variant == "None" { 0 } else { 1 };
+                let tag = self.context.i32_type().const_int(tag_value, false);
+
+                if variant == "None" {
+                    // None: Create Option<i32> with tag=0 and zero value
+                    // Default to i32 for now (proper type inference from context later)
+                    let default_value_type = self.context.i32_type();
+                    let zero_value = default_value_type.const_zero();
+
+                    let option_struct_type = self.context.struct_type(
+                        &[self.context.i32_type().into(), default_value_type.into()],
+                        false,
+                    );
+
+                    let option_ptr = self
+                        .builder
+                        .build_alloca(option_struct_type, "option_none")
+                        .map_err(|e| format!("Failed to allocate Option::None: {}", e))?;
+
+                    // Store tag=0
+                    let tag_ptr = self
+                        .builder
+                        .build_struct_gep(option_struct_type, option_ptr, 0, "tag_ptr")
+                        .map_err(|e| format!("Failed to GEP tag: {}", e))?;
+                    self.builder
+                        .build_store(tag_ptr, tag)
+                        .map_err(|e| format!("Failed to store tag: {}", e))?;
+
+                    // Store zero value
+                    let value_ptr = self
+                        .builder
+                        .build_struct_gep(option_struct_type, option_ptr, 1, "value_ptr")
+                        .map_err(|e| format!("Failed to GEP value: {}", e))?;
+                    self.builder
+                        .build_store(value_ptr, zero_value)
+                        .map_err(|e| format!("Failed to store zero value: {}", e))?;
+
+                    // Load and return
+                    let option_value = self
+                        .builder
+                        .build_load(option_struct_type, option_ptr, "option_none_value")
+                        .map_err(|e| format!("Failed to load Option::None: {}", e))?;
+
+                    return Ok(option_value);
+                } else {
+                    // Some(value): Compile value and create struct
+                    let value_expr = data
+                        .as_ref()
+                        .ok_or_else(|| "Some() requires a value argument".to_string())?;
+                    let value = self.compile_expression(value_expr)?;
+                    let value_type = value.get_type();
+
+                    // Create Option<T> struct: { i32, T }
+                    let option_struct_type = self
+                        .context
+                        .struct_type(&[self.context.i32_type().into(), value_type], false);
+
+                    // Allocate on stack
+                    let option_ptr = self
+                        .builder
+                        .build_alloca(option_struct_type, "option_some")
+                        .map_err(|e| format!("Failed to allocate Option: {}", e))?;
+
+                    // Store tag (field 0)
+                    let tag_ptr = self
+                        .builder
+                        .build_struct_gep(option_struct_type, option_ptr, 0, "tag_ptr")
+                        .map_err(|e| format!("Failed to GEP tag: {}", e))?;
+                    self.builder
+                        .build_store(tag_ptr, tag)
+                        .map_err(|e| format!("Failed to store tag: {}", e))?;
+
+                    // Store value (field 1)
+                    let value_ptr = self
+                        .builder
+                        .build_struct_gep(option_struct_type, option_ptr, 1, "value_ptr")
+                        .map_err(|e| format!("Failed to GEP value: {}", e))?;
+                    self.builder
+                        .build_store(value_ptr, value)
+                        .map_err(|e| format!("Failed to store value: {}", e))?;
+
+                    // Load and return struct value
+                    let option_value = self
+                        .builder
+                        .build_load(option_struct_type, option_ptr, "option_value")
+                        .map_err(|e| format!("Failed to load Option: {}", e))?;
+
+                    Ok(option_value)
+                }
+            }
+            "Result" => {
+                // Result<T, E> = { i32 tag, union { T, E } }
+                // Err = tag=0, Ok = tag=1
+                let tag_value = if variant == "Err" { 0 } else { 1 };
+                let tag = self.context.i32_type().const_int(tag_value, false);
+
+                // Compile data value
+                let value_expr = data
+                    .as_ref()
+                    .ok_or_else(|| format!("{}() requires a value argument", variant))?;
+                let value = self.compile_expression(value_expr)?;
+                let value_type = value.get_type();
+
+                // Create Result<T,E> struct: { i32, value_type }
+                // For now, use same type for Ok/Err (proper union support later)
+                let result_struct_type = self
+                    .context
+                    .struct_type(&[self.context.i32_type().into(), value_type], false);
+
+                // Allocate on stack
+                let result_ptr = self
+                    .builder
+                    .build_alloca(
+                        result_struct_type,
+                        &format!("result_{}", variant.to_lowercase()),
+                    )
+                    .map_err(|e| format!("Failed to allocate Result: {}", e))?;
+
+                // Store tag (field 0)
+                let tag_ptr = self
+                    .builder
+                    .build_struct_gep(result_struct_type, result_ptr, 0, "tag_ptr")
+                    .map_err(|e| format!("Failed to GEP tag: {}", e))?;
+                self.builder
+                    .build_store(tag_ptr, tag)
+                    .map_err(|e| format!("Failed to store tag: {}", e))?;
+
+                // Store value (field 1)
+                let value_ptr = self
+                    .builder
+                    .build_struct_gep(result_struct_type, result_ptr, 1, "value_ptr")
+                    .map_err(|e| format!("Failed to GEP value: {}", e))?;
+                self.builder
+                    .build_store(value_ptr, value)
+                    .map_err(|e| format!("Failed to store value: {}", e))?;
+
+                // Load and return struct value
+                let result_value = self
+                    .builder
+                    .build_load(result_struct_type, result_ptr, "result_value")
+                    .map_err(|e| format!("Failed to load Result: {}", e))?;
+
+                Ok(result_value)
+            }
+            _ => Err(format!("Unknown builtin enum: {}", enum_name)),
+        }
     }
 }

@@ -1,12 +1,12 @@
 // Simple data-carrying enum test
 // Result<T, E> enum with Ok(value) and Err(error) variants
 
-enum Result {
-    Ok(i32),
-    Err(i32),
+enum Result<T, E> {
+    Ok(T),
+    Err(E),
 }
 
-fn divide(a: i32, b: i32): Result {
+fn divide(a: i32, b: i32): Result<i32, i32> {
     if b == 0 {
         // Return error variant (Vex style with .)
         return Result.Err(-1);

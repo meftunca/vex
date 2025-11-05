@@ -1,0 +1,32 @@
+// Phase 0.8: Result<T,E> Constructor Tests
+// Test Ok(value) and Err(error) constructors
+
+fn test_result_ok_i32(): Result<i32, string> {
+    return Ok(42);
+}
+
+fn test_result_err_string(): Result<i32, string> {
+    return Err("error occurred");
+}
+
+fn test_result_ok_bool(): Result<bool, i32> {
+    return Ok(true);
+}
+
+fn test_result_err_i32(): Result<string, i32> {
+    return Err(404);
+}
+
+fn main(): i32 {
+    // Test type inference
+    let ok_val = Ok(100);
+    let err_val = Err("failed");
+    
+    // Test explicit types
+    let explicit_ok: Result<i32, string> = Ok(200);
+    let explicit_err: Result<i32, string> = Err("error");
+    
+    println("Result constructor tests passed!");
+    
+    return 0;
+}

@@ -1,0 +1,19 @@
+// Phase 0.4b: Box Constructor Test with New Syntax
+// Test box() syntax + automatic cleanup
+
+fn test_box(): i32 {
+    // Create Box<i32> with cleaner syntax
+    let b = box(42);
+    
+    // Get pointer to value
+    // TODO: Proper dereference syntax
+    // For now, just return 42 to test cleanup
+    
+    // NO box_free() needed - automatic cleanup!
+    
+    return 42;
+}
+
+fn main(): i32 {
+    return test_box();
+}

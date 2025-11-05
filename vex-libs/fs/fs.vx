@@ -1,0 +1,26 @@
+// Vex Standard Library - Filesystem Module
+// Zero-cost file I/O - directly calls C runtime
+
+// TODO: FileError enum ve Result type
+// Şu anda basit success/failure dönüyoruz
+
+// Read file (simplified - returns empty string on error)
+fn read_file(path: string): string {
+    // TODO: Call vex_file_read from C runtime
+    // For now, placeholder
+    return "";
+}
+
+// Write file
+fn write_file(path: string, content: string): i32 {
+    // TODO: Call vex_file_write
+    return 0;
+}
+
+// Check if file exists  
+fn exists(path: string): bool {
+    // TODO: Call vex_file_exists
+    return false;
+}
+
+export { read_file, write_file, exists };

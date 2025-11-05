@@ -1,0 +1,21 @@
+// Phase 0.4c: Instance Method Calls Test
+// Test vec.push(), vec.len() instance methods
+
+// Temporary workaround: Direct runtime function calls
+// until instance method dispatch is implemented
+
+fn test_vec_operations(): i32 {
+    // TODO: Once instance methods work:
+    // let v = vec_new::<i32>();
+    // v.push(10);
+    // v.push(20);
+    // let len = v.len();
+    // return len; // Should return 2
+    
+    // Placeholder for now
+    return 0;
+}
+
+fn main(): i32 {
+    return test_vec_operations();
+}

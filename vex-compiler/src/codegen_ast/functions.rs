@@ -1028,14 +1028,21 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }
         }
 
+        // Push scope for automatic cleanup tracking
+        self.push_scope();
+
         // Compile function body
         self.compile_block(&func.body)?;
 
-        // Execute deferred statements before function exit
-        // (explicit returns already handle this in compile_statement)
+        // Pop scope and emit automatic cleanup (Vec/Box free calls)
+        // Do this BEFORE checking terminator, as cleanup should happen even if return exists
         if let Some(current_block) = self.builder.get_insert_block() {
             if current_block.get_terminator().is_none() {
-                // Only execute defers if block is not already terminated
+                // Only emit cleanup if block is not terminated
+                // (returns handle cleanup themselves)
+                self.pop_scope()?;
+
+                // Execute deferred statements before function exit
                 self.execute_deferred_statements()?;
             }
         }

@@ -1,0 +1,29 @@
+// Test unsigned integer casts
+fn test_signed_to_unsigned(): i32 {
+    let signed: i32 = 42;
+    let unsigned: u32 = signed as u32;
+    let back: i32 = unsigned as i32;
+    return back;  // Should be 42
+}
+
+fn test_unsigned_to_signed(): i32 {
+    let unsigned: u32 = 100;
+    let signed: i32 = unsigned as i32;
+    return signed;  // Should be 100
+}
+
+fn test_negative_to_unsigned(): u32 {
+    let neg: i32 = -1;
+    let as_unsigned: u32 = neg as u32;
+    // -1 as u32 = 0xFFFFFFFF = 4294967295
+    return as_unsigned;
+}
+
+fn main(): i32 {
+    let t1: i32 = test_signed_to_unsigned();
+    let t2: i32 = test_unsigned_to_signed();
+    // t3 is u32, cast to i32
+    let t3: u32 = test_negative_to_unsigned();
+    
+    return t1 + t2;  // 42 + 100 = 142
+}

@@ -1,0 +1,28 @@
+// Vex Standard Library - Logger Module
+// Zero-cost logging - directly calls C runtime
+
+// Debug log
+fn debug(msg: string) {
+    print("[DEBUG] ");
+    println(msg);
+}
+
+// Info log  
+fn info(msg: string) {
+    print("[INFO] ");
+    println(msg);
+}
+
+// Warning log
+fn warn(msg: string) {
+    print("[WARN] ");
+    println(msg);
+}
+
+// Error log
+fn error(msg: string) {
+    print("[ERROR] ");
+    println(msg);
+}
+
+export { debug, info, warn, error };

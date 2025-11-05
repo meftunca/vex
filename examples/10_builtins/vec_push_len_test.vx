@@ -1,0 +1,19 @@
+// Phase 0.4c: Vec Instance Methods Test
+// Currently testing method call parsing and codegen
+// Actual Vec creation requires static method support (Phase 0.4b)
+
+fn test_vec_methods(v: &Vec<i32>!): i32 {
+    // Test instance method calls
+    // v.push(10);  // Would call vex_vec_push
+    // v.push(20);
+    // let len = v.len();  // Would call vex_vec_len
+    // return len;
+    
+    // Placeholder: Just test compilation
+    return 0;
+}
+
+fn main(): i32 {
+    // TODO: Once Vec.new() works, test actual operations
+    return 0;
+}

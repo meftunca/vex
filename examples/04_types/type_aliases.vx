@@ -2,9 +2,9 @@
 // Demonstrates: type alias definitions
 
 // Simple type aliases
-type UserId = i32;
-type Score = i32;
-type Count = i32;
+type UserId = i32|i64;
+type Score = i32|i64;
+type Count = i32|i64;
 
 fn main() : i32 {
     // Use type aliases like regular types

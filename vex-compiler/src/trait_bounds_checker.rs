@@ -178,6 +178,11 @@ impl TraitBoundsChecker {
             Type::Tuple(_) => "Tuple".to_string(),
             Type::Function { .. } => "Function".to_string(),
             Type::Reference(inner, _) => self.extract_type_name(inner),
+            // Builtin types (Phase 0)
+            Type::Option(_) => "Option".to_string(),
+            Type::Result(_, _) => "Result".to_string(),
+            Type::Vec(_) => "Vec".to_string(),
+            Type::Box(_) => "Box".to_string(),
             Type::Union(_) => "Union".to_string(),
             Type::Intersection(_) => "Intersection".to_string(),
             Type::Conditional { .. } => "Conditional".to_string(),

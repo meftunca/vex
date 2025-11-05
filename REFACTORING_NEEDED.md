@@ -1,0 +1,311 @@
+# Vex File Size Refactoring Plan
+
+**Policy:** Rust files MUST NOT exceed 400 lines  
+**Updated:** November 5, 2025  
+**Status:** 18 files exceed limit
+
+---
+
+## 📊 Quick Summary
+
+| Priority | Range | Files | Status |
+|----------|-------|-------|--------|
+| 🔴 CRITICAL | 1000+ lines | 6 | **Split now** |
+| 🟡 HIGH | 700-999 lines | 6 | Split before adding code |
+| 🟠 MEDIUM | 500-699 lines | 6 | Monitor, split at 600+ |
+| 🟢 SAFE | < 500 lines | All others | Monitor only |
+
+**Total affected:** 18 files need refactoring  
+**Check command:** `find vex-*/src -name "*.rs" -exec wc -l {} \; | awk '$1 > 400' | sort -rn`
+
+---
+
+## 🚨 Critical Files (1000+ lines) - SPLIT IMMEDIATELY
+
+### 1. expressions/mod.rs (1418 lines) → Target: <400 lines
+
+**Current:** Giant dispatcher with all expression logic  
+**Impact:** Extremely difficult to navigate and modify
+
+**Split Plan:**
+
+```
+expressions/
+├── mod.rs (~350 lines)            # Dispatcher + compile_expression entry point
+├── unary_control.rs (~350 lines)  # NEW - Unary ops + if/match/block
+└── (keep existing):
+    ├── binary_ops.rs (150 lines)
+    ├── pattern_matching.rs (957 lines) → needs split
+    ├── calls.rs (820 lines) → needs split
+    ├── access.rs (762 lines) → needs split
+    ├── special.rs (723 lines) → needs split
+    └── literals.rs (388 lines)
+```
+
+**Extract to unary_control.rs:**
+
+- Unary operations (!, -, &, &!)
+- If/match expression compilation
+- Block expressions, cast expressions
+
+---
+
+### 2. statements.rs (1408 lines) → Target: <400 lines
+
+**Current:** All statement compilation in one file  
+**Impact:** Hard to find specific statement logic
+
+**Split Plan:**
+
+```
+statements/
+├── mod.rs (~350 lines)            # Let statements + dispatcher
+├── control_flow.rs (~350 lines)   # NEW - while/for/loop/return
+├── defer_break.rs (~300 lines)    # NEW - defer/break/continue
+└── type_injection.rs (~400 lines) # NEW - Generic type helpers
+```
+
+---
+
+### 3. functions.rs (1353 lines) → Target: <400 lines
+
+**Current:** Function + generic + closure compilation  
+**Impact:** Mixing multiple concerns
+
+**Split Plan:**
+
+```
+functions/
+├── mod.rs (~400 lines)            # Function compilation core
+├── generics.rs (~400 lines)       # NEW - Generic monomorphization
+└── closure_env.rs (~350 lines)    # NEW - Closure environment handling
+```
+
+---
+
+### 4. pattern_matching.rs (957 lines) → Target: <400 lines
+
+**Split Plan:**
+
+```
+expressions/pattern_matching/
+├── mod.rs (~300 lines)            # Pattern dispatcher
+├── destructuring.rs (~350 lines)  # NEW - Struct/tuple/array patterns
+└── enum_guards.rs (~300 lines)    # NEW - Enum patterns + guards
+```
+
+---
+
+### 5. builtin_types.rs (917 lines) → Target: <400 lines
+
+**Split Plan:**
+
+```
+builtins/builtin_types/
+├── mod.rs (~250 lines)            # Type registry + dispatcher
+├── option_result.rs (~350 lines)  # NEW - Option<T> + Result<T,E>
+└── collections.rs (~350 lines)    # NEW - Vec<T>, Box<T>, Tuple
+```
+
+---
+
+### 6. parser/expressions.rs (902 lines) → Target: <400 lines
+
+**Split Plan:**
+
+```
+parser/expressions/
+├── mod.rs (~300 lines)            # Expression dispatcher
+├── primary.rs (~300 lines)        # NEW - Literals + identifiers
+└── operators.rs (~300 lines)      # NEW - Binary/unary parsing
+```
+
+---
+
+## 🟡 High Priority (700-999 lines) - Split Before Adding Code
+
+### 7. calls.rs (820 lines) → Target: <400 lines
+
+**Split Plan:**
+
+```
+expressions/calls/
+├── mod.rs (~300 lines)            # Call dispatcher
+├── method_calls.rs (~350 lines)   # NEW - Method call logic
+└── generic_args.rs (~200 lines)   # NEW - Generic argument handling
+```
+
+---
+
+### 8. access.rs (762 lines) → Target: <400 lines
+
+**Split Plan:**
+
+```
+expressions/access/
+├── mod.rs (~300 lines)            # Field access dispatcher
+├── indexing.rs (~250 lines)       # NEW - Array/Vec indexing
+└── chained.rs (~250 lines)        # NEW - Chained access (a.b.c)
+```
+
+---
+
+### 9. parser/items.rs (757 lines) → Target: <400 lines
+
+**Split Plan:**
+
+```
+parser/items/
+├── mod.rs (~300 lines)            # Item dispatcher + functions
+└── types.rs (~400 lines)          # NEW - Struct/enum/trait parsing
+```
+
+---
+
+### 10. special.rs (723 lines) → Target: <400 lines
+
+**Split Plan:**
+
+```
+expressions/special/
+├── mod.rs (~300 lines)            # Dispatcher + closures
+└── ranges_async.rs (~400 lines)   # NEW - Range + async/await
+```
+
+---
+
+## 🟢 Medium Priority (600-700 lines)
+
+### 11. lifetimes.rs (692 lines) → Split to 400 lines
+
+### 12. moves.rs (625 lines) → Split to 400 lines
+
+### 13. borrows.rs (610 lines) → Split to 400 lines
+
+### 14. types.rs (597 lines) → Split to 400 lines
+
+**Borrow Checker Split Plan:**
+
+```
+borrow_checker/
+├── lifetimes/
+│   ├── mod.rs (200 lines)
+│   ├── inference.rs (250 lines)
+│   └── validation.rs (250 lines)
+├── moves/
+│   ├── mod.rs (200 lines)
+│   ├── tracking.rs (200 lines)
+│   └── validation.rs (250 lines)
+└── borrows/
+    ├── mod.rs (200 lines)
+    ├── tracking.rs (200 lines)
+    └── validation.rs (250 lines)
+```
+
+---
+
+## � Medium Priority (500-699 lines) - Monitor & Split at 600+
+
+### 11. lifetimes.rs (692 lines) → Already near limit
+
+### 12. moves.rs (625 lines) → Monitor
+
+### 13. borrows.rs (610 lines) → Monitor
+
+### 14. types.rs (597 lines) → Monitor
+
+**Action:** Split when adding significant new code (>50 lines)
+
+---
+
+## 🟢 Low Priority (400-499 lines) - Monitor Only
+
+- mod.rs (493) - OK for now
+- compilation.rs (484) - OK for now
+- types.rs (parser) (451) - OK for now
+- control_flow.rs (439) - OK for now
+
+**Action:** Keep under 500 lines total
+
+---
+
+## 📊 Refactoring Priority Order
+
+### Phase 1 (Critical - Do First)
+
+1. ⚠️ expressions/mod.rs (1418 → 400)
+2. ⚠️ statements.rs (1408 → 400)
+3. ⚠️ functions.rs (1353 → 400)
+
+### Phase 2 (High Priority)
+
+4. pattern_matching.rs (957 → 400)
+5. builtin_types.rs (917 → 400)
+6. parser/expressions.rs (902 → 400)
+
+### Phase 3 (Before Adding Features)
+
+7. calls.rs (820 → 400)
+8. access.rs (762 → 400)
+9. parser/items.rs (757 → 400)
+10. special.rs (723 → 400)
+
+### Phase 4 (Borrow Checker - As Needed)
+
+11. lifetimes.rs (692 → 400)
+12. moves.rs (625 → 400)
+13. borrows.rs (610 → 400)
+
+---
+
+## 🎯 Implementation Strategy
+
+### **CRITICAL RULE:** Split BEFORE adding code if file > 350 lines
+
+**Process:**
+
+1. **Before implementing new features:**
+
+   ```bash
+   # Check target file size
+   wc -l path/to/file.rs
+
+   # If > 350 lines → Split FIRST
+   # If 300-350 lines → Can add small features (<50 lines)
+   # If < 300 lines → OK to add code
+   ```
+
+2. **When file hits 380 lines:**
+
+   - 🛑 STOP adding code immediately
+   - Split into 2-3 modules
+   - Then continue feature work
+
+3. **Gradual refactoring:**
+
+   - Refactor 1-2 files per week
+   - Always test after splitting: `cargo build && ./test_all.sh`
+   - Update imports carefully
+
+4. **Split testing checklist:**
+   ```bash
+   cargo build          # Must compile
+   ./test_all.sh        # All tests must pass
+   git diff --stat      # Verify only targeted files changed
+   ```
+
+---
+
+## ✅ Success Metrics
+
+**Target:** All files < 400 lines (300-350 ideal)  
+**Current:** 18 files exceed 400 lines (down from 31)  
+**Progress:** `find . -name "*.rs" -exec wc -l {} \; | awk '$1 > 400'`
+
+**Benefits:**
+
+- ✅ AI edits entire file in 1-2 tool calls (vs 7-10 for large files)
+- ✅ Human code review takes <5 minutes per file
+- ✅ Clear separation of concerns
+- ✅ Merge conflicts 80% easier to resolve
+- ✅ New contributors onboard faster

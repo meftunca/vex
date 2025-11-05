@@ -62,7 +62,7 @@ impl<'a> Parser<'a> {
     }
 
     pub(crate) fn parse_multiplicative(&mut self) -> Result<Expression, ParseError> {
-        let mut expr = self.parse_unary()?;
+        let mut expr = self.parse_cast()?;
 
         while self.match_tokens(&[Token::Star, Token::Slash, Token::Percent]) {
             let op = match self.previous() {
@@ -71,11 +71,28 @@ impl<'a> Parser<'a> {
                 Token::Percent => BinaryOp::Mod,
                 _ => unreachable!(),
             };
-            let right = self.parse_unary()?;
+            let right = self.parse_cast()?;
             expr = Expression::Binary {
                 left: Box::new(expr),
                 op,
                 right: Box::new(right),
+            };
+        }
+
+        Ok(expr)
+    }
+
+    /// Parse type cast: expr as TargetType
+    /// Priority: Higher than unary, lower than multiplicative
+    pub(crate) fn parse_cast(&mut self) -> Result<Expression, ParseError> {
+        let mut expr = self.parse_unary()?;
+
+        while self.check(&Token::As) {
+            self.advance(); // Consume 'as'
+            let target_type = self.parse_type()?;
+            expr = Expression::Cast {
+                expr: Box::new(expr),
+                target_type,
             };
         }
 
@@ -269,7 +286,19 @@ impl<'a> Parser<'a> {
                     fields,
                 };
             } else if self.match_token(&Token::Dot) {
-                // Field access, method call, or enum constructor
+                // Field access, method call, tuple field access, or enum constructor
+
+                // Phase 0.8: Check for tuple field access (numeric field: .0, .1, .2, etc.)
+                if let Token::IntLiteral(index_val) = self.peek() {
+                    let field_index = index_val.to_string();
+                    self.advance(); // consume the number
+                    expr = Expression::FieldAccess {
+                        object: Box::new(expr),
+                        field: field_index,
+                    };
+                    continue;
+                }
+
                 let field_or_method = self.consume_identifier()?;
 
                 if self.check(&Token::LParen) {
@@ -525,10 +554,101 @@ impl<'a> Parser<'a> {
             return Ok(first_expr);
         }
 
-        // Identifier or keyword as identifier (for struct names like "error")
+        // Identifier or builtin enum constructor
         if matches!(self.peek(), Token::Ident(_)) {
             let name = self.consume_identifier()?;
-            return Ok(Expression::Ident(name));
+
+            // Check for builtin enum constructors: Some, None, Ok, Err
+            // Phase 0.4: Special handling for Option/Result constructors
+            match name.as_str() {
+                "None" => {
+                    // None: Option unit variant (no arguments)
+                    return Ok(Expression::EnumLiteral {
+                        enum_name: "Option".to_string(),
+                        variant: "None".to_string(),
+                        data: None,
+                    });
+                }
+                "Some" => {
+                    // Some(value): Option data variant
+                    if self.check(&Token::LParen) {
+                        self.advance(); // consume '('
+                        let value = self.parse_expression()?;
+                        self.consume(&Token::RParen, "Expected ')' after Some argument")?;
+                        return Ok(Expression::EnumLiteral {
+                            enum_name: "Option".to_string(),
+                            variant: "Some".to_string(),
+                            data: Some(Box::new(value)),
+                        });
+                    } else {
+                        // No parens - might be used as identifier (error case)
+                        return Ok(Expression::Ident(name));
+                    }
+                }
+                "Ok" => {
+                    // Ok(value): Result ok variant
+                    if self.check(&Token::LParen) {
+                        self.advance(); // consume '('
+                        let value = self.parse_expression()?;
+                        self.consume(&Token::RParen, "Expected ')' after Ok argument")?;
+                        return Ok(Expression::EnumLiteral {
+                            enum_name: "Result".to_string(),
+                            variant: "Ok".to_string(),
+                            data: Some(Box::new(value)),
+                        });
+                    } else {
+                        return Ok(Expression::Ident(name));
+                    }
+                }
+                "Err" => {
+                    // Err(error): Result error variant
+                    if self.check(&Token::LParen) {
+                        self.advance(); // consume '('
+                        let error = self.parse_expression()?;
+                        self.consume(&Token::RParen, "Expected ')' after Err argument")?;
+                        return Ok(Expression::EnumLiteral {
+                            enum_name: "Result".to_string(),
+                            variant: "Err".to_string(),
+                            data: Some(Box::new(error)),
+                        });
+                    } else {
+                        return Ok(Expression::Ident(name));
+                    }
+                }
+                "vec" => {
+                    // vec() or vec<T>(): Create new Vec
+                    // TODO: Parse type parameter <T> if present
+                    if self.check(&Token::LParen) {
+                        self.advance(); // consume '('
+                        self.consume(&Token::RParen, "Expected ')' after vec constructor")?;
+                        // Map to vec_new() builtin call
+                        return Ok(Expression::Call {
+                            func: Box::new(Expression::Ident("vec_new".to_string())),
+                            args: vec![],
+                        });
+                    } else {
+                        return Ok(Expression::Ident(name));
+                    }
+                }
+                "box" => {
+                    // box(value) or box<T>(value): Create new Box
+                    if self.check(&Token::LParen) {
+                        self.advance(); // consume '('
+                        let value = self.parse_expression()?;
+                        self.consume(&Token::RParen, "Expected ')' after box argument")?;
+                        // Map to box_new(value) builtin call
+                        return Ok(Expression::Call {
+                            func: Box::new(Expression::Ident("box_new".to_string())),
+                            args: vec![value],
+                        });
+                    } else {
+                        return Ok(Expression::Ident(name));
+                    }
+                }
+                _ => {
+                    return Ok(Expression::Ident(name));
+                }
+            }
         }
 
         // Allow keywords as identifiers in expressions (e.g., "error" struct)

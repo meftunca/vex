@@ -130,6 +130,60 @@ extern "C"
   size_t vex_utf8_encode(uint32_t code_point, char *buf);
 
   // ============================================================================
+  // NUMERIC TO STRING CONVERSIONS
+  // ============================================================================
+
+  /**
+   * Convert i32 to string
+   * Returns heap-allocated string (caller must free)
+   * @param value Integer value to convert
+   * @return Newly allocated string or NULL on allocation failure
+   */
+  char *vex_i32_to_string(int32_t value);
+
+  /**
+   * Convert i64 to string
+   * Returns heap-allocated string (caller must free)
+   * @param value Integer value to convert
+   * @return Newly allocated string or NULL on allocation failure
+   */
+  char *vex_i64_to_string(int64_t value);
+
+  /**
+   * Convert u32 to string
+   * Returns heap-allocated string (caller must free)
+   * @param value Unsigned integer value to convert
+   * @return Newly allocated string or NULL on allocation failure
+   */
+  char *vex_u32_to_string(uint32_t value);
+
+  /**
+   * Convert u64 to string
+   * Returns heap-allocated string (caller must free)
+   * @param value Unsigned integer value to convert
+   * @return Newly allocated string or NULL on allocation failure
+   */
+  char *vex_u64_to_string(uint64_t value);
+
+  /**
+   * Convert f32 to string
+   * Returns heap-allocated string (caller must free)
+   * Uses shortest representation (%g format)
+   * @param value Float value to convert
+   * @return Newly allocated string or NULL on allocation failure
+   */
+  char *vex_f32_to_string(float value);
+
+  /**
+   * Convert f64 to string
+   * Returns heap-allocated string (caller must free)
+   * Uses shortest representation (%g format)
+   * @param value Double value to convert
+   * @return Newly allocated string or NULL on allocation failure
+   */
+  char *vex_f64_to_string(double value);
+
+  // ============================================================================
   // MEMORY OPERATIONS
   // ============================================================================
 
@@ -1194,6 +1248,71 @@ extern "C"
    * @return Type name string
    */
   const char *vex_typeof(int type_id);
+
+  // ============================================================================
+  // BUILTIN TYPES - Phase 0 (November 5, 2025)
+  // ============================================================================
+
+  // --- Vec<T> - Dynamic Array ---
+
+  typedef struct vex_vec_s
+  {
+    void *data;
+    size_t len;
+    size_t capacity;
+    size_t elem_size;
+  } vex_vec_t;
+
+  vex_vec_t *vex_vec_new(size_t elem_size);
+  void vex_vec_push(vex_vec_t *vec, const void *elem);
+  void *vex_vec_get(vex_vec_t *vec, size_t index);
+  bool vex_vec_pop(vex_vec_t *vec, void *out);
+  void vex_vec_reserve(vex_vec_t *vec, size_t additional);
+  size_t vex_vec_len(vex_vec_t *vec);
+  size_t vex_vec_capacity(vex_vec_t *vec);
+  bool vex_vec_is_empty(vex_vec_t *vec);
+  void vex_vec_clear(vex_vec_t *vec);
+  void vex_vec_free(vex_vec_t *vec);
+
+  // --- Option<T> - Nullable Type ---
+  // Compile-time struct: { u8 tag, T value }
+  // tag: 0 = None, 1 = Some
+
+  void *vex_option_unwrap(void *opt_ptr, size_t type_size, const char *file, int line);
+  void *vex_option_expect(void *opt_ptr, size_t type_size, const char *msg, const char *file, int line);
+  bool vex_option_is_some(void *opt_ptr);
+  bool vex_option_is_none(void *opt_ptr);
+  void vex_option_unwrap_or(void *opt_ptr, const void *default_val, size_t type_size, void *out);
+
+  // --- Result<T, E> - Error Handling ---
+  // Compile-time struct: { u8 tag, union { T ok, E err } }
+  // tag: 0 = Err, 1 = Ok
+
+  void *vex_result_unwrap(void *result_ptr, size_t type_size, const char *file, int line);
+  void *vex_result_expect(void *result_ptr, size_t type_size, const char *msg, const char *file, int line);
+  bool vex_result_is_ok(void *result_ptr);
+  bool vex_result_is_err(void *result_ptr);
+  void vex_result_unwrap_or(void *result_ptr, const void *default_val, size_t type_size, void *out);
+  void *vex_result_unwrap_err(void *result_ptr, size_t err_type_size, const char *file, int line);
+
+  // --- Box<T> - Heap Allocation ---
+
+  typedef struct
+  {
+    void *ptr;
+    size_t size;
+  } vex_box_t;
+
+  vex_box_t *vex_box_new(const void *value, size_t size);
+  void *vex_box_get(vex_box_t *box);
+  void *vex_box_get_mut(vex_box_t *box);
+  void *vex_box_into_inner(vex_box_t box);
+  void vex_box_free(vex_box_t *box);
+  vex_box_t *vex_box_clone(vex_box_t *box);
+
+  // --- Tuple<T, U, V> ---
+  // Compile-time only - no runtime functions needed
+  // See vex_tuple.c for documentation
 
 #ifdef __cplusplus
 }

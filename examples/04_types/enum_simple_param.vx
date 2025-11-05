@@ -1,0 +1,15 @@
+// Test unit enum as function parameter
+
+enum Status {
+    Idle,
+    Running,
+}
+
+fn check(s: i32): i32 {
+    return s;
+}
+
+fn main(): i32 {
+    let idle = Status.Idle;
+    return check(idle);  // Should return 0
+}

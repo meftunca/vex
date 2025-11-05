@@ -1,11 +1,11 @@
 // Data-carrying enum test (simple)
 
-enum Result {
-    Ok(i32),
-    Err(i32),
+enum Result<T, E> {
+    Ok(T),
+    Err(E),
 }
 
-fn divide(a: i32, b: i32): Result {
+fn divide(a: i32, b: i32): Result<i32, i32> {
     if b == 0 {
         // For now, return error tag manually
         return Result.Err(-1);

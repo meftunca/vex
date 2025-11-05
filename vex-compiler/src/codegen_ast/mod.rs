@@ -88,6 +88,15 @@ pub struct ASTCodeGen<'ctx> {
 
     // Track which variables hold closures (variable name -> (fn_ptr, env_ptr))
     pub(crate) closure_variables: HashMap<String, (PointerValue<'ctx>, PointerValue<'ctx>)>,
+
+    // Scope tracking for automatic cleanup (Drop trait)
+    // Stack of scopes, each scope contains variable names that need cleanup
+    // Inner Vec<(var_name, type_name)> tracks variables that need drop calls
+    pub(crate) scope_stack: Vec<Vec<(String, String)>>,
+
+    // Tuple type tracking: when compile_tuple_literal is called, store struct type here
+    // Let statement reads this to get tuple struct type without recompiling elements
+    pub(crate) last_compiled_tuple_type: Option<inkwell::types::StructType<'ctx>>,
 }
 
 impl<'ctx> ASTCodeGen<'ctx> {
@@ -95,7 +104,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let module = context.create_module(module_name);
         let builder = context.create_builder();
 
-        Self {
+        let mut codegen = Self {
             context,
             module,
             builder,
@@ -123,7 +132,18 @@ impl<'ctx> ASTCodeGen<'ctx> {
             loop_context_stack: Vec::new(),
             closure_envs: HashMap::new(),
             closure_variables: HashMap::new(),
-        }
+            scope_stack: Vec::new(),
+            last_compiled_tuple_type: None,
+        };
+
+        // Register Phase 0 builtin types (Vec, Option, Result, Box)
+        // Pre-declare external C runtime functions for zero-overhead linking
+        builtins::register_builtin_types_phase0(&mut codegen);
+
+        // Register stdlib runtime functions (logger, fs, time, testing)
+        builtins::register_stdlib_runtime(&mut codegen);
+
+        codegen
     }
 
     /// Register a module namespace with its functions
@@ -147,6 +167,88 @@ impl<'ctx> ASTCodeGen<'ctx> {
     /// Clear deferred statements (called at function boundary)
     pub(crate) fn clear_deferred_statements(&mut self) {
         self.deferred_statements.clear();
+    }
+
+    /// Push a new scope for automatic cleanup tracking
+    pub(crate) fn push_scope(&mut self) {
+        self.scope_stack.push(Vec::new());
+    }
+
+    /// Pop scope and emit cleanup calls for Vec/Box types
+    pub(crate) fn pop_scope(&mut self) -> Result<(), String> {
+        if let Some(scope_vars) = self.scope_stack.pop() {
+            // Emit cleanup calls in reverse order (LIFO)
+            for (var_name, type_name) in scope_vars.iter().rev() {
+                match type_name.as_str() {
+                    "Vec" => {
+                        // Call vec_free(var)
+                        if let Some(var_ptr) = self.variables.get(var_name) {
+                            eprintln!("🧹 Auto-cleanup: vec_free({})", var_name);
+
+                            let vec_opaque_type = self.context.opaque_struct_type("vex_vec_s");
+                            let vec_ptr_type =
+                                vec_opaque_type.ptr_type(inkwell::AddressSpace::default());
+
+                            let vec_value = self
+                                .builder
+                                .build_load(vec_ptr_type, *var_ptr, "vec_cleanup_load")
+                                .map_err(|e| format!("Failed to load vec for cleanup: {}", e))?;
+
+                            let vec_free_fn = self.get_vex_vec_free();
+                            self.builder
+                                .build_call(vec_free_fn, &[vec_value.into()], "vec_auto_free")
+                                .map_err(|e| format!("Failed to call vec_free: {}", e))?;
+                        }
+                    }
+                    "Box" => {
+                        // Call box_free(box_ptr) - load the box pointer and pass it
+                        if let Some(var_ptr) = self.variables.get(var_name).copied() {
+                            eprintln!("🧹 Auto-cleanup: box_free({})", var_name);
+
+                            // Load the box pointer from the variable
+                            let box_ptr_type = self
+                                .context
+                                .struct_type(
+                                    &[
+                                        self.context
+                                            .i8_type()
+                                            .ptr_type(inkwell::AddressSpace::default())
+                                            .into(),
+                                        self.context.i64_type().into(),
+                                    ],
+                                    false,
+                                )
+                                .ptr_type(inkwell::AddressSpace::default());
+
+                            let box_value = self
+                                .builder
+                                .build_load(box_ptr_type, var_ptr, "box_cleanup_load")
+                                .map_err(|e| format!("Failed to load box for cleanup: {}", e))?;
+
+                            let box_free_fn = self.get_vex_box_free();
+                            self.builder
+                                .build_call(box_free_fn, &[box_value.into()], "box_auto_free")
+                                .map_err(|e| format!("Failed to call box_free: {}", e))?;
+                        }
+                    }
+                    _ => {
+                        // Other types don't need cleanup (yet)
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Register a variable for automatic cleanup
+    pub(crate) fn register_for_cleanup(&mut self, var_name: String, type_name: String) {
+        if let Some(current_scope) = self.scope_stack.last_mut() {
+            // Only register Vec and Box for now
+            if type_name == "Vec" || type_name == "Box" {
+                eprintln!("📝 Register for cleanup: {} ({})", var_name, type_name);
+                current_scope.push((var_name, type_name));
+            }
+        }
     }
 
     /// Declare printf for output

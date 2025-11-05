@@ -11,13 +11,6 @@ thiserror.workspace = true
 anyhow.workspace = true
 log.workspace = true
 
-# Tokio async runtime (FULL FEATURED)
-tokio = { version = "1.35", features = ["full", "tracing"] }
-
-# Optional: io_uring for high-performance I/O on Linux
-io-uring = { version = "0.6", optional = true }
-tokio-uring = { version = "0.4", optional = true }
-
 # FFI utilities
 libc = "0.2"
 num_cpus = "1.16"
@@ -28,8 +21,10 @@ num_cpus = "1.16"
 # macOS: brew install simdutf
 # Windows: vcpkg install simdutf
 
+[build-dependencies]
+cc = "1.0"
+
 [features]
-default = ["tokio-runtime"]
-tokio-runtime = []  # Tokio async runtime (default)
-io-uring-backend = ["io-uring", "tokio-uring"]  # io_uring event loop
+default = ["native-runtime"]
+native-runtime = []  # C-based M:N async runtime (default)
 simdutf = []  # Enable simdutf FFI bindings (requires libsimdutf)

@@ -228,6 +228,98 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     BasicTypeEnum::IntType(self.context.i32_type())
                 }
             }
+
+            // ===== PHASE 0: BUILTIN TYPES =====
+            Type::Vec(_elem_ty) => {
+                // Vec<T> layout: { i8*, i64, i64, i64 }
+                // Fields: data_ptr, len, capacity, elem_size
+                // Match C runtime vex_vec_t struct
+                let ptr_ty = self
+                    .context
+                    .i8_type()
+                    .ptr_type(inkwell::AddressSpace::default());
+                let size_ty = self.context.i64_type();
+
+                let vec_struct = self.context.struct_type(
+                    &[
+                        ptr_ty.into(),  // void *data
+                        size_ty.into(), // size_t len
+                        size_ty.into(), // size_t capacity
+                        size_ty.into(), // size_t elem_size
+                    ],
+                    false,
+                );
+
+                BasicTypeEnum::StructType(vec_struct)
+            }
+
+            Type::Box(_elem_ty) => {
+                // Box<T> layout: { i8*, i64 }
+                // Fields: ptr, size
+                // Match C runtime vex_box_t struct
+                let ptr_ty = self
+                    .context
+                    .i8_type()
+                    .ptr_type(inkwell::AddressSpace::default());
+                let size_ty = self.context.i64_type();
+
+                let box_struct = self.context.struct_type(
+                    &[
+                        ptr_ty.into(),  // void *ptr
+                        size_ty.into(), // size_t size
+                    ],
+                    false,
+                );
+
+                BasicTypeEnum::StructType(box_struct)
+            }
+
+            Type::Option(inner_ty) => {
+                // Option<T> layout: { i32, T }
+                // Fields: tag (0=None, 1=Some), value
+                // Runtime helpers handle unwrap/is_some checks
+                let tag_ty = self.context.i32_type();
+                let value_ty = self.ast_type_to_llvm(inner_ty);
+
+                let option_struct = self.context.struct_type(
+                    &[
+                        tag_ty.into(), // i32 tag (consistent with user enums)
+                        value_ty,      // T value
+                    ],
+                    false,
+                );
+
+                BasicTypeEnum::StructType(option_struct)
+            }
+
+            Type::Result(ok_ty, err_ty) => {
+                // Result<T, E> layout: { i32, union { T, E } }
+                // Fields: tag (0=Err, 1=Ok), value
+                // For simplicity, use max(sizeof(T), sizeof(E)) for value field
+                let tag_ty = self.context.i32_type();
+                let ok_llvm = self.ast_type_to_llvm(ok_ty);
+                let err_llvm = self.ast_type_to_llvm(err_ty);
+
+                // Calculate which type is larger (approximate)
+                let ok_size = Self::approximate_type_size(&ok_llvm);
+                let err_size = Self::approximate_type_size(&err_llvm);
+                let value_ty = if ok_size >= err_size {
+                    ok_llvm
+                } else {
+                    err_llvm
+                };
+
+                let result_struct = self.context.struct_type(
+                    &[
+                        tag_ty.into(), // u8 tag
+                        value_ty,      // union { T ok, E err }
+                    ],
+                    false,
+                );
+
+                BasicTypeEnum::StructType(result_struct)
+            }
+
             _ => {
                 // Default to i32 for unsupported types
                 BasicTypeEnum::IntType(self.context.i32_type())
@@ -372,6 +464,17 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     .collect();
                 format!("{}_{}", name, arg_strs.join("_"))
             }
+
+            // Phase 0: Builtin types
+            Type::Vec(elem_ty) => format!("Vec_{}", self.type_to_string(elem_ty)),
+            Type::Box(elem_ty) => format!("Box_{}", self.type_to_string(elem_ty)),
+            Type::Option(elem_ty) => format!("Option_{}", self.type_to_string(elem_ty)),
+            Type::Result(ok_ty, err_ty) => format!(
+                "Result_{}_{}",
+                self.type_to_string(ok_ty),
+                self.type_to_string(err_ty)
+            ),
+
             _ => "unknown".to_string(),
         }
     }
@@ -405,6 +508,16 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     type_args: substituted_args,
                 }
             }
+
+            // Phase 0: Builtin types (substitute inner type parameters)
+            Type::Vec(inner) => Type::Vec(Box::new(self.substitute_type(inner, type_subst))),
+            Type::Box(inner) => Type::Box(Box::new(self.substitute_type(inner, type_subst))),
+            Type::Option(inner) => Type::Option(Box::new(self.substitute_type(inner, type_subst))),
+            Type::Result(ok_ty, err_ty) => Type::Result(
+                Box::new(self.substitute_type(ok_ty, type_subst)),
+                Box::new(self.substitute_type(err_ty, type_subst)),
+            ),
+
             _ => ty.clone(),
         }
     }
@@ -430,8 +543,55 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 name: name.clone(),
                 type_args: type_args.iter().map(|t| self.resolve_type(t)).collect(),
             },
+
+            // Phase 0: Builtin types (recursively resolve inner types)
+            Type::Vec(inner) => Type::Vec(Box::new(self.resolve_type(inner))),
+            Type::Box(inner) => Type::Box(Box::new(self.resolve_type(inner))),
+            Type::Option(inner) => Type::Option(Box::new(self.resolve_type(inner))),
+            Type::Result(ok_ty, err_ty) => Type::Result(
+                Box::new(self.resolve_type(ok_ty)),
+                Box::new(self.resolve_type(err_ty)),
+            ),
+
             // Primitive types don't need resolution
             _ => ty.clone(),
+        }
+    }
+
+    /// Approximate size of LLVM type in bits (for Result<T,E> union layout)
+    fn approximate_type_size(llvm_ty: &BasicTypeEnum) -> u32 {
+        match llvm_ty {
+            BasicTypeEnum::IntType(i) => i.get_bit_width(),
+            BasicTypeEnum::FloatType(f) => {
+                // f32=32, f64=64, f128=128
+                if f.get_context().f32_type() == *f {
+                    32
+                } else if f.get_context().f64_type() == *f {
+                    64
+                } else if f.get_context().f128_type() == *f {
+                    128
+                } else {
+                    32 // fallback
+                }
+            }
+            BasicTypeEnum::PointerType(_) => 64, // Assume 64-bit pointers
+            BasicTypeEnum::StructType(s) => {
+                // Approximate: sum of field sizes (ignoring padding)
+                let field_count = s.count_fields();
+                field_count * 32 // rough estimate
+            }
+            BasicTypeEnum::ArrayType(a) => {
+                // Array size = element size * length
+                let elem_ty = a.get_element_type();
+                let len = a.len();
+                let elem_size = match elem_ty {
+                    BasicTypeEnum::IntType(i) => i.get_bit_width(),
+                    BasicTypeEnum::FloatType(_) => 32,
+                    _ => 32,
+                };
+                elem_size * len
+            }
+            _ => 32, // fallback
         }
     }
 }

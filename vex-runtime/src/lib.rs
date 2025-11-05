@@ -1,18 +1,15 @@
-//! Vex Runtime - Async runtime with tokio backend and UTF-8 support
+//! Vex Runtime - Native M:N async I/O runtime
 //!
 //! This module provides:
-//! - Tokio-based async runtime (multi-threaded, io_uring/kqueue/IOCP)
+//! - C-based M:N async runtime (kqueue/epoll/io_uring/IOCP)
+//! - Work-stealing scheduler with lock-free queues
 //! - Ultra-fast UTF-8 validation and conversion (simdutf, 20GB/s)
-//! - C FFI bindings for Vex language integration
+//! - FFI bindings for Vex language integration
 //! - Cross-platform support (Linux, macOS, Windows)
 
 use thiserror::Error;
 
-pub mod native_runtime;
-
-// Tokio async runtime FFI
-#[cfg(feature = "tokio-runtime")]
-pub mod tokio_ffi;
+pub mod async_runtime;
 
 // simdutf UTF-8/UTF-16 FFI (requires libsimdutf)
 #[cfg(feature = "simdutf")]
@@ -25,34 +22,22 @@ pub enum RuntimeError {
 
     #[error("Task execution failed: {0}")]
     ExecutionError(String),
+
+    #[error("I/O error: {0}")]
+    IoError(String),
 }
 
-// Re-export native runtime
-pub use native_runtime::{Scheduler, Task, TaskState};
-
-#[cfg(feature = "io-uring-backend")]
-pub mod io_uring_eventloop {
-    //! Linux-specific io_uring event loop
-    //! This module provides high-performance async I/O using io_uring
-    //! TODO: Implement io_uring integration
-}
+// Re-export async runtime
+pub use async_runtime::*;
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_scheduler_creation() {
-        let mut scheduler = Scheduler::new();
-        assert_eq!(scheduler.spawn(), 0);
-        assert_eq!(scheduler.spawn(), 1);
-    }
-
-    #[test]
-    fn test_task_lifecycle() {
-        native_runtime::vex_native_runtime_init();
-        let task1 = native_runtime::vex_native_runtime_spawn();
-        let task2 = native_runtime::vex_native_runtime_spawn();
-        assert_ne!(task1, task2);
+    fn test_runtime_creation() {
+        let rt = AsyncRuntime::new(2);
+        let stats = rt.stats();
+        assert_eq!(stats.tasks_spawned, 0);
     }
 }

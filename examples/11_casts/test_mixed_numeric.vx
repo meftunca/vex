@@ -1,0 +1,29 @@
+// Test float <-> unsigned casts
+fn test_uint_to_float(): i32 {
+    let u: u32 = 250;
+    let f: f64 = u as f64;
+    let back: u32 = f as u32;
+    return back as i32;  // 250
+}
+
+fn test_float_to_uint(): i32 {
+    let f: f64 = 99.7;
+    let u: u32 = f as u32;
+    return u as i32;  // 99 (truncated)
+}
+
+fn test_mixed_casts(): i32 {
+    let i: i32 = 50;
+    let u: u32 = i as u32;
+    let f: f64 = u as f64;
+    let back_u: u32 = f as u32;
+    let back_i: i32 = back_u as i32;
+    return back_i;  // 50
+}
+
+fn main(): i32 {
+    let t1: i32 = test_uint_to_float();
+    let t2: i32 = test_float_to_uint();
+    let t3: i32 = test_mixed_casts();
+    return t1 + t2 + t3;  // 250 + 99 + 50 = 399
+}

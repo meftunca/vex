@@ -1,0 +1,20 @@
+// Simplified cast test - no i64 literals
+fn test_add(): i32 {
+    let a: i32 = 10;
+    let b: i32 = 20;
+    let c: i32 = 30;
+    return a + b + c;  // 60
+}
+
+fn test_cast_chain(): i32 {
+    let x: i32 = 50;
+    let y: f64 = x as f64;
+    let z: i32 = y as i32;
+    return z;  // 50
+}
+
+fn main(): i32 {
+    let t1: i32 = test_add();
+    let t2: i32 = test_cast_chain();
+    return t1 + t2;  // 110
+}

@@ -1,0 +1,11 @@
+// Test individual functions
+fn main(): i32 {
+    let a: i32 = test_i64_to_i32();
+    return a;  // Should be 1000
+}
+
+fn test_i64_to_i32(): i32 {
+    let x: i64 = 1000;
+    let y: i32 = x as i32;
+    return y;
+}

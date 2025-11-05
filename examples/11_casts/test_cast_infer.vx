@@ -1,0 +1,6 @@
+// Cast without explicit type annotation
+fn main(): i32 {
+    let x = 42;
+    let y = x as i64;
+    return 42;
+}

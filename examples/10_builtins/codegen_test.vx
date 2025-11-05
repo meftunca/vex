@@ -1,0 +1,47 @@
+// Phase 0.3: Codegen Type Compilation Test
+// Verify LLVM struct layouts match C runtime expectations
+
+// Test 1: Option<T> with different types
+fn test_option_i32(x: Option<i32>): i32 { return 1; }
+fn test_option_i64(y: Option<i64>): i32 { return 2; }
+fn test_option_bool(z: Option<bool>): i32 { return 3; }
+
+// Test 2: Result<T, E> with different type combinations
+fn test_result_i32_string(r1: Result<i32, String>): i32 { return 4; }
+fn test_result_string_i32(r2: Result<String, i32>): i32 { return 5; }
+fn test_result_bool_i64(r3: Result<bool, i64>): i32 { return 6; }
+
+// Test 3: Vec<T> with different element types
+fn test_vec_i32(v1: Vec<i32>): i32 { return 7; }
+fn test_vec_string(v2: Vec<String>): i32 { return 8; }
+fn test_vec_bool(v3: Vec<bool>): i32 { return 9; }
+
+// Test 4: Box<T> with different types
+fn test_box_i32(b1: Box<i32>): i32 { return 10; }
+fn test_box_string(b2: Box<String>): i32 { return 11; }
+fn test_box_i64(b3: Box<i64>): i32 { return 12; }
+
+// Test 5: Nested builtins
+fn test_nested_option_box(x: Option<Box<i32>>): i32 { return 13; }
+fn test_nested_vec_option(y: Vec<Option<i32>>): i32 { return 14; }
+fn test_nested_result_box(z: Result<Box<String>, i32>): i32 { return 15; }
+
+// Test 6: Multiple parameters
+fn test_multiple_params(
+    opt: Option<i32>,
+    res: Result<String, i32>,
+    vec: Vec<bool>,
+    bx: Box<i64>
+): i32 {
+    return 16;
+}
+
+// Test 7: Return builtin types (not yet implemented)
+// fn return_option(): Option<i32> { return None; }
+// fn return_result(): Result<i32, String> { return Ok(42); }
+
+fn main(): i32 {
+    // All functions should compile successfully
+    // Exit code indicates success
+    return 0;
+}

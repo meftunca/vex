@@ -1,0 +1,5 @@
+fn main(): i32 {
+    print("Hello from Vex!");
+    println(" stdlib test");
+    return 0;
+}

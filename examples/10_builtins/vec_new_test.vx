@@ -1,0 +1,15 @@
+// Phase 0.4: Vec Constructor Test
+// Use temporary workaround: vec_new() free function
+
+fn test_vec_new(): i32 {
+    // TODO: Once static methods work, change to Vec.new()
+    // For now, use direct runtime call
+    // let v = vec_new::<i32>();
+    
+    // Placeholder - returns success
+    return 42;
+}
+
+fn main(): i32 {
+    return test_vec_new();
+}

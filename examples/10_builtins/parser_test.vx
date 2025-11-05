@@ -1,0 +1,24 @@
+// Test: Parser for builtin types
+// Tests Option<T>, Result<T,E>, Vec<T>, Box<T> type parsing
+
+fn test_option(x: Option<i32>): i32 {
+    return 42;
+}
+
+fn test_result(r: Result<String, i32>): i32 {
+    return 10;
+}
+
+fn test_vec(v: Vec<bool>): i32 {
+    return 20;
+}
+
+fn test_box(b: Box<String>): i32 {
+    return 30;
+}
+
+fn main(): i32 {
+    // Just test that types parse correctly
+    // Constructor syntax will be added in Phase 0.4
+    return 42;
+}

@@ -1,27 +1,27 @@
 // Test: Nested match with block expressions and multiple statements
 // Expected: Returns 100
 
-enum Result {
+enum MyResult {
     Ok(i32),
     Err(i32)
 }
 
-fn calculate(x: i32): Result {
+fn calculate(x: i32): MyResult {
     if x > 0 {
-        return Result.Ok(x * 10);
+        return MyResult.Ok(x * 10);
     }
-    return Result.Err(-1);
+    return MyResult.Err(-1);
 }
 
 fn main(): i32 {
     let! result = calculate(5);
     
     let output = match result {
-        Result.Ok(val) => {
+        MyResult.Ok(val) => {
             let multiplied = val * 2;
             multiplied
         },
-        Result.Err(code) => {
+        MyResult.Err(code) => {
             let error_val = code;
             error_val
         }
