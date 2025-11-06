@@ -2,8 +2,8 @@
 
 **Project:** Vex - Modern systems programming language  
 **Version:** 0.2.0 (Syntax v0.9)  
-**Last Updated:** November 4, 2025  
-**Test Status:** 86/101 passing (85.1%)
+**Last Updated:** November 6, 2025  
+**Test Status:** 143/146 passing (97.9%)
 
 ## 🎯 Core Principles
 
@@ -17,6 +17,7 @@
 8. **Follow Vex syntax v0.9** - Not Rust syntax (no `mut`, `->`, `::`)
 9. **⚠️ CRITICAL: NO `::` operator!** - Use `.` for all member access (`Vec.new()` not `Vec::new()`, `Some(x)` not `Option::Some(x)`)
 10. **⚠️ FILE SIZE LIMIT: 400 LINES MAX** - **MANDATORY** Rust files MUST NOT exceed 400 lines. Split logically into modules when approaching this limit.
+11. **⚠️ UPDATE THIS FILE!** - When adding new modules or reorganizing code, **ALWAYS** update the Project Structure section in this file with current line counts and organization.
 
 ## 📁 Project Structure
 
@@ -25,34 +26,108 @@ vex_lang/
 ├── .github/
 │   └── copilot-instructions.md          # This file
 ├── vex-lexer/                           # Tokenization (logos)
-├── vex-parser/                          # Recursive descent parser
+├── vex-parser/                          # Recursive descent parser (WELL ORGANIZED)
 │   └── src/parser/
-│       ├── expressions.rs               # Expression parsing
-│       ├── items.rs                     # Functions, traits, structs
-│       └── types.rs                     # Type parsing
+│       ├── mod.rs (345)                 # Main parser coordinator
+│       ├── expressions.rs (84)          # Expression parsing entry
+│       ├── statements.rs (338)          # Statement parsing
+│       ├── primaries.rs (240)           # Primary expressions
+│       ├── operators.rs (414)           # Binary/unary operators
+│       ├── patterns.rs (188)            # Pattern matching syntax
+│       ├── types.rs (451)               # Type parsing (ALL types)
+│       └── items/                       # Top-level items (organized)
+│           ├── mod.rs (12)              # Re-exports
+│           ├── functions.rs (113)       # Function declarations
+│           ├── structs.rs (134)         # Struct definitions
+│           ├── enums.rs (48)            # Enum definitions
+│           ├── traits.rs (186)          # Trait definitions
+│           ├── imports.rs (90)          # Import statements
+│           ├── exports.rs (48)          # Export statements
+│           ├── externs.rs (97)          # Extern declarations
+│           ├── consts.rs (22)           # Const declarations
+│           ├── aliases.rs (27)          # Type aliases
+│           └── helpers.rs (43)          # Parsing utilities
 ├── vex-ast/                             # Abstract Syntax Tree
 │   └── src/lib.rs                       # All AST node definitions
-├── vex-compiler/                        # LLVM codegen
+├── vex-compiler/                        # LLVM codegen (REORGANIZED!)
 │   └── src/
-│       ├── codegen_ast/
-│       │   ├── mod.rs                   # Core ASTCodeGen struct
-│       │   ├── types.rs                 # AST↔LLVM type conversion
-│       │   ├── statements.rs            # Let, if, while, for, return
-│       │   ├── functions.rs             # Function compilation, generics
-│       │   └── expressions/
-│       │       ├── mod.rs               # Expression dispatcher
-│       │       ├── binary_ops.rs        # Arithmetic, comparisons
-│       │       ├── calls.rs             # Function/method calls
-│       │       ├── literals.rs          # Arrays, structs, tuples
-│       │       ├── access.rs            # Field access, indexing
-│       │       └── special.rs           # Unary, postfix, closures
-│       ├── borrow_checker/
-│       │   ├── mod.rs                   # Entry point
-│       │   ├── immutability.rs          # Phase 1: let vs let!
-│       │   ├── moves.rs                 # Phase 2: Use-after-move
-│       │   ├── borrows.rs               # Phase 3: Borrow rules
-│       │   └── lifetimes.rs             # Phase 4: Lifetime analysis
-│       └── module_resolver.rs           # Import system
+│       ├── lib.rs                       # Public API
+│       ├── trait_bounds_checker.rs      # Trait constraint validation
+│       ├── module_resolver.rs           # Import/module system
+│       ├── codegen_ast/                 # Code generation (WELL STRUCTURED)
+│       │   ├── mod.rs (501)             # Core ASTCodeGen struct + dispatcher
+│       │   ├── registry.rs              # Type/function registry
+│       │   ├── analysis.rs              # Pre-codegen analysis
+│       │   ├── program.rs               # Program compilation entry
+│       │   ├── types.rs (597)           # AST↔LLVM type conversion
+│       │   ├── generics.rs              # Generic instantiation
+│       │   ├── methods.rs               # Method compilation
+│       │   ├── traits.rs                # Trait implementation
+│       │   ├── enums.rs                 # Enum codegen
+│       │   ├── defer.rs                 # Defer statement
+│       │   ├── ffi.rs                   # FFI/extern support
+│       │   ├── statements/              # Statement compilation (ORGANIZED)
+│       │   │   ├── mod.rs               # Statement dispatcher
+│       │   │   ├── let_statement.rs (638) # Variable declarations
+│       │   │   ├── assignment.rs        # Assignment expressions
+│       │   │   ├── control_flow.rs      # If/match statements
+│       │   │   └── loops.rs (399)       # For/while loops
+│       │   ├── functions/               # Function compilation (ORGANIZED)
+│       │   │   ├── mod.rs               # Function dispatcher
+│       │   │   ├── declare.rs           # Function declarations
+│       │   │   ├── compile.rs           # Function body compilation
+│       │   │   └── asynchronous.rs      # Async function support
+│       │   ├── expressions/             # Expression compilation (WELL SPLIT)
+│       │   │   ├── mod.rs (500)         # Expression dispatcher
+│       │   │   ├── binary_ops.rs        # +, -, *, /, %, ==, !=, <, >, etc.
+│       │   │   ├── literals.rs (388)    # Numbers, strings, arrays, structs
+│       │   │   ├── control.rs           # If/match expressions
+│       │   │   ├── pattern_matching.rs (858) # Pattern matching codegen
+│       │   │   ├── access/              # Member access (ORGANIZED)
+│       │   │   │   ├── mod.rs           # Access dispatcher
+│       │   │   │   ├── field_access.rs (494) # Struct field access
+│       │   │   │   ├── indexing.rs      # Array/slice indexing
+│       │   │   │   └── fstring.rs       # F-string formatting
+│       │   │   ├── calls/               # Function calls (ORGANIZED)
+│       │   │   │   ├── mod.rs           # Call dispatcher
+│       │   │   │   ├── function_calls.rs (216) # Regular function calls
+│       │   │   │   ├── method_calls.rs (288) # Method calls
+│       │   │   │   └── builtins.rs      # Builtin function calls
+│       │   │   └── special/             # Special expressions (ORGANIZED)
+│       │   │       ├── mod.rs           # Special dispatcher
+│       │   │       ├── unary.rs         # Unary operators (!, -, &)
+│       │   │       ├── closures.rs (481) # Closure compilation
+│       │   │       └── casts.rs         # Type casting
+│       │   └── builtins/                # Builtin types & functions (COMPREHENSIVE)
+│       │       ├── mod.rs (378)         # Builtin coordinator
+│       │       ├── core.rs              # Core builtin setup
+│       │       ├── hints.rs             # Type hints for builtins
+│       │       ├── intrinsics.rs (318)  # LLVM intrinsics
+│       │       ├── memory.rs (292)      # Memory operations
+│       │       ├── memory_ops.rs (226)  # Alloc/dealloc helpers
+│       │       ├── array.rs (220)       # Array operations
+│       │       ├── string.rs            # String operations
+│       │       ├── utf8.rs              # UTF-8 validation
+│       │       ├── hashmap.rs (323)     # HashMap operations
+│       │       ├── reflection.rs (205)  # Runtime reflection
+│       │       ├── stdlib.rs (308)      # Standard library
+│       │       ├── stdlib_logger.rs     # Logger module
+│       │       ├── stdlib_testing.rs    # Testing framework
+│       │       ├── stdlib_time.rs       # Time operations
+│       │       └── builtin_types/       # Builtin type implementations
+│       │           ├── mod.rs           # Type dispatcher
+│       │           ├── option_result.rs (237) # Option<T>, Result<T,E>
+│       │           ├── collections.rs (244) # Vec<T>, Box<T>
+│       │           └── conversions.rs (250) # Type conversions
+│       └── borrow_checker/              # Borrow checker (4-PHASE SYSTEM)
+│           ├── mod.rs (365)             # Entry point + orchestration
+│           ├── errors.rs (229)          # Error reporting
+│           ├── builtin_metadata.rs (303) # Builtin type borrow info
+│           ├── immutability.rs (399)    # Phase 1: let vs let!
+│           ├── moves.rs (625)           # Phase 2: Use-after-move
+│           ├── borrows.rs (610)         # Phase 3: Borrow rules
+│           ├── lifetimes.rs (692)       # Phase 4: Lifetime analysis
+│           └── closure_traits.rs (357)  # Closure trait inference
 ├── vex-cli/                             # Command-line interface
 ├── vex-runtime/                         # Runtime (async, SIMD, C ABI)
 │   ├── src/                             # Rust FFI bindings
@@ -239,7 +314,8 @@ vex-runtime/c/
 4. Add comprehensive tests (happy path + edge cases + errors)
 5. Run `./test_all.sh`
 6. Update `TODO.md` + documentation
-7. **Report final progress summary**
+7. **⚠️ UPDATE `.github/copilot-instructions.md`** - If new modules added or code reorganized, update Project Structure section with line counts
+8. **Report final progress summary**
 
 ## 📏 File Size Management (CRITICAL)
 
@@ -305,32 +381,89 @@ wc -l vex-compiler/src/codegen_ast/**/*.rs
 # feature_*.rs:   100-400 lines (implementation)
 ```
 
-### Module Organization Patterns
+### Module Organization Patterns (CURRENT STRUCTURE - Updated Nov 6, 2025)
 
-**Pattern 1: Feature-based split**
+**Pattern 1: Deep Feature-based split (Parser)**
 
 ```
-codegen_ast/
-├── mod.rs              # Core struct + dispatcher
-├── types.rs            # Type conversion
-├── statements.rs       # Let, return, etc.
-└── expressions/
-    ├── mod.rs          # Expression dispatcher
-    ├── binary_ops.rs   # +, -, *, /, etc.
-    ├── calls.rs        # Function/method calls
-    └── literals.rs     # Numbers, strings, arrays
+parser/
+├── mod.rs (345)             # Main coordinator
+├── expressions.rs (84)       # Expression entry
+├── statements.rs (338)       # Statements
+├── types.rs (451)           # All type parsing
+└── items/                   # Top-level items (11 files)
+    ├── mod.rs               # Re-exports
+    ├── functions.rs (113)   # Function declarations
+    ├── structs.rs (134)     # Struct definitions
+    ├── traits.rs (186)      # Trait definitions
+    └── ... (8 more specialized files)
 ```
 
-**Pattern 2: Responsibility-based split**
+**Pattern 2: Multi-level Feature split (Codegen Expressions)**
+
+```
+codegen_ast/expressions/
+├── mod.rs (500)             # Main dispatcher
+├── binary_ops.rs            # Arithmetic/comparison
+├── literals.rs (388)        # Literal values
+├── pattern_matching.rs (858) # Match expressions
+├── access/                  # Member access (4 files)
+│   ├── mod.rs
+│   ├── field_access.rs (494)
+│   ├── indexing.rs
+│   └── fstring.rs
+├── calls/                   # Function calls (4 files)
+│   ├── mod.rs
+│   ├── function_calls.rs (216)
+│   ├── method_calls.rs (288)
+│   └── builtins.rs
+└── special/                 # Special expressions (4 files)
+    ├── mod.rs
+    ├── closures.rs (481)
+    ├── unary.rs
+    └── casts.rs
+```
+
+**Pattern 3: Category-based split (Builtins)**
+
+```
+codegen_ast/builtins/
+├── mod.rs (378)             # Coordinator
+├── core.rs                  # Core setup
+├── intrinsics.rs (318)      # LLVM intrinsics
+├── memory.rs (292)          # Memory operations
+├── array.rs (220)           # Array operations
+├── string.rs                # String operations
+├── hashmap.rs (323)         # HashMap operations
+├── stdlib_*.rs              # Stdlib modules (3 files)
+└── builtin_types/           # Type implementations (4 files)
+    ├── mod.rs
+    ├── option_result.rs (237)
+    ├── collections.rs (244)
+    └── conversions.rs (250)
+```
+
+**Pattern 4: Phase-based split (Borrow Checker)**
 
 ```
 borrow_checker/
-├── mod.rs              # Entry point + orchestration
-├── immutability.rs     # Phase 1: let vs let!
-├── moves.rs            # Phase 2: Use-after-move
-├── borrows.rs          # Phase 3: Borrow rules
-└── lifetimes.rs        # Phase 4: Lifetime analysis
+├── mod.rs (365)             # Entry + orchestration
+├── errors.rs (229)          # Error reporting
+├── builtin_metadata.rs (303) # Builtin type metadata
+├── immutability.rs (399)    # Phase 1: let vs let!
+├── moves.rs (625)           # Phase 2: Use-after-move
+├── borrows.rs (610)         # Phase 3: Borrow rules
+├── lifetimes.rs (692)       # Phase 4: Lifetime analysis
+└── closure_traits.rs (357)  # Closure trait inference
 ```
+
+**Key Takeaways from Current Organization:**
+
+1. ✅ **3-Level Hierarchy Works Well**: mod.rs → feature/ → subfeature.rs
+2. ✅ **500-line Modules OK**: If well-organized dispatcher with clear sections
+3. ✅ **Deep Nesting Acceptable**: expressions/calls/method_calls.rs is clear
+4. ✅ **Line Count in Parentheses**: Helps track file sizes quickly
+5. ⚠️ **Watch These Files**: pattern_matching.rs (858), lifetimes.rs (692), moves.rs (625)
 
 ### Enforcement
 
@@ -360,7 +493,7 @@ borrow_checker/
 
 ## 📊 Testing
 
-**Status:** 86/101 passing (85.1%) - See `./test_all.sh`
+**Status:** 143/146 passing (97.9%) - See `./test_all.sh`
 
 **Add test:** Create `.vx` in `examples/` → run `./test_all.sh` → update README
 

@@ -5,6 +5,7 @@ use super::*;
 use vex_lexer::Token;
 
 impl<'a> Parser<'a> {
+    /// Parse match expression: match value { pattern => expr, ... }
     pub(crate) fn parse_match_expression(&mut self) -> Result<Expression, ParseError> {
         // Parse the value to match on
         let value = Box::new(self.parse_expression()?);

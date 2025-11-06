@@ -8,6 +8,9 @@ use vex_lexer::{Lexer, Token, TokenSpan};
 // Sub-modules for different parsing responsibilities
 mod expressions;
 mod items;
+mod operators;
+mod patterns;
+mod primaries;
 mod statements;
 mod types;
 

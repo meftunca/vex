@@ -1,0 +1,42 @@
+// Test new Vec() constructor syntax (type-as-constructor pattern)
+
+fn main(): i32 {
+    // Test 1: Empty Vec() constructor
+    let v1 = Vec();
+    println("Test 1: Created empty Vec");
+    
+    // Test 2: Vec with capacity (will be implemented later)
+    // let v2 = Vec(capacity: 100);
+    // println("Test 2: Created Vec with capacity 100");
+    
+    // Test 3: Push elements to Vec
+    let v3 = Vec();
+    v3.push(10);
+    v3.push(20);
+    v3.push(30);
+    
+    let len = v3.len();
+    print("Test 3: Vec has ");
+    print(len);
+    println(" elements");
+    
+    // Test 4: Get elements from Vec
+    let first = v3.get(0);
+    let second = v3.get(1);
+    let third = v3.get(2);
+    
+    print("Test 4: Vec elements: ");
+    print(first);
+    print(", ");
+    print(second);
+    print(", ");
+    println(third);
+    
+    // Test 5: Box() constructor
+    let b = Box(42);
+    let val = b.get();
+    print("Test 5: Box contains ");
+    println(val);
+    
+    return 0;
+}

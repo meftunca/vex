@@ -1,0 +1,10 @@
+// Test Box() to see if it has same issue
+
+fn main(): i32 {
+    let b = Box(42);
+    let val = b.get();
+    print("Box value: ");
+    println(val);
+    println("After get, before return");
+    return 0;
+}

@@ -1,0 +1,15 @@
+// Map() Constructor Test with Type-as-Constructor Pattern
+
+fn main(): i32 {
+    // Create new Map (HashMap with SwissTable)
+    let m = Map();
+    println("Created Map");
+    
+    // Get map length (should be 0)
+    let len = map_len(&m);
+    print("Map length: ");
+    println(len as i32);
+    
+    // Auto cleanup - no map_free() needed
+    return 0;
+}

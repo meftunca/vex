@@ -71,10 +71,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         return Ok((*ptr).into());
                     }
 
-                    let loaded = self
-                        .builder
-                        .build_load(*ty, *ptr, name)
-                        .map_err(|e| format!("Failed to load variable: {}", e))?;
+                    // Use alignment-aware load to fix memory corruption
+                    let loaded = self.build_load_aligned(*ty, *ptr, name)?;
 
                     if name == "t" {
                         eprintln!(

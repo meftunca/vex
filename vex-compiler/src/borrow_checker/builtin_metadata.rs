@@ -224,9 +224,29 @@ impl BuiltinBorrowRegistry {
 
         // Phase 0.4b: Builtin type constructors (free functions)
         registry.register("vec_new", vec![]); // No args, returns new Vec
+        registry.register("vec_with_capacity", vec![ParamEffect::ReadOnly]); // Takes capacity
         registry.register("vec_free", vec![ParamEffect::BorrowsMut]); // Takes &Vec
         registry.register("box_new", vec![ParamEffect::ReadOnly]); // Takes value by copy
         registry.register("box_free", vec![ParamEffect::Moves]); // Takes Box by value
+        registry.register("string_new", vec![]); // No args, returns empty String
+        registry.register("string_from", vec![ParamEffect::BorrowsImmut]); // Takes string literal
+        registry.register("string_free", vec![ParamEffect::Moves]); // Takes String by value
+        registry.register("map_new", vec![]); // No args, returns new Map
+        registry.register("map_with_capacity", vec![ParamEffect::ReadOnly]); // Takes capacity
+        registry.register(
+            "map_insert",
+            vec![
+                ParamEffect::BorrowsMut,
+                ParamEffect::BorrowsImmut,
+                ParamEffect::ReadOnly,
+            ],
+        ); // Takes &Map!, key, value
+        registry.register(
+            "map_get",
+            vec![ParamEffect::BorrowsImmut, ParamEffect::BorrowsImmut],
+        ); // Takes &Map, key
+        registry.register("map_len", vec![ParamEffect::BorrowsImmut]); // Takes &Map
+        registry.register("map_free", vec![ParamEffect::Moves]); // Takes Map by value
 
         // Phase 0.7: Numeric to string conversions (all read-only)
         registry.register("vex_i32_to_string", vec![ParamEffect::ReadOnly]);

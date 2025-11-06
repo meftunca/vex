@@ -1,0 +1,10 @@
+// String Constructor Test
+// Test String() syntax with type-as-constructor pattern
+
+fn main(): i32 {
+    // String from literal - simplest test
+    let hello = String("Hello, Vex!");
+    println(hello);
+    
+    return 0;
+}

@@ -1,4 +1,5 @@
-// Control flow statements: if, while, for, switch, break, continue
+// statements/loops.rs
+// if / while / for / switch
 
 use super::ASTCodeGen;
 use inkwell::values::BasicValueEnum;
@@ -154,11 +155,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
     }
 
     /// Compile while loop: while condition { body }
-    pub(crate) fn compile_while_loop(
-        &mut self,
-        condition: &Expression,
-        body: &Block,
-    ) -> Result<(), String> {
+    pub(crate) fn compile_while_loop(&mut self, condition: &Expression, body: &Block) -> Result<(), String> {
         let fn_val = self.current_function.ok_or("No current function")?;
 
         let loop_cond = self.context.append_basic_block(fn_val, "while.cond");
@@ -399,41 +396,4 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         Ok(())
     }
-
-    /// Compile a break statement
-    pub(crate) fn compile_break_statement(&mut self) -> Result<(), String> {
-        // Execute deferred statements before break
-        self.execute_deferred_statements()?;
-
-        // Get current loop context
-        if let Some((_, break_block)) = self.loop_context_stack.last() {
-            let break_block = *break_block;
-            self.builder
-                .build_unconditional_branch(break_block)
-                .map_err(|e| format!("Failed to build break branch: {}", e))?;
-        } else {
-            return Err("Break statement outside of loop".to_string());
-        }
-
-        Ok(())
-    }
-
-    /// Compile a continue statement
-    pub(crate) fn compile_continue_statement(&mut self) -> Result<(), String> {
-        // Execute deferred statements before continue
-        self.execute_deferred_statements()?;
-
-        // Get current loop context
-        if let Some((continue_block, _)) = self.loop_context_stack.last() {
-            let continue_block = *continue_block;
-            self.builder
-                .build_unconditional_branch(continue_block)
-                .map_err(|e| format!("Failed to build continue branch: {}", e))?;
-        } else {
-            return Err("Continue statement outside of loop".to_string());
-        }
-
-        Ok(())
-    }
 }
-

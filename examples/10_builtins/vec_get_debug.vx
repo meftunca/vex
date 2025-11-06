@@ -1,0 +1,15 @@
+// Debug Vec.get() - test without cleanup
+
+fn main(): i32 {
+    let v = Vec();
+    v.push(42);
+    
+    let val = v.get(0);
+    print("Got value: ");
+    println(val);
+    
+    // Don't return yet - see if issue is during get or cleanup
+    println("After get, before return");
+    
+    return 0;
+}

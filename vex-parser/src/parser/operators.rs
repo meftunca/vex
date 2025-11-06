@@ -57,7 +57,7 @@ impl<'a> Parser<'a> {
     }
 
     pub(crate) fn parse_multiplicative(&mut self) -> Result<Expression, ParseError> {
-        let mut expr = self.parse_unary()?;
+        let mut expr = self.parse_cast()?;
 
         while self.match_tokens(&[Token::Star, Token::Slash, Token::Percent]) {
             let op = match self.previous() {
@@ -66,7 +66,7 @@ impl<'a> Parser<'a> {
                 Token::Percent => BinaryOp::Mod,
                 _ => unreachable!(),
             };
-            let right = self.parse_unary()?;
+            let right = self.parse_cast()?;
             expr = Expression::Binary {
                 left: Box::new(expr),
                 op,
@@ -147,12 +147,15 @@ impl<'a> Parser<'a> {
                     first_token,
                     Token::I32
                         | Token::I64
+                        | Token::I128
                         | Token::I8
                         | Token::I16
                         | Token::U8
                         | Token::U16
                         | Token::U32
                         | Token::U64
+                        | Token::U128
+                        | Token::F16
                         | Token::F32
                         | Token::F64
                         | Token::String
@@ -200,10 +203,22 @@ impl<'a> Parser<'a> {
                 // Function call
                 let args = self.parse_arguments()?;
                 self.consume(&Token::RParen, "Expected ')' after arguments")?;
-                expr = Expression::Call {
-                    func: Box::new(expr),
-                    args,
-                };
+
+                // Method syntax sugar: in method body, convert identifier calls to method calls
+                if self.in_method_body && matches!(expr, Expression::Ident(_)) {
+                    if let Expression::Ident(name) = expr {
+                        expr = Expression::MethodCall {
+                            receiver: Box::new(Expression::Ident("self".to_string())),
+                            method: name,
+                            args,
+                        };
+                    }
+                } else {
+                    expr = Expression::Call {
+                        func: Box::new(expr),
+                        args,
+                    };
+                }
                 // Type args for function calls handled in codegen (not stored in AST yet)
             } else if self.check(&Token::LBrace) && matches!(expr, Expression::Ident(_)) {
                 // Struct literal: TypeName { field: value, ... } or Box<i32> { field: value }
@@ -252,7 +267,19 @@ impl<'a> Parser<'a> {
                     fields,
                 };
             } else if self.match_token(&Token::Dot) {
-                // Field access, method call, or enum constructor
+                // Field access, method call, tuple field access, or enum constructor
+
+                // Phase 0.8: Check for tuple field access (numeric field: .0, .1, .2, etc.)
+                if let Token::IntLiteral(index_val) = self.peek() {
+                    let field_index = index_val.to_string();
+                    self.advance(); // consume the number
+                    expr = Expression::FieldAccess {
+                        object: Box::new(expr),
+                        field: field_index,
+                    };
+                    continue;
+                }
+
                 let field_or_method = self.consume_identifier()?;
 
                 if self.check(&Token::LParen) {

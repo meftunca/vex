@@ -21,9 +21,17 @@ use vex_ast::*;
 pub mod builtins; // Now a directory module
 mod expressions;
 mod ffi;
+// mod functions;
+pub mod analysis;
+pub mod enums;
 mod functions;
+pub mod generics;
+pub mod methods;
+pub mod program;
+pub mod registry;
 mod statements;
-mod types;
+pub mod traits;
+mod types; // functions/{declare,compile,asynchronous}.rs
 
 pub use builtins::BuiltinRegistry;
 
@@ -329,6 +337,80 @@ impl<'ctx> ASTCodeGen<'ctx> {
         }
 
         Ok(alloca)
+    }
+
+    /// Get correct alignment for a type (in bytes)
+    fn get_type_alignment(ty: BasicTypeEnum) -> u32 {
+        match ty {
+            BasicTypeEnum::IntType(int_ty) => {
+                let bit_width = int_ty.get_bit_width();
+                match bit_width {
+                    1..=8 => 1,
+                    9..=16 => 2,
+                    17..=32 => 4,
+                    33..=64 => 8,
+                    _ => 8, // i128 and larger
+                }
+            }
+            BasicTypeEnum::FloatType(float_ty) => {
+                // f32 = 4 bytes, f64 = 8 bytes
+                if float_ty.get_context().f32_type() == float_ty {
+                    4
+                } else {
+                    8
+                }
+            }
+            BasicTypeEnum::PointerType(_) => 8, // Pointers are 8 bytes on 64-bit systems
+            BasicTypeEnum::ArrayType(_) => 8,   // Arrays align to largest element
+            BasicTypeEnum::StructType(_) => 8,  // Structs align to largest field
+            BasicTypeEnum::VectorType(_) => 16, // SIMD vectors
+            BasicTypeEnum::ScalableVectorType(_) => 16, // Scalable SIMD vectors (ARM SVE, RISC-V V)
+        }
+    }
+
+    /// Build store with correct alignment
+    pub(crate) fn build_store_aligned(
+        &self,
+        ptr: PointerValue<'ctx>,
+        value: BasicValueEnum<'ctx>,
+    ) -> Result<(), String> {
+        let alignment = Self::get_type_alignment(value.get_type());
+        self.builder
+            .build_store(ptr, value)
+            .map_err(|e| format!("Failed to store value: {}", e))?
+            .set_alignment(alignment)
+            .map_err(|e| format!("Failed to set alignment: {}", e))?;
+        Ok(())
+    }
+
+    /// Build load with correct alignment
+    pub(crate) fn build_load_aligned(
+        &self,
+        ty: BasicTypeEnum<'ctx>,
+        ptr: PointerValue<'ctx>,
+        name: &str,
+    ) -> Result<BasicValueEnum<'ctx>, String> {
+        let alignment = Self::get_type_alignment(ty);
+
+        // Build the load instruction
+        let load_result = self
+            .builder
+            .build_load(ty, ptr, name)
+            .map_err(|e| format!("Failed to load value: {}", e))?;
+
+        // Get the load instruction and set alignment
+        // The load result is the loaded value, but we need the instruction itself
+        // Inkwell's builder maintains the last instruction built
+        if let Some(inst) = self.builder.get_insert_block() {
+            if let Some(last_inst) = inst.get_last_instruction() {
+                // Try to set alignment on the instruction
+                if let Err(e) = last_inst.set_alignment(alignment) {
+                    eprintln!("Warning: Could not set load alignment: {}", e);
+                }
+            }
+        }
+
+        Ok(load_result)
     }
 
     /// Compile to object file

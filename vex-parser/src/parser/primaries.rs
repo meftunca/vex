@@ -69,6 +69,11 @@ impl<'a> Parser<'a> {
             return Ok(Expression::Nil);
         }
 
+        // Map() constructor - keyword handling
+        if self.match_token(&Token::Map) {
+            return self.parse_map_constructor();
+        }
+
         // Match expression
         if self.match_token(&Token::Match) {
             return self.parse_match_expression();
@@ -128,21 +133,172 @@ impl<'a> Parser<'a> {
             return Ok(first_expr);
         }
 
-        // Identifier or keyword as identifier (for struct names like "error")
+        // Identifier or builtin enum constructor
         if matches!(self.peek(), Token::Ident(_)) {
             let name = self.consume_identifier()?;
 
-            // Method syntax sugar: in method body, identifier followed by ( is a method call
-            if self.in_method_body && self.check(&Token::LParen) {
-                let args = self.parse_arguments()?;
-                return Ok(Expression::MethodCall {
-                    receiver: Box::new(Expression::Ident("self".to_string())),
-                    method: name,
-                    args,
-                });
-            }
+            // Check for builtin enum constructors: Some, None, Ok, Err
+            // Phase 0.4: Special handling for Option/Result constructors
+            match name.as_str() {
+                "None" => {
+                    // None: Option unit variant (no arguments)
+                    return Ok(Expression::EnumLiteral {
+                        enum_name: "Option".to_string(),
+                        variant: "None".to_string(),
+                        data: None,
+                    });
+                }
+                "Some" => {
+                    // Some(value): Option data variant
+                    if self.check(&Token::LParen) {
+                        self.advance(); // consume '('
+                        let value = self.parse_expression()?;
+                        self.consume(&Token::RParen, "Expected ')' after Some argument")?;
+                        return Ok(Expression::EnumLiteral {
+                            enum_name: "Option".to_string(),
+                            variant: "Some".to_string(),
+                            data: Some(Box::new(value)),
+                        });
+                    } else {
+                        // No parens - might be used as identifier (error case)
+                        return Ok(Expression::Ident(name));
+                    }
+                }
+                "Ok" => {
+                    // Ok(value): Result ok variant
+                    if self.check(&Token::LParen) {
+                        self.advance(); // consume '('
+                        let value = self.parse_expression()?;
+                        self.consume(&Token::RParen, "Expected ')' after Ok argument")?;
+                        return Ok(Expression::EnumLiteral {
+                            enum_name: "Result".to_string(),
+                            variant: "Ok".to_string(),
+                            data: Some(Box::new(value)),
+                        });
+                    } else {
+                        return Ok(Expression::Ident(name));
+                    }
+                }
+                "Err" => {
+                    // Err(error): Result error variant
+                    if self.check(&Token::LParen) {
+                        self.advance(); // consume '('
+                        let error = self.parse_expression()?;
+                        self.consume(&Token::RParen, "Expected ')' after Err argument")?;
+                        return Ok(Expression::EnumLiteral {
+                            enum_name: "Result".to_string(),
+                            variant: "Err".to_string(),
+                            data: Some(Box::new(error)),
+                        });
+                    } else {
+                        return Ok(Expression::Ident(name));
+                    }
+                }
+                "Vec" => {
+                    // Vec() or Vec<T>() or Vec(capacity: 100): Create new Vec
+                    // Type-as-constructor pattern (like Rust, Swift, Kotlin)
+                    if self.check(&Token::LParen) {
+                        self.advance(); // consume '('
 
-            return Ok(Expression::Ident(name));
+                        // Parse arguments: empty or named param "capacity: N"
+                        let mut args = vec![];
+                        if !self.check(&Token::RParen) {
+                            // Check for named parameter: capacity
+                            if let Token::Ident(param_name) = self.peek() {
+                                if param_name == "capacity" {
+                                    self.advance(); // consume "capacity"
+                                    self.consume(
+                                        &Token::Colon,
+                                        "Expected ':' after capacity parameter",
+                                    )?;
+                                    let capacity_expr = self.parse_expression()?;
+                                    args.push(capacity_expr);
+                                } else {
+                                    // Regular expression argument
+                                    args.push(self.parse_expression()?);
+                                }
+                            } else {
+                                // Regular expression argument
+                                args.push(self.parse_expression()?);
+                            }
+                        }
+
+                        self.consume(&Token::RParen, "Expected ')' after Vec constructor")?;
+
+                        // Map to vec_new() or vec_with_capacity() builtin call
+                        let func_name = if args.is_empty() {
+                            "vec_new"
+                        } else {
+                            "vec_with_capacity"
+                        };
+
+                        return Ok(Expression::Call {
+                            func: Box::new(Expression::Ident(func_name.to_string())),
+                            args,
+                        });
+                    } else {
+                        return Ok(Expression::Ident(name));
+                    }
+                }
+                "Box" => {
+                    // Box(value) or Box<T>(value): Create new Box
+                    // Type-as-constructor pattern
+                    if self.check(&Token::LParen) {
+                        self.advance(); // consume '('
+                        let value = self.parse_expression()?;
+                        self.consume(&Token::RParen, "Expected ')' after Box argument")?;
+                        // Map to box_new(value) builtin call
+                        return Ok(Expression::Call {
+                            func: Box::new(Expression::Ident("box_new".to_string())),
+                            args: vec![value],
+                        });
+                    } else {
+                        return Ok(Expression::Ident(name));
+                    }
+                }
+                "String" => {
+                    // String() or String(str): Create new String
+                    // Type-as-constructor pattern - converts string literals to heap strings
+                    if self.check(&Token::LParen) {
+                        self.advance(); // consume '('
+
+                        // Empty String() or String(literal)
+                        let args = if self.check(&Token::RParen) {
+                            self.advance(); // consume ')'
+                            vec![]
+                        } else {
+                            let arg = self.parse_expression()?;
+                            self.consume(&Token::RParen, "Expected ')' after String argument")?;
+                            vec![arg]
+                        };
+
+                        // Map to string_new() or string_from() builtin call
+                        let func_name = if args.is_empty() {
+                            "string_new"
+                        } else {
+                            "string_from"
+                        };
+
+                        return Ok(Expression::Call {
+                            func: Box::new(Expression::Ident(func_name.to_string())),
+                            args,
+                        });
+                    } else {
+                        return Ok(Expression::Ident(name));
+                    }
+                }
+                // Legacy lowercase syntax (deprecated, will be removed)
+                "vec" | "box" => {
+                    return Err(self.error(&format!(
+                        "Deprecated: Use '{}' instead of '{}' (type-as-constructor pattern)",
+                        name.chars().next().unwrap().to_uppercase().to_string() + &name[1..],
+                        name
+                    )));
+                }
+                _ => {
+                    return Ok(Expression::Ident(name));
+                }
+            }
         }
 
         // Allow keywords as identifiers in expressions (e.g., "error" struct)
@@ -156,5 +312,37 @@ impl<'a> Parser<'a> {
         }
 
         Err(self.error("Expected expression"))
+    }
+
+    fn parse_map_constructor(&mut self) -> Result<Expression, ParseError> {
+        // Map() or Map(capacity): Create new HashMap
+        if self.check(&Token::LParen) {
+            self.advance(); // consume '('
+
+            // Empty Map() or Map(capacity)
+            let args = if self.check(&Token::RParen) {
+                self.advance(); // consume ')'
+                vec![]
+            } else {
+                let arg = self.parse_expression()?;
+                self.consume(&Token::RParen, "Expected ')' after Map argument")?;
+                vec![arg]
+            };
+
+            // Map to map_new() or map_with_capacity() builtin call
+            let func_name = if args.is_empty() {
+                "map_new"
+            } else {
+                "map_with_capacity"
+            };
+
+            Ok(Expression::Call {
+                func: Box::new(Expression::Ident(func_name.to_string())),
+                args,
+            })
+        } else {
+            // Just "Map" identifier (for type annotations)
+            Ok(Expression::Ident("Map".to_string()))
+        }
     }
 }

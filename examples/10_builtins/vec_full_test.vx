@@ -1,9 +1,9 @@
 // Phase 0.4b: Vec Constructor Test with New Syntax
-// Test vec() syntax + automatic cleanup
+// Test Vec() syntax + automatic cleanup
 
 fn test_vec_full(): i32 {
     // Create new Vec<i32> with cleaner syntax
-    let v = vec();
+    let v = Vec();
     
     // Push values
     v.push(10);
@@ -15,8 +15,8 @@ fn test_vec_full(): i32 {
     
     // NO vec_free() needed - automatic cleanup!
     
-    // Should return 3
-    return len;
+    // Should return 3 (cast i64 to i32)
+    return len as i32;
 }
 
 fn main(): i32 {

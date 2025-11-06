@@ -884,6 +884,13 @@ extern "C"
    */
   void vex_map_free(VexMap *map);
 
+  /**
+   * Create new Map (Vec-style API for Vex builtins)
+   * @param initial_capacity Initial capacity (will be rounded to power of 2)
+   * @return Pointer to new Map or NULL on failure
+   */
+  VexMap *vex_map_create(size_t initial_capacity);
+
   // ============================================================================
   // PATH OPERATIONS
   // ============================================================================

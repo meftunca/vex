@@ -61,6 +61,30 @@ pub fn builtin_vec_new<'ctx>(
         .ok_or_else(|| "vex_vec_new returned void".to_string())
 }
 
+/// Builtin: vec_with_capacity(capacity: u64) - Create Vec<T> with pre-allocated capacity
+pub fn builtin_vec_with_capacity<'ctx>(
+    codegen: &mut ASTCodeGen<'ctx>,
+    args: &[BasicValueEnum<'ctx>],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if args.len() != 1 {
+        return Err("vec_with_capacity() requires exactly 1 argument (capacity)".to_string());
+    }
+
+    // TODO: Implement vex_vec_with_capacity in C runtime
+    // For now, just create a normal vec (capacity parameter ignored)
+    let elem_size = codegen.context.i64_type().const_int(4, false);
+    let vec_new_fn = codegen.get_vex_vec_new();
+    let call_site = codegen
+        .builder
+        .build_call(vec_new_fn, &[elem_size.into()], "vec_with_capacity")
+        .map_err(|e| format!("Failed to call vex_vec_new: {}", e))?;
+
+    call_site
+        .try_as_basic_value()
+        .left()
+        .ok_or_else(|| "vex_vec_new returned void".to_string())
+}
+
 /// Builtin: vec_free() - Free Vec<T>
 pub fn builtin_vec_free<'ctx>(
     codegen: &mut ASTCodeGen<'ctx>,
@@ -173,6 +197,52 @@ pub fn builtin_box_free<'ctx>(
         .builder
         .build_call(box_free_fn, &[box_ptr.into()], "box_free")
         .map_err(|e| format!("Failed to call vex_box_free: {}", e))?;
+
+    Ok(codegen.context.i8_type().const_zero().into())
+}
+
+/// Builtin: string_new() - Create empty String
+pub fn builtin_string_new<'ctx>(
+    codegen: &mut ASTCodeGen<'ctx>,
+    _args: &[BasicValueEnum<'ctx>],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    // Empty string: just return a pointer to empty C string ""
+    let empty_str = codegen
+        .builder
+        .build_global_string_ptr("", "empty_string")
+        .map_err(|e| format!("Failed to create empty string: {}", e))?;
+
+    Ok(empty_str.as_pointer_value().into())
+}
+
+/// Builtin: string_from(literal) - Create String from string literal
+pub fn builtin_string_from<'ctx>(
+    codegen: &mut ASTCodeGen<'ctx>,
+    args: &[BasicValueEnum<'ctx>],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if args.len() != 1 {
+        return Err("string_from() requires exactly 1 argument".to_string());
+    }
+
+    // If argument is already a string pointer, just return it
+    // (String literals are already heap-allocated in LLVM)
+    match args[0] {
+        BasicValueEnum::PointerValue(ptr) => Ok(ptr.into()),
+        _ => Err("string_from() requires a string literal argument".to_string()),
+    }
+}
+
+/// Builtin: string_free() - Free String (for manual memory management)
+pub fn builtin_string_free<'ctx>(
+    codegen: &mut ASTCodeGen<'ctx>,
+    args: &[BasicValueEnum<'ctx>],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if args.len() != 1 {
+        return Err("string_free() requires exactly 1 argument".to_string());
+    }
+
+    // For now, strings are static in LLVM IR, so free is a no-op
+    // TODO: When we implement true heap strings with strdup, add free(ptr) here
 
     Ok(codegen.context.i8_type().const_zero().into())
 }

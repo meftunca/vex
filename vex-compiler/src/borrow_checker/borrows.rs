@@ -292,7 +292,14 @@ impl BorrowRulesChecker {
             }
 
             Expression::Call { func, args } => {
-                self.check_expression_for_borrows(func)?;
+                // Skip checking builtin function names as variables
+                if let Expression::Ident(func_name) = func.as_ref() {
+                    if !self.builtin_registry.is_builtin(func_name) {
+                        self.check_expression_for_borrows(func)?;
+                    }
+                } else {
+                    self.check_expression_for_borrows(func)?;
+                }
 
                 // Check if this is a builtin function call
                 if let Expression::Ident(func_name) = func.as_ref() {

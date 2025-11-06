@@ -109,6 +109,12 @@ pub enum Token {
     U32,
     #[token("u64")]
     U64,
+    #[token("i128")]
+    I128,
+    #[token("u128")]
+    U128,
+    #[token("f16")]
+    F16,
     #[token("f32")]
     F32,
     #[token("f64")]

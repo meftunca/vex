@@ -174,6 +174,10 @@ void vex_vec_clear(vex_vec_t *vec)
  */
 void vex_vec_free(vex_vec_t *vec)
 {
+  if (!vec)
+  {
+    return; // NULL check - safe to call on NULL
+  }
   if (vec->data)
   {
     free(vec->data);
@@ -181,4 +185,5 @@ void vex_vec_free(vex_vec_t *vec)
   }
   vec->len = 0;
   vec->capacity = 0;
+  free(vec); // Free the Vec struct itself!
 }

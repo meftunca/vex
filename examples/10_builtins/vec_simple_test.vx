@@ -1,0 +1,18 @@
+// Test simple Vec() constructor without get()
+
+fn main(): i32 {
+    let v = Vec();
+    println("Created Vec");
+    
+    v.push(10);
+    println("Pushed 10");
+    
+    v.push(20);
+    println("Pushed 20");
+    
+    let len = v.len();
+    print("Vec length: ");
+    println(len);
+    
+    return 0;
+}

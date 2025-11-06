@@ -129,11 +129,25 @@ impl<'ctx> BuiltinRegistry<'ctx> {
         registry.register("hashmap_remove", hashmap::builtin_hashmap_remove);
         registry.register("hashmap_clear", hashmap::builtin_hashmap_clear);
 
+        // Map() type-as-constructor aliases
+        registry.register("map_new", hashmap::builtin_hashmap_new);
+        registry.register("map_insert", hashmap::builtin_hashmap_insert);
+        registry.register("map_get", hashmap::builtin_hashmap_get);
+        registry.register("map_len", hashmap::builtin_hashmap_len);
+        registry.register("map_free", hashmap::builtin_hashmap_free);
+
         // Phase 0.4b: Builtin type constructors (free functions)
         registry.register("vec_new", builtin_types::builtin_vec_new);
+        registry.register(
+            "vec_with_capacity",
+            builtin_types::builtin_vec_with_capacity,
+        );
         registry.register("vec_free", builtin_types::builtin_vec_free);
         registry.register("box_new", builtin_types::builtin_box_new);
         registry.register("box_free", builtin_types::builtin_box_free);
+        registry.register("string_new", builtin_types::builtin_string_new);
+        registry.register("string_from", builtin_types::builtin_string_from);
+        registry.register("string_free", builtin_types::builtin_string_free);
 
         // Phase 0.8: Option<T> and Result<T,E> constructors
         registry.register("Some", builtin_types::builtin_option_some);

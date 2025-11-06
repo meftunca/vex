@@ -72,6 +72,21 @@ Vex Paket Yöneticisi (`vexpm`), `vex` adlı tek bir komut satırı aracı (CLI 
     // Derleyiciye özel Vex yapılandırması
     "vex": {
         "borrowChecker": "strict" // (v0.9 Planımız)
+    },
+    "profiles":{
+        "development": {
+                "optimizationLevel": 0,
+                "debugSymbols": true
+        },
+        "testing": {
+                "optimizationLevel": 1,
+                "debugSymbols": true,
+                "memProfiling": true,
+                "cpuProfiling": true
+        },
+        "production": {
+                "optimizationLevel": 3
+        }
     }
 }
 

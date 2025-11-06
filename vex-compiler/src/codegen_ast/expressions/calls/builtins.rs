@@ -122,6 +122,74 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
                 Ok(Some(len_val))
             }
+            "get" => {
+                if args.len() != 1 {
+                    return Err("Vec.get() requires exactly 1 argument (index)".to_string());
+                }
+
+                // Get alloca pointer for Vec variable
+                let vec_alloca_ptr = *self
+                    .variables
+                    .get(var_name)
+                    .ok_or_else(|| format!("Vec variable {} not found", var_name))?;
+
+                // Load the actual vex_vec_t* pointer from alloca
+                let vec_opaque_type = self.context.opaque_struct_type("vex_vec_s");
+                let vec_ptr_type = vec_opaque_type.ptr_type(inkwell::AddressSpace::default());
+                let vec_ptr = self
+                    .builder
+                    .build_load(vec_ptr_type, vec_alloca_ptr, "vec_ptr_load")
+                    .map_err(|e| format!("Failed to load vec pointer: {}", e))?;
+
+                // Compile index expression
+                let index = self.compile_expression(&args[0])?;
+
+                // Cast index to i64 (vex_vec_get expects size_t = i64)
+                let index_i64 = if index.get_type().is_int_type() {
+                    let index_int = index.into_int_value();
+                    if index_int.get_type().get_bit_width() < 64 {
+                        self.builder
+                            .build_int_z_extend(index_int, self.context.i64_type(), "index_i64")
+                            .map_err(|e| format!("Failed to extend index to i64: {}", e))?
+                            .into()
+                    } else {
+                        index
+                    }
+                } else {
+                    return Err("Vec.get() index must be an integer".to_string());
+                };
+
+                // Call vex_vec_get
+                let get_fn = self.get_vex_vec_get();
+                let call_site = self
+                    .builder
+                    .build_call(get_fn, &[vec_ptr.into(), index_i64.into()], "vec_get")
+                    .map_err(|e| format!("Failed to call vex_vec_get: {}", e))?;
+
+                // vex_vec_get returns void* - cast back to i32*
+                let elem_ptr = call_site
+                    .try_as_basic_value()
+                    .left()
+                    .ok_or_else(|| "vex_vec_get returned void".to_string())?
+                    .into_pointer_value();
+
+                // Cast void* to i32* and load
+                let i32_ptr_type = self
+                    .context
+                    .i32_type()
+                    .ptr_type(inkwell::AddressSpace::default());
+                let typed_elem_ptr = self
+                    .builder
+                    .build_pointer_cast(elem_ptr, i32_ptr_type, "typed_elem_ptr")
+                    .map_err(|e| format!("Failed to cast element pointer: {}", e))?;
+
+                let elem_val = self
+                    .builder
+                    .build_load(self.context.i32_type(), typed_elem_ptr, "elem_val")
+                    .map_err(|e| format!("Failed to load element value: {}", e))?;
+
+                Ok(Some(elem_val))
+            }
             _ => Ok(None),
         }
     }

@@ -315,7 +315,15 @@ impl MoveChecker {
             }
 
             Expression::Call { func, args } => {
-                self.check_expression(func)?;
+                // Skip builtin function check if func is an identifier
+                if let Expression::Ident(func_name) = func.as_ref() {
+                    if !self.builtin_registry.is_builtin(func_name) {
+                        self.check_expression(func)?;
+                    }
+                    // Builtin functions are always valid, skip checking
+                } else {
+                    self.check_expression(func)?;
+                }
 
                 for arg in args {
                     // Arguments might be moved into the function

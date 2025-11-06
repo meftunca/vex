@@ -26,12 +26,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
             Type::F128 => BasicTypeEnum::FloatType(self.context.f128_type()),
             Type::Bool => BasicTypeEnum::IntType(self.context.bool_type()),
             Type::String => {
-                // String as i8* (C-style string pointer)
-                BasicTypeEnum::PointerType(
-                    self.context
-                        .i8_type()
-                        .ptr_type(inkwell::AddressSpace::default()),
-                )
+                // String as ptr (C-style string pointer)
+                BasicTypeEnum::PointerType(self.context.ptr_type(inkwell::AddressSpace::default()))
             }
             Type::Nil => {
                 // Nil as void/i8 (placeholder)
@@ -156,6 +152,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 } else if name == "AnonymousStruct" {
                     // Placeholder for inferred structs
                     BasicTypeEnum::IntType(self.context.i32_type())
+                } else if name == "Vec" || name == "Box" || name == "String" || name == "Map" {
+                    // Builtin heap types are represented as opaque pointers
+                    // The actual struct is defined in C runtime (vex_vec.c, vex_box.c, etc.)
+                    BasicTypeEnum::PointerType(
+                        self.context.ptr_type(inkwell::AddressSpace::default()),
+                    )
                 } else {
                     // Unknown named type, default to i32
                     // TODO: Better error handling

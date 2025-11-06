@@ -1,0 +1,657 @@
+// statements/let_statement.rs
+// let statement + recursive injection of type args
+
+use super::ASTCodeGen;
+use inkwell::types::BasicTypeEnum;
+use inkwell::values::BasicValueEnum;
+use vex_ast::*;
+
+impl<'ctx> ASTCodeGen<'ctx> {
+    /// Compile a `let` statement
+    pub(crate) fn compile_let_statement(
+        &mut self,
+        is_mutable: bool,
+        name: &String,
+        ty: Option<&Type>,
+        value: &Expression,
+    ) -> Result<(), String> {
+        // v0.9: is_mutable determines if variable is mutable (let vs let!)
+        // FIRST: Determine struct name from expression BEFORE compiling
+        // (because after compilation, we lose the expression structure)
+        eprintln!(
+            "🔷 Let statement: var={}, has_type_annotation={}",
+            name,
+            ty.is_some()
+        );
+        let struct_name_from_expr = if ty.is_none() {
+            eprintln!("  → Type inference needed, analyzing expression...");
+            match value {
+                Expression::StructLiteral {
+                    name: s_name,
+                    type_args,
+                    ..
+                } => {
+                    eprintln!("  → StructLiteral: {}", s_name);
+
+                    // Handle generic struct literals: Box<i32> -> Box_i32
+                    if !type_args.is_empty() {
+                        // Instantiate the generic struct to get the mangled name
+                        match self.instantiate_generic_struct(s_name, type_args) {
+                            Ok(mangled_name) => Some(mangled_name),
+                            Err(_) => None,
+                        }
+                    } else if self.struct_defs.contains_key(s_name) {
+                        Some(s_name.clone())
+                    } else {
+                        None
+                    }
+                }
+                Expression::MethodCall {
+                    receiver, method, ..
+                } => {
+                    eprintln!("  → MethodCall expression");
+                    eprintln!("    → Method: {}", method);
+                    // Get struct type from receiver
+                    let struct_name = if let Expression::Ident(var_name) = receiver.as_ref() {
+                        if var_name == "self" {
+                            self.variable_struct_names.get(var_name).cloned()
+                        } else {
+                            self.variable_struct_names.get(var_name).cloned()
+                        }
+                    } else {
+                        None
+                    };
+
+                    if let Some(struct_name) = struct_name {
+                        let method_func_name = format!("{}_{}", struct_name, method);
+                        if let Some(func_def) = self.function_defs.get(&method_func_name) {
+                            if let Some(Type::Named(s_name)) = &func_def.return_type {
+                                Some(s_name.clone())
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                }
+                Expression::Call { func, .. } => {
+                    eprintln!("  → Call expression");
+                    if let Expression::Ident(func_name) = func.as_ref() {
+                        eprintln!("    → Function: {}", func_name);
+
+                        // Phase 0.4b: Check for builtin constructors
+                        match func_name.as_str() {
+                            "vec_new" | "vec_with_capacity" => {
+                                eprintln!("    ✅ Builtin vec_new() -> Vec");
+                                Some("Vec".to_string())
+                            }
+                            "box_new" => {
+                                eprintln!("    ✅ Builtin box_new() -> Box");
+                                Some("Box".to_string())
+                            }
+                            "string_new" | "string_from" => {
+                                eprintln!("    ✅ Builtin string_new/string_from() -> String");
+                                Some("String".to_string())
+                            }
+                            "map_new" | "map_with_capacity" | "hashmap_new" => {
+                                eprintln!("    ✅ Builtin map_new() -> Map");
+                                Some("Map".to_string())
+                            }
+                            _ => {
+                                // Regular function
+                                if let Some(func_def) = self.function_defs.get(func_name) {
+                                    eprintln!(
+                                        "    → Found func_def, return_type: {:?}",
+                                        func_def.return_type
+                                    );
+                                    if let Some(Type::Named(s_name)) = &func_def.return_type {
+                                        eprintln!("    → Named return type: {}", s_name);
+                                        if self.struct_defs.contains_key(s_name) {
+                                            eprintln!("    ✅ Struct: {}", s_name);
+                                            Some(s_name.clone())
+                                        } else if self.enum_ast_defs.contains_key(s_name) {
+                                            eprintln!("    ✅ Enum: {}", s_name);
+                                            Some(s_name.clone())
+                                        } else {
+                                            eprintln!("    ❌ Type not found: {}", s_name);
+                                            None
+                                        }
+                                    } else if let Some(Type::Generic { name: gen_name, .. }) =
+                                        &func_def.return_type
+                                    {
+                                        eprintln!("    → Generic return type: {}", gen_name);
+                                        if self.enum_ast_defs.contains_key(gen_name) {
+                                            eprintln!("    ✅ Generic Enum: {}", gen_name);
+                                            Some(gen_name.clone())
+                                        } else if self.struct_defs.contains_key(gen_name) {
+                                            eprintln!("    ✅ Generic Struct: {}", gen_name);
+                                            Some(gen_name.clone())
+                                        } else {
+                                            eprintln!("    → Return type is not Named/Generic enum/struct");
+                                            None
+                                        }
+                                    } else if let Some(Type::Result(_, _)) = &func_def.return_type {
+                                        eprintln!("    → Result return type");
+                                        Some("Result".to_string())
+                                    } else if let Some(Type::Option(_)) = &func_def.return_type {
+                                        eprintln!("    → Option return type");
+                                        Some("Option".to_string())
+                                    } else {
+                                        eprintln!(
+                                            "    → Return type is not Named/Generic/Result/Option"
+                                        );
+                                        None
+                                    }
+                                } else {
+                                    eprintln!("    ❌ func_def not found");
+                                    None
+                                }
+                            }
+                        }
+                    } else {
+                        eprintln!("    → Not an Ident");
+                        None
+                    }
+                }
+                Expression::FieldAccess { object, field } => {
+                    eprintln!(
+                        "  → FieldAccess expression: {}.{}",
+                        if let Expression::Ident(n) = object.as_ref() {
+                            n
+                        } else {
+                            "?"
+                        },
+                        field
+                    );
+                    // Get struct type from field access
+                    self.get_field_struct_type(object, field).ok().flatten()
+                }
+                _ => {
+                    eprintln!("  → Other expression type");
+                    None
+                }
+            }
+        } else {
+            eprintln!("  → Type annotation present, skipping inference");
+            None
+        };
+
+        eprintln!("  → struct_name_from_expr: {:?}", struct_name_from_expr);
+
+        // Recursively inject type args for nested generic structs
+        let adjusted_value = if let Some(ref type_annotation) = ty {
+            self.inject_type_args_recursive(value, type_annotation)?
+        } else {
+            value.clone()
+        };
+
+        let mut val = self.compile_expression(&adjusted_value)?;
+
+        // Determine type from value or explicit type
+        let (var_type, llvm_type) = if let Some(t) = ty {
+            let target_llvm_type = self.ast_type_to_llvm(t);
+
+            // Cast integer literal to match target integer type width
+            if let BasicValueEnum::IntValue(int_val) = val {
+                if let BasicTypeEnum::IntType(target_int_type) = target_llvm_type {
+                    if int_val.get_type().get_bit_width() != target_int_type.get_bit_width() {
+                        if int_val.get_type().get_bit_width() < target_int_type.get_bit_width() {
+                            // Sign extend for wider types
+                            val = self
+                                .builder
+                                .build_int_s_extend(int_val, target_int_type, "lit_sext")
+                                .map_err(|e| format!("Failed to extend literal: {}", e))?
+                                .into();
+                        } else {
+                            // Truncate for narrower types
+                            val = self
+                                .builder
+                                .build_int_truncate(int_val, target_int_type, "lit_trunc")
+                                .map_err(|e| format!("Failed to truncate literal: {}", e))?
+                                .into();
+                        }
+                    }
+                }
+            }
+
+            (t.clone(), target_llvm_type)
+        } else {
+            // Infer type from LLVM value
+            let inferred_llvm_type = val.get_type();
+            let inferred_ast_type = self.infer_ast_type_from_llvm(inferred_llvm_type)?;
+            (inferred_ast_type, inferred_llvm_type)
+        };
+
+        // Track struct type name if this is a named struct type or inferred from expression
+        let final_var_type = if let Type::Box(inner_ty) = &var_type {
+            let mangled = format!("Box_{}", self.type_to_string(inner_ty.as_ref()));
+            eprintln!(
+                "  ✅ Tracking Box type (from annotation): Box -> {}",
+                mangled
+            );
+            self.variable_struct_names
+                .insert(name.clone(), mangled.clone());
+            var_type.clone()
+        } else if let Type::Vec(inner_ty) = &var_type {
+            let mangled = format!("Vec_{}", self.type_to_string(inner_ty.as_ref()));
+            eprintln!(
+                "  ✅ Tracking Vec type (from annotation): Vec -> {}",
+                mangled
+            );
+            self.variable_struct_names
+                .insert(name.clone(), mangled.clone());
+            var_type.clone()
+        } else if let Type::Option(inner_ty) = &var_type {
+            let mangled = format!("Option_{}", self.type_to_string(inner_ty.as_ref()));
+            eprintln!(
+                "  ✅ Tracking Option type (from annotation): Option -> {}",
+                mangled
+            );
+            self.variable_struct_names
+                .insert(name.clone(), mangled.clone());
+            var_type.clone()
+        } else if let Type::Result(ok_ty, err_ty) = &var_type {
+            let mangled = format!(
+                "Result_{}_{}",
+                self.type_to_string(ok_ty.as_ref()),
+                self.type_to_string(err_ty.as_ref())
+            );
+            eprintln!(
+                "  ✅ Tracking Result type (from annotation): Result -> {}",
+                mangled
+            );
+            self.variable_struct_names
+                .insert(name.clone(), mangled.clone());
+            var_type.clone()
+        } else if let Type::Generic {
+            name: struct_name,
+            type_args,
+        } = &var_type
+        {
+            match self.instantiate_generic_struct(struct_name, type_args) {
+                Ok(mangled_name) => {
+                    eprintln!(
+                        "  ✅ Tracking Generic type (from annotation): {} -> {}",
+                        struct_name, mangled_name
+                    );
+                    self.variable_struct_names
+                        .insert(name.clone(), mangled_name.clone());
+                    Type::Generic {
+                        name: struct_name.clone(),
+                        type_args: type_args.clone(),
+                    }
+                }
+                Err(_) => var_type.clone(),
+            }
+        } else if let Type::Named(struct_name) = &var_type {
+            if struct_name == "AnonymousStruct" {
+                if let Some(type_name) = struct_name_from_expr.as_ref() {
+                    eprintln!("  → AnonymousStruct resolved to: {}", type_name);
+                    if type_name == "Vec"
+                        || type_name == "Box"
+                        || type_name == "String"
+                        || type_name == "Map"
+                    {
+                        eprintln!("  ✅ Tracking as builtin type: {}", type_name);
+                        self.variable_struct_names
+                            .insert(name.clone(), type_name.clone());
+                        Type::Named(type_name.clone())
+                    } else if self.struct_defs.contains_key(type_name) {
+                        eprintln!("  ✅ Tracking as struct (from expr): {}", type_name);
+                        self.variable_struct_names
+                            .insert(name.clone(), type_name.clone());
+                        Type::Named(type_name.clone())
+                    } else if self.enum_ast_defs.contains_key(type_name) {
+                        eprintln!("  ✅ Tracking as enum (from expr): {}", type_name);
+                        self.variable_enum_names
+                            .insert(name.clone(), type_name.clone());
+                        Type::Named(type_name.clone())
+                    } else {
+                        var_type.clone()
+                    }
+                } else if let Expression::EnumLiteral { enum_name, .. } = value {
+                    self.variable_enum_names
+                        .insert(name.clone(), enum_name.clone());
+                    Type::Named(enum_name.clone())
+                } else {
+                    var_type.clone()
+                }
+            } else if struct_name == "Vec"
+                || struct_name == "Box"
+                || struct_name == "String"
+                || struct_name == "Map"
+            {
+                eprintln!("  ✅ Direct Named type is builtin: {}", struct_name);
+                self.variable_struct_names
+                    .insert(name.clone(), struct_name.clone());
+                var_type.clone()
+            } else if self.struct_defs.contains_key(struct_name) {
+                self.variable_struct_names
+                    .insert(name.clone(), struct_name.clone());
+                var_type.clone()
+            } else if self.enum_ast_defs.contains_key(struct_name) {
+                self.variable_enum_names
+                    .insert(name.clone(), struct_name.clone());
+                var_type.clone()
+            } else {
+                var_type.clone()
+            }
+        } else if let Some(type_name) = struct_name_from_expr {
+            eprintln!("  → Checking type_name: {}", type_name);
+            eprintln!(
+                "    → Is struct: {}",
+                self.struct_defs.contains_key(&type_name)
+            );
+            eprintln!(
+                "    → Is enum: {}",
+                self.enum_ast_defs.contains_key(&type_name)
+            );
+            if type_name == "Vec"
+                || type_name == "Box"
+                || type_name == "String"
+                || type_name == "Map"
+            {
+                eprintln!("  ✅ Tracking as builtin type: {}", type_name);
+                self.variable_struct_names
+                    .insert(name.clone(), type_name.clone());
+                Type::Named(type_name)
+            } else if self.struct_defs.contains_key(&type_name) {
+                eprintln!("  ✅ Tracking as struct: {}", type_name);
+                self.variable_struct_names
+                    .insert(name.clone(), type_name.clone());
+                Type::Named(type_name)
+            } else if self.enum_ast_defs.contains_key(&type_name) {
+                eprintln!("  ✅ Tracking as enum: {} = {}", name, type_name);
+                self.variable_enum_names
+                    .insert(name.clone(), type_name.clone());
+                Type::Named(type_name)
+            } else {
+                eprintln!("  ❌ Type {} not found!", type_name);
+                Type::Named(type_name)
+            }
+        } else if ty.is_none() {
+            match value {
+                Expression::StructLiteral {
+                    name: struct_name, ..
+                } => {
+                    if self.struct_defs.contains_key(struct_name) {
+                        self.variable_struct_names
+                            .insert(name.clone(), struct_name.clone());
+                        Type::Named(struct_name.clone())
+                    } else {
+                        var_type.clone()
+                    }
+                }
+                Expression::EnumLiteral { enum_name, .. } => {
+                    if self.enum_ast_defs.contains_key(enum_name) {
+                        self.variable_enum_names
+                            .insert(name.clone(), enum_name.clone());
+                        Type::Named(enum_name.clone())
+                    } else {
+                        var_type.clone()
+                    }
+                }
+                Expression::Call { func, .. } => {
+                    if let Expression::FieldAccess { object, field: _ } = func.as_ref() {
+                        if let Expression::Ident(enum_name) = object.as_ref() {
+                            if self.enum_ast_defs.contains_key(enum_name) {
+                                self.variable_enum_names
+                                    .insert(name.clone(), enum_name.clone());
+                                Type::Named(enum_name.clone())
+                            } else {
+                                var_type.clone()
+                            }
+                        } else {
+                            var_type.clone()
+                        }
+                    } else if let Expression::Ident(func_name) = func.as_ref() {
+                        eprintln!("  → Function call: {}, checking return type...", func_name);
+                        if let Some(func_def) = self.function_defs.get(func_name) {
+                            eprintln!(
+                                "  → Found func_def, return_type: {:?}",
+                                func_def.return_type
+                            );
+                            if let Some(Type::Named(type_name)) = &func_def.return_type {
+                                eprintln!("  → Named type: {}", type_name);
+                                if self.struct_defs.contains_key(type_name) {
+                                    eprintln!("  ✅ Tracking as struct: {}", type_name);
+                                    self.variable_struct_names
+                                        .insert(name.clone(), type_name.clone());
+                                    Type::Named(type_name.clone())
+                                } else if self.enum_ast_defs.contains_key(type_name) {
+                                    eprintln!("  ✅ Tracking as enum: {}", type_name);
+                                    self.variable_enum_names
+                                        .insert(name.clone(), type_name.clone());
+                                    Type::Named(type_name.clone())
+                                } else {
+                                    eprintln!(
+                                        "  ❌ Type {} not found in struct_defs or enum_ast_defs",
+                                        type_name
+                                    );
+                                    var_type.clone()
+                                }
+                            } else {
+                                var_type.clone()
+                            }
+                        } else {
+                            var_type.clone()
+                        }
+                    } else {
+                        var_type.clone()
+                    }
+                }
+                Expression::FieldAccess { object, field } => {
+                    let object_struct_name = self.get_expression_struct_name(object)?;
+
+                    if let Some(struct_name) = object_struct_name {
+                        let field_type_opt =
+                            self.struct_defs.get(&struct_name).and_then(|struct_def| {
+                                struct_def
+                                    .fields
+                                    .iter()
+                                    .find(|(f, _)| f == field)
+                                    .map(|(_, t)| t.clone())
+                            });
+
+                        if let Some(field_type) = field_type_opt {
+                            match field_type {
+                                Type::Named(field_struct_name) => {
+                                    if self.struct_defs.contains_key(&field_struct_name) {
+                                        self.variable_struct_names
+                                            .insert(name.clone(), field_struct_name.clone());
+                                        Type::Named(field_struct_name)
+                                    } else {
+                                        var_type.clone()
+                                    }
+                                }
+                                Type::Generic {
+                                    name: field_struct_name,
+                                    type_args,
+                                } => {
+                                    match self
+                                        .instantiate_generic_struct(&field_struct_name, &type_args)
+                                    {
+                                        Ok(mangled_name) => {
+                                            self.variable_struct_names
+                                                .insert(name.clone(), mangled_name.clone());
+                                            Type::Generic {
+                                                name: field_struct_name,
+                                                type_args,
+                                            }
+                                        }
+                                        Err(_) => var_type.clone(),
+                                    }
+                                }
+                                _ => var_type.clone(),
+                            }
+                        } else {
+                            var_type.clone()
+                        }
+                    } else {
+                        var_type.clone()
+                    }
+                }
+                _ => var_type.clone(),
+            }
+        } else {
+            var_type.clone()
+        };
+
+        // Determine final LLVM type selection for the variable slot
+        let final_llvm_type = if let Type::Named(type_name) = &final_var_type {
+            if type_name == "Tuple" {
+                llvm_type
+            } else if self.enum_ast_defs.contains_key(type_name) {
+                llvm_type
+            } else if self.struct_defs.contains_key(type_name) {
+                // value already a pointer to data (struct literal)
+                llvm_type
+            } else {
+                self.ast_type_to_llvm(&final_var_type)
+            }
+        } else if let Type::Generic { .. } = &final_var_type {
+            llvm_type
+        } else {
+            llvm_type
+        };
+
+        // Detect tuple literal
+        let is_tuple_literal = matches!(&adjusted_value, Expression::TupleLiteral(_));
+
+        let is_struct_or_tuple = if let Type::Named(type_name) = &final_var_type {
+            type_name == "Tuple" || self.struct_defs.contains_key(type_name)
+        } else {
+            is_tuple_literal
+        };
+
+        if is_struct_or_tuple {
+            // value is already a pointer to stack-allocated data
+            if let BasicValueEnum::PointerValue(data_ptr) = val {
+                self.variables.insert(name.clone(), data_ptr);
+
+                if is_tuple_literal {
+                    if let Some(struct_ty) = self.last_compiled_tuple_type {
+                        self.variable_types.insert(name.clone(), struct_ty.into());
+                        self.tuple_variable_types.insert(name.clone(), struct_ty);
+                        self.variable_struct_names
+                            .insert(name.clone(), "Tuple".to_string());
+                        self.last_compiled_tuple_type = None;
+                    } else {
+                        return Err("Tuple literal didn't set last_compiled_tuple_type".to_string());
+                    }
+                } else {
+                    self.variable_types.insert(name.clone(), final_llvm_type);
+                }
+            } else {
+                return Err(format!(
+                    "Struct/Tuple literal should return pointer, got {:?}",
+                    val
+                ));
+            }
+        } else {
+            // Regular variable (not struct/tuple)
+            let alloca = self.create_entry_block_alloca(name, &final_var_type, is_mutable)?;
+            // Use alignment-aware store to fix memory corruption bug
+            self.build_store_aligned(alloca, val)?;
+            self.variables.insert(name.clone(), alloca);
+            self.variable_types.insert(name.clone(), final_llvm_type);
+        }
+
+        // Track closure variables
+        if let BasicValueEnum::PointerValue(fn_ptr) = val {
+            if let Some(env_ptr) = self.closure_envs.get(&fn_ptr) {
+                eprintln!(
+                    "📝 Tracking closure variable: {} -> fn={:?}, env={:?}",
+                    name, fn_ptr, env_ptr
+                );
+                self.closure_variables
+                    .insert(name.clone(), (fn_ptr, *env_ptr));
+            }
+        }
+
+        // Register for automatic cleanup if Vec or Box
+        if let Type::Named(type_name) = &final_var_type {
+            if type_name == "Vec" || type_name == "Box" {
+                self.register_for_cleanup(name.clone(), type_name.clone());
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Recursively inject type arguments into nested generic struct literals
+    /// Handles Box<Box<Box<T>>> with nested StructLiteral { Box { value: StructLiteral { Box { ... } } } }
+    pub(crate) fn inject_type_args_recursive(
+        &self,
+        expr: &Expression,
+        target_type: &Type,
+    ) -> Result<Expression, String> {
+        match expr {
+            Expression::StructLiteral {
+                name: struct_name,
+                type_args: ref literal_type_args,
+                fields: ref literal_fields,
+            } => {
+                // If struct literal has empty type_args and target type is Generic, inject
+                let new_type_args = if literal_type_args.is_empty() {
+                    match target_type {
+                        Type::Generic {
+                            name: target_struct_name,
+                            type_args: ref target_type_args,
+                        } if struct_name == target_struct_name => {
+                            eprintln!(
+                                "  🔧 Injecting type args into {}: {:?}",
+                                struct_name, target_type_args
+                            );
+                            target_type_args.clone()
+                        }
+                        Type::Box(inner_type) if struct_name == "Box" => {
+                            vec![inner_type.as_ref().clone()]
+                        }
+                        Type::Vec(inner_type) if struct_name == "Vec" => {
+                            vec![inner_type.as_ref().clone()]
+                        }
+                        Type::Option(inner_type) if struct_name == "Option" => {
+                            vec![inner_type.as_ref().clone()]
+                        }
+                        Type::Result(ok_type, err_type) if struct_name == "Result" => {
+                            vec![ok_type.as_ref().clone(), err_type.as_ref().clone()]
+                        }
+                        _ => literal_type_args.clone(),
+                    }
+                } else {
+                    literal_type_args.clone()
+                };
+
+                // Recursively process field values
+                let mut new_fields = Vec::new();
+                for (field_name, field_expr) in literal_fields.iter() {
+                    // Determine expected type for this field
+                    let field_target_type = if field_name == "value" && !new_type_args.is_empty() {
+                        Some(&new_type_args[0])
+                    } else {
+                        None
+                    };
+
+                    let new_field_expr = if let Some(ft) = field_target_type {
+                        self.inject_type_args_recursive(field_expr, ft)?
+                    } else {
+                        field_expr.clone()
+                    };
+
+                    new_fields.push((field_name.clone(), new_field_expr));
+                }
+
+                Ok(Expression::StructLiteral {
+                    name: struct_name.clone(),
+                    type_args: new_type_args,
+                    fields: new_fields,
+                })
+            }
+            _ => Ok(expr.clone()),
+        }
+    }
+}

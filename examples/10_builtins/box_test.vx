@@ -1,9 +1,9 @@
 // Phase 0.4b: Box Constructor Test with New Syntax
-// Test box() syntax + automatic cleanup
+// Test Box() syntax (type-as-constructor) + automatic cleanup
 
 fn test_box(): i32 {
-    // Create Box<i32> with cleaner syntax
-    let b = box(42);
+    // Create Box<i32> with type-as-constructor pattern
+    let b = Box(42);
     
     // Get pointer to value
     // TODO: Proper dereference syntax

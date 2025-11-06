@@ -19,6 +19,9 @@ pub struct LifetimeChecker {
 
     /// Tracks which variables are currently in scope (for fast lookup)
     in_scope: HashSet<String>,
+
+    /// Builtin function registry for identifying builtin functions
+    builtin_registry: super::builtin_metadata::BuiltinBorrowRegistry,
 }
 
 impl LifetimeChecker {
@@ -28,6 +31,7 @@ impl LifetimeChecker {
             current_scope: 0,
             references: HashMap::new(),
             in_scope: HashSet::new(),
+            builtin_registry: super::builtin_metadata::BuiltinBorrowRegistry::new(),
         };
 
         // Register built-in functions as always in scope (scope 0 = global)
@@ -442,7 +446,14 @@ impl LifetimeChecker {
             Expression::Unary { expr, .. } => self.check_expression(expr),
 
             Expression::Call { func, args } => {
-                self.check_expression(func)?;
+                // Skip checking builtin function names as variables
+                if let Expression::Ident(func_name) = func.as_ref() {
+                    if !self.builtin_registry.is_builtin(func_name) {
+                        self.check_expression(func)?;
+                    }
+                } else {
+                    self.check_expression(func)?;
+                }
 
                 // Validate reference arguments
                 for arg in args {

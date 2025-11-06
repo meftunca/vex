@@ -13,6 +13,9 @@ pub struct ImmutabilityChecker {
 
     /// Variables declared with `let!` (mutable)
     mutable_vars: HashSet<String>,
+
+    /// Builtin function registry for identifying builtin functions
+    builtin_registry: super::builtin_metadata::BuiltinBorrowRegistry,
 }
 
 impl ImmutabilityChecker {
@@ -20,6 +23,7 @@ impl ImmutabilityChecker {
         Self {
             immutable_vars: HashSet::new(),
             mutable_vars: HashSet::new(),
+            builtin_registry: super::builtin_metadata::BuiltinBorrowRegistry::new(),
         }
     }
 
@@ -238,7 +242,14 @@ impl ImmutabilityChecker {
             }
 
             Expression::Call { func, args } => {
-                self.check_expression(func)?;
+                // Skip checking builtin function names as variables
+                if let Expression::Ident(func_name) = func.as_ref() {
+                    if !self.builtin_registry.is_builtin(func_name) {
+                        self.check_expression(func)?;
+                    }
+                } else {
+                    self.check_expression(func)?;
+                }
                 for arg in args {
                     self.check_expression(arg)?;
                 }

@@ -11,27 +11,30 @@ pub fn builtin_hashmap_new<'ctx>(
     codegen: &mut ASTCodeGen<'ctx>,
     args: &[BasicValueEnum<'ctx>],
 ) -> Result<BasicValueEnum<'ctx>, String> {
-    if args.len() != 1 {
+    // Default capacity if no args
+    let capacity = if args.is_empty() {
+        codegen.context.i64_type().const_int(16, false)
+    } else if args.len() == 1 {
+        args[0].into_int_value()
+    } else {
         return Err(format!(
-            "hashmap_new expects 1 argument (initial_capacity), got {}",
+            "hashmap_new expects 0 or 1 argument (initial_capacity), got {}",
             args.len()
         ));
-    }
+    };
 
-    let capacity = args[0].into_int_value();
-
-    // Declare vex_map_new from runtime
-    let i8_ptr = codegen.context.i8_type().ptr_type(AddressSpace::default());
-    let vex_map_new = codegen.declare_runtime_fn(
-        "vex_map_new",
+    // Declare vex_map_create from runtime (Vec-style API)
+    let ptr_type = codegen.context.ptr_type(AddressSpace::default());
+    let vex_map_create = codegen.declare_runtime_fn(
+        "vex_map_create",
         &[codegen.context.i64_type().into()], // capacity
-        i8_ptr.into(),                        // returns pointer
+        ptr_type.into(),                      // returns pointer
     );
 
-    // Call vex_map_new(capacity)
+    // Call vex_map_create(capacity)
     let map_ptr = codegen
         .builder
-        .build_call(vex_map_new, &[capacity.into()], "map_new")
+        .build_call(vex_map_create, &[capacity.into()], "map_create")
         .map_err(|e| format!("Failed to build hashmap_new call: {:?}", e))?
         .try_as_basic_value()
         .left()
