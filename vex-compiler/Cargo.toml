@@ -15,3 +15,4 @@ rspirv.workspace = true
 spirv.workspace = true
 thiserror.workspace = true
 anyhow.workspace = true
+colored = "2.1"

@@ -17,7 +17,7 @@ fn test_mutable() {
     // This should work fine:
     y = 15;  // ✅ OK: y is mutable
     
-    println(y);
+    printlns(y);
 }
 
 fn main() {

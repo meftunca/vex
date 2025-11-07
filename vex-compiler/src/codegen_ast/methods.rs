@@ -1,8 +1,8 @@
 // src/codegen/methods.rs
 use super::*;
-use vex_ast::*;
 use inkwell::types::BasicTypeEnum;
 use inkwell::values::BasicValueEnum;
+use vex_ast::*;
 
 impl<'ctx> ASTCodeGen<'ctx> {
     pub(crate) fn declare_struct_method(
@@ -13,7 +13,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let mangled_name = format!("{}_{}", struct_name, method.name);
 
         let mut param_types: Vec<inkwell::types::BasicMetadataTypeEnum> = Vec::new();
-        
+
         // Add receiver parameter (explicit or implicit)
         if let Some(ref receiver) = method.receiver {
             // Explicit receiver: fn (self: &T) method()
@@ -24,7 +24,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
             param_types.push(ptr_type.into());
         }
-        
+
         for param in &method.params {
             param_types.push(self.ast_type_to_llvm(&param.ty).into());
         }
@@ -67,6 +67,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         self.current_function = Some(fn_val);
 
+        // ⭐ NEW: Set method mutability context
+        self.current_method_is_mutable = method.is_mutable;
+
         let entry = self.context.append_basic_block(fn_val, "entry");
         self.builder.position_at_end(entry);
 
@@ -75,12 +78,14 @@ impl<'ctx> ASTCodeGen<'ctx> {
         self.variable_struct_names.clear();
 
         let param_offset;
-        
+
         // Handle both explicit receiver (golang-style) and implicit receiver (simplified syntax)
         if let Some(ref receiver) = method.receiver {
             // Explicit receiver: fn (self: &T) method()
             // Receiver is already a POINTER (&T or &T!), so we DON'T need alloca
-            let param_val = fn_val.get_nth_param(0).ok_or("Missing receiver parameter")?;
+            let param_val = fn_val
+                .get_nth_param(0)
+                .ok_or("Missing receiver parameter")?;
             let receiver_ty = self.ast_type_to_llvm(&receiver.ty);
 
             // Store receiver DIRECTLY (it's already a pointer, no need for alloca+store)
@@ -91,7 +96,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
             let struct_name_opt = match &receiver.ty {
                 Type::Named(name) => Some(name.clone()),
                 Type::Reference(inner, _) => {
-                    if let Type::Named(name) = &**inner { Some(name.clone()) } else { None }
+                    if let Type::Named(name) = &**inner {
+                        Some(name.clone())
+                    } else {
+                        None
+                    }
                 }
                 _ => None,
             };
@@ -115,17 +124,21 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 "📝 Simplified method syntax: auto-generating receiver &{} for method {}",
                 struct_name, method.name
             );
-            
-            let param_val = fn_val.get_nth_param(0).ok_or("Missing implicit receiver parameter")?;
-            
+
+            let param_val = fn_val
+                .get_nth_param(0)
+                .ok_or("Missing implicit receiver parameter")?;
+
             // Create pointer type for receiver (it's already a pointer parameter)
             let receiver_ty = self.context.ptr_type(inkwell::AddressSpace::default());
 
             // Store receiver DIRECTLY (no alloca needed, it's already a pointer)
             let self_ptr = param_val.into_pointer_value();
             self.variables.insert("self".to_string(), self_ptr);
-            self.variable_types.insert("self".to_string(), receiver_ty.into());
-            self.variable_struct_names.insert("self".to_string(), struct_name.to_string());
+            self.variable_types
+                .insert("self".to_string(), receiver_ty.into());
+            self.variable_struct_names
+                .insert("self".to_string(), struct_name.to_string());
 
             eprintln!("   ✅ Implicit receiver tracked as struct: {}", struct_name);
 
@@ -172,6 +185,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     .map_err(|e| format!("Failed to build return: {}", e))?;
             }
         }
+
+        // ⭐ NEW: Clear method mutability context
+        self.current_method_is_mutable = false;
 
         Ok(())
     }

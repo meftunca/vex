@@ -152,6 +152,9 @@ impl<'a> Parser<'a> {
         let params = self.parse_parameters()?;
         self.consume(&Token::RParen, "Expected ')'")?;
 
+        // ⭐ NEW: Check for mutability marker (!): fn method()!
+        let is_mutable = self.match_token(&Token::Not);
+
         // Parse optional return type
         let return_type = if self.match_token(&Token::Colon) {
             Some(self.parse_type()?)
@@ -161,9 +164,11 @@ impl<'a> Parser<'a> {
 
         // Trait methods MUST be signatures only (no body allowed)
         if self.check(&Token::LBrace) {
-            return Err(self.error("Trait methods cannot have a body. Use only method signature with ';'"));
+            return Err(
+                self.error("Trait methods cannot have a body. Use only method signature with ';'")
+            );
         }
-        
+
         self.consume(
             &Token::Semicolon,
             "Expected ';' after trait method signature",
@@ -171,6 +176,7 @@ impl<'a> Parser<'a> {
 
         Ok(TraitMethod {
             name,
+            is_mutable, // ⭐ NEW: Store mutability flag
             receiver,
             params,
             return_type,

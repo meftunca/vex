@@ -14,6 +14,13 @@ pub enum BorrowError {
         location: Option<String>,
     },
 
+    /// ⭐ NEW: Attempted to assign to field of immutable variable
+    AssignToImmutableField {
+        variable: String,
+        field: String,
+        location: Option<String>,
+    },
+
     /// Use of moved value (Phase 2)
     UseAfterMove {
         variable: String,
@@ -72,6 +79,30 @@ impl fmt::Display for BorrowError {
                     f,
                     "\nhelp: consider making this binding mutable: `let! {}`",
                     variable
+                )
+            }
+
+            BorrowError::AssignToImmutableField {
+                variable,
+                field,
+                location,
+            } => {
+                write!(
+                    f,
+                    "cannot assign to field `{}` of immutable variable `{}`",
+                    field, variable
+                )?;
+                if let Some(loc) = location {
+                    write!(f, " at {}", loc)?;
+                }
+                write!(
+                    f,
+                    "\nhelp: consider making this binding mutable: `let! {}`",
+                    variable
+                )?;
+                write!(
+                    f,
+                    "\nhelp: or if this is a method, add `!` to make it mutable: `fn method()!`"
                 )
             }
 

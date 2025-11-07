@@ -237,6 +237,7 @@ impl<'a> Parser<'a> {
                                 receiver: Box::new(Expression::Ident("self".to_string())),
                                 method: name.clone(),
                                 args,
+                                is_mutable_call: false, // self calls don't use ! syntax
                             };
                         }
                     }
@@ -348,20 +349,30 @@ impl<'a> Parser<'a> {
                                 args.push(self.parse_expression()?);
                             }
                             self.consume(&Token::RParen, "Expected ')' after arguments")?;
+
+                            // Check for mutable call suffix: method()!
+                            let is_mutable_call = self.match_token(&Token::Not);
+
                             expr = Expression::MethodCall {
                                 receiver: Box::new(expr),
                                 method: field_or_method,
                                 args,
+                                is_mutable_call,
                             };
                         }
                     } else {
                         // Empty parens or not potential enum - parse as method call
                         let args = self.parse_arguments()?;
                         self.consume(&Token::RParen, "Expected ')' after arguments")?;
+
+                        // Check for mutable call suffix: method()!
+                        let is_mutable_call = self.match_token(&Token::Not);
+
                         expr = Expression::MethodCall {
                             receiver: Box::new(expr),
                             method: field_or_method,
                             args,
+                            is_mutable_call,
                         };
                     }
                 } else {

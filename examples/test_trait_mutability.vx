@@ -1,0 +1,27 @@
+// Test: Trait method mutability declaration
+
+trait Resettable {
+    fn reset()!;        // Mutable trait method
+    fn get_value(): i32; // Immutable trait method
+}
+
+struct Counter impl Resettable {
+    value: i32,
+    
+    // Trait methods (MUST be in struct body)
+    fn reset()! {
+        // TODO: self!.value = 0; when enforcement is added
+        print("Reset");
+    }
+    
+    fn get_value(): i32 {
+        return self.value;
+    }
+}
+
+fn main(): i32 {
+    let! counter = Counter { value: 42 };
+    let v = counter.get_value();
+    print("Value:", v);
+    return 0;
+}

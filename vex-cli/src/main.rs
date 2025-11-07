@@ -112,7 +112,8 @@ fn main() -> Result<()> {
 
             // --- Full Compilation Pipeline ---
             let source = std::fs::read_to_string(&input)?;
-            let mut parser = vex_parser::Parser::new(&source)?;
+            let input_str = input.to_str().unwrap_or("unknown.vx");
+            let mut parser = vex_parser::Parser::new_with_file(input_str, &source)?;
             let mut ast = parser.parse_file()?;
             println!("   ✅ Parsed {} successfully", filename);
 
@@ -185,23 +186,29 @@ fn main() -> Result<()> {
             use std::process::Command;
 
             // Handle both file input and direct code execution
-            let (source, filename): (String, String) = if let Some(code_str) = code {
-                // Direct code execution: vex run -c "print(42);"
-                println!("🚀 Executing code snippet");
-                (code_str, "inline_code".to_string())
-            } else if let Some(input_path) = input {
-                // File execution: vex run file.vx
-                println!("🚀 Running: {:?}", input_path);
-                let fname = input_path
-                    .file_stem()
-                    .and_then(|n| n.to_str())
-                    .map(|s| s.to_string())
-                    .ok_or_else(|| anyhow::anyhow!("Invalid input filename"))?;
-                let src = std::fs::read_to_string(&input_path)?;
-                (src, fname)
-            } else {
-                anyhow::bail!("Either INPUT file or -c CODE must be provided");
-            };
+            let (source, filename, parser_file): (String, String, String) =
+                if let Some(code_str) = code {
+                    // Direct code execution: vex run -c "print(42);"
+                    println!("🚀 Executing code snippet");
+                    (
+                        code_str,
+                        "inline_code".to_string(),
+                        "inline_code".to_string(),
+                    )
+                } else if let Some(ref input_path) = input {
+                    // File execution: vex run file.vx
+                    println!("🚀 Running: {:?}", input_path);
+                    let fname = input_path
+                        .file_stem()
+                        .and_then(|n| n.to_str())
+                        .map(|s| s.to_string())
+                        .ok_or_else(|| anyhow::anyhow!("Invalid input filename"))?;
+                    let src = std::fs::read_to_string(&input_path)?;
+                    let parser_f = input_path.to_str().unwrap_or("unknown.vx").to_string();
+                    (src, fname, parser_f)
+                } else {
+                    anyhow::bail!("Either INPUT file or -c CODE must be provided");
+                };
 
             // Create a temporary output path
             let temp_output = std::env::temp_dir().join(format!("vex_run_{}", filename));
@@ -209,7 +216,7 @@ fn main() -> Result<()> {
             log::info!("Compiling to temporary: {:?}", temp_output);
 
             // Parse
-            let mut parser = vex_parser::Parser::new(&source)?;
+            let mut parser = vex_parser::Parser::new_with_file(&parser_file, &source)?;
             let mut ast = parser.parse_file()?;
 
             println!("   ✅ Parsed {} successfully", filename);
@@ -393,7 +400,8 @@ fn main() -> Result<()> {
             // TODO: Implement syntax checking
             println!("🔍 Checking: {:?}", input);
             let source = std::fs::read_to_string(&input)?;
-            let mut parser = vex_parser::Parser::new(&source)?;
+            let input_str = input.to_str().unwrap_or("unknown.vx");
+            let mut parser = vex_parser::Parser::new_with_file(input_str, &source)?;
 
             match parser.parse_file() {
                 Ok(_) => {
@@ -402,7 +410,7 @@ fn main() -> Result<()> {
                 }
                 Err(e) => {
                     println!("❌ Parse error: {}", e);
-                    Err(anyhow::anyhow!(e))
+                    anyhow::bail!(e)
                 }
             }
         }

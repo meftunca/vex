@@ -1,0 +1,22 @@
+// Test file for LSP span integration
+
+fn main(): i32 {
+    // Valid code
+    let x = 42;
+    
+    // Fixed: Added semicolon
+    let broken = "test";
+    
+    // Valid code
+    let y = x + 10;
+    
+    return 0;
+}
+
+// Syntax error: missing function body (line 17)
+fn incomplete(): i32
+
+// Valid function
+fn add(a: i32, b: i32): i32 {
+    return a + b;
+}

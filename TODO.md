@@ -1,8 +1,197 @@
 # Vex Language - TODO
 
-**Current Status:** 177/178 tests passing (99.4%)
+**Current Status:** 210/210 tests passing (100%) ✅
 
-**Last Updated:** November 6, 2025 (23:51)
+**Last Updated:** November 7, 2025 (15:30)
+
+---
+
+## 🚀 NEW ROADMAP (v0.9.2 - v1.0)
+
+**Focus:** Developer Experience + Performance
+
+### Phase 1: Error Messages (1.5 days) 🔴 CURRENT
+
+**Goal:** Rust-quality error messages with spans, colors, and suggestions
+
+```
+Before: Error: Type mismatch
+After:  error[E0308]: mismatched types
+          --> test.vx:12:15
+           |
+        12 |     let x = add(42, "hello");
+           |                     ^^^^^^^ expected `i32`, found `string`
+```
+
+- [ ] Span tracking (line, col, file) - 2h
+- [ ] Error struct with context - 2h
+- [ ] Colored output (red, yellow, cyan) - 1h
+- [ ] Parser: "Expected X, found Y" - 2h
+- [ ] Type errors with full context - 2h
+- [ ] Borrow checker formatting - 1h
+- [ ] Suggestion system ("Did you mean?") - 2h
+
+**Total:** 12 hours (1.5 days)
+
+---
+
+### Phase 2: Operator Overloading (2 days)
+
+**Goal:** Trait-based operator overloading (Rust style, Vex syntax)
+
+```vex
+trait Add {
+    fn add(other: Self): Self;  // Called by + operator
+}
+
+struct Vector2 { x: f32, y: f32 }
+impl Vector2 {
+    fn add(other: Vector2): Vector2 {
+        return Vector2 {
+            x: self.x + other.x,
+            y: self.y + other.y
+        };
+    }
+}
+
+let v3 = v1 + v2;  // ✅ Calls Vector2.add(v2)
+```
+
+**Operators:**
+
+- Arithmetic: `Add`, `Sub`, `Mul`, `Div`, `Mod` (+, -, \*, /, %)
+- Comparison: `Eq`, `Neq`, `Lt`, `Gt`, `Le`, `Ge` (==, !=, <, >, <=, >=)
+- Indexing: `Index`, `IndexMut` ([])
+- Deref: `Deref`, `DerefMut` (\*)
+
+**Tasks:**
+
+- [ ] Parser: Trait Add/Sub/Mul/Div - 2h
+- [ ] AST: Operator trait mapping - 1h
+- [ ] Codegen: Binary op → method call - 6h
+- [ ] Type checking for operator traits - 2h
+- [ ] Builtin implementations (String+, Vec+) - 2h
+- [ ] Testing (Vector2, Matrix, Complex) - 3h
+
+**Total:** 16 hours (2 days)
+
+---
+
+### Phase 3: SIMD Support (2 days)
+
+**Goal:** Vector operations with hardware acceleration
+
+```vex
+// SIMD vector types (hardware-backed)
+let v1: f32x4 = f32x4.new(1.0, 2.0, 3.0, 4.0);
+let v2: f32x4 = f32x4.new(5.0, 6.0, 7.0, 8.0);
+
+// Operator overloading + SIMD = 🚀
+let v3 = v1 + v2;  // Single SIMD instruction!
+
+// SIMD intrinsics
+let dot = f32x4.dot(v1, v2);
+let len = f32x4.length(v1);
+```
+
+**Implementation:**
+
+- [ ] LLVM vector types (f32x4, f32x8, i32x4, etc.) - 2h
+- [ ] SIMD intrinsics (add, mul, fma, sqrt, etc.) - 4h
+- [ ] Operator overloading integration - 2h
+- [ ] Auto-vectorization hints - 2h
+- [ ] Platform detection (SSE, AVX, NEON) - 2h
+- [ ] Benchmarks (4-8x speedup) - 4h
+
+**Total:** 16 hours (2 days)
+
+---
+
+## ⛔ CANCELLED FEATURES
+
+- ~~Dynamic Dispatch (`dyn Trait`)~~ - Not needed, enum + match sufficient
+- ~~Variant Type~~ - Already have enum (tagged unions)
+
+---
+
+## 🎉 COMPLETED: Method Mutability (v0.9.1)
+
+**Status:** ✅ **COMPLETE** - Parser + Borrow Checker + Call Site Enforcement  
+**Documentation:** `METHOD_MUTABILITY_IMPLEMENTATION_COMPLETE.md`
+
+### ✅ Implemented Features
+
+1. **Method-Level Mutability:** `fn method()!` declares mutation capability ✅
+2. **Call Site Enforcement:** `obj.method()!` required for mutable methods ✅
+3. **Borrow Checker Integration:** Field mutation validation ✅
+
+```vex
+struct Counter {
+    value: i32,
+
+    fn get(): i32 { self.value }           // Immutable
+    fn increment()! { self.value += 1; }   // Mutable
+}
+
+fn main(): i32 {
+    let! c = Counter { value: 0 };
+    c.get();         // ✅ OK
+    c.increment()!;  // ✅ OK: ! required
+    // c.increment(); // ❌ ERROR: Missing !
+    // c.get()!;      // ❌ ERROR: Immutable method
+}
+```
+
+### Implementation Status
+
+#### Parser ✅ COMPLETE
+
+- [x] `structs.rs`: Parse `fn method()!` syntax (! after params, before return) ✅
+- [x] `traits.rs`: Parse `fn method()!;` in trait signatures ✅
+- [x] `operators.rs`: Parse `method()!` call site syntax ✅
+- [x] AST: Add `is_mutable: bool` to Function, TraitMethod ✅
+- [x] AST: Add `is_mutable_call: bool` to MethodCall ✅
+
+#### Codegen ✅ COMPLETE
+
+- [x] `methods.rs`: Store `current_method_is_mutable` flag ✅
+- [x] `method_calls.rs`: Validate call site `!` matches method declaration ✅
+- [x] Error: "Mutable method requires '!' suffix at call site" ✅
+- [x] Error: "Method is immutable, cannot use '!' suffix" ✅
+
+#### Borrow Checker ✅ COMPLETE
+
+- [x] `immutability.rs`: Validate field mutations in methods ✅
+- [x] Error: "cannot assign to field of immutable variable" ✅
+- [x] Hint: "add `!` to make it mutable: `fn method()!`" ✅
+
+#### Testing ✅ COMPLETE (210/210)
+
+- [x] Test: Mutable method with ! suffix ✅
+- [x] Test: Error when ! missing on mutable method ✅
+- [x] Test: Error when ! used on immutable method ✅
+- [x] Test: Borrow checker catches field mutations ✅
+- [x] All 210 tests passing ✅
+
+### Pending Tasks (Future Work)
+
+- [ ] Trait method location validation (in struct body vs external)
+- [ ] `self!` syntax enforcement (currently method-level, not receiver-level)
+
+#### Documentation (~2 hours)
+
+- [ ] Update SYNTAX.md with method mutability + location rules
+- [ ] Update VEX_SYNTAX_GUIDE.md with comprehensive examples
+- [ ] Update trait system documentation
+- [ ] Create migration guide (v0.9 → v0.9.1)
+- [ ] ✅ Created METHOD_MUTABILITY_FINAL.md (complete spec)
+- [ ] ✅ Removed METHOD_DEFINITION_ARCHITECTURE_DISCUSSION.md (old)
+
+**Total Estimate:** ~13 hours (1.5-2 days)
+
+**See:** `METHOD_MUTABILITY_FINAL.md` for complete specification
+
+---
 
 ## 🎯 Phase 1: Core Language Features (Priority 🔴)
 

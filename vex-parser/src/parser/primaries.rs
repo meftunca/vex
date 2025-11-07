@@ -165,8 +165,10 @@ impl<'a> Parser<'a> {
             } else {
                 // Not a map literal, restore position and fail
                 self.current = checkpoint;
+                let span = self.peek_span().span.clone();
+                let location = crate::SourceLocation::from_span(&self.file_name, self.source, span);
                 return Err(ParseError::SyntaxError {
-                    location: format!("line {}", self.current),
+                    location,
                     message: "Unexpected '{', map literals need key: value pairs".to_string(),
                 });
             }

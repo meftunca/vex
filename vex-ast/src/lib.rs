@@ -119,6 +119,7 @@ pub struct Function {
     pub attributes: Vec<Attribute>, // #[inline], #[cfg], etc.
     pub is_async: bool,
     pub is_gpu: bool,
+    pub is_mutable: bool, // ⭐ NEW: Method-level mutability (fn method()!)
     pub receiver: Option<Receiver>, // For methods
     pub name: String,
     pub type_params: Vec<TypeParam>, // Generic type parameters with bounds: <T: Display, U: Clone>
@@ -263,6 +264,7 @@ pub struct Trait {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TraitMethod {
     pub name: String,
+    pub is_mutable: bool, // ⭐ NEW: Method-level mutability (fn method()!)
     pub receiver: Option<Receiver>, // self parameter (must use Self type)
     pub params: Vec<Param>,
     pub return_type: Option<Type>,
@@ -554,11 +556,12 @@ pub enum Expression {
         args: Vec<Expression>,
     },
 
-    /// Method call: obj.method(args)
+    /// Method call: obj.method(args) or obj.method(args)! (mutable)
     MethodCall {
         receiver: Box<Expression>,
         method: String,
         args: Vec<Expression>,
+        is_mutable_call: bool, // ⭐ NEW: Call site mutability (method()!)
     },
 
     /// Field access: obj.field

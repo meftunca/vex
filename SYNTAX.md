@@ -277,24 +277,68 @@ let y = identity<string>("hello");
 
 ### 4.3 Method Syntax (Receivers)
 
+**v0.9 Güncellemesi:** Üç method tanımlama yöntemi destekleniyor:
+
+#### 1. **Simplified Syntax (Struct İçinde - Önerilen)**
+
 ```vex
 struct Point {
     x: i32,
     y: i32,
-}
 
-// Immutable receiver
-fn (p: &Point) distance_from_origin() : i32 {
-    return p.x + p.y;  // Simplified
+    // Receiver auto-generated (implicit &Point veya &Point!)
+    fn distance_from_origin(): i32 {
+        return self.x + self.y;
+    }
+
+    fn translate(dx: i32, dy: i32) {
+        self.x = self.x + dx;  // Mutation çalışır
+        self.y = self.y + dy;
+    }
+}
+```
+
+#### 2. **Golang-Style (Struct İçinde veya Dışında)**
+
+```vex
+// Explicit receiver - isim serbest
+fn (p: &Point) distance_from_origin(): i32 {
+    return p.x + p.y;
 }
 
 // Mutable receiver
-fn (p: &Point!) translate(dx: i32, dy: i32) {
-    p.x = p.x + dx;
-    p.y = p.y + dy;
+fn (point: &Point!) translate(dx: i32, dy: i32) {
+    point.x = point.x + dx;
+    point.y = point.y + dy;
 }
 
-// Kullanım
+// ⚠️ Receiver parametresi herhangi bir isim olabilir:
+fn (self: &Point) get_x(): i32 { return self.x; }
+fn (this: &Point) get_y(): i32 { return this.y; }
+fn (p: &Point) sum(): i32 { return p.x + p.y; }
+```
+
+#### 3. **Hybrid (İkisi Bir Arada)**
+
+```vex
+struct Calculator {
+    value: i32,
+
+    // Simplified (struct içinde)
+    fn get_value(): i32 {
+        return self.value;
+    }
+}
+
+// Golang-style extension (struct dışında)
+fn (calc: &Calculator!) add(x: i32) {
+    calc.value = calc.value + x;
+}
+```
+
+**Kullanım:**
+
+```vex
 let! point = Point { x: 10, y: 20 };
 let dist = point.distance_from_origin();
 point.translate(5, 5);
@@ -561,24 +605,36 @@ let coords: (i32, i32) = (100, 200);
 
 ### 7.1 Trait Tanımı
 
+**v0.9 Güncellemesi (Kasım 2025):** Trait method'ları artık **simplified syntax** kullanıyor:
+
+- ✅ Yeni: `fn method(params): type;` (receiver yok)
+- ❌ Eski: `fn (self: &Self!) method(params): type;`
+- ⚠️ Trait method'ları **body içeremez** (sadece signature)
+
 ```vex
-// Basit trait (sadece required methods)
+// Basit trait (sadece required methods - v0.9 syntax)
 trait Logger {
-    fn (self: &Self!) log(level: string, msg: string);
+    fn log(level: string, msg: string);  // Simplified syntax
+    fn info(msg: string);
 }
 
-// Trait with default methods (parser hazır, codegen bekliyor)
+// ❌ HATA: Trait methods cannot have body
 trait Display {
-    fn (self: &Self!) show();  // Required
+    fn show();  // ✅ Sadece signature
 
-    fn (self: &Self!) print() {  // Default implementation
-        self.show();
-    }
+    // fn print() {  // ❌ Body not allowed in traits
+    //     self.show();
+    // }
 }
 
 // Generic trait
 trait Converter<T> {
-    fn (self: &Self) to_type() : T;
+    fn to_type(): T;  // Simplified syntax
+}
+
+// Opsiyonel: Golang-style hala destekleniyor
+trait Writer {
+    fn (self: &Self!) write(data: &[byte]);  // ✅ Still valid
 }
 ```
 
@@ -598,30 +654,57 @@ trait Logger: Display, Debug {
 
 ### 7.3 Inline Trait Implementation (v1.3)
 
+**v0.9 Güncellemesi:** Struct method'ları da **simplified syntax** kullanıyor:
+
+- ✅ Yeni: `fn method(params) { ... }` (receiver yok - auto-generated)
+- ✅ Alternatif: `fn (self: &T!) method(params) { ... }` (golang-style - opsiyonel)
+- 📝 Not: Receiver parametresi **herhangi bir isim** olabilir: `(x: &T)`, `(this: &T)`, vb.
+
 ```vex
-// Struct implements trait inline
+// Struct implements trait inline (v0.9 simplified syntax)
 struct FileLogger impl Logger {
     path: string,
 
-    // Trait method implementation
-    fn (self: &FileLogger!) log(level: string, msg: string) {
-        // Implementation
+    // Simplified syntax - receiver auto-generated
+    fn log(level: string, msg: string) {
+        print("[", level, "] ", msg);
+        return;
+    }
+
+    fn info(msg: string) {
+        self.log("INFO", msg);  // 'self' kullanılabilir
+        return;
     }
 }
 
-// Multiple traits
+// Golang-style (opsiyonel - hala destekleniyor)
+struct ConsoleLogger impl Logger {
+    prefix: string,
+
+    // Explicit receiver
+    fn (self: &ConsoleLogger!) log(level: string, msg: string) {
+        print(self.prefix, " [", level, "] ", msg);
+    }
+
+    // Receiver ismi serbest
+    fn (logger: &ConsoleLogger) info(msg: string) {
+        logger.log("INFO", msg);
+    }
+}
+
+// Multiple traits (simplified)
 struct File impl Reader, Writer, Closer {
     fd: i32,
 
-    fn (self: &File) read(buf: &[byte]!) : i32 {
+    fn read(buf: &[byte]!): i32 {
         return 0;
     }
 
-    fn (self: &File!) write(data: &[byte]) : i32 {
+    fn write(data: &[byte]): i32 {
         return 0;
     }
 
-    fn (self: &File!) close() {
+    fn close() {
         // Close file
     }
 }

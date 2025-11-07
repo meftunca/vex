@@ -105,6 +105,11 @@ pub struct ASTCodeGen<'ctx> {
     // Tuple type tracking: when compile_tuple_literal is called, store struct type here
     // Let statement reads this to get tuple struct type without recompiling elements
     pub(crate) last_compiled_tuple_type: Option<inkwell::types::StructType<'ctx>>,
+
+    // ⭐ NEW: Method mutability tracking
+    // Tracks whether current method is mutable (has ! in signature)
+    // Used to validate self! usage in method bodies
+    pub(crate) current_method_is_mutable: bool,
 }
 
 impl<'ctx> ASTCodeGen<'ctx> {
@@ -142,6 +147,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             closure_variables: HashMap::new(),
             scope_stack: Vec::new(),
             last_compiled_tuple_type: None,
+            current_method_is_mutable: false, // ⭐ NEW: Default to immutable
         };
 
         // Register Phase 0 builtin types (Vec, Option, Result, Box)

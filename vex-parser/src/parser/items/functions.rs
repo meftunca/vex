@@ -59,6 +59,9 @@ impl<'a> Parser<'a> {
         let params = self.parse_parameters()?;
         self.consume(&Token::RParen, "Expected ')'")?;
 
+        // ⭐ NEW: Check for mutability marker (!): fn method()!
+        let is_mutable = self.match_token(&Token::Not);
+
         // Optional return type with ':' (Vex syntax: fn foo(): i32)
         let return_type = if self.match_token(&Token::Colon) {
             Some(self.parse_type()?)
@@ -80,6 +83,7 @@ impl<'a> Parser<'a> {
             attributes: Vec::new(), // TODO: Parse attributes before function
             is_async: false,
             is_gpu: false,
+            is_mutable, // ⭐ NEW: Store mutability flag
             receiver,
             name,
             type_params,

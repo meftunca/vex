@@ -23,7 +23,7 @@ fn (self: &Point) add(other: &Point): i32 {
 }
 
 // Method with mutable receiver
-fn (self: &Point!) set_x(new_x: i32): i32 {
+fn (self: &Point) set_x(new_x: i32)!: i32 {
     self.x = new_x;
     return 0;
 }

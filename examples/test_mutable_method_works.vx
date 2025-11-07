@@ -1,0 +1,27 @@
+// Test: Mutable method with field mutation (should work)
+
+struct Counter {
+    value: i32,
+    
+    // Mutable method - can mutate fields
+    fn increment()! {
+        self.value = self.value + 1;
+    }
+    
+    // Immutable method - can read fields
+    fn get(): i32 {
+        return self.value;
+    }
+}
+
+fn main(): i32 {
+    let! counter = Counter { value: 0 };
+    
+    let initial = counter.get();
+    print("Initial:", initial);
+    
+    // Note: Call syntax without ! for now (will be added in next phase)
+    // counter.increment()!;
+    
+    return 0;
+}

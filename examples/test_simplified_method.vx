@@ -8,7 +8,7 @@ struct Calculator {
         return self.value;
     }
     
-    fn set_value(new_val: i32) {
+    fn set_value(new_val: i32)! {
         self.value = new_val;
         return;
     }
@@ -24,7 +24,7 @@ fn main(): i32 {
     let result = calc.get_value();
     print("Initial value: ", result);
     
-    calc.set_value(20);
+    calc.set_value(20)!;
     let result2 = calc.get_value();
     print("After set: ", result2);
     

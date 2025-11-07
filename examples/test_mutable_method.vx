@@ -1,0 +1,19 @@
+// Test: Method mutability - mutable method
+
+struct Counter {
+    value: i32,
+    
+    // Mutable method (with !)
+    fn increment()! {
+        // For now, just test parsing and codegen
+        let x = self.value;
+        print("Value:", x);
+    }
+}
+
+fn main(): i32 {
+    let! counter = Counter { value: 5 };
+    // TODO: counter.increment()! when call site enforcement is added
+    print("Counter created");
+    return 0;
+}

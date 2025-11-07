@@ -1,7 +1,7 @@
 // Modular parser for Vex language
 // This module organizes the parser into logical components
 
-use crate::ParseError;
+use crate::{ParseError, SourceLocation};
 use vex_ast::*;
 use vex_lexer::{Lexer, Token, TokenSpan};
 
@@ -19,11 +19,16 @@ pub struct Parser<'a> {
     pub(crate) tokens: Vec<TokenSpan>,
     pub(crate) current: usize,
     pub(crate) source: &'a str,
+    pub(crate) file_name: String, // Track filename for error reporting
     pub(crate) in_method_body: bool,
 }
 
 impl<'a> Parser<'a> {
     pub fn new(source: &'a str) -> Result<Self, ParseError> {
+        Self::new_with_file("<input>", source)
+    }
+
+    pub fn new_with_file(file_name: &str, source: &'a str) -> Result<Self, ParseError> {
         let lexer = Lexer::new(source);
         let tokens: Result<Vec<_>, _> = lexer.collect();
         let tokens = tokens.map_err(|e| ParseError::LexerError(format!("{:?}", e)))?;
@@ -32,6 +37,7 @@ impl<'a> Parser<'a> {
             tokens,
             current: 0,
             source,
+            file_name: file_name.to_string(),
             in_method_body: false,
         })
     }
@@ -147,10 +153,15 @@ impl<'a> Parser<'a> {
 
     pub(crate) fn error(&self, message: &str) -> ParseError {
         let location = if self.is_at_end() {
-            "end of file".to_string()
+            SourceLocation {
+                file: self.file_name.clone(),
+                line: self.source.lines().count(),
+                column: self.source.lines().last().map_or(0, |l| l.len()),
+                length: 0,
+            }
         } else {
             let span = &self.peek_span().span;
-            format!("{}..{}", span.start, span.end)
+            SourceLocation::from_span(&self.file_name, self.source, span.clone())
         };
 
         ParseError::SyntaxError {

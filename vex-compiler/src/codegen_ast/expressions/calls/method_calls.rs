@@ -10,6 +10,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         receiver: &Expression,
         method: &str,
         args: &[Expression],
+        is_mutable_call: bool,
     ) -> Result<BasicValueEnum<'ctx>, String> {
         // Phase 0.4c: Check for builtin type instance methods (vec.push, vec.len, etc.)
         // This MUST come first before struct name checking
@@ -177,6 +178,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                             attributes: vec![],
                             is_async: false,
                             is_gpu: false,
+                            is_mutable: trait_method.is_mutable, // ⭐ NEW: Copy mutability from trait
                             name: method.to_string(),
                             type_params: vec![],
                             receiver,
@@ -229,6 +231,34 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 }
             }
         };
+
+        // ⭐ Validate call site mutability matches method declaration
+        // Check if the method is declared as mutable
+        let method_is_mutable = self
+            .function_defs
+            .get(&final_method_name)
+            .map(|func| func.is_mutable)
+            .unwrap_or(false);
+
+        // Enforce: Mutable methods REQUIRE ! at call site
+        if method_is_mutable && !is_mutable_call {
+            return Err(format!(
+                "Mutable method '{}' requires '!' suffix at call site: {}.{}()!",
+                method,
+                match receiver {
+                    Expression::Ident(name) => name,
+                    _ => "object",
+                },
+                method
+            ));
+        }
+
+        if !method_is_mutable && is_mutable_call {
+            return Err(format!(
+                "Method '{}' is immutable, cannot use '!' suffix at call site",
+                method
+            ));
+        }
 
         // Compile receiver (this will be the first argument)
         let receiver_val = self.compile_expression(receiver)?;

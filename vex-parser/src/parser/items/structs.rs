@@ -70,7 +70,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Parse a method inside a struct body
-    /// 
+    ///
     /// Supports two syntaxes:
     /// 1. Golang-style: fn (self: &Type) method_name(...)
     /// 2. Simplified: fn method_name(...) - receiver auto-detected from body
@@ -82,14 +82,14 @@ impl<'a> Parser<'a> {
             // Peek to see if this is a receiver or method name
             let checkpoint = self.current;
             self.advance(); // consume '('
-            
+
             // Check if this looks like a receiver: (self: Type) or (self!: Type)
             let next_is_self = if let Token::Ident(name) = self.peek() {
                 name == "self"
             } else {
                 false
             };
-            
+
             if next_is_self {
                 // Golang-style: fn (self: &Type) method_name(...)
                 let param_name = self.consume_identifier()?;
@@ -126,6 +126,9 @@ impl<'a> Parser<'a> {
         let params = self.parse_parameters()?;
         self.consume(&Token::RParen, "Expected ')'")?;
 
+        // ⭐ NEW: Check for mutability marker (!): fn method()!
+        let is_mutable = self.match_token(&Token::Not);
+
         // Optional return type
         let return_type = if self.match_token(&Token::Colon) {
             Some(self.parse_type()?)
@@ -145,6 +148,7 @@ impl<'a> Parser<'a> {
             attributes: Vec::new(),
             is_async: false,
             is_gpu: false,
+            is_mutable, // ⭐ NEW: Store mutability flag
             receiver,
             name,
             type_params: Vec::new(),

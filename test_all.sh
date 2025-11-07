@@ -40,7 +40,7 @@ while IFS= read -r file; do
     fi
     
     # Borrow checker error tests should FAIL with borrow error (expected behavior)
-    if [[ "$file" == *"_error.vx"* ]] || [[ "$file" == *"return_local.vx"* ]]; then
+    if [[ "$file" == *"_error.vx"* ]] || [[ "$file" == *"return_local.vx"* ]] || [[ "$file" == *"_violation.vx"* ]]; then
         echo -n "Testing $name... "
         output=$("$VEX_BIN" run "$file" 2>&1)
         if echo "$output" | grep -q "Borrow checker error"; then

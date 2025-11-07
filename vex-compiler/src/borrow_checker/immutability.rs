@@ -50,6 +50,17 @@ impl ImmutabilityChecker {
                     self.mutable_vars.insert(param.name.clone());
                 }
 
+                // ⭐ NEW: Handle method receiver (self)
+                if func.receiver.is_some() {
+                    if func.is_mutable {
+                        // Mutable method: self can be mutated
+                        self.mutable_vars.insert("self".to_string());
+                    } else {
+                        // Immutable method: self is immutable
+                        self.immutable_vars.insert("self".to_string());
+                    }
+                }
+
                 // Check function body
                 for stmt in &func.body.statements {
                     self.check_statement(stmt)?;
@@ -61,8 +72,41 @@ impl ImmutabilityChecker {
 
                 Ok(())
             }
-            Item::Struct(_)
-            | Item::Enum(_)
+            Item::Struct(strukt) => {
+                // ⭐ NEW: Check struct methods
+                for method in &strukt.methods {
+                    // Create new scope for method
+                    let saved_immutable = self.immutable_vars.clone();
+                    let saved_mutable = self.mutable_vars.clone();
+
+                    // Method parameters are always mutable (local bindings)
+                    for param in &method.params {
+                        self.mutable_vars.insert(param.name.clone());
+                    }
+
+                    // Handle method receiver (self)
+                    // Methods always have implicit or explicit receiver
+                    if method.is_mutable {
+                        // Mutable method: self can be mutated
+                        self.mutable_vars.insert("self".to_string());
+                    } else {
+                        // Immutable method: self is immutable
+                        self.immutable_vars.insert("self".to_string());
+                    }
+
+                    // Check method body
+                    for stmt in &method.body.statements {
+                        self.check_statement(stmt)?;
+                    }
+
+                    // Restore scope
+                    self.immutable_vars = saved_immutable;
+                    self.mutable_vars = saved_mutable;
+                }
+
+                Ok(())
+            }
+            Item::Enum(_)
             | Item::Trait(_)
             | Item::TraitImpl(_)
             | Item::TypeAlias(_)
@@ -98,14 +142,42 @@ impl ImmutabilityChecker {
             }
 
             Statement::Assign { target, value } => {
-                // Check if assigning to immutable variable
-                if let Expression::Ident(name) = target {
-                    if self.immutable_vars.contains(name) {
-                        return Err(BorrowError::AssignToImmutable {
-                            variable: name.clone(),
-                            location: None, // TODO: Add location tracking
-                        });
+                // Check if assigning to immutable variable or its fields
+                match target {
+                    Expression::Ident(name) => {
+                        // Direct assignment: x = ...
+                        if self.immutable_vars.contains(name) {
+                            return Err(BorrowError::AssignToImmutable {
+                                variable: name.clone(),
+                                location: None,
+                            });
+                        }
                     }
+                    Expression::FieldAccess { object, field } => {
+                        // Field assignment: x.field = ...
+                        // ⭐ NEW: Check if base object is immutable
+                        if let Expression::Ident(base_name) = &**object {
+                            if self.immutable_vars.contains(base_name) {
+                                return Err(BorrowError::AssignToImmutableField {
+                                    variable: base_name.clone(),
+                                    field: field.clone(),
+                                    location: None,
+                                });
+                            }
+                        }
+                    }
+                    Expression::Index { object, .. } => {
+                        // Index assignment: x[i] = ...
+                        if let Expression::Ident(base_name) = &**object {
+                            if self.immutable_vars.contains(base_name) {
+                                return Err(BorrowError::AssignToImmutable {
+                                    variable: base_name.clone(),
+                                    location: None,
+                                });
+                            }
+                        }
+                    }
+                    _ => {}
                 }
 
                 // Check the value expression

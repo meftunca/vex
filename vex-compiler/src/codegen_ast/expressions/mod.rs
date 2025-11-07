@@ -119,7 +119,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 receiver,
                 method,
                 args,
-            } => self.compile_method_call(receiver, method, args),
+                is_mutable_call,
+            } => self.compile_method_call(receiver, method, args, *is_mutable_call),
 
             Expression::Index { object, index } => self.compile_index(object, index),
 
