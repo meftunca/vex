@@ -1,0 +1,47 @@
+// Comprehensive print test
+
+fn test_all_types() {
+    println("=== Type Testing ===");
+    
+    // Integers
+    let i32_val: i32 = 42;
+    let i64_val: i64 = 123456789;
+    
+    print("i32: ");
+    println(i32_val);
+    
+    print("i64: ");
+    println(i64_val);
+    
+    // Floats
+    let f32_val: f32 = 3.14;
+    let f64_val: f64 = 2.718281828;
+    
+    print("f32: ");
+    println(f32_val);
+    
+    print("f64: ");
+    println(f64_val);
+    
+    // Strings
+    let name = "Vex";
+    print("String: ");
+    println(name);
+    
+    // Mixed
+    println("");
+    println("=== Mixed Output ===");
+    print("Name: ");
+    print("Vex");
+    print(", Value: ");
+    println(i32_val);
+}
+
+fn main(): i32 {
+    test_all_types();
+    
+    println("");
+    println("✅ All print tests passed!");
+    
+    return 0;
+}

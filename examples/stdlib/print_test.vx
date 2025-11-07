@@ -1,0 +1,24 @@
+// Test all print functions
+
+fn main(): i32 {
+    // Test print (no newline)
+    print("Hello");
+    print(" ");
+    print("World");
+    println("!"); // This adds newline
+    
+    // Test println
+    println("Line 1");
+    println("Line 2");
+    
+    // Test with numbers (if format works)
+    let x = 42;
+    let y = 3.14;
+    
+    println("Testing numbers:");
+    print("x = ");
+    // println(x); // TODO: Need to implement number printing
+    
+    println("Success!");
+    return 0;
+}

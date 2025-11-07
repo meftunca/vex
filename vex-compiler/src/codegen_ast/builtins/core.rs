@@ -16,11 +16,23 @@ pub fn builtin_print<'ctx>(
 
     // Determine format string based on type (NO newline)
     match val {
-        BasicValueEnum::IntValue(_) => {
-            codegen.build_printf("%d", &[val])?;
+        BasicValueEnum::IntValue(int_val) => {
+            // Check bit width: i32 vs i64
+            let bit_width = int_val.get_type().get_bit_width();
+            if bit_width == 64 {
+                codegen.build_printf("%lld", &[val])?;
+            } else {
+                codegen.build_printf("%d", &[val])?;
+            }
         }
-        BasicValueEnum::FloatValue(_) => {
-            codegen.build_printf("%f", &[val])?;
+        BasicValueEnum::FloatValue(float_val) => {
+            // Check if f32 or f64
+            let float_type = float_val.get_type();
+            if float_type == codegen.context.f64_type() {
+                codegen.build_printf("%g", &[val])?; // %g for cleaner output
+            } else {
+                codegen.build_printf("%g", &[val])?;
+            }
         }
         BasicValueEnum::PointerValue(_) => {
             // String (i8* pointer)
@@ -48,11 +60,23 @@ pub fn builtin_println<'ctx>(
 
     // Determine format string based on type (WITH newline)
     match val {
-        BasicValueEnum::IntValue(_) => {
-            codegen.build_printf("%d\n", &[val])?;
+        BasicValueEnum::IntValue(int_val) => {
+            // Check bit width: i32 vs i64
+            let bit_width = int_val.get_type().get_bit_width();
+            if bit_width == 64 {
+                codegen.build_printf("%lld\n", &[val])?;
+            } else {
+                codegen.build_printf("%d\n", &[val])?;
+            }
         }
-        BasicValueEnum::FloatValue(_) => {
-            codegen.build_printf("%f\n", &[val])?;
+        BasicValueEnum::FloatValue(float_val) => {
+            // Check if f32 or f64
+            let float_type = float_val.get_type();
+            if float_type == codegen.context.f64_type() {
+                codegen.build_printf("%g\n", &[val])?;
+            } else {
+                codegen.build_printf("%g\n", &[val])?;
+            }
         }
         BasicValueEnum::PointerValue(_) => {
             // String (i8* pointer)

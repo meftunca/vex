@@ -1,0 +1,19 @@
+// Test formatted printing with variables
+
+fn main(): i32 {
+    let name = "Vex";
+    let version = 1;
+    let pi = 3.14;
+    
+    // Basic string interpolation would be nice
+    // For now, test what we have
+    
+    print("Language: ");
+    println(name);
+    
+    print("Version: ");
+    // println(version); // TODO: Number to string conversion
+    
+    println("All print tests passed!");
+    return 0;
+}

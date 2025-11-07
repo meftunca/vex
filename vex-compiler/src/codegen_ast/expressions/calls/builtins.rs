@@ -1323,20 +1323,29 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     .map_err(|e| format!("Failed to load received pointer: {}", e))?
                     .into_pointer_value();
 
-                // Cast and load the actual value
-                let typed_ptr = self
-                    .builder
-                    .build_pointer_cast(
-                        received_ptr,
-                        self.context.ptr_type(inkwell::AddressSpace::default()),
-                        "result_typed_ptr",
-                    )
-                    .map_err(|e| format!("Failed to cast result pointer: {}", e))?;
-
+                // Load the actual value from heap
                 let value = self
                     .builder
-                    .build_load(elem_type, typed_ptr, "recv_value")
+                    .build_load(elem_type, received_ptr, "recv_value")
                     .map_err(|e| format!("Failed to load recv value: {}", e))?;
+
+                // Free the heap-allocated memory (sender malloc'd it)
+                let free_fn = if let Some(func) = self.module.get_function("free") {
+                    func
+                } else {
+                    let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                    let void_type = self.context.void_type();
+                    let fn_type = void_type.fn_type(&[ptr_type.into()], false);
+                    self.module.add_function(
+                        "free",
+                        fn_type,
+                        Some(inkwell::module::Linkage::External),
+                    )
+                };
+
+                self.builder
+                    .build_call(free_fn, &[received_ptr.into()], "free_recv_value")
+                    .map_err(|e| format!("Failed to call free: {}", e))?;
 
                 Ok(Some(value))
             }

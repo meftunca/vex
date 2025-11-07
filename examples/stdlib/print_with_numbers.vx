@@ -1,0 +1,17 @@
+// Test builtin print with numbers
+
+fn main(): i32 {
+    let x: i32 = 42;
+    let y: f64 = 3.14;
+    let flag: bool = true;
+    
+    print("Integer x = ");
+    println(x);
+    
+    print("Float y = ");
+    println(y);
+    
+    println("String test works!");
+    
+    return 0;
+}

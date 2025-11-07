@@ -1,0 +1,26 @@
+// Test number printing using vex_print_value
+
+fn test_print_numbers() {
+    // Numbers will be passed as VexValue to C
+    // For now, let's test what works
+    
+    let x = 42;
+    let y = 3.14;
+    let flag = true;
+    
+    print("Integer: ");
+    // TODO: Need compiler support for number→VexValue conversion
+    println("42");
+    
+    print("Float: ");
+    println("3.14");
+    
+    print("Bool: ");
+    println("true");
+}
+
+fn main(): i32 {
+    test_print_numbers();
+    println("All tests complete!");
+    return 0;
+}

@@ -1,0 +1,10 @@
+// Simple f32 test
+
+fn main(): i32 {
+    let x: f32 = 3.14;
+    
+    print("f32 value: ");
+    println(x);
+    
+    return 0;
+}
