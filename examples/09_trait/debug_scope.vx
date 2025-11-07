@@ -1,0 +1,21 @@
+// Minimal debug test
+
+fn double(x: i32): i32 {
+    print("double called with: ", x);
+    return x * 2;
+}
+
+struct Test {
+    val: i32,
+    
+    fn (self: &Test!) run(): i32 {
+        let result = double(5);
+        print("Got result: ", result);
+        return result;
+    }
+}
+
+fn main(): i32 {
+    let! t = Test { val: 10 };
+    return t.run();
+}

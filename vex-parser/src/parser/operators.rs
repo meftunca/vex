@@ -199,13 +199,46 @@ impl<'a> Parser<'a> {
                 self.consume(&Token::RParen, "Expected ')' after arguments")?;
 
                 // Method syntax sugar: in method body, convert identifier calls to method calls
+                // EXCEPT for builtin functions (print, println, panic, etc.)
                 if self.in_method_body && matches!(expr, Expression::Ident(_)) {
-                    if let Expression::Ident(name) = expr {
-                        expr = Expression::MethodCall {
-                            receiver: Box::new(Expression::Ident("self".to_string())),
-                            method: name,
-                            args,
-                        };
+                    if let Expression::Ident(name) = &expr {
+                        // Check if this is a builtin function - don't convert to method call
+                        let is_builtin = matches!(
+                            name.as_str(),
+                            "print"
+                                | "println"
+                                | "panic"
+                                | "assert"
+                                | "unreachable"
+                                | "alloc"
+                                | "free"
+                                | "realloc"
+                                | "sizeof"
+                                | "alignof"
+                                | "Some"
+                                | "None"
+                                | "Ok"
+                                | "Err"
+                                | "vec_new"
+                                | "vec_with_capacity"
+                                | "box_new"
+                                | "string_new"
+                        );
+
+                        if is_builtin {
+                            // This is a builtin function - compile as regular function call
+                            expr = Expression::Call {
+                                func: Box::new(expr),
+                                args,
+                            };
+                        } else {
+                            // This is a method call on self
+                            expr = Expression::MethodCall {
+                                receiver: Box::new(Expression::Ident("self".to_string())),
+                                method: name.clone(),
+                                args,
+                            };
+                        }
                     }
                 } else {
                     expr = Expression::Call {

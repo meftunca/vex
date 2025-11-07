@@ -47,6 +47,18 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }
 
             Expression::Ident(name) => {
+                // Check if this is a builtin function first (before variables/functions)
+                // This ensures builtins like print() work inside method bodies
+                if self.builtins.is_builtin(name) {
+                    // This is a builtin function - return a dummy function pointer
+                    // The actual builtin will be called via compile_call()
+                    // For now, return a zero pointer (builtins are handled specially)
+                    return Err(format!(
+                        "Builtin function '{}' cannot be used as a value (must be called directly)",
+                        name
+                    ));
+                }
+
                 // Check if this is a function pointer parameter first
                 if let Some(fn_ptr) = self.function_params.get(name) {
                     // Return function pointer directly

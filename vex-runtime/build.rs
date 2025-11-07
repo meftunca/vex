@@ -16,6 +16,17 @@ fn main() {
         async_io_dir.join("src/lockfree_queue.c"),
         async_io_dir.join("src/common.c"),
         c_dir.join("vex_channel.c"),
+        c_dir.join("vex_io.c"),         // I/O functions (print, println, etc.)
+        c_dir.join("vex_alloc.c"),      // Memory allocation
+        c_dir.join("vex_memory.c"),     // Memory operations (vex_memcpy, etc.)
+        c_dir.join("vex_error.c"),      // Error handling (vex_panic, etc.)
+        c_dir.join("vex_array.c"),      // Array operations (fixed-size)
+        c_dir.join("vex_vec.c"),        // Vec<T> dynamic array operations
+        c_dir.join("vex_box.c"),        // Box<T> heap allocations
+        c_dir.join("vex_swisstable.c"), // HashMap<K,V> (Google Swiss Tables)
+        c_dir.join("vex_set.c"),        // Set<T> operations
+        c_dir.join("vex_string.c"),     // String operations
+        c_dir.join("vex_string_type.c"), // String type implementation
     ];
 
     // Detect platform and add appropriate poller

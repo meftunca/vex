@@ -53,6 +53,9 @@ impl<'a> Parser<'a> {
 
     /// Parse closure/lambda: |x, y| expr or |x: i32, y: i32| { body }
     pub(crate) fn parse_closure(&mut self) -> Result<Expression, ParseError> {
+        // Consume opening pipe: |
+        self.consume(&Token::Pipe, "Expected '|' at start of closure")?;
+
         // Parse parameters: |x, y| or |x: i32, y: i32|
         let mut params = Vec::new();
 

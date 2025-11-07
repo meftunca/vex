@@ -205,6 +205,23 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
                     default_method_name
                 } else {
+                    // Method not found - check if this is a global function call
+                    // This handles cases where parser incorrectly converted function calls to method calls
+                    // in method bodies (e.g., log2(msg) parsed as self.log2(msg))
+                    if self.functions.contains_key(method)
+                        || self.function_defs.contains_key(method)
+                    {
+                        // This is a global function, not a method!
+                        // Convert method call to regular function call
+                        eprintln!(
+                            "⚠️  Method '{}' not found on struct '{}', trying as global function",
+                            method, struct_name
+                        );
+
+                        // Compile as regular function call (without receiver)
+                        return self.compile_call(&Expression::Ident(method.to_string()), args);
+                    }
+
                     return Err(format!(
                         "Method '{}' not found for struct '{}' (neither as struct method, trait method, nor default trait method)",
                         method, struct_name

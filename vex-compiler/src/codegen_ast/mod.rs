@@ -483,6 +483,20 @@ impl<'ctx> ASTCodeGen<'ctx> {
         Ok(load_result)
     }
 
+    /// Unified print/println handler - supports both format strings and variadic mode
+    ///
+    /// Dispatches to either:
+    /// - compile_print_fmt() if first arg is string literal with "{}"
+    /// - compile_print_variadic() otherwise (Go-style space-separated)
+    pub fn compile_print_call(
+        &mut self,
+        func_name: &str,
+        ast_args: &[Expression],
+        compiled_args: &[BasicValueEnum<'ctx>],
+    ) -> Result<BasicValueEnum<'ctx>, String> {
+        builtins::compile_print_call(self, func_name, ast_args, compiled_args)
+    }
+
     /// Compile to object file
     pub fn compile_to_object(&self, output_path: &Path) -> Result<(), String> {
         Target::initialize_native(&InitializationConfig::default())

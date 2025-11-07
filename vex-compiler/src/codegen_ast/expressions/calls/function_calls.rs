@@ -70,6 +70,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
         if let Expression::Ident(func_name) = func_expr {
             // Direct function call by name
 
+            // Special case: print/println with format string detection
+            if func_name == "print" || func_name == "println" {
+                return self.compile_print_call(func_name, args, &arg_basic_vals);
+            }
+
             // Check if this is a builtin function
             if let Some(builtin_fn) = self.builtins.get(func_name) {
                 return builtin_fn(self, &arg_basic_vals);

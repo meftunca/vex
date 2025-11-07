@@ -1,0 +1,4 @@
+fn main(): i32 {
+    println("x =", 42, "y =", 3.14);
+    return 0;
+}

@@ -1,0 +1,70 @@
+// Test: Method vs Global Function Resolution
+// Production-level scope handling test
+
+// Global helper function
+fn helper(x: i32): i32 {
+    return x * 2;
+}
+
+// Another global function
+fn calculate(a: i32, b: i32): i32 {
+    return a + b;
+}
+
+struct Calculator {
+    value: i32,
+    
+    // Method that calls both global functions and own methods
+    fn (self: &Calculator!) compute(x: i32): i32 {
+        // Call global function (should resolve via codegen fallback)
+        // NOTE: There's ALSO a method named 'helper' - parser will create method call
+        // but codegen should detect struct method exists and use it (NOT global)
+        let doubled = helper(x); // Will call Calculator.helper (x * 3) = 15
+        
+        // Call another global function (no name collision)
+        let sum = calculate(doubled, self.value); // calculate(15, 100) = 115
+        
+        // Call own method (explicit self)
+        let result = self.add_ten(sum); // 115 + 10 = 125
+        
+        // Call builtin function
+        print("Result: ", result);
+        
+        return result;
+    }
+    
+    // Private method
+    fn (self: &Calculator!) add_ten(x: i32): i32 {
+        return x + 10;
+    }
+    
+    // Method with same name as global function (should call method, not global)
+    fn (self: &Calculator!) helper(x: i32): i32 {
+        // This should call the METHOD, not the global helper()
+        return x * 3; // Different behavior
+    }
+    
+    // Test method calling method with same name as global
+    fn (self: &Calculator!) test_shadow(): i32 {
+        // This should call Calculator.helper (method), not global helper()
+        return self.helper(5); // Should return 15, not 10
+    }
+}
+
+fn main(): i32 {
+    let! calc = Calculator { value: 100 };
+    
+    // Test 1: Method calling global functions
+    let result1 = calc.compute(5);
+    // Expected: helper(5) = 10, calculate(10, 100) = 110, add_ten(110) = 120
+    
+    // Test 2: Method shadowing global function
+    let result2 = calc.test_shadow();
+    // Expected: 15 (method version: 5 * 3)
+    
+    // Test 3: Direct global function call
+    let result3 = helper(7);
+    // Expected: 14
+    
+    return 0;
+}
