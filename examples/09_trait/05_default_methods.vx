@@ -1,22 +1,11 @@
-// Test default trait methods
-// Trait with both required and default methods
+// Test trait methods (signature only)
+// Traits can only have method signatures, no body
 
 trait Logger {
-    // Required method (no body)
+    // All methods are signatures only (no body)
     fn (self: &Self!) log(msg: string);
-    
-    // Default method (has body)
-    fn (self: &Self!) info(msg: string) {
-        // Default implementation calls log
-        self.log(msg);
-        return;
-    }
-    
-    // Another default method
-    fn (self: &Self!) debug(msg: string) {
-        self.log(msg);
-        return;
-    }
+    fn (self: &Self!) info(msg: string);
+    fn (self: &Self!) debug(msg: string);
 }
 
 fn log2(msg: string) {
@@ -28,23 +17,29 @@ fn log2(msg: string) {
 struct ConsoleLogger impl Logger {
     prefix: string,
     
-    // Must implement required method
+    // Must implement all methods from trait
     fn (self: &ConsoleLogger!) log(msg: string) {
-        // Call builtin print function
-        log2( msg);
+        log2(msg);
         return;
     }
     
-    // info() and debug() inherited from trait defaults
+    fn (self: &ConsoleLogger!) info(msg: string) {
+        print("[INFO] ");
+        self.log(msg);
+        return;
+    }
+    
+    fn (self: &ConsoleLogger!) debug(msg: string) {
+        print("[DEBUG] ");
+        self.log(msg);
+        return;
+    }
 }
 
 fn main(): i32 {
     let! logger = ConsoleLogger { prefix: ">>>" };
     
-    // Call explicitly implemented method
     logger.log("explicit");
-    
-    // Call default methods (should work!)
     logger.info("info message");
     logger.debug("debug message");
     

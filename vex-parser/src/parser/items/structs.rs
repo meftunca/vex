@@ -70,35 +70,55 @@ impl<'a> Parser<'a> {
     }
 
     /// Parse a method inside a struct body
+    /// 
+    /// Supports two syntaxes:
+    /// 1. Golang-style: fn (self: &Type) method_name(...)
+    /// 2. Simplified: fn method_name(...) - receiver auto-detected from body
     fn parse_struct_method(&mut self) -> Result<Function, ParseError> {
         self.consume(&Token::Fn, "Expected 'fn'")?;
 
-        // Parse receiver: (self: &StructName) or (self: &StructName!)
-        // Syntax: fn (self: &Type) method_name(...)
+        // Check for Golang-style receiver: fn (self: &Type) method_name(...)
         let receiver = if self.check(&Token::LParen) {
+            // Peek to see if this is a receiver or method name
+            let checkpoint = self.current;
             self.advance(); // consume '('
-            let param_name = self.consume_identifier()?;
-            if param_name != "self" {
-                return Err(self.error("First parameter of method must be 'self'"));
-            }
-            self.consume(&Token::Colon, "Expected ':' after 'self'")?;
-
-            let ty = self.parse_type()?;
-            self.consume(&Token::RParen, "Expected ')' after receiver")?;
-
-            // Determine mutability from the type
-            let is_mutable = if let Type::Reference(_, is_mut) = &ty {
-                *is_mut
+            
+            // Check if this looks like a receiver: (self: Type) or (self!: Type)
+            let next_is_self = if let Token::Ident(name) = self.peek() {
+                name == "self"
             } else {
                 false
             };
+            
+            if next_is_self {
+                // Golang-style: fn (self: &Type) method_name(...)
+                let param_name = self.consume_identifier()?;
+                if param_name != "self" {
+                    return Err(self.error("First parameter of method must be 'self'"));
+                }
+                self.consume(&Token::Colon, "Expected ':' after 'self'")?;
 
-            Some(Receiver { is_mutable, ty })
+                let ty = self.parse_type()?;
+                self.consume(&Token::RParen, "Expected ')' after receiver")?;
+
+                // Determine mutability from the type
+                let is_mutable = if let Type::Reference(_, is_mut) = &ty {
+                    *is_mut
+                } else {
+                    false
+                };
+
+                Some(Receiver { is_mutable, ty })
+            } else {
+                // Not a receiver, backtrack - this is method name
+                self.current = checkpoint;
+                None
+            }
         } else {
             None
         };
 
-        // Method name comes AFTER receiver: fn (self: &T) method_name(...)
+        // Method name (comes after receiver in golang-style, or directly after 'fn' in simplified)
         let name = self.consume_identifier()?;
 
         // Parameters: (param1: T1, param2: T2)
@@ -113,9 +133,11 @@ impl<'a> Parser<'a> {
             None
         };
 
+        // For simplified syntax (no explicit receiver), we still allow 'self' usage
+        // in_method_body flag will be true for ANY method inside struct
         // Method body
         let was_in_method = self.in_method_body;
-        self.in_method_body = receiver.is_some();
+        self.in_method_body = true; // Always true for struct methods
         let body = self.parse_block()?;
         self.in_method_body = was_in_method;
 

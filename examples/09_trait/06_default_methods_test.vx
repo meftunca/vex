@@ -1,33 +1,32 @@
-// Test default trait methods with actual output
+// Test trait methods (all signatures only)
 
 trait Greeter {
-    // Required method (no body)
+    // All methods are signatures only (no body)
     fn (self: &Self!) get_name(): string;
-    
-    // Default method that uses required method
-    fn (self: &Self!) greet(): i32 {
-        let name = self.get_name();
-        print("Hello from default method!");
-        return 0;
-    }
-    
-    // Another default method
-    fn (self: &Self!) farewell(): i32 {
-        print("Goodbye from default method!");
-        return 0;
-    }
+    fn (self: &Self!) greet(): i32;
+    fn (self: &Self!) farewell(): i32;
 }
 
 struct Person impl Greeter {
     name: string,
     age: i32,
     
-    // Must implement required method
+    // Implement all methods
     fn (self: &Person!) get_name(): string {
         return self.name;
     }
     
-    // greet() and farewell() inherited from trait defaults
+    fn (self: &Person!) greet(): i32 {
+        let name = self.get_name();
+        print("Hello, ", name, "!");
+        return 0;
+    }
+    
+    fn (self: &Person!) farewell(): i32 {
+        print("Goodbye!");
+        return 0;
+    }
+
 }
 
 fn main(): i32 {

@@ -1,19 +1,12 @@
 // Vex v1.3 Trait System Example
 // struct ... impl Trait { ... methods ... }
 
-// 1. Define a trait with required and default methods
+// 1. Define a trait (signatures only - no body)
 trait Logger {
-    // Required method (signature only)
+    // All methods are signatures only
     fn (self: &Self!) log(level: string, msg: string);
-    
-    // Default method (can be overridden)
-    fn (self: &Self!) info(msg: string) {
-        self.log("INFO", msg);
-    }
-    
-    fn (self: &Self!) warn(msg: string) {
-        self.log("WARN", msg);
-    }
+    fn (self: &Self!) info(msg: string);
+    fn (self: &Self!) warn(msg: string);
 }
 
 // 2. Struct with inline trait implementation
@@ -21,20 +14,27 @@ struct FileLogger impl Logger {
     // Fields
     path: string,
     
-    // Trait implementation (inline)
+    // Implement all trait methods (inline)
     fn (self: &FileLogger!) log(level: string, msg: string) {
         // Implementation here
-        // write to file...
+        print("[", level, "] ", msg);
+        return;
     }
     
-    // Override default method (optional)
+    fn (self: &FileLogger!) info(msg: string) {
+        self.log("INFO", msg);
+        return;
+    }
+    
     fn (self: &FileLogger!) warn(msg: string) {
-        self.log("WARNING", msg);  // Custom behavior
+        self.log("WARNING", msg);
+        return;
     }
     
     // Struct-specific method (not from trait)
     fn (self: &FileLogger!) close() {
         // Close file
+        return;
     }
 }
 
@@ -43,10 +43,19 @@ struct ConsoleLogger impl Logger {
     prefix: string,
     
     fn (self: &ConsoleLogger!) log(level: string, msg: string) {
-        // Print to console
+        print(self.prefix, " [", level, "] ", msg);
+        return;
     }
     
-    // Use default info() and error() methods
+    fn (self: &ConsoleLogger!) info(msg: string) {
+        self.log("INFO", msg);
+        return;
+    }
+    
+    fn (self: &ConsoleLogger!) warn(msg: string) {
+        self.log("WARN", msg);
+        return;
+    }
 }
 
 fn main(): i32 {

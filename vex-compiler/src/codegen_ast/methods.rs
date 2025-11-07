@@ -13,9 +13,18 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let mangled_name = format!("{}_{}", struct_name, method.name);
 
         let mut param_types: Vec<inkwell::types::BasicMetadataTypeEnum> = Vec::new();
+        
+        // Add receiver parameter (explicit or implicit)
         if let Some(ref receiver) = method.receiver {
+            // Explicit receiver: fn (self: &T) method()
             param_types.push(self.ast_type_to_llvm(&receiver.ty).into());
+        } else {
+            // Implicit receiver: fn method() - auto-generate &StructName! parameter (mutable by default)
+            // This allows both read and write access to struct fields
+            let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+            param_types.push(ptr_type.into());
         }
+        
         for param in &method.params {
             param_types.push(self.ast_type_to_llvm(&param.ty).into());
         }
@@ -65,21 +74,18 @@ impl<'ctx> ASTCodeGen<'ctx> {
         self.variable_types.clear();
         self.variable_struct_names.clear();
 
-        let mut param_offset = 0;
+        let param_offset;
+        
+        // Handle both explicit receiver (golang-style) and implicit receiver (simplified syntax)
         if let Some(ref receiver) = method.receiver {
+            // Explicit receiver: fn (self: &T) method()
+            // Receiver is already a POINTER (&T or &T!), so we DON'T need alloca
             let param_val = fn_val.get_nth_param(0).ok_or("Missing receiver parameter")?;
             let receiver_ty = self.ast_type_to_llvm(&receiver.ty);
 
-            let alloca = self
-                .builder
-                .build_alloca(receiver_ty, "self")
-                .map_err(|e| format!("Failed to create receiver alloca: {}", e))?;
-
-            self.builder
-                .build_store(alloca, param_val)
-                .map_err(|e| format!("Failed to store receiver: {}", e))?;
-
-            self.variables.insert("self".to_string(), alloca);
+            // Store receiver DIRECTLY (it's already a pointer, no need for alloca+store)
+            let self_ptr = param_val.into_pointer_value();
+            self.variables.insert("self".to_string(), self_ptr);
             self.variable_types.insert("self".to_string(), receiver_ty);
 
             let struct_name_opt = match &receiver.ty {
@@ -101,6 +107,27 @@ impl<'ctx> ASTCodeGen<'ctx> {
             } else {
                 eprintln!("   ❌ No struct name extracted from receiver type!");
             }
+
+            param_offset = 1;
+        } else {
+            // Implicit receiver: fn method() - auto-create immutable reference receiver
+            eprintln!(
+                "📝 Simplified method syntax: auto-generating receiver &{} for method {}",
+                struct_name, method.name
+            );
+            
+            let param_val = fn_val.get_nth_param(0).ok_or("Missing implicit receiver parameter")?;
+            
+            // Create pointer type for receiver (it's already a pointer parameter)
+            let receiver_ty = self.context.ptr_type(inkwell::AddressSpace::default());
+
+            // Store receiver DIRECTLY (no alloca needed, it's already a pointer)
+            let self_ptr = param_val.into_pointer_value();
+            self.variables.insert("self".to_string(), self_ptr);
+            self.variable_types.insert("self".to_string(), receiver_ty.into());
+            self.variable_struct_names.insert("self".to_string(), struct_name.to_string());
+
+            eprintln!("   ✅ Implicit receiver tracked as struct: {}", struct_name);
 
             param_offset = 1;
         }

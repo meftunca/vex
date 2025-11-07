@@ -157,30 +157,22 @@ impl<'a> Parser<'a> {
             None
         };
 
-        // Trait methods can have optional default implementation
-        let body = if self.match_token(&Token::LBrace) {
-            // Default implementation - parse until closing brace
-            let mut statements = Vec::new();
-            while !self.check(&Token::RBrace) && !self.is_at_end() {
-                statements.push(self.parse_statement()?);
-            }
-            self.consume(&Token::RBrace, "Expected '}' after method body")?;
-            Some(Block { statements })
-        } else {
-            // Required method (signature only)
-            self.consume(
-                &Token::Semicolon,
-                "Expected ';' or '{' after trait method signature",
-            )?;
-            None
-        };
+        // Trait methods MUST be signatures only (no body allowed)
+        if self.check(&Token::LBrace) {
+            return Err(self.error("Trait methods cannot have a body. Use only method signature with ';'"));
+        }
+        
+        self.consume(
+            &Token::Semicolon,
+            "Expected ';' after trait method signature",
+        )?;
 
         Ok(TraitMethod {
             name,
             receiver,
             params,
             return_type,
-            body,
+            body: None, // Traits never have body
         })
     }
 }
