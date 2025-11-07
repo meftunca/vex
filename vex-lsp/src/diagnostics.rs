@@ -46,6 +46,7 @@ fn error_level_to_severity(level: ErrorLevel) -> DiagnosticSeverity {
     match level {
         ErrorLevel::Error => DiagnosticSeverity::ERROR,
         ErrorLevel::Warning => DiagnosticSeverity::WARNING,
+        ErrorLevel::Info => DiagnosticSeverity::INFORMATION,
         ErrorLevel::Note => DiagnosticSeverity::INFORMATION,
         ErrorLevel::Help => DiagnosticSeverity::HINT,
     }

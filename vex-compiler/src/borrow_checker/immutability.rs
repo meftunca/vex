@@ -16,6 +16,9 @@ pub struct ImmutabilityChecker {
 
     /// Builtin function registry for identifying builtin functions
     builtin_registry: super::builtin_metadata::BuiltinBorrowRegistry,
+
+    /// Current function being checked (for error location tracking)
+    current_function: Option<String>,
 }
 
 impl ImmutabilityChecker {
@@ -24,6 +27,7 @@ impl ImmutabilityChecker {
             immutable_vars: HashSet::new(),
             mutable_vars: HashSet::new(),
             builtin_registry: super::builtin_metadata::BuiltinBorrowRegistry::new(),
+            current_function: None,
         }
     }
 
@@ -41,6 +45,9 @@ impl ImmutabilityChecker {
 
         match item {
             Item::Function(func) => {
+                // Track current function name for error messages
+                self.current_function = Some(func.name.clone());
+
                 // Create new scope for function
                 let saved_immutable = self.immutable_vars.clone();
                 let saved_mutable = self.mutable_vars.clone();
@@ -69,6 +76,7 @@ impl ImmutabilityChecker {
                 // Restore scope
                 self.immutable_vars = saved_immutable;
                 self.mutable_vars = saved_mutable;
+                self.current_function = None;
 
                 Ok(())
             }
@@ -147,9 +155,13 @@ impl ImmutabilityChecker {
                     Expression::Ident(name) => {
                         // Direct assignment: x = ...
                         if self.immutable_vars.contains(name) {
+                            let location = self
+                                .current_function
+                                .as_ref()
+                                .map(|f| format!("in function `{}`", f));
                             return Err(BorrowError::AssignToImmutable {
                                 variable: name.clone(),
-                                location: None,
+                                location,
                             });
                         }
                     }
@@ -158,10 +170,14 @@ impl ImmutabilityChecker {
                         // ⭐ NEW: Check if base object is immutable
                         if let Expression::Ident(base_name) = &**object {
                             if self.immutable_vars.contains(base_name) {
+                                let location = self
+                                    .current_function
+                                    .as_ref()
+                                    .map(|f| format!("in function `{}`", f));
                                 return Err(BorrowError::AssignToImmutableField {
                                     variable: base_name.clone(),
                                     field: field.clone(),
-                                    location: None,
+                                    location,
                                 });
                             }
                         }
@@ -170,9 +186,13 @@ impl ImmutabilityChecker {
                         // Index assignment: x[i] = ...
                         if let Expression::Ident(base_name) = &**object {
                             if self.immutable_vars.contains(base_name) {
+                                let location = self
+                                    .current_function
+                                    .as_ref()
+                                    .map(|f| format!("in function `{}`", f));
                                 return Err(BorrowError::AssignToImmutable {
                                     variable: base_name.clone(),
-                                    location: None,
+                                    location,
                                 });
                             }
                         }
@@ -199,7 +219,7 @@ impl ImmutabilityChecker {
                 Ok(())
             }
 
-            Statement::If {
+            Statement::If { span_id: _, 
                 condition,
                 then_block,
                 elif_branches,
@@ -230,7 +250,7 @@ impl ImmutabilityChecker {
                 Ok(())
             }
 
-            Statement::While { condition, body } => {
+            Statement::While { span_id: _,  condition, body } => {
                 // Check condition
                 self.check_expression(condition)?;
 
@@ -242,7 +262,7 @@ impl ImmutabilityChecker {
                 Ok(())
             }
 
-            Statement::For {
+            Statement::For { span_id: _, 
                 init,
                 condition,
                 post,
@@ -302,18 +322,18 @@ impl ImmutabilityChecker {
     /// Check an expression (may contain nested assignments)
     fn check_expression(&mut self, expr: &Expression) -> BorrowResult<()> {
         match expr {
-            Expression::Binary { left, right, .. } => {
+            Expression::Binary { span_id: _,  left, right, .. } => {
                 self.check_expression(left)?;
                 self.check_expression(right)?;
                 Ok(())
             }
 
-            Expression::Unary { expr, .. } => {
+            Expression::Unary { span_id: _,  expr, .. } => {
                 self.check_expression(expr)?;
                 Ok(())
             }
 
-            Expression::Call { func, args } => {
+            Expression::Call { span_id: _,  func, args } => {
                 // Skip checking builtin function names as variables
                 if let Expression::Ident(func_name) = func.as_ref() {
                     if !self.builtin_registry.is_builtin(func_name) {

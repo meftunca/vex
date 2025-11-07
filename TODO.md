@@ -10,7 +10,7 @@
 
 **Focus:** Developer Experience + Performance
 
-### Phase 1: Error Messages (1.5 days) 🔴 CURRENT
+### Phase 1: Error Messages (1.5 days) � IN PROGRESS
 
 **Goal:** Rust-quality error messages with spans, colors, and suggestions
 
@@ -23,15 +23,62 @@ After:  error[E0308]: mismatched types
            |                     ^^^^^^^ expected `i32`, found `string`
 ```
 
-- [ ] Span tracking (line, col, file) - 2h
-- [ ] Error struct with context - 2h
-- [ ] Colored output (red, yellow, cyan) - 1h
-- [ ] Parser: "Expected X, found Y" - 2h
-- [ ] Type errors with full context - 2h
-- [ ] Borrow checker formatting - 1h
-- [ ] Suggestion system ("Did you mean?") - 2h
+**Status:** Foundation Complete (Phase 1.1-1.3 Done)
 
-**Total:** 12 hours (1.5 days)
+✅ **Phase 1.1: Diagnostic System Foundation** (2h)
+
+- ✅ Created `vex-diagnostics` crate (breaks cyclic dependency)
+- ✅ `Span` struct (file, line, column, length)
+- ✅ `Diagnostic` struct (level, code, message, span, notes, help, suggestion)
+- ✅ `DiagnosticEngine` (collection, printing, JSON export)
+- ✅ 60+ error codes (E0001-E0899 errors, W0001+ warnings, I0001+ info)
+- ✅ Colored terminal output (red errors, yellow warnings, blue info)
+- ✅ Helper methods: `type_mismatch()`, `undefined_variable()`, etc.
+
+✅ **Phase 1.2: Parser Integration** (2h)
+
+- ✅ Refactored `ParseError` to use `Diagnostic`
+- ✅ Updated parser error sites (mod.rs, primaries.rs)
+- ✅ LSP integration (backend.rs, diagnostics.rs)
+- ✅ All builds successful
+
+✅ **Phase 1.3: Type Checker Integration** (2h)
+
+- ✅ Added `DiagnosticEngine` to `ASTCodeGen` struct
+- ✅ Updated `registry.rs` trait impl errors with diagnostics
+- ✅ Updated `statements/mod.rs` unimplemented statement error
+- ✅ Public accessor methods: `diagnostics()`, `has_diagnostics()`, `has_errors()`
+- ✅ CLI integration: Print diagnostics after compilation
+
+✅ **Phase 1.4: Borrow Checker Integration** (1h)
+
+- ✅ Added `to_diagnostic()` method to `BorrowError` enum
+- ✅ Maps all 11 borrow error types to structured `Diagnostic`
+- ✅ CLI integration: Print borrow errors as diagnostics
+- ✅ Tested with immutable assignment error (E0594)
+- ✅ Tested with use-after-move error (E0382)
+
+**Remaining Tasks:**
+
+- [ ] Phase 1.5: More Error Sites (2h)
+
+  - `codegen_ast/statements/loops.rs`: Loop compilation errors
+  - `codegen_ast/expressions/mod.rs`: Expression type errors
+  - `codegen_ast/types.rs`: Type resolution errors
+  - Add `Span` tracking from AST (requires AST extension)
+
+- [ ] Phase 1.6: Smart Suggestions (2h)
+
+  - Fuzzy matching for "Did you mean?" suggestions
+  - Type hint suggestions
+  - Import suggestions
+
+- [ ] Phase 1.7: Polish (1h)
+  - Add `--json` flag to CLI for IDE integration
+  - Summary statistics at end
+  - Test all error paths
+
+**Total:** 12 hours (1.5 days) → **7h done, 5h remaining**
 
 ---
 
@@ -200,7 +247,7 @@ fn main(): i32 {
 - [x] **`?` Operator** - Result<T,E> early return (COMPLETED! ✅)
 - [x] **Result<T,E> Union Type Fix** - Support different Ok/Err types (COMPLETED! ✅)
 - [x] **String Comparison** - ==, != operators for strings (COMPLETED! ✅)
-- [ ] **Dynamic Dispatch** (~3 days) - Vtable generation for `dyn Trait`
+- ~~Dynamic Dispatch (`dyn Trait`)~~ - Not needed, enum + match sufficient
 - [ ] **Where Clauses** (~1 day) - `where T: Display` syntax
 - [ ] **Associated Types** (~2 days) - `trait Container { type Item; }`
 - [ ] **Reference Lifetime Validation** (~2 days) - Advanced rules

@@ -9,14 +9,19 @@ use tower_lsp::{Client, LanguageServer, LspService, Server};
 
 mod backend;
 mod diagnostics;
+mod symbol_resolver;
 
 pub use backend::VexBackend;
 
 #[tokio::main]
 async fn main() {
-    // Initialize logging
+    // Initialize logging to a file
+    let log_file = tracing_appender::rolling::daily("/tmp", "vex-lsp.log");
+    let (non_blocking_writer, _guard) = tracing_appender::non_blocking(log_file);
     tracing_subscriber::fmt()
+        .with_writer(non_blocking_writer)
         .with_max_level(tracing::Level::INFO)
+        .with_ansi(false) // Disable ANSI colors in log file
         .init();
 
     tracing::info!("Starting Vex Language Server...");

@@ -421,6 +421,8 @@ pub enum Statement {
 
     /// If statement with elif support
     If {
+        #[serde(skip)]
+        span_id: Option<String>,
         condition: Expression,
         then_block: Block,
         elif_branches: Vec<(Expression, Block)>, // (condition, block) pairs
@@ -429,6 +431,8 @@ pub enum Statement {
 
     /// For loop: for i in range
     For {
+        #[serde(skip)]
+        span_id: Option<String>,
         init: Option<Box<Statement>>,  // for let i = 0; ...
         condition: Option<Expression>, // i < 10
         post: Option<Box<Statement>>,  // i++
@@ -436,7 +440,12 @@ pub enum Statement {
     },
 
     /// While loop: while condition { body }
-    While { condition: Expression, body: Block },
+    While {
+        #[serde(skip)]
+        span_id: Option<String>,
+        condition: Expression,
+        body: Block,
+    },
 
     /// For-in loop: for item in collection
     ForIn {
@@ -539,6 +548,8 @@ pub enum Expression {
 
     /// Binary operation
     Binary {
+        #[serde(skip)]
+        span_id: Option<String>,
         left: Box<Expression>,
         op: BinaryOp,
         right: Box<Expression>,
@@ -546,12 +557,16 @@ pub enum Expression {
 
     /// Unary operation
     Unary {
+        #[serde(skip)]
+        span_id: Option<String>,
         op: UnaryOp,
         expr: Box<Expression>,
     },
 
     /// Function call: foo(a, b)
     Call {
+        #[serde(skip)]
+        span_id: Option<String>,
         func: Box<Expression>,
         args: Vec<Expression>,
     },

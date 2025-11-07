@@ -1,0 +1,13 @@
+// Test borrow checker diagnostic - use after move
+
+struct Data {
+    value: i32
+}
+
+fn main(): i32 {
+    let x = Data { value: 42 };
+    let y = x;  // x moves to y
+    
+    let z = x.value;  // ❌ Error: use of moved value
+    return 0;
+}

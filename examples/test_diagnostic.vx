@@ -1,0 +1,12 @@
+// Test diagnostic output
+// This should produce a trait implementation error
+
+trait Display {}
+
+impl Display for fn(i32): i32 {
+    // This should fail: trait impl for function type not supported
+}
+
+fn main(): i32 {
+    return 0;
+}

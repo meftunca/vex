@@ -22,6 +22,9 @@ pub struct LifetimeChecker {
 
     /// Builtin function registry for identifying builtin functions
     builtin_registry: super::builtin_metadata::BuiltinBorrowRegistry,
+
+    /// Current function being checked (for error location tracking)
+    current_function: Option<String>,
 }
 
 impl LifetimeChecker {
@@ -32,6 +35,7 @@ impl LifetimeChecker {
             references: HashMap::new(),
             in_scope: HashSet::new(),
             builtin_registry: super::builtin_metadata::BuiltinBorrowRegistry::new(),
+            current_function: None,
         };
 
         // Register built-in functions as always in scope (scope 0 = global)
@@ -292,7 +296,7 @@ impl LifetimeChecker {
                 Ok(())
             }
 
-            Statement::If {
+            Statement::If { span_id: _, 
                 condition,
                 then_block,
                 elif_branches,
@@ -321,7 +325,7 @@ impl LifetimeChecker {
                 Ok(())
             }
 
-            Statement::While { condition, body } => {
+            Statement::While { span_id: _,  condition, body } => {
                 self.check_expression(condition)?;
                 self.enter_scope();
                 self.check_block(body)?;
@@ -329,7 +333,7 @@ impl LifetimeChecker {
                 Ok(())
             }
 
-            Statement::For {
+            Statement::For { span_id: _, 
                 init,
                 condition,
                 post,
@@ -427,10 +431,19 @@ impl LifetimeChecker {
     fn check_expression(&mut self, expr: &Expression) -> BorrowResult<()> {
         match expr {
             Expression::Ident(name) => {
+                // Skip checking builtin functions/types as variables
+                if self.builtin_registry.is_builtin(name) {
+                    return Ok(());
+                }
+
                 // Verify variable is in scope
                 if !self.in_scope.contains(name) {
+                    // Collect available names for fuzzy matching
+                    let available_names: Vec<String> = self.in_scope.iter().cloned().collect();
+
                     return Err(BorrowError::UseAfterScopeEnd {
                         variable: name.clone(),
+                        available_names,
                     });
                 }
                 Ok(())
@@ -440,14 +453,14 @@ impl LifetimeChecker {
 
             Expression::Deref(expr) => self.check_expression(expr),
 
-            Expression::Binary { left, right, .. } => {
+            Expression::Binary { span_id: _,  left, right, .. } => {
                 self.check_expression(left)?;
                 self.check_expression(right)
             }
 
-            Expression::Unary { expr, .. } => self.check_expression(expr),
+            Expression::Unary { span_id: _,  expr, .. } => self.check_expression(expr),
 
-            Expression::Call { func, args } => {
+            Expression::Call { span_id: _,  func, args } => {
                 // Skip checking builtin function names as variables
                 if let Expression::Ident(func_name) = func.as_ref() {
                     if !self.builtin_registry.is_builtin(func_name) {
@@ -464,8 +477,11 @@ impl LifetimeChecker {
                         if let Expression::Ident(var_name) = ref_expr.as_ref() {
                             // Check if the variable is still in scope
                             if !self.in_scope.contains(var_name) {
+                                let available_names: Vec<String> =
+                                    self.in_scope.iter().cloned().collect();
                                 return Err(BorrowError::UseAfterScopeEnd {
                                     variable: var_name.clone(),
+                                    available_names,
                                 });
                             }
                         }
@@ -483,8 +499,11 @@ impl LifetimeChecker {
                     if let Expression::Reference { expr: ref_expr, .. } = arg {
                         if let Expression::Ident(var_name) = ref_expr.as_ref() {
                             if !self.in_scope.contains(var_name) {
+                                let available_names: Vec<String> =
+                                    self.in_scope.iter().cloned().collect();
                                 return Err(BorrowError::UseAfterScopeEnd {
                                     variable: var_name.clone(),
+                                    available_names,
                                 });
                             }
                         }

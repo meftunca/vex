@@ -1,5 +1,8 @@
-node_modules
-.vscode
+# .vscode
 *.vsix
 .gitignore
 README.md
+client/src
+client/tsconfig.json
+client/package.json
+client/package-lock.json

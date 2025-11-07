@@ -1,0 +1,12 @@
+[package]
+name = "vex-diagnostics"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+colored = "2.1"
+thiserror = "1.0"
+strsim = "0.11"

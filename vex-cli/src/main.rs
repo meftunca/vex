@@ -42,6 +42,10 @@ enum Commands {
         /// Emit SPIR-V (for GPU functions)
         #[arg(long)]
         emit_spirv: bool,
+
+        /// Output diagnostics as JSON (for IDE integration)
+        #[arg(long)]
+        json: bool,
     },
 
     /// Run a Vex source file (compile and execute)
@@ -57,6 +61,10 @@ enum Commands {
         /// Arguments to pass to the program
         #[arg(last = true)]
         args: Vec<String>,
+
+        /// Output diagnostics as JSON (for IDE integration)
+        #[arg(long)]
+        json: bool,
     },
 
     /// Check syntax without compiling
@@ -92,6 +100,7 @@ fn main() -> Result<()> {
             opt_level,
             emit_llvm,
             emit_spirv: _,
+            json,
         } => {
             use inkwell::targets::{FileType, Target};
             use std::process::Command;
@@ -114,18 +123,90 @@ fn main() -> Result<()> {
             let source = std::fs::read_to_string(&input)?;
             let input_str = input.to_str().unwrap_or("unknown.vx");
             let mut parser = vex_parser::Parser::new_with_file(input_str, &source)?;
-            let mut ast = parser.parse_file()?;
+
+            let mut ast = match parser.parse_file() {
+                Ok(ast) => ast,
+                Err(parse_error) => {
+                    // Print parse error as formatted diagnostic
+                    if let Some(diag) = parse_error.as_diagnostic() {
+                        if json {
+                            // Output single diagnostic as JSON
+                            println!("{{\"diagnostics\":[{{");
+                            println!("  \"level\":\"error\",");
+                            println!("  \"code\":\"{}\",", diag.code);
+                            println!("  \"message\":\"{}\",", diag.message.replace('"', "\\\""));
+                            println!("  \"file\":\"{}\",", diag.span.file);
+                            println!("  \"line\":{},", diag.span.line);
+                            println!("  \"column\":{}", diag.span.column);
+                            println!("}}]}}");
+                        } else {
+                            eprintln!("{}", diag.format(&source));
+                        }
+                    } else {
+                        eprintln!("{}", parse_error);
+                    }
+                    return Err(anyhow::anyhow!("Parse failed"));
+                }
+            };
+
+            // Extract span map from parser
+            let span_map = parser.take_span_map();
+
             println!("   ✅ Parsed {} successfully", filename);
 
             let mut borrow_checker = vex_compiler::BorrowChecker::new();
-            borrow_checker.check_program(&mut ast)?;
+            if let Err(borrow_error) = borrow_checker.check_program(&mut ast) {
+                // Convert borrow error to diagnostic
+                let diagnostic = borrow_error.to_diagnostic();
+
+                if json {
+                    // Output as single diagnostic JSON
+                    println!("{{\"diagnostics\":[{{");
+                    println!("  \"level\":\"error\",");
+                    println!("  \"code\":\"{}\",", diagnostic.code);
+                    println!(
+                        "  \"message\":\"{}\",",
+                        diagnostic.message.replace('"', "\\\"")
+                    );
+                    println!("  \"file\":\"{}\",", diagnostic.span.file);
+                    println!("  \"line\":{},", diagnostic.span.line);
+                    println!("  \"column\":{}", diagnostic.span.column);
+                    println!("}}]}}");
+                } else {
+                    eprintln!("{}", diagnostic.format(&source));
+                }
+                return Err(anyhow::anyhow!("Borrow check failed"));
+            }
             println!("   ✅ Borrow check passed");
 
             let context = inkwell::context::Context::create();
-            let mut codegen = vex_compiler::ASTCodeGen::new(&context, filename);
-            codegen
-                .compile_program(&ast)
-                .map_err(|e| anyhow::anyhow!(e))?;
+            let mut codegen =
+                vex_compiler::ASTCodeGen::new_with_span_map(&context, filename, span_map);
+
+            let compile_result = codegen.compile_program(&ast);
+
+            // Print diagnostics based on output format
+            if codegen.has_diagnostics() {
+                if json {
+                    println!("{}", codegen.diagnostics().to_json());
+                } else {
+                    codegen.diagnostics().print_all(&source);
+                    codegen.diagnostics().print_summary();
+                }
+            }
+
+            // Check compilation result and diagnostics
+            if let Err(e) = compile_result {
+                if codegen.has_errors() {
+                    return Err(anyhow::anyhow!("Compilation failed with errors"));
+                } else {
+                    return Err(anyhow::anyhow!(e));
+                }
+            }
+
+            if codegen.has_errors() {
+                return Err(anyhow::anyhow!("Compilation failed with errors"));
+            }
 
             // Link the final executable
             println!("   🔗 Linking executable...");
@@ -181,7 +262,12 @@ fn main() -> Result<()> {
 
             Ok(())
         }
-        Commands::Run { input, code, args } => {
+        Commands::Run {
+            input,
+            code,
+            args,
+            json,
+        } => {
             use inkwell::context::Context;
             use std::process::Command;
 
@@ -217,21 +303,71 @@ fn main() -> Result<()> {
 
             // Parse
             let mut parser = vex_parser::Parser::new_with_file(&parser_file, &source)?;
-            let mut ast = parser.parse_file()?;
+            let mut ast = match parser.parse_file() {
+                Ok(ast) => ast,
+                Err(parse_error) => {
+                    // Print parse error as formatted diagnostic
+                    if let Some(diag) = parse_error.as_diagnostic() {
+                        if json {
+                            // Output single diagnostic as JSON
+                            println!("{{\"diagnostics\":[{{");
+                            println!("  \"level\":\"error\",");
+                            println!("  \"code\":\"{}\",", diag.code);
+                            println!("  \"message\":\"{}\",", diag.message.replace('"', "\\\""));
+                            println!("  \"file\":\"{}\",", diag.span.file);
+                            println!("  \"line\":{},", diag.span.line);
+                            println!("  \"column\":{}", diag.span.column);
+                            println!("}}]}}");
+                        } else {
+                            eprintln!("{}", diag.format(&source));
+                        }
+                    } else {
+                        eprintln!("{}", parse_error);
+                    }
+                    return Err(anyhow::anyhow!("Parse failed"));
+                }
+            };
+
+            // Extract span map from parser
+            let span_map = parser.take_span_map();
 
             println!("   ✅ Parsed {} successfully", filename);
 
             // Run borrow checker (Phase 1-5: Immutability, Moves, Borrows, Lifetimes, Closure Traits)
-            println!("   🔍 Running borrow checker...");
-            let mut borrow_checker = vex_compiler::BorrowChecker::new();
-            if let Err(e) = borrow_checker.check_program(&mut ast) {
-                anyhow::bail!("⚠️  Borrow checker error: {}", e);
+            if !json {
+                println!("   🔍 Running borrow checker...");
             }
-            println!("   ✅ Borrow check passed");
+            let mut borrow_checker = vex_compiler::BorrowChecker::new();
+            if let Err(borrow_error) = borrow_checker.check_program(&mut ast) {
+                // Convert borrow error to diagnostic
+                let diagnostic = borrow_error.to_diagnostic();
+
+                if json {
+                    // Output as single diagnostic JSON
+                    println!("{{\"diagnostics\":[{{");
+                    println!("  \"level\":\"error\",");
+                    println!("  \"code\":\"{}\",", diagnostic.code);
+                    println!(
+                        "  \"message\":\"{}\",",
+                        diagnostic.message.replace('"', "\\\"")
+                    );
+                    println!("  \"file\":\"{}\",", diagnostic.span.file);
+                    println!("  \"line\":{},", diagnostic.span.line);
+                    println!("  \"column\":{}", diagnostic.span.column);
+                    println!("}}]}}");
+                } else {
+                    eprintln!("{}", diagnostic.format(&source));
+                }
+                return Err(anyhow::anyhow!("Borrow check failed"));
+            }
+            if !json {
+                println!("   ✅ Borrow check passed");
+            }
 
             // Codegen
             let context = Context::create();
-            let mut codegen = vex_compiler::ASTCodeGen::new(&context, &filename);
+            let mut codegen =
+                vex_compiler::ASTCodeGen::new_with_span_map(&context, &filename, span_map);
 
             // Resolve imports if any
             if !ast.imports.is_empty() {
@@ -347,9 +483,30 @@ fn main() -> Result<()> {
                 }
             }
 
-            codegen
-                .compile_program(&ast)
-                .map_err(|e| anyhow::anyhow!("Compilation error: {}", e))?;
+            let compile_result = codegen.compile_program(&ast);
+
+            // Print diagnostics based on output format
+            if codegen.has_diagnostics() {
+                if json {
+                    println!("{}", codegen.diagnostics().to_json());
+                } else {
+                    codegen.diagnostics().print_all(&source);
+                    codegen.diagnostics().print_summary();
+                }
+            }
+
+            // Check compilation result and diagnostics
+            if let Err(e) = compile_result {
+                if codegen.has_errors() {
+                    return Err(anyhow::anyhow!("Compilation failed with errors"));
+                } else {
+                    return Err(anyhow::anyhow!("Compilation error: {}", e));
+                }
+            }
+
+            if codegen.has_errors() {
+                return Err(anyhow::anyhow!("Compilation failed with errors"));
+            }
 
             // Compile to object file
             let obj_path = temp_output.with_extension("o");

@@ -2,6 +2,7 @@
 // This module dispatches expression compilation and coordinates submodules
 
 use super::ASTCodeGen;
+use crate::diagnostics::{error_codes, Diagnostic, ErrorLevel, Span};
 use inkwell::types::BasicTypeEnum;
 use inkwell::values::BasicValueEnum;
 use vex_ast::*;
@@ -106,14 +107,36 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     return Ok(func_val.as_global_value().as_pointer_value().into());
                 }
 
+                // Variable/function not found - find similar names for suggestion
+                let mut candidates: Vec<String> = self.variables.keys().cloned().collect();
+                candidates.extend(self.functions.keys().cloned());
+
+                use crate::diagnostics::fuzzy;
+                let suggestions = fuzzy::find_similar_names(name, &candidates, 0.7, 3);
+
+                let mut help_msg =
+                    "Check that the name is spelled correctly and is in scope".to_string();
+                if !suggestions.is_empty() {
+                    help_msg = format!("did you mean `{}`?", suggestions.join("`, `"));
+                }
+
+                self.diagnostics.emit(Diagnostic {
+                    level: ErrorLevel::Error,
+                    code: error_codes::UNDEFINED_VARIABLE.to_string(),
+                    message: format!("Cannot find variable or function `{}` in this scope", name),
+                    span: Span::unknown(),
+                    notes: vec![],
+                    help: Some(help_msg),
+                    suggestion: None,
+                });
                 Err(format!("Variable or function {} not found", name))
             }
 
-            Expression::Binary { left, op, right } => self.compile_binary_op(left, op, right),
+            Expression::Binary { span_id: _,  left, op, right } => self.compile_binary_op(left, op, right),
 
-            Expression::Unary { op, expr } => self.compile_unary_op(op, expr),
+            Expression::Unary { span_id: _,  op, expr } => self.compile_unary_op(op, expr),
 
-            Expression::Call { func, args } => self.compile_call(func, args),
+            Expression::Call { span_id: _,  func, args } => self.compile_call(func, args),
 
             Expression::MethodCall {
                 receiver,
@@ -500,7 +523,19 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
             Expression::RangeInclusive { start, end } => self.compile_range(start, end, true),
 
-            _ => Err(format!("Expression not yet implemented: {:?}", expr)),
+            _ => {
+                let expr_str = format!("{:?}", expr);
+                self.diagnostics.emit(Diagnostic {
+                    level: ErrorLevel::Error,
+                    code: error_codes::NOT_IMPLEMENTED.to_string(),
+                    message: "This expression type is not yet implemented".to_string(),
+                    span: Span::unknown(),
+                    notes: vec![format!("Expression: {}", expr_str)],
+                    help: Some("This feature is planned for a future release".to_string()),
+                    suggestion: None,
+                });
+                Err(format!("Expression not yet implemented: {:?}", expr))
+            }
         }
     }
 

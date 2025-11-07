@@ -21,6 +21,7 @@ pub struct Parser<'a> {
     pub(crate) source: &'a str,
     pub(crate) file_name: String, // Track filename for error reporting
     pub(crate) in_method_body: bool,
+    pub(crate) span_map: vex_diagnostics::SpanMap, // ⭐ NEW: Track spans for AST nodes
 }
 
 impl<'a> Parser<'a> {
@@ -39,7 +40,18 @@ impl<'a> Parser<'a> {
             source,
             file_name: file_name.to_string(),
             in_method_body: false,
+            span_map: vex_diagnostics::SpanMap::new(),
         })
+    }
+
+    /// Get the span map (for passing to compiler)
+    pub fn span_map(&self) -> &vex_diagnostics::SpanMap {
+        &self.span_map
+    }
+
+    /// Take ownership of span map
+    pub fn take_span_map(self) -> vex_diagnostics::SpanMap {
+        self.span_map
     }
 
     pub fn parse_file(&mut self) -> Result<Program, ParseError> {
@@ -161,13 +173,10 @@ impl<'a> Parser<'a> {
             }
         } else {
             let span = &self.peek_span().span;
-            SourceLocation::from_span(&self.file_name, self.source, span.clone())
+            crate::Span::from_file_and_span(&self.file_name, self.source, span.clone())
         };
 
-        ParseError::SyntaxError {
-            location,
-            message: message.to_string(),
-        }
+        ParseError::syntax_error(message.to_string(), location)
     }
 
     /// Skip tokens until we find a semicolon or closing brace (for unsupported constructs)

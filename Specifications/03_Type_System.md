@@ -27,8 +27,8 @@ Vex's type system is organized into four main categories:
 ```
 Types
 ├── Primitive Types
-│   ├── Integer Types (signed/unsigned)
-│   ├── Floating-Point Types
+│   ├── Integer Types (i8, i16, i32, i64, i128, u8, u16, u32, u64, u128)
+│   ├── Floating-Point Types (f16, f32, f64)
 │   ├── Boolean Type
 │   ├── String Type
 │   └── Special Types (nil, error, byte)
@@ -36,7 +36,8 @@ Types
 │   ├── Arrays
 │   ├── Slices
 │   ├── Tuples
-│   └── References
+│   ├── References
+│   └── Collections (Map, Set, Vec, Box, Channel)
 ├── User-Defined Types
 │   ├── Structs
 │   ├── Enums
@@ -58,12 +59,13 @@ Vex provides fixed-size integer types with explicit signedness:
 
 #### Signed Integers
 
-| Type  | Size    | Range                                                   | Description                     |
-| ----- | ------- | ------------------------------------------------------- | ------------------------------- |
-| `i8`  | 8 bits  | -128 to 127                                             | 8-bit signed integer            |
-| `i16` | 16 bits | -32,768 to 32,767                                       | 16-bit signed integer           |
-| `i32` | 32 bits | -2,147,483,648 to 2,147,483,647                         | 32-bit signed integer (default) |
-| `i64` | 64 bits | -9,223,372,036,854,775,808 to 9,223,372,036,854,775,807 | 64-bit signed integer           |
+| Type  | Size     | Range                                                   | Description                     |
+| ----- | -------- | ------------------------------------------------------- | ------------------------------- |
+| `i8`  | 8 bits   | -128 to 127                                             | 8-bit signed integer            |
+| `i16` | 16 bits  | -32,768 to 32,767                                       | 16-bit signed integer           |
+| `i32` | 32 bits  | -2,147,483,648 to 2,147,483,647                         | 32-bit signed integer (default) |
+| `i64` | 64 bits  | -9,223,372,036,854,775,808 to 9,223,372,036,854,775,807 | 64-bit signed integer           |
+| `i128`| 128 bits | -2^127 to 2^127-1                                        | 128-bit signed integer          |
 
 **Default**: Integer literals without type annotation default to `i32`.
 
@@ -78,12 +80,13 @@ let large: i64 = 9223372036854775807;
 
 #### Unsigned Integers
 
-| Type  | Size    | Range                           | Description             |
-| ----- | ------- | ------------------------------- | ----------------------- |
-| `u8`  | 8 bits  | 0 to 255                        | 8-bit unsigned integer  |
-| `u16` | 16 bits | 0 to 65,535                     | 16-bit unsigned integer |
-| `u32` | 32 bits | 0 to 4,294,967,295              | 32-bit unsigned integer |
-| `u64` | 64 bits | 0 to 18,446,744,073,709,551,615 | 64-bit unsigned integer |
+| Type  | Size     | Range                           | Description             |
+| ----- | -------- | ------------------------------- | ----------------------- |
+| `u8`  | 8 bits   | 0 to 255                        | 8-bit unsigned integer  |
+| `u16` | 16 bits  | 0 to 65,535                     | 16-bit unsigned integer |
+| `u32` | 32 bits  | 0 to 4,294,967,295              | 32-bit unsigned integer |
+| `u64` | 64 bits  | 0 to 18,446,744,073,709,551,615 | 64-bit unsigned integer |
+| `u128`| 128 bits | 0 to 2^128-1                     | 128-bit unsigned integer |
 
 **Examples**:
 
@@ -129,6 +132,7 @@ IEEE 754 floating-point numbers:
 
 | Type  | Size    | Precision          | Description                      |
 | ----- | ------- | ------------------ | -------------------------------- |
+| `f16` | 16 bits | ~3 decimal digits  | Half precision float             |
 | `f32` | 32 bits | ~7 decimal digits  | Single precision float           |
 | `f64` | 64 bits | ~15 decimal digits | Double precision float (default) |
 
@@ -524,6 +528,103 @@ let value = *ref_x;             // Dereference to get value
 2. References must always be valid (no dangling)
 3. References cannot outlive the data they point to
 
+### Collections
+
+#### Map Type
+
+Associative arrays with key-value pairs:
+
+**Syntax**: `Map<K, V>` (builtin type)
+
+```vex
+let ages: Map<string, i32> = Map::new();
+ages.insert("Alice", 30);
+ages.insert("Bob", 25);
+
+let alice_age = ages.get("Alice");  // Some(30)
+```
+
+**Properties**:
+
+- **Generic**: Parameterized by key and value types
+- **Hash-based**: Fast lookup O(1) average case
+- **Heap allocated**: Managed by runtime
+- **Keys**: Must implement hash and equality
+
+#### Set Type
+
+Collections of unique values:
+
+**Syntax**: `Set<T>` (builtin type)
+
+```vex
+let numbers: Set<i32> = Set::new();
+numbers.insert(1);
+numbers.insert(2);
+numbers.insert(1);  // Duplicate, ignored
+
+let has_one = numbers.contains(1);  // true
+```
+
+**Properties**:
+
+- **Generic**: Parameterized by element type
+- **Unique elements**: No duplicates allowed
+- **Hash-based**: Fast membership testing
+- **Heap allocated**: Managed by runtime
+
+### Vec Type
+
+Dynamic arrays with growable size:
+
+**Syntax**: `Vec<T>` (builtin type)
+
+```vex
+let numbers: Vec<i32> = Vec::new();
+numbers.push(1);
+numbers.push(2);
+numbers.push(3);
+
+let first = numbers.get(0);  // Some(1)
+let length = numbers.len();  // 3
+```
+
+**Properties**:
+
+- **Generic**: Parameterized by element type
+- **Dynamic size**: Grows automatically when needed
+- **Heap allocated**: Managed by runtime
+- **Contiguous**: Elements stored contiguously
+- **Cache-friendly**: Better performance than linked lists
+
+**Operations**:
+
+```vex
+let v = Vec::new<i32>();     // Create empty Vec
+v.push(42);                  // Add element
+let val = v.get(0);          // Get element
+let len = v.len();           // Get length
+v.free();                    // Free memory (manual for now)
+```
+
+### Box Type
+
+Heap-allocated single values:
+
+**Syntax**: `Box<T>` (builtin type)
+
+```vex
+let boxed = Box::new(42);     // Heap allocate i32
+let value = Box::unbox(boxed); // Extract value
+```
+
+**Properties**:
+
+- **Heap allocated**: Single value on heap
+- **Ownership**: Moves ownership to heap
+- **Pointer**: Returns pointer to heap value
+- **Manual free**: Requires explicit deallocation
+
 ---
 
 ## User-Defined Types
@@ -804,6 +905,114 @@ let numbers: [i32] = [];  // OK
 
 ---
 
+## Type Reflection
+
+Vex provides runtime type information through builtin reflection functions. These functions are always available without imports.
+
+### Runtime Type Information
+
+```vex
+fn main(): i32 {
+    let x: i32 = 42;
+    let y: f64 = 3.14;
+    
+    // Get type name as string
+    let type_name = typeof(x);  // Returns "i32"
+    
+    // Get unique type identifier
+    let id = type_id(x);  // Returns numeric ID for i32
+    
+    // Get type size and alignment
+    let size = type_size(x);   // Returns 4
+    let align = type_align(x); // Returns 4
+    
+    return 0;
+}
+```
+
+### Type Category Checking
+
+```vex
+fn main(): i32 {
+    let x: i32 = 42;
+    let y: f64 = 3.14;
+    let ptr = &x;
+    
+    // Check type categories
+    if is_int_type(x) {
+        println("x is an integer");  // This will print
+    }
+    
+    if is_float_type(y) {
+        println("y is a float");  // This will print
+    }
+    
+    if is_pointer_type(ptr) {
+        println("ptr is a pointer");  // This will print
+    }
+    
+    return 0;
+}
+```
+
+### Available Reflection Functions
+
+| Function                          | Return Type | Description                           |
+| --------------------------------- | ----------- | ------------------------------------- |
+| `typeof<T>(value: T)`             | `string`    | Get type name                         |
+| `type_id<T>(value: T)`            | `u64`       | Get unique numeric type identifier    |
+| `type_size<T>(value: T)`          | `u64`       | Get type size in bytes                |
+| `type_align<T>(value: T)`         | `u64`       | Get type alignment in bytes           |
+| `is_int_type<T>(value: T)`        | `bool`      | Check if value is integer type        |
+| `is_float_type<T>(value: T)`      | `bool`      | Check if value is floating-point type |
+| `is_pointer_type<T>(value: T)`    | `bool`      | Check if value is pointer type        |
+
+**Properties**:
+
+- **Compile-time evaluation**: Most reflection info computed at compile time
+- **Zero-cost**: No runtime overhead for type checks
+- **Generic support**: Works with generic types
+- **Status**: ✅ Fully implemented
+
+### Use Cases
+
+**Generic debugging**:
+
+```vex
+fn debug<T>(value: T) {
+    println(f"Type: {typeof(value)}, Size: {type_size(value)} bytes");
+}
+```
+
+**Type-safe serialization**:
+
+```vex
+fn serialize<T>(value: T): string {
+    if is_int_type(value) {
+        // Serialize as integer
+    } else if is_float_type(value) {
+        // Serialize as float
+    } else {
+        // Default serialization
+    }
+}
+```
+
+**Dynamic type checking**:
+
+```vex
+fn process_value<T>(value: T) {
+    let id = type_id(value);
+    match id {
+        4 => println("Processing i32"),
+        5 => println("Processing i64"),
+        _ => println("Unknown type"),
+    }
+}
+```
+
+---
+
 ## Type Conversions
 
 ### Explicit Conversions (Future)
@@ -889,15 +1098,17 @@ fn longest<'a>(x: &'a string, y: &'a string): &'a string {
 
 ## Type System Summary
 
-| Category   | Examples                             | Size               | Notes               |
-| ---------- | ------------------------------------ | ------------------ | ------------------- |
-| Integers   | i8, i16, i32, i64, u8, u16, u32, u64 | 1-8 bytes          | Fixed size          |
-| Floats     | f32, f64                             | 4-8 bytes          | IEEE 754            |
+| Category   | Examples                                       | Size               | Notes               |
+| ---------- | -------------------------------------- | ------------------ | ------------------- |
+| Integers   | i8, i16, i32, i64, i128, u8, u16, u32, u64, u128 | 1-16 bytes         | Fixed size          |
+| Floats     | f16, f32, f64                          | 2-8 bytes          | IEEE 754            |
 | Boolean    | bool                                 | 1 byte             | true/false          |
 | String     | string                               | 16 bytes (ptr+len) | UTF-8, heap         |
 | Arrays     | [T; N]                               | N \* sizeof(T)     | Stack, fixed        |
 | Tuples     | (T, U, ...)                          | Sum of sizes       | Stack               |
 | References | &T, &T!                              | 8 bytes (64-bit)   | Pointers            |
+| Collections| Map<K,V>, Set<T>, Vec<T>              | Variable (heap)    | Dynamic/Hash        |
+| Smart Ptrs | Box<T>, Channel<T>                   | 8 bytes (ptr)      | Heap-allocated      |
 | Structs    | User-defined                         | Sum + padding      | Nominal             |
 | Enums      | User-defined                         | Tag + data         | Discriminated union |
 

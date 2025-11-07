@@ -9,6 +9,7 @@ repository.workspace = true
 [dependencies]
 vex-ast = { path = "../vex-ast" }
 vex-lexer = { path = "../vex-lexer" }
+vex-diagnostics = { path = "../vex-diagnostics" }
 lalrpop-util.workspace = true
 thiserror.workspace = true
 

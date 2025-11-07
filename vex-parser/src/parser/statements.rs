@@ -88,20 +88,19 @@ impl<'a> Parser<'a> {
 
         // If statement
         if self.match_token(&Token::If) {
-            eprintln!("🟡 If: parsing condition, token={:?}", self.peek());
+            let if_start = self.current - 1; // 'if' token position
+            let cond_start = self.current; // Before parsing condition
+
             let condition = self.parse_expression()?;
-            eprintln!("🟡 If: condition done, token={:?}", self.peek());
+            let cond_end = self.current - 1; // After parsing condition
+
             let then_block = self.parse_block()?;
-            eprintln!("🟡 If: then_block done, token={:?}", self.peek());
 
             // Parse elif branches
             let mut elif_branches = Vec::new();
             while self.match_token(&Token::Elif) {
-                eprintln!("🟡 Elif: parsing condition, token={:?}", self.peek());
                 let elif_condition = self.parse_expression()?;
-                eprintln!("🟡 Elif: condition done, token={:?}", self.peek());
                 let elif_block = self.parse_block()?;
-                eprintln!("🟡 Elif: block done, token={:?}", self.peek());
                 elif_branches.push((elif_condition, elif_block));
             }
 
@@ -113,7 +112,27 @@ impl<'a> Parser<'a> {
                 None
             };
 
+            // Generate span ID for the entire if statement
+            let if_span_id = self.span_map.generate_id();
+            let if_end = self.current - 1;
+            let if_span = crate::Span::from_file_and_span(
+                &self.file_name,
+                self.source,
+                self.tokens[if_start].span.start..self.tokens[if_end].span.end,
+            );
+            self.span_map.record(if_span_id.clone(), if_span);
+
+            // Also record span for condition (for error reporting)
+            let cond_span_id = self.span_map.generate_id();
+            let cond_span = crate::Span::from_file_and_span(
+                &self.file_name,
+                self.source,
+                self.tokens[cond_start].span.start..self.tokens[cond_end].span.end,
+            );
+            self.span_map.record(cond_span_id.clone(), cond_span);
+
             return Ok(Statement::If {
+                span_id: Some(cond_span_id), // Use condition span for type errors
                 condition,
                 then_block,
                 elif_branches,
@@ -123,17 +142,24 @@ impl<'a> Parser<'a> {
 
         // While statement
         if self.match_token(&Token::While) {
-            eprintln!("🟠 While: parsing condition, token={:?}", self.peek());
+            let while_start = self.current - 1;
             let condition = self.parse_expression()?;
-            eprintln!(
-                "🟠 While: condition done, token={:?} at pos {}",
-                self.peek(),
-                self.current
-            );
             let body = self.parse_block()?;
-            eprintln!("🟠 While: body done, token={:?}", self.peek());
 
-            return Ok(Statement::While { condition, body });
+            let span_id = self.span_map.generate_id();
+            let while_end = self.current - 1;
+            let while_span = crate::Span::from_file_and_span(
+                &self.file_name,
+                self.source,
+                self.tokens[while_start].span.start..self.tokens[while_end].span.end,
+            );
+            self.span_map.record(span_id.clone(), while_span);
+
+            return Ok(Statement::While {
+                span_id: Some(span_id),
+                condition,
+                body,
+            });
         }
 
         // Switch statement
@@ -183,7 +209,10 @@ impl<'a> Parser<'a> {
         }
 
         // For statement
+        // For loop
         if self.match_token(&Token::For) {
+            let for_start = self.current - 1; // Save 'for' token position
+
             // Check for for-in loop: for i in range { }
             // Peek ahead to see if this is "ident in ..."
             let checkpoint = self.current;
@@ -275,7 +304,17 @@ impl<'a> Parser<'a> {
             );
             let body = self.parse_block()?;
 
+            let span_id = self.span_map.generate_id();
+            let for_end = self.current - 1;
+            let for_span = crate::Span::from_file_and_span(
+                &self.file_name,
+                self.source,
+                self.tokens[for_start].span.start..self.tokens[for_end].span.end,
+            );
+            self.span_map.record(span_id.clone(), for_span);
+
             return Ok(Statement::For {
+                span_id: Some(span_id),
                 init,
                 condition,
                 post,

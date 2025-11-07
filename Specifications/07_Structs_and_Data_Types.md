@@ -70,6 +70,34 @@ struct User {
 }
 ```
 
+### Struct Tags (Go-style)
+
+Vex supports Go-style struct tags for metadata:
+
+```vex
+struct User {
+    id: u64        `json:"id" db:"pk"`,
+    username: string `json:"username" db:"username"`,
+    email: string   `json:"email" db:"email"`,
+    age: i32        `json:"age"`,
+    is_active: bool `json:"is_active"`,
+}
+```
+
+**Syntax**: Backtick-enclosed string literals after field declarations
+
+**Use Cases**:
+- JSON serialization/deserialization
+- Database mapping
+- Validation rules
+- API documentation
+
+**Properties**:
+- Ignored by compiler (metadata only)
+- Available at runtime via reflection
+- Multiple tags separated by spaces
+- Convention: `key:"value"` format
+
 **Different Types**:
 
 ```vex

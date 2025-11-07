@@ -37,14 +37,14 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     }
                 }
             }
-            Expression::Binary { left, right, .. } => {
+            Expression::Binary { span_id: _,  left, right, .. } => {
                 self.collect_variables(left, params, free_vars, visited);
                 self.collect_variables(right, params, free_vars, visited);
             }
-            Expression::Unary { expr, .. } => {
+            Expression::Unary { span_id: _,  expr, .. } => {
                 self.collect_variables(expr, params, free_vars, visited);
             }
-            Expression::Call { func, args } => {
+            Expression::Call { span_id: _,  func, args } => {
                 self.collect_variables(func, params, free_vars, visited);
                 for arg in args {
                     self.collect_variables(arg, params, free_vars, visited);

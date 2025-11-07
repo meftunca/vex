@@ -364,7 +364,7 @@ match x {
 
 ## Pattern Guards
 
-### Definition (Future)
+### Definition
 
 Add conditions to patterns:
 
@@ -378,7 +378,7 @@ match x {
 
 **Syntax**: `pattern if condition`
 
-### Complex Guards (Future)
+### Complex Guards
 
 ```vex
 match pair {
@@ -388,7 +388,7 @@ match pair {
 }
 ```
 
-### With Enums (Future)
+### With Enums
 
 ```vex
 match option {
@@ -402,7 +402,7 @@ match option {
 
 ## Advanced Patterns
 
-### Range Patterns (Future)
+### Range Patterns
 
 ```vex
 match age {
@@ -657,6 +657,6 @@ match error_code {
 ---
 
 **Previous**: [10_Generics.md](./10_Generics.md)  
-**Next**: [12_Memory_Management.md](./12_Memory_Management.md)
+**Next**: [12_Closures_and_Lambda_Expressions.md](./12_Closures_and_Lambda_Expressions.md)
 
 **Maintained by**: Vex Language Team

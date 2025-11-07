@@ -2,6 +2,7 @@
 // Contains ast_type_to_llvm, infer_expression_type and related methods
 
 use super::ASTCodeGen;
+use crate::diagnostics::{error_codes, Diagnostic, ErrorLevel, Span};
 use inkwell::types::BasicTypeEnum;
 use std::{collections::HashMap, u128};
 use vex_ast::*;
@@ -404,7 +405,14 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     64 => Ok(Type::I64),
                     128 => Ok(Type::I128),
                     1 => Ok(Type::Bool),
-                    _ => Err(format!("Unsupported integer bit width: {}", bit_width)),
+                    _ => {
+                        // Note: Cannot emit diagnostic here due to &self limitation
+                        // This is an internal error that shouldn't normally occur
+                        Err(format!(
+                            "Unsupported integer bit width: {} (internal error)",
+                            bit_width
+                        ))
+                    }
                 }
             }
             BasicTypeEnum::FloatType(float_ty) => {

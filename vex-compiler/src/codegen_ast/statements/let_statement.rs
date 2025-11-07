@@ -112,7 +112,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     eprintln!("  → Array literal or repeat");
                     None // Arrays don't have struct names, they're stack-allocated
                 }
-                Expression::Call { func, .. } => {
+                Expression::Call { span_id: _,  func, .. } => {
                     eprintln!("  → Call expression");
                     if let Expression::Ident(func_name) = func.as_ref() {
                         eprintln!("    → Function: {}", func_name);
@@ -494,7 +494,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         var_type.clone()
                     }
                 }
-                Expression::Call { func, .. } => {
+                Expression::Call { span_id: _,  func, .. } => {
                     if let Expression::FieldAccess { object, field: _ } = func.as_ref() {
                         if let Expression::Ident(enum_name) = object.as_ref() {
                             if self.enum_ast_defs.contains_key(enum_name) {

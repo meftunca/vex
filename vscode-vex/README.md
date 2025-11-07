@@ -2,7 +2,7 @@
 
 **Status:** ✅ Globally Installed  
 **Extension ID:** `meftunca.vex-language`  
-**Version:** 0.2.0
+**Version:** 0.9.1
 
 ## 🚀 Quick Start
 
@@ -36,11 +36,13 @@ Cmd+Shift+P → "Developer: Reload Window"
 
 ## ✨ Features
 
-### Current (v0.2.0)
+### Current (v0.9.1)
 
-- ✅ **Syntax Highlighting** - Full Vex v0.9 syntax
+- ✅ **Syntax Highlighting** - Full Vex v0.9.1 syntax with all new features
 - ✅ **Language Server (LSP)** - Real-time diagnostics with exact positions
-- ✅ **Code Snippets** - `main`, `fn`, `struct`, `trait`, etc.
+- ✅ **Extended Type Support** - i128, u128, f16, error, Map, Set, Channel, Vec, Box
+- ✅ **Builtin Functions** - 50+ builtin functions including memory ops, LLVM intrinsics, reflection
+- ✅ **Code Snippets** - Comprehensive snippets for all language features
 - ✅ **Vex Dark Theme** - Custom color scheme
 - ✅ **Commands** - Restart Language Server
 
@@ -57,7 +59,7 @@ Cmd+Shift+P → "Developer: Reload Window"
 
 ```bash
 # Extension location (symlink)
-~/.vscode/extensions/vex-language-0.2.0
+~/.vscode/extensions/vex-language-0.9.1
 → /Users/mapletechnologies/Desktop/big_projects/vex_lang/vscode-vex
 
 # LSP server
@@ -67,6 +69,7 @@ Cmd+Shift+P → "Developer: Reload Window"
 ✅ Extension globally installed
 ✅ TypeScript compiled (out/extension.js)
 ✅ LSP server built
+✅ All v0.9.1 features supported
 ⏳ Waiting for .vx file to activate
 ```
 
@@ -191,7 +194,18 @@ cd client && npm run compile
 
 ## 📝 Version History
 
-### v0.2.0 (Current)
+### v0.9.1 (Current - January 2025)
+
+- ✅ Extended primitive types (i128, u128, f16, error)
+- ✅ Collection types (Map, Set, Channel, Vec, Box)
+- ✅ Option/Result constructors (Some, None, Ok, Err)
+- ✅ Goroutine support (go keyword)
+- ✅ Switch and defer statements
+- ✅ 50+ builtin functions (memory, strings, UTF-8, reflection, LLVM intrinsics, compiler hints)
+- ✅ Enhanced code snippets for all new features
+- ✅ Complete v0.9.1 language specification support
+
+### v0.2.0
 
 - ✅ LSP integration with exact error positions
 - ✅ Parser span tracking (file:line:column)

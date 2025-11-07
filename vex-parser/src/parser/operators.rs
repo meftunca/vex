@@ -27,6 +27,7 @@ impl<'a> Parser<'a> {
             };
             let right = self.parse_additive()?;
             expr = Expression::Binary {
+                span_id: None,
                 left: Box::new(expr),
                 op,
                 right: Box::new(right),
@@ -47,6 +48,7 @@ impl<'a> Parser<'a> {
             };
             let right = self.parse_multiplicative()?;
             expr = Expression::Binary {
+                span_id: None,
                 left: Box::new(expr),
                 op,
                 right: Box::new(right),
@@ -68,6 +70,7 @@ impl<'a> Parser<'a> {
             };
             let right = self.parse_cast()?;
             expr = Expression::Binary {
+                span_id: None,
                 left: Box::new(expr),
                 op,
                 right: Box::new(right),
@@ -111,6 +114,7 @@ impl<'a> Parser<'a> {
             };
             let expr = self.parse_unary()?;
             return Ok(Expression::Unary {
+                span_id: None,
                 op,
                 expr: Box::new(expr),
             });
@@ -228,6 +232,7 @@ impl<'a> Parser<'a> {
                         if is_builtin {
                             // This is a builtin function - compile as regular function call
                             expr = Expression::Call {
+                                span_id: None,
                                 func: Box::new(expr),
                                 args,
                             };
@@ -243,6 +248,7 @@ impl<'a> Parser<'a> {
                     }
                 } else {
                     expr = Expression::Call {
+                        span_id: None,
                         func: Box::new(expr),
                         args,
                     };

@@ -109,7 +109,7 @@ impl BorrowChecker {
             Statement::Expression(expr) => {
                 self.analyze_expression_closures(expr)?;
             }
-            Statement::If {
+            Statement::If { span_id: _, 
                 condition,
                 then_block,
                 elif_branches,
@@ -131,13 +131,13 @@ impl BorrowChecker {
                     }
                 }
             }
-            Statement::While { condition, body } => {
+            Statement::While { span_id: _,  condition, body } => {
                 self.analyze_expression_closures(condition)?;
                 for stmt in &mut body.statements {
                     self.analyze_statement_closures(stmt)?;
                 }
             }
-            Statement::For {
+            Statement::For { span_id: _, 
                 init,
                 condition,
                 post,
@@ -221,16 +221,16 @@ impl BorrowChecker {
 
                 Ok(())
             }
-            Expression::Binary { left, right, .. } => {
+            Expression::Binary { span_id: _,  left, right, .. } => {
                 self.analyze_expression_closures(left)?;
                 self.analyze_expression_closures(right)?;
                 Ok(())
             }
-            Expression::Unary { expr, .. } => {
+            Expression::Unary { span_id: _,  expr, .. } => {
                 self.analyze_expression_closures(expr)?;
                 Ok(())
             }
-            Expression::Call { func, args } => {
+            Expression::Call { span_id: _,  func, args } => {
                 self.analyze_expression_closures(func)?;
                 for arg in args {
                     self.analyze_expression_closures(arg)?;

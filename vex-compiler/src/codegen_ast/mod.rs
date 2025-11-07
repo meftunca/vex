@@ -4,6 +4,7 @@
 // Compiler limits
 pub(crate) const MAX_GENERIC_DEPTH: usize = 64; // Maximum nesting depth for generic types (Rust uses 128)
 
+use crate::diagnostics::{error_codes, DiagnosticEngine, Span};
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::Module;
@@ -110,10 +111,25 @@ pub struct ASTCodeGen<'ctx> {
     // Tracks whether current method is mutable (has ! in signature)
     // Used to validate self! usage in method bodies
     pub(crate) current_method_is_mutable: bool,
+
+    // Diagnostic engine for collecting errors, warnings, and info messages
+    pub(crate) diagnostics: DiagnosticEngine,
+
+    // ⭐ NEW: Span tracking for AST nodes (from parser)
+    // Maps AST node addresses to their source locations
+    pub(crate) span_map: vex_diagnostics::SpanMap,
 }
 
 impl<'ctx> ASTCodeGen<'ctx> {
     pub fn new(context: &'ctx Context, module_name: &str) -> Self {
+        Self::new_with_span_map(context, module_name, vex_diagnostics::SpanMap::new())
+    }
+
+    pub fn new_with_span_map(
+        context: &'ctx Context,
+        module_name: &str,
+        span_map: vex_diagnostics::SpanMap,
+    ) -> Self {
         let module = context.create_module(module_name);
         let builder = context.create_builder();
 
@@ -148,6 +164,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
             scope_stack: Vec::new(),
             last_compiled_tuple_type: None,
             current_method_is_mutable: false, // ⭐ NEW: Default to immutable
+            diagnostics: DiagnosticEngine::new(), // Initialize diagnostic engine
+            span_map,                         // ⭐ NEW: Store span map from parser
         };
 
         // Register Phase 0 builtin types (Vec, Option, Result, Box)
@@ -163,6 +181,21 @@ impl<'ctx> ASTCodeGen<'ctx> {
     /// Register a module namespace with its functions
     pub fn register_module_namespace(&mut self, module_name: String, functions: Vec<String>) {
         self.module_namespaces.insert(module_name, functions);
+    }
+
+    /// Get reference to diagnostic engine for printing/checking diagnostics
+    pub fn diagnostics(&self) -> &DiagnosticEngine {
+        &self.diagnostics
+    }
+
+    /// Check if there are any diagnostics collected
+    pub fn has_diagnostics(&self) -> bool {
+        self.diagnostics.has_diagnostics()
+    }
+
+    /// Check if there are any errors
+    pub fn has_errors(&self) -> bool {
+        self.diagnostics.has_errors()
     }
 
     /// Execute deferred statements in LIFO order
@@ -607,7 +640,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 }
             }
             // Function call: look up return type in function_defs
-            Expression::Call { func, .. } => {
+            Expression::Call { span_id: _,  func, .. } => {
                 if let Expression::Ident(func_name) = func.as_ref() {
                     // Clone return_type to avoid borrow issues
                     let return_type_opt = self

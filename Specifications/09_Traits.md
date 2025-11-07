@@ -366,7 +366,7 @@ trait Container {
 
 ## Trait Inheritance
 
-### Supertraits (Future)
+### Supertraits
 
 Traits can require other traits:
 
@@ -399,7 +399,7 @@ struct Number impl Ord {
 }
 ```
 
-### Multiple Supertraits (Future)
+### Multiple Supertraits
 
 ```vex
 trait Serializable: Display & Cloneable {
@@ -752,7 +752,7 @@ trait Ord {
 | Multiple Traits       | `impl T1, T2 { }`      | 🚧 Future  | Multiple traits       |
 | Trait Bounds          | `<T: Trait>`           | 🚧 Future  | Generic constraints   |
 | Associated Types      | `type Item;`           | 🚧 Future  | Type members          |
-| Supertraits           | `trait T: U { }`       | 🚧 Future  | Trait inheritance     |
+| Supertraits           | `trait T: U { }`       | ✅ Working | Trait inheritance     |
 | Where Clauses         | `where T: Trait`       | 🚧 Future  | Complex bounds        |
 | Dynamic Dispatch      | `&dyn Trait`           | 🚧 Future  | Runtime polymorphism  |
 

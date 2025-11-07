@@ -38,7 +38,7 @@ Vex provides **multiple concurrency models**:
 
 ## Goroutines
 
-### Syntax (Parsed, Runtime Pending)
+### Syntax
 
 **Keyword**: `go`
 
@@ -90,7 +90,7 @@ fn main(): i32 {
 ```vex
 fn main(): i32 {
     let data = 42;
-    go || {
+    go  {
         // Use data
     };
     return 0;
@@ -115,7 +115,7 @@ fn main(): i32 {
 
 ## Async/Await
 
-### Syntax (Parsed, Runtime Pending)
+### Syntax
 
 **Keywords**: `async`, `await`
 
@@ -189,7 +189,7 @@ Channels provide communication between concurrent tasks:
 let (tx, rx) = channel<i32>();
 
 // Send value
-go || {
+go  {
     tx.send(42);
 };
 
@@ -346,7 +346,7 @@ let wg = WaitGroup::new();
 
 for i in 0..10 {
     wg.add(1);
-    go || {
+    go  {
         defer wg.done();
         // Do work
     };
@@ -377,7 +377,7 @@ fn fan_out(work: [Task]) {
     let (tx, rx) = channel<Result>();
 
     for task in work {
-        go || {
+        go  {
             let result = process(task);
             tx.send(result);
         };
@@ -400,14 +400,14 @@ fn pipeline(input: [Data]): [Result] {
     let (tx2, rx2) = channel();
 
     // Stage 1
-    go || {
+    go  {
         for data in input {
             tx1.send(process_stage1(data));
         }
     };
 
     // Stage 2
-    go || {
+    go  {
         loop {
             let data = rx1.recv();
             tx2.send(process_stage2(data));
@@ -434,7 +434,7 @@ fn worker_pool(work: [Task], num_workers: i32): [Result] {
 
     // Spawn workers
     for i in 0..num_workers {
-        go || {
+        go  {
             loop {
                 let task = work_rx.recv();
                 let result = process(task);
@@ -444,7 +444,7 @@ fn worker_pool(work: [Task], num_workers: i32): [Result] {
     }
 
     // Send work
-    go || {
+    go  {
         for task in work {
             work_tx.send(task);
         }
@@ -569,14 +569,14 @@ fn main(): i32 {
 ```vex
 // Good: Use channels (future)
 let (tx, rx) = channel<i32>();
-go || {
+go  {
     tx.send(42);
 };
 let value = rx.recv();
 
 // Bad: Shared mutable state
 let! shared = 0;
-go || {
+go  {
     shared = 42;  // Data race!
 };
 ```
@@ -588,7 +588,7 @@ go || {
 go process_item(item);
 
 // Bad: Complex logic in goroutine
-go || {
+go  {
     // Hundreds of lines
     // Complex error handling
     // Multiple responsibilities

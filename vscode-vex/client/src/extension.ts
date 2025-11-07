@@ -1,7 +1,6 @@
 // Vex Language Client Extension
 // Activates and manages the LSP connection
 
-import * as path from "path";
 import * as vscode from "vscode";
 import {
   LanguageClient,
@@ -16,13 +15,8 @@ export function activate(context: vscode.ExtensionContext) {
   console.log("Vex Language Extension activating...");
 
   // LSP server binary path
-  const serverModule = findServerBinary();
-  if (!serverModule) {
-    vscode.window.showErrorMessage(
-      "Vex LSP server not found. Please build with: cargo build --release -p vex-lsp"
-    );
-    return;
-  }
+  // IMPORTANT: The server binary must be on the system's PATH.
+  const serverModule = "vex-lsp";
 
   console.log(`Found Vex LSP server at: ${serverModule}`);
 
@@ -84,7 +78,8 @@ export function deactivate(): Thenable<void> | undefined {
   return client.stop();
 }
 
-// Find the LSP server binary
+// This function is no longer needed as we rely on the PATH.
+/*
 function findServerBinary(): string | null {
   const possiblePaths = [
     // Development: ~/.cargo/target/debug/vex-lsp
@@ -98,7 +93,7 @@ function findServerBinary(): string | null {
       "debug",
       "vex-lsp"
     ),
-    // Workspace release: vex_lang/target/release/vex-lsp
+    // Workspace: vex_lang/target/release/vex-lsp
     path.join(
       vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || "",
       "target",
@@ -108,15 +103,10 @@ function findServerBinary(): string | null {
   ];
 
   for (const p of possiblePaths) {
-    try {
-      const fs = require("fs");
-      if (fs.existsSync(p)) {
-        return p;
-      }
-    } catch (e) {
-      // Ignore
+    if (require("fs").existsSync(p)) {
+      return p;
     }
   }
-
   return null;
 }
+*/

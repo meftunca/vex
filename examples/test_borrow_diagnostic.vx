@@ -1,0 +1,8 @@
+// Test borrow checker diagnostic
+// This should produce an immutable assignment error
+
+fn main(): i32 {
+    let x = 42;
+    x = 100;  // ❌ Error: cannot assign to immutable variable
+    return x;
+}

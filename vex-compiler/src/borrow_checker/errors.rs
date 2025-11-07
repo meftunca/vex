@@ -1,5 +1,6 @@
 // Borrow Checker Error Types
 
+use crate::diagnostics::{error_codes, Diagnostic, ErrorLevel, Span};
 use std::fmt;
 
 /// Result type for borrow checker operations
@@ -61,7 +62,10 @@ pub enum BorrowError {
     DanglingReference { reference: String, referent: String },
 
     /// Use after scope end (Phase 4)
-    UseAfterScopeEnd { variable: String },
+    UseAfterScopeEnd {
+        variable: String,
+        available_names: Vec<String>,
+    },
 
     /// Return dangling reference to local variable (Phase 4)
     ReturnDanglingReference { variable: String },
@@ -205,13 +209,20 @@ impl fmt::Display for BorrowError {
                 )
             }
 
-            BorrowError::UseAfterScopeEnd { variable } => {
+            BorrowError::UseAfterScopeEnd {
+                variable,
+                available_names,
+            } => {
                 write!(
                     f,
                     "use of variable `{}` after it has gone out of scope",
                     variable
                 )?;
-                write!(f, "\nhelp: ensure the variable is in scope before using it")
+                write!(f, "\nhelp: ensure the variable is in scope before using it")?;
+                if !available_names.is_empty() {
+                    write!(f, "\navailable names: {}", available_names.join(", "))?;
+                }
+                Ok(())
             }
 
             BorrowError::ReturnDanglingReference { variable } => {
@@ -230,6 +241,248 @@ impl fmt::Display for BorrowError {
 }
 
 impl std::error::Error for BorrowError {}
+
+impl BorrowError {
+    /// Convert borrow error to diagnostic for pretty printing
+    pub fn to_diagnostic(&self) -> Diagnostic {
+        match self {
+            BorrowError::AssignToImmutable { variable, location } => {
+                let mut notes = vec![format!("variable `{}` is immutable", variable)];
+                if let Some(loc) = location {
+                    notes.push(format!("assignment at {}", loc));
+                }
+
+                Diagnostic {
+                    level: ErrorLevel::Error,
+                    code: error_codes::IMMUTABLE_ASSIGN.to_string(),
+                    message: format!("cannot assign to immutable variable `{}`", variable),
+                    span: Span::unknown(),
+                    notes,
+                    help: Some(format!(
+                        "consider making this binding mutable: `let! {}`",
+                        variable
+                    )),
+                    suggestion: None,
+                }
+            }
+
+            BorrowError::AssignToImmutableField {
+                variable,
+                field,
+                location,
+            } => {
+                let mut notes = vec![
+                    format!("variable `{}` is immutable", variable),
+                    format!("attempting to assign to field `{}`", field),
+                ];
+                if let Some(loc) = location {
+                    notes.push(format!("assignment at {}", loc));
+                }
+
+                Diagnostic {
+                    level: ErrorLevel::Error,
+                    code: error_codes::IMMUTABLE_ASSIGN.to_string(),
+                    message: format!("cannot assign to field `{}` of immutable variable `{}`", field, variable),
+                    span: Span::unknown(),
+                    notes,
+                    help: Some(format!("consider making this binding mutable: `let! {}`, or if this is a method, add `!` to make it mutable: `fn method()!`", variable)),
+                    suggestion: None,
+                }
+            }
+
+            BorrowError::UseAfterMove {
+                variable,
+                moved_at,
+                used_at,
+            } => {
+                let mut notes = vec![];
+                if let Some(moved) = moved_at {
+                    notes.push(format!("value moved here: {}", moved));
+                }
+                if let Some(used) = used_at {
+                    notes.push(format!("value used here: {}", used));
+                }
+
+                Diagnostic {
+                    level: ErrorLevel::Error,
+                    code: error_codes::USE_AFTER_MOVE.to_string(),
+                    message: format!("use of moved value: `{}`", variable),
+                    span: Span::unknown(),
+                    notes,
+                    help: Some("consider cloning the value if it needs to be used after move, or use references".to_string()),
+                    suggestion: None,
+                }
+            }
+
+            BorrowError::MutableBorrowWhileBorrowed {
+                variable,
+                existing_borrow,
+                new_borrow,
+            } => {
+                let mut notes = vec![];
+                if let Some(existing) = existing_borrow {
+                    notes.push(format!("immutable borrow occurs here: {}", existing));
+                }
+                if let Some(new) = new_borrow {
+                    notes.push(format!("mutable borrow occurs here: {}", new));
+                }
+
+                Diagnostic {
+                    level: ErrorLevel::Error,
+                    code: error_codes::MULTIPLE_MUTABLE_BORROW.to_string(),
+                    message: format!(
+                        "cannot borrow `{}` as mutable because it is also borrowed as immutable",
+                        variable
+                    ),
+                    span: Span::unknown(),
+                    notes,
+                    help: Some("mutable references require exclusive access".to_string()),
+                    suggestion: None,
+                }
+            }
+
+            BorrowError::ImmutableBorrowWhileMutableBorrowed {
+                variable,
+                mutable_borrow,
+                new_borrow,
+            } => {
+                let mut notes = vec![];
+                if let Some(mutable) = mutable_borrow {
+                    notes.push(format!("mutable borrow occurs here: {}", mutable));
+                }
+                if let Some(new) = new_borrow {
+                    notes.push(format!("immutable borrow occurs here: {}", new));
+                }
+
+                Diagnostic {
+                    level: ErrorLevel::Error,
+                    code: error_codes::BORROW_ERROR.to_string(),
+                    message: format!(
+                        "cannot borrow `{}` as immutable because it is also borrowed as mutable",
+                        variable
+                    ),
+                    span: Span::unknown(),
+                    notes,
+                    help: Some("mutable borrows prevent other borrows while active".to_string()),
+                    suggestion: None,
+                }
+            }
+
+            BorrowError::MutationWhileBorrowed {
+                variable,
+                borrowed_at,
+            } => {
+                let mut notes = vec![];
+                if let Some(borrowed) = borrowed_at {
+                    notes.push(format!("borrow occurs here: {}", borrowed));
+                }
+
+                Diagnostic {
+                    level: ErrorLevel::Error,
+                    code: error_codes::BORROW_ERROR.to_string(),
+                    message: format!("cannot assign to `{}` because it is borrowed", variable),
+                    span: Span::unknown(),
+                    notes,
+                    help: Some(
+                        "borrowed values cannot be mutated while the borrow is active".to_string(),
+                    ),
+                    suggestion: None,
+                }
+            }
+
+            BorrowError::MoveWhileBorrowed {
+                variable,
+                borrow_location,
+            } => {
+                let mut notes = vec![];
+                if let Some(location) = borrow_location {
+                    notes.push(location.clone());
+                }
+
+                Diagnostic {
+                    level: ErrorLevel::Error,
+                    code: error_codes::MOVE_ERROR.to_string(),
+                    message: format!("cannot move `{}` because it is borrowed", variable),
+                    span: Span::unknown(),
+                    notes,
+                    help: Some("cannot move out of a borrowed value".to_string()),
+                    suggestion: None,
+                }
+            }
+
+            BorrowError::ReturnLocalReference { variable } => Diagnostic {
+                level: ErrorLevel::Error,
+                code: error_codes::RETURN_LOCAL_REF.to_string(),
+                message: format!("cannot return reference to local variable `{}`", variable),
+                span: Span::unknown(),
+                notes: vec!["local variable will be dropped at the end of the function".to_string()],
+                help: Some("consider returning an owned value instead".to_string()),
+                suggestion: None,
+            },
+
+            BorrowError::DanglingReference {
+                reference,
+                referent,
+            } => Diagnostic {
+                level: ErrorLevel::Error,
+                code: error_codes::DANGLING_REFERENCE.to_string(),
+                message: format!(
+                    "dangling reference: `{}` references `{}` which is out of scope",
+                    reference, referent
+                ),
+                span: Span::unknown(),
+                notes: vec!["the referenced value has gone out of scope".to_string()],
+                help: Some("ensure the referenced value outlives the reference".to_string()),
+                suggestion: None,
+            },
+
+            BorrowError::UseAfterScopeEnd {
+                variable,
+                available_names,
+            } => {
+                // Use fuzzy matching to find similar names
+                let suggestions = crate::diagnostics::fuzzy::find_similar_names(
+                    &variable,
+                    available_names,
+                    0.7, // similarity threshold
+                    3,   // max suggestions
+                );
+
+                let help_msg = if suggestions.is_empty() {
+                    "ensure the variable is in scope before using it".to_string()
+                } else {
+                    format!("did you mean `{}`?", suggestions.join("`, `"))
+                };
+
+                Diagnostic {
+                    level: ErrorLevel::Error,
+                    code: error_codes::LIFETIME_ERROR.to_string(),
+                    message: format!(
+                        "use of variable `{}` after it has gone out of scope",
+                        variable
+                    ),
+                    span: Span::unknown(),
+                    notes: vec!["the variable is no longer accessible".to_string()],
+                    help: Some(help_msg),
+                    suggestion: None,
+                }
+            }
+
+            BorrowError::ReturnDanglingReference { variable } => Diagnostic {
+                level: ErrorLevel::Error,
+                code: error_codes::RETURN_LOCAL_REF.to_string(),
+                message: format!("cannot return reference to local variable `{}`", variable),
+                span: Span::unknown(),
+                notes: vec!["the variable will be dropped at the end of the function".to_string()],
+                help: Some(
+                    "consider returning an owned value or accepting a reference parameter"
+                        .to_string(),
+                ),
+                suggestion: None,
+            },
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {

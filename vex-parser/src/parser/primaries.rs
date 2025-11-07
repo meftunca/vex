@@ -166,11 +166,11 @@ impl<'a> Parser<'a> {
                 // Not a map literal, restore position and fail
                 self.current = checkpoint;
                 let span = self.peek_span().span.clone();
-                let location = crate::SourceLocation::from_span(&self.file_name, self.source, span);
-                return Err(ParseError::SyntaxError {
+                let location = crate::Span::from_file_and_span(&self.file_name, self.source, span);
+                return Err(ParseError::syntax_error(
+                    "Unexpected '{', map literals need key: value pairs".to_string(),
                     location,
-                    message: "Unexpected '{', map literals need key: value pairs".to_string(),
-                });
+                ));
             }
         }
 
@@ -310,7 +310,7 @@ impl<'a> Parser<'a> {
                             "vec_with_capacity"
                         };
 
-                        return Ok(Expression::Call {
+                        return Ok(Expression::Call { span_id: None,
                             func: Box::new(Expression::Ident(func_name.to_string())),
                             args,
                         });
@@ -326,7 +326,7 @@ impl<'a> Parser<'a> {
                         let value = self.parse_expression()?;
                         self.consume(&Token::RParen, "Expected ')' after Box argument")?;
                         // Map to box_new(value) builtin call
-                        return Ok(Expression::Call {
+                        return Ok(Expression::Call { span_id: None,
                             func: Box::new(Expression::Ident("box_new".to_string())),
                             args: vec![value],
                         });
@@ -342,7 +342,7 @@ impl<'a> Parser<'a> {
                         let capacity = self.parse_expression()?;
                         self.consume(&Token::RParen, "Expected ')' after Channel argument")?;
                         // Map to channel_new(capacity) builtin call
-                        return Ok(Expression::Call {
+                        return Ok(Expression::Call { span_id: None,
                             func: Box::new(Expression::Ident("channel_new".to_string())),
                             args: vec![capacity],
                         });
@@ -373,7 +373,7 @@ impl<'a> Parser<'a> {
                             "string_from"
                         };
 
-                        return Ok(Expression::Call {
+                        return Ok(Expression::Call { span_id: None,
                             func: Box::new(Expression::Ident(func_name.to_string())),
                             args,
                         });
@@ -388,7 +388,7 @@ impl<'a> Parser<'a> {
                         let capacity = self.parse_expression()?;
                         self.consume(&Token::RParen, "Expected ')' after Channel argument")?;
                         // Map to channel_new(capacity) builtin call
-                        return Ok(Expression::Call {
+                        return Ok(Expression::Call { span_id: None,
                             func: Box::new(Expression::Ident("channel_new".to_string())),
                             args: vec![capacity],
                         });
@@ -445,7 +445,7 @@ impl<'a> Parser<'a> {
                 "map_with_capacity"
             };
 
-            Ok(Expression::Call {
+            Ok(Expression::Call { span_id: None,
                 func: Box::new(Expression::Ident(func_name.to_string())),
                 args,
             })
@@ -477,7 +477,7 @@ impl<'a> Parser<'a> {
                 "set_with_capacity"
             };
 
-            Ok(Expression::Call {
+            Ok(Expression::Call { span_id: None,
                 func: Box::new(Expression::Ident(func_name.to_string())),
                 args,
             })

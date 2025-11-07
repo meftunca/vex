@@ -1,0 +1,11 @@
+// Test "did you mean?" suggestion
+
+fn main(): i32 {
+    let message = "hello";
+    let count = 42;
+    
+    // Typo: "mesage" (one 's') instead of "message"
+    let x = mesage;
+    
+    return 0;
+}

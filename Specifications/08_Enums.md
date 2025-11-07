@@ -468,9 +468,9 @@ enum Option<&T> {
 
 ## Common Enum Patterns
 
-### Option Type (Future)
+### Option Type
 
-Represent optional values:
+Represent optional values with builtin constructors:
 
 ```vex
 enum Option<T> {
@@ -494,9 +494,18 @@ match result {
 }
 ```
 
-### Result Type (Future)
+**Builtin Constructors**:
 
-Error handling without exceptions:
+```vex
+let value = Some(42);        // Option::Some<i32>
+let nothing = None<i32>();   // Option::None (needs type annotation)
+```
+
+**Implementation Status**: ✅ Partial - constructors implemented, full pattern matching in progress
+
+### Result Type
+
+Error handling without exceptions with builtin constructors:
 
 ```vex
 enum Result<T, E> {
@@ -517,6 +526,15 @@ match result {
     Result::Err(msg) => { /* handle error */ }
 }
 ```
+
+**Builtin Constructors**:
+
+```vex
+let success = Ok(42);                  // Result::Ok<i32, E>
+let failure = Err("error message");    // Result::Err<T, string>
+```
+
+**Implementation Status**: ✅ Partial - constructors implemented, full pattern matching in progress
 
 ### State Machine
 
@@ -801,7 +819,7 @@ match status {
 | Or Patterns     | `A \| B => { }`      | ✅ Working | Multiple variants   |
 | Inline Methods  | Inside enum body     | ✅ Working | Methods on enums    |
 | Golang Methods  | Outside enum         | ✅ Working | Separate definition |
-| Data-Carrying   | `Some(T), None`      | 🚧 Future  | Associated data     |
+| Data-Carrying   | `Some(T), None`      | 🟡 Partial | Builtins work       |
 | Tuple Variants  | `V4(u8, u8, u8, u8)` | 🚧 Future  | Multiple values     |
 | Struct Variants | `Move { x, y }`      | 🚧 Future  | Named fields        |
 | Generic Enums   | `Option<T>`          | 🚧 Future  | Type parameters     |

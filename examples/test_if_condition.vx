@@ -1,0 +1,9 @@
+// Test if condition type error
+
+fn main(): i32 {
+    let message = "hello";
+    if message {  // ❌ Error: condition must be integer
+        return 1;
+    }
+    return 0;
+}

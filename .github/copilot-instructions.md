@@ -25,6 +25,9 @@
 vex_lang/
 ├── .github/
 │   └── copilot-instructions.md          # This file
+├── vex-diagnostics/                     # Diagnostic system (NEW!)
+│   └── src/
+│       └── lib.rs (646)                 # Span, Diagnostic, DiagnosticEngine, error codes
 ├── vex-lexer/                           # Tokenization (logos)
 ├── vex-parser/                          # Recursive descent parser (WELL ORGANIZED)
 │   └── src/parser/
@@ -52,11 +55,12 @@ vex_lang/
 ├── vex-compiler/                        # LLVM codegen (REORGANIZED!)
 │   └── src/
 │       ├── lib.rs                       # Public API
+│       ├── diagnostics.rs               # Re-export vex-diagnostics
 │       ├── trait_bounds_checker.rs      # Trait constraint validation
 │       ├── module_resolver.rs           # Import/module system
 │       ├── codegen_ast/                 # Code generation (WELL STRUCTURED)
-│       │   ├── mod.rs (501)             # Core ASTCodeGen struct + dispatcher
-│       │   ├── registry.rs              # Type/function registry
+│       │   ├── mod.rs (687)             # Core ASTCodeGen + DiagnosticEngine
+│       │   ├── registry.rs (129)        # Type/function registry + diagnostics
 │       │   ├── analysis.rs              # Pre-codegen analysis
 │       │   ├── program.rs               # Program compilation entry
 │       │   ├── types.rs (597)           # AST↔LLVM type conversion
@@ -67,7 +71,7 @@ vex_lang/
 │       │   ├── defer.rs                 # Defer statement
 │       │   ├── ffi.rs                   # FFI/extern support
 │       │   ├── statements/              # Statement compilation (ORGANIZED)
-│       │   │   ├── mod.rs               # Statement dispatcher
+│       │   │   ├── mod.rs (143)         # Statement dispatcher + diagnostics
 │       │   │   ├── let_statement.rs (638) # Variable declarations
 │       │   │   ├── assignment.rs        # Assignment expressions
 │       │   │   ├── control_flow.rs      # If/match statements

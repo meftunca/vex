@@ -36,6 +36,9 @@ pub struct MoveChecker {
 
     /// Builtin function registry for identifying builtin functions
     builtin_registry: super::builtin_metadata::BuiltinBorrowRegistry,
+
+    /// Current function being checked (for error location tracking)
+    current_function: Option<String>,
 }
 
 impl MoveChecker {
@@ -46,6 +49,7 @@ impl MoveChecker {
             valid_vars: HashSet::new(),
             var_types: HashMap::new(),
             builtin_registry: super::builtin_metadata::BuiltinBorrowRegistry::new(),
+            current_function: None,
         }
     }
 
@@ -61,6 +65,9 @@ impl MoveChecker {
     fn check_item(&mut self, item: &Item) -> BorrowResult<()> {
         match item {
             Item::Function(func) => {
+                // Track current function name for error messages
+                self.current_function = Some(func.name.clone());
+
                 // Create new scope for function
                 let saved_moved = self.moved_vars.clone();
                 let saved_valid = self.valid_vars.clone();
@@ -81,6 +88,7 @@ impl MoveChecker {
                 self.moved_vars = saved_moved;
                 self.valid_vars = saved_valid;
                 self.var_types = saved_types;
+                self.current_function = None;
 
                 Ok(())
             }
@@ -164,7 +172,7 @@ impl MoveChecker {
                 Ok(())
             }
 
-            Statement::If {
+            Statement::If { span_id: _, 
                 condition,
                 then_block,
                 elif_branches,
@@ -195,7 +203,7 @@ impl MoveChecker {
                 Ok(())
             }
 
-            Statement::While { condition, body } => {
+            Statement::While { span_id: _,  condition, body } => {
                 self.check_expression(condition)?;
 
                 for stmt in &body.statements {
@@ -205,7 +213,7 @@ impl MoveChecker {
                 Ok(())
             }
 
-            Statement::For {
+            Statement::For { span_id: _, 
                 init,
                 condition,
                 post,
@@ -286,10 +294,14 @@ impl MoveChecker {
 
                 // Check if this variable has been moved
                 if self.moved_vars.contains(name) {
+                    let used_at = self
+                        .current_function
+                        .as_ref()
+                        .map(|f| format!("in function `{}`", f));
                     return Err(BorrowError::UseAfterMove {
                         variable: name.clone(),
-                        moved_at: None,
-                        used_at: None,
+                        moved_at: None, // TODO: Track where the move happened
+                        used_at,
                     });
                 }
 
@@ -303,18 +315,18 @@ impl MoveChecker {
                 Ok(())
             }
 
-            Expression::Binary { left, right, .. } => {
+            Expression::Binary { span_id: _,  left, right, .. } => {
                 self.check_expression(left)?;
                 self.check_expression(right)?;
                 Ok(())
             }
 
-            Expression::Unary { expr, .. } => {
+            Expression::Unary { span_id: _,  expr, .. } => {
                 self.check_expression(expr)?;
                 Ok(())
             }
 
-            Expression::Call { func, args } => {
+            Expression::Call { span_id: _,  func, args } => {
                 // Skip builtin function check if func is an identifier
                 if let Expression::Ident(func_name) = func.as_ref() {
                     if !self.builtin_registry.is_builtin(func_name) {
@@ -558,7 +570,7 @@ mod tests {
         checker.var_types.insert("s".to_string(), Type::String);
 
         // foo(s);  (moves s into function)
-        let call = Expression::Call {
+        let call = Expression::Call { span_id: _, 
             func: Box::new(Expression::Ident("foo".to_string())),
             args: vec![Expression::Ident("s".to_string())],
         };

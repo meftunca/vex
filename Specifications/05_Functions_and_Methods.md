@@ -525,7 +525,7 @@ let result1 = apply(add, 10, 20);       // 30
 let result2 = apply(multiply, 10, 20);  // 200
 ```
 
-### Closures (Future)
+### Closures
 
 Anonymous functions capturing environment:
 
@@ -536,6 +536,25 @@ fn make_adder(x: i32): fn(i32): i32 {
 
 let add_5 = make_adder(5);
 let result = add_5(10);  // 15
+```
+
+**Closure Capture Modes**:
+
+Vex closures automatically determine their capture mode:
+
+- **Callable** (`Fn`): Immutable capture - can call multiple times
+- **CallableMut** (`FnMut`): Mutable capture - can call multiple times, mutates environment
+- **CallableOnce** (`FnOnce`): Move capture - can only call once, takes ownership
+
+```vex
+let x = 5;
+let y = |z| x + z;  // Callable - only reads x
+
+let! counter = 0;
+let increment = || { counter = counter + 1; };  // CallableMut - mutates counter
+
+let data = vec![1, 2, 3];
+let processor = || process(data);  // CallableOnce - moves data
 ```
 
 ### Map, Filter, Reduce (Future)

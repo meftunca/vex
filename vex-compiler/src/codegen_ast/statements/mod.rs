@@ -20,6 +20,7 @@ pub use let_statement::*;
 pub use loops::*;
 
 use super::ASTCodeGen;
+use crate::diagnostics::{error_codes, Diagnostic, ErrorLevel, Span};
 use inkwell::values::BasicValueEnum;
 use vex_ast::*;
 
@@ -81,23 +82,35 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
             // loops & branching
             Statement::If {
+                span_id,
                 condition,
                 then_block,
                 elif_branches,
                 else_block,
             } => {
-                self.compile_if_statement(condition, then_block, elif_branches, else_block)?;
+                self.compile_if_statement(
+                    span_id,
+                    condition,
+                    then_block,
+                    elif_branches,
+                    else_block,
+                )?;
             }
             Statement::For {
+                span_id,
                 init,
                 condition,
                 post,
                 body,
             } => {
-                self.compile_for_loop(init, condition, post, body)?;
+                self.compile_for_loop(span_id, init, condition, post, body)?;
             }
-            Statement::While { condition, body } => {
-                self.compile_while_loop(condition, body)?;
+            Statement::While {
+                span_id,
+                condition,
+                body,
+            } => {
+                self.compile_while_loop(span_id, condition, body)?;
             }
             Statement::ForIn {
                 variable,
@@ -120,7 +133,19 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 let _ = self.compile_expression(expr)?;
             }
 
-            _ => return Err(format!("Statement not yet implemented: {:?}", stmt)),
+            _ => {
+                let stmt_str = format!("{:?}", stmt);
+                self.diagnostics.emit(Diagnostic {
+                    level: ErrorLevel::Error,
+                    code: error_codes::NOT_IMPLEMENTED.to_string(),
+                    message: "This statement type is not yet implemented".to_string(),
+                    span: Span::unknown(),
+                    notes: vec![format!("Statement: {}", stmt_str)],
+                    help: Some("This feature is planned for a future release".to_string()),
+                    suggestion: None,
+                });
+                return Err(format!("Statement not yet implemented: {:?}", stmt));
+            }
         }
         Ok(())
     }

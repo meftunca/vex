@@ -53,6 +53,9 @@ pub struct BorrowRulesChecker {
 
     /// Registry of builtin function metadata
     builtin_registry: super::builtin_metadata::BuiltinBorrowRegistry,
+
+    /// Current function being checked (for error location tracking)
+    current_function: Option<String>,
 }
 
 impl Default for BorrowRulesChecker {
@@ -68,6 +71,7 @@ impl BorrowRulesChecker {
             active_borrows: HashMap::new(),
             borrowed_vars: HashMap::new(),
             builtin_registry: super::builtin_metadata::BuiltinBorrowRegistry::new(),
+            current_function: None,
         }
     }
 
@@ -83,6 +87,9 @@ impl BorrowRulesChecker {
     fn check_item(&mut self, item: &Item) -> BorrowResult<()> {
         match item {
             Item::Function(func) => {
+                // Track current function name for error messages
+                self.current_function = Some(func.name.clone());
+
                 // Create new scope for function
                 let saved_borrows = self.active_borrows.clone();
                 let saved_borrowed = self.borrowed_vars.clone();
@@ -158,7 +165,7 @@ impl BorrowRulesChecker {
                 Ok(())
             }
 
-            Statement::If {
+            Statement::If { span_id: _, 
                 condition,
                 then_block,
                 elif_branches,
@@ -187,7 +194,7 @@ impl BorrowRulesChecker {
                 Ok(())
             }
 
-            Statement::While { condition, body } => {
+            Statement::While { span_id: _,  condition, body } => {
                 self.check_expression_for_borrows(condition)?;
 
                 for stmt in &body.statements {
@@ -197,7 +204,7 @@ impl BorrowRulesChecker {
                 Ok(())
             }
 
-            Statement::For {
+            Statement::For { span_id: _, 
                 init,
                 condition,
                 post,
@@ -280,18 +287,18 @@ impl BorrowRulesChecker {
                 Ok(())
             }
 
-            Expression::Binary { left, right, .. } => {
+            Expression::Binary { span_id: _,  left, right, .. } => {
                 self.check_expression_for_borrows(left)?;
                 self.check_expression_for_borrows(right)?;
                 Ok(())
             }
 
-            Expression::Unary { expr, .. } => {
+            Expression::Unary { span_id: _,  expr, .. } => {
                 self.check_expression_for_borrows(expr)?;
                 Ok(())
             }
 
-            Expression::Call { func, args } => {
+            Expression::Call { span_id: _,  func, args } => {
                 // Skip checking builtin function names as variables
                 if let Expression::Ident(func_name) = func.as_ref() {
                     if !self.builtin_registry.is_builtin(func_name) {

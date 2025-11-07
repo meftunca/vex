@@ -4,55 +4,60 @@ use thiserror::Error;
 mod parser;
 pub use parser::Parser;
 
-/// Source code location for error reporting
-#[derive(Debug, Clone, PartialEq)]
-pub struct SourceLocation {
-    pub file: String,
-    pub line: usize,
-    pub column: usize,
-    pub length: usize,
-}
+// Re-export diagnostic types for parser use
+pub use vex_diagnostics::{error_codes, Diagnostic, DiagnosticEngine, ErrorLevel, Span};
 
-impl std::fmt::Display for SourceLocation {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}:{}:{}", self.file, self.line, self.column)
-    }
-}
-
-impl SourceLocation {
-    pub fn from_span(file: &str, source: &str, span: std::ops::Range<usize>) -> Self {
-        let before = &source[..span.start];
-        let line = before.lines().count();
-        let column = before.lines().last().map_or(0, |l| l.len()) + 1;
-        let length = span.end.saturating_sub(span.start);
-
-        Self {
-            file: file.to_string(),
-            line,
-            column,
-            length,
-        }
-    }
-
-    pub fn unknown() -> Self {
-        Self {
-            file: "<unknown>".to_string(),
-            line: 0,
-            column: 0,
-            length: 0,
-        }
-    }
-}
+/// Backward compatibility: SourceLocation is now an alias for Span
+pub type SourceLocation = Span;
 
 #[derive(Error, Debug)]
 pub enum ParseError {
-    #[error("Parse error at {location}: {message}")]
-    SyntaxError {
-        location: SourceLocation,
-        message: String,
-    },
+    #[error("{0}")]
+    Diagnostic(Diagnostic), // Store the actual diagnostic, not formatted string
+
     #[error("Lexer error: {0}")]
     LexerError(String),
+}
+
+impl ParseError {
+    /// Create parse error from diagnostic
+    pub fn from_diagnostic(diag: Diagnostic) -> Self {
+        Self::Diagnostic(diag)
+    }
+
+    /// Create syntax error
+    pub fn syntax_error(message: String, span: Span) -> Self {
+        let diag = Diagnostic::error(error_codes::SYNTAX_ERROR, message, span);
+        Self::Diagnostic(diag)
+    }
+
+    /// Create unexpected token error
+    pub fn unexpected_token(expected: &str, found: &str, span: Span) -> Self {
+        let diag = Diagnostic::error(
+            error_codes::UNEXPECTED_TOKEN,
+            format!("expected {}, found {}", expected, found),
+            span,
+        );
+        Self::Diagnostic(diag)
+    }
+
+    /// Create unexpected EOF error
+    pub fn unexpected_eof(expected: &str, span: Span) -> Self {
+        let diag = Diagnostic::error(
+            error_codes::UNEXPECTED_EOF,
+            format!("unexpected end of file, expected {}", expected),
+            span,
+        );
+        Self::Diagnostic(diag)
+    }
+
+    /// Get the underlying diagnostic if available
+    pub fn as_diagnostic(&self) -> Option<&Diagnostic> {
+        match self {
+            ParseError::Diagnostic(diag) => Some(diag),
+            _ => None,
+        }
+    }
 }
 
 #[cfg(test)]

@@ -1,5 +1,6 @@
 // src/codegen/registry.rs
 use super::*;
+use crate::diagnostics::{error_codes, Diagnostic, ErrorLevel, Span};
 use vex_ast::*;
 
 impl<'ctx> ASTCodeGen<'ctx> {
@@ -8,14 +9,16 @@ impl<'ctx> ASTCodeGen<'ctx> {
             return Ok(());
         }
         let resolved_type = self.resolve_type(&type_alias.ty);
-        self.type_aliases.insert(type_alias.name.clone(), resolved_type);
+        self.type_aliases
+            .insert(type_alias.name.clone(), resolved_type);
         Ok(())
     }
 
     pub(crate) fn register_struct(&mut self, struct_def: &Struct) -> Result<(), String> {
         use super::StructDef;
 
-        self.struct_ast_defs.insert(struct_def.name.clone(), struct_def.clone());
+        self.struct_ast_defs
+            .insert(struct_def.name.clone(), struct_def.clone());
 
         if !struct_def.type_params.is_empty() {
             return Ok(());
@@ -27,7 +30,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
             .map(|f| (f.name.clone(), f.ty.clone()))
             .collect();
 
-        self.struct_defs.insert(struct_def.name.clone(), StructDef { fields });
+        self.struct_defs
+            .insert(struct_def.name.clone(), StructDef { fields });
 
         for trait_name in &struct_def.impl_traits {
             let key = (trait_name.clone(), struct_def.name.clone());
@@ -39,13 +43,17 @@ impl<'ctx> ASTCodeGen<'ctx> {
     }
 
     pub(crate) fn register_enum(&mut self, enum_def: &Enum) -> Result<(), String> {
-        self.enum_ast_defs.insert(enum_def.name.clone(), enum_def.clone());
-        if !enum_def.type_params.is_empty() { return Ok(()); }
+        self.enum_ast_defs
+            .insert(enum_def.name.clone(), enum_def.clone());
+        if !enum_def.type_params.is_empty() {
+            return Ok(());
+        }
         Ok(())
     }
 
     pub(crate) fn register_trait(&mut self, trait_def: &Trait) -> Result<(), String> {
-        self.trait_defs.insert(trait_def.name.clone(), trait_def.clone());
+        self.trait_defs
+            .insert(trait_def.name.clone(), trait_def.clone());
         Ok(())
     }
 
@@ -53,6 +61,18 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let type_name = match &trait_impl.for_type {
             Type::Named(name) => name.clone(),
             _ => {
+                let type_str = format!("{:?}", trait_impl.for_type);
+                self.diagnostics.emit(Diagnostic {
+                    level: ErrorLevel::Error,
+                    code: error_codes::TYPE_MISMATCH.to_string(),
+                    message: "Trait implementations only support named types".to_string(),
+                    span: Span::unknown(),
+                    notes: vec![format!("Cannot implement trait for type: {}", type_str)],
+                    help: Some(
+                        "Try implementing the trait for a named struct or enum type".to_string(),
+                    ),
+                    suggestion: None,
+                });
                 return Err(format!(
                     "Trait implementations currently only support named types, got: {:?}",
                     trait_impl.for_type
@@ -77,7 +97,19 @@ impl<'ctx> ASTCodeGen<'ctx> {
     ) -> Result<(), String> {
         let type_name = match for_type {
             Type::Named(name) => name,
-            _ => return Err(format!("Expected named type, got: {:?}", for_type)),
+            _ => {
+                let type_str = format!("{:?}", for_type);
+                self.diagnostics.emit(Diagnostic {
+                    level: ErrorLevel::Error,
+                    code: error_codes::TYPE_MISMATCH.to_string(),
+                    message: "Expected named type for trait implementation".to_string(),
+                    span: Span::unknown(),
+                    notes: vec![format!("Got type: {}", type_str)],
+                    help: Some("Trait methods can only be implemented for named types".to_string()),
+                    suggestion: None,
+                });
+                return Err(format!("Expected named type, got: {:?}", for_type));
+            }
         };
 
         let mangled_name = format!("{}_{}_{}", type_name, trait_name, method.name);

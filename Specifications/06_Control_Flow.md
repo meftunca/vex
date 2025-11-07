@@ -201,11 +201,11 @@ enum Color {
     Blue,
 }
 
-let color = Color::Red;
+let color = Color.Red;
 match color {
-    Color::Red => { /* red */ }
-    Color::Green => { /* green */ }
-    Color::Blue => { /* blue */ }
+    Color.Red => { /* red */ }
+    Color.Green => { /* green */ }
+    Color.Blue => { /* blue */ }
 }
 ```
 
@@ -213,9 +213,9 @@ match color {
 
 ```vex
 match color {
-    Color::Red => { }
-    Color::Green => { }
-    // ERROR: Missing Color::Blue case
+    Color.Red => { }
+    Color.Green => { }
+    // ERROR: Missing Color.Blue case
 }
 ```
 
@@ -375,13 +375,17 @@ for i in 1..11 {
 // sum = 55 (1+2+...+10)
 ```
 
-**Inclusive Range** (Future):
+**Inclusive Range**:
 
 ```vex
 for i in 0..=10 {
     // i = 0, 1, 2, ..., 10 (includes 10)
 }
 ```
+
+**Operators**:
+- `..` - Exclusive range: `0..10` → 0, 1, 2, ..., 9
+- `..=` - Inclusive range: `0..=10` → 0, 1, 2, ..., 10
 
 ### Loop (Infinite Loop) (Future)
 
@@ -700,9 +704,11 @@ fn find_first_even(numbers: [i32; 10]): i32 {
 
 ## Defer Statement
 
-### Syntax (Go-style)
+### Syntax
 
 **Purpose**: Execute code when function exits, regardless of how it exits.
+
+**Status**: ✅ Fully implemented - deferred statements execute in LIFO order on function exit
 
 **Keyword**: `defer`
 
@@ -1124,6 +1130,45 @@ fn fetch_with_timeout(): (string | error) {
 
 See [13_Concurrency.md](./13_Concurrency.md) for full concurrency model.
 
+### Switch Statement
+
+C-style switch with integer values:
+
+**Syntax**: `switch value { case val: { } default: { } }`
+
+```vex
+switch day {
+    case 1:
+        println("Monday");
+    case 2:
+        println("Tuesday");
+    case 3:
+        println("Wednesday");
+    case 4:
+        println("Thursday");
+    case 5:
+        println("Friday");
+    case 6:
+        println("Saturday");
+    case 7:
+        println("Sunday");
+    default:
+        println("Invalid day");
+}
+```
+
+**Properties**:
+- Only works with integer types (i32, u32, etc.)
+- No implicit fallthrough (unlike C)
+- Must have `default` case (unlike C)
+- Each case must be a compile-time constant
+
+**Differences from C**:
+- No fallthrough by default
+- Requires `default` case
+- Only integer types supported
+- No expression cases (use `match` instead)
+
 ---
 
 ## Control Flow Summary
@@ -1134,13 +1179,14 @@ See [13_Concurrency.md](./13_Concurrency.md) for full concurrency model.
 | If-Else      | `if cond { } else { }`     | Binary choice        | ✅     |
 | If-Elif-Else | `if { } elif { } else { }` | Multiple conditions  | ✅     |
 | Match        | `match val { pat => { } }` | Pattern matching     | ✅     |
+| Switch       | `switch val { case ... }`  | Integer switching    | ✅     |
 | While        | `while cond { }`           | Condition-based loop | ✅     |
 | For          | `for i in range { }`       | Iteration            | ✅     |
+| Defer        | `defer cleanup();`         | LIFO cleanup         | ✅     |
 | Select       | `select { case ... }`      | Channel multiplexing | ❌     |
-| For          | `for i in range { }`       | Range iteration      |
-| Break        | `break;`                   | Exit loop            |
-| Continue     | `continue;`                | Skip iteration       |
-| Return       | `return value;`            | Exit function        |
+| Break        | `break;`                   | Exit loop            | ✅     |
+| Continue     | `continue;`                | Skip iteration       | ✅     |
+| Return       | `return value;`            | Exit function        | ✅     |
 
 ---
 

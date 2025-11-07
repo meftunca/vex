@@ -83,11 +83,11 @@
         },
         {
           "name": "constant.numeric.float.vex",
-          "match": "\\b[0-9][0-9_]*\\.[0-9][0-9_]*([eE][+-]?[0-9_]+)?(f32|f64)?\\b"
+          "match": "\\b[0-9][0-9_]*\\.[0-9][0-9_]*([eE][+-]?[0-9_]+)?(f16|f32|f64)?\\b"
         },
         {
           "name": "constant.numeric.integer.vex",
-          "match": "\\b[0-9][0-9_]*(i8|i16|i32|i64|u8|u16|u32|u64)?\\b"
+          "match": "\\b[0-9][0-9_]*(i8|i16|i32|i64|i128|u8|u16|u32|u64|u128)?\\b"
         }
       ]
     },
@@ -95,7 +95,7 @@
       "patterns": [
         {
           "name": "keyword.control.vex",
-          "match": "\\b(if|else|match|case|switch|for|while|loop|break|continue|return|defer|yield|await|async)\\b"
+          "match": "\\b(if|else|match|case|switch|for|while|loop|break|continue|return|defer|yield|await|async|go)\\b"
         },
         {
           "name": "keyword.declaration.vex",
@@ -111,7 +111,7 @@
         },
         {
           "name": "constant.language.vex",
-          "match": "\\b(true|false|null|none|some)\\b"
+          "match": "\\b(true|false|null|None|Some|Ok|Err)\\b"
         },
         {
           "name": "keyword.operator.mutable.vex",
@@ -123,7 +123,7 @@
       "patterns": [
         {
           "name": "support.type.primitive.vex",
-          "match": "\\b(i8|i16|i32|i64|u8|u16|u32|u64|f32|f64|bool|string|char|void|never)\\b"
+          "match": "\\b(i8|i16|i32|i64|i128|u8|u16|u32|u64|u128|f16|f32|f64|bool|string|char|void|never|error)\\b"
         },
         {
           "name": "entity.name.type.vex",
@@ -131,7 +131,7 @@
         },
         {
           "name": "storage.type.vex",
-          "match": "\\b(dyn|Box|Rc|Arc|Vec|Option|Result)\\b"
+          "match": "\\b(dyn|Box|Rc|Arc|Vec|Map|Set|Channel|Option|Result|Some|None|Ok|Err)\\b"
         }
       ]
     },
@@ -143,7 +143,7 @@
         },
         {
           "name": "support.function.builtin.vex",
-          "match": "\\b(println|print|panic|assert|unreachable|sizeof|alignof|typeof|type_id)\\b"
+          "match": "\\b(println|print|panic|assert|unreachable|alloc|free|realloc|sizeof|alignof|typeof|type_id|type_size|type_align|is_int_type|is_float_type|is_pointer_type|memcpy|memset|memcmp|memmove|strlen|strcmp|strcpy|strcat|strdup|utf8_valid|utf8_char_count|utf8_char_at|ctlz|cttz|ctpop|bswap|bitreverse|sadd_overflow|ssub_overflow|smul_overflow|assume|likely|unlikely|prefetch)\\b"
         }
       ]
     },
@@ -155,7 +155,7 @@
         },
         {
           "name": "keyword.operator.arrow.vex",
-          "match": "(->|=>|::)"
+          "match": "(->|=>)"
         },
         {
           "name": "keyword.operator.reference.vex",

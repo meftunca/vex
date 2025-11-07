@@ -37,18 +37,14 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.activate = activate;
 exports.deactivate = deactivate;
-const path = __importStar(require("path"));
 const vscode = __importStar(require("vscode"));
 const node_1 = require("vscode-languageclient/node");
 let client;
 function activate(context) {
-    console.log('Vex Language Extension activating...');
+    console.log("Vex Language Extension activating...");
     // LSP server binary path
-    const serverModule = findServerBinary();
-    if (!serverModule) {
-        vscode.window.showErrorMessage('Vex LSP server not found. Please build with: cargo build --release -p vex-lsp');
-        return;
-    }
+    // IMPORTANT: The server binary must be on the system's PATH.
+    const serverModule = "vex-lsp";
     console.log(`Found Vex LSP server at: ${serverModule}`);
     // Server options: run the Rust LSP binary
     const serverOptions = {
@@ -62,30 +58,30 @@ function activate(context) {
             options: {
                 env: {
                     ...process.env,
-                    RUST_LOG: 'info',
-                    RUST_BACKTRACE: '1',
+                    RUST_LOG: "info",
+                    RUST_BACKTRACE: "1",
                 },
             },
         },
     };
     // Client options: when to activate
     const clientOptions = {
-        documentSelector: [{ scheme: 'file', language: 'vex' }],
+        documentSelector: [{ scheme: "file", language: "vex" }],
         synchronize: {
-            fileEvents: vscode.workspace.createFileSystemWatcher('**/*.vx'),
+            fileEvents: vscode.workspace.createFileSystemWatcher("**/*.vx"),
         },
-        outputChannelName: 'Vex Language Server',
+        outputChannelName: "Vex Language Server",
     };
     // Create and start the client
-    client = new node_1.LanguageClient('vexLanguageServer', 'Vex Language Server', serverOptions, clientOptions);
+    client = new node_1.LanguageClient("vexLanguageServer", "Vex Language Server", serverOptions, clientOptions);
     // Start the client (also starts the server)
     client.start();
-    console.log('Vex Language Extension activated');
+    console.log("Vex Language Extension activated");
     // Register commands
-    context.subscriptions.push(vscode.commands.registerCommand('vex.restartServer', async () => {
+    context.subscriptions.push(vscode.commands.registerCommand("vex.restartServer", async () => {
         await client.stop();
         await client.start();
-        vscode.window.showInformationMessage('Vex LSP server restarted');
+        vscode.window.showInformationMessage("Vex LSP server restarted");
     }));
 }
 function deactivate() {
@@ -94,29 +90,36 @@ function deactivate() {
     }
     return client.stop();
 }
-// Find the LSP server binary
-function findServerBinary() {
-    const possiblePaths = [
-        // Development: ~/.cargo/target/debug/vex-lsp
-        path.join(process.env.HOME || '', '.cargo', 'target', 'debug', 'vex-lsp'),
-        // Release: ~/.cargo/target/release/vex-lsp
-        path.join(process.env.HOME || '', '.cargo', 'target', 'release', 'vex-lsp'),
-        // Workspace: vex_lang/target/debug/vex-lsp
-        path.join(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '', 'target', 'debug', 'vex-lsp'),
-        // Workspace release: vex_lang/target/release/vex-lsp
-        path.join(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '', 'target', 'release', 'vex-lsp'),
-    ];
-    for (const p of possiblePaths) {
-        try {
-            const fs = require('fs');
-            if (fs.existsSync(p)) {
-                return p;
-            }
-        }
-        catch (e) {
-            // Ignore
-        }
+// This function is no longer needed as we rely on the PATH.
+/*
+function findServerBinary(): string | null {
+  const possiblePaths = [
+    // Development: ~/.cargo/target/debug/vex-lsp
+    path.join(process.env.HOME || "", ".cargo", "target", "debug", "vex-lsp"),
+    // Release: ~/.cargo/target/release/vex-lsp
+    path.join(process.env.HOME || "", ".cargo", "target", "release", "vex-lsp"),
+    // Workspace: vex_lang/target/debug/vex-lsp
+    path.join(
+      vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || "",
+      "target",
+      "debug",
+      "vex-lsp"
+    ),
+    // Workspace: vex_lang/target/release/vex-lsp
+    path.join(
+      vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || "",
+      "target",
+      "release",
+      "vex-lsp"
+    ),
+  ];
+
+  for (const p of possiblePaths) {
+    if (require("fs").existsSync(p)) {
+      return p;
     }
-    return null;
+  }
+  return null;
 }
+*/
 //# sourceMappingURL=extension.js.map

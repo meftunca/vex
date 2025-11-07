@@ -2,6 +2,7 @@
 // if / while / for / switch
 
 use super::ASTCodeGen;
+use crate::diagnostics::{error_codes, Diagnostic, ErrorLevel, Span};
 use inkwell::values::BasicValueEnum;
 use inkwell::IntPredicate;
 use vex_ast::*;
@@ -10,6 +11,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
     /// Compile if statement with elif support
     pub(crate) fn compile_if_statement(
         &mut self,
+        span_id: &Option<String>,
         condition: &Expression,
         then_block: &Block,
         elif_branches: &[(Expression, Block)],
@@ -24,6 +26,24 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 .build_int_compare(IntPredicate::NE, iv, zero, "ifcond")
                 .map_err(|e| format!("Failed to compare: {}", e))?
         } else {
+            // ⭐ Get span from span_id
+            let span = span_id
+                .as_ref()
+                .and_then(|id| self.span_map.get(id))
+                .cloned()
+                .unwrap_or_else(Span::unknown);
+
+            self.diagnostics.emit(Diagnostic {
+                level: ErrorLevel::Error,
+                code: error_codes::TYPE_MISMATCH.to_string(),
+                message: "If condition must be an integer or boolean value".to_string(),
+                span,
+                notes: vec![format!("Got non-integer type in if condition")],
+                help: Some(
+                    "Ensure the condition evaluates to a boolean (i1) or integer type".to_string(),
+                ),
+                suggestion: None,
+            });
             return Err("Condition must be integer value".to_string());
         };
 
@@ -157,6 +177,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
     /// Compile while loop: while condition { body }
     pub(crate) fn compile_while_loop(
         &mut self,
+        _span_id: &Option<String>,
         condition: &Expression,
         body: &Block,
     ) -> Result<(), String> {
@@ -221,6 +242,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
     /// Compile for loop: for init; condition; post { body }
     pub(crate) fn compile_for_loop(
         &mut self,
+        _span_id: &Option<String>,
         init: &Option<Box<Statement>>,
         condition: &Option<Expression>,
         post: &Option<Box<Statement>>,
