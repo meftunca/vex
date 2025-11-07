@@ -3,15 +3,15 @@
 
 // Define multiple traits
 trait Display {
-    fn (self: &Self!) show();
+    fn show();
 }
 
 trait Serializable {
-    fn (self: &Self!) serialize() : i32;
+    fn serialize() : i32;
 }
 
 trait Comparable {
-    fn (self: &Self!) compare(other: &Self) : i32;
+    fn compare(other: &Self) : i32;
 }
 
 // Struct implementing multiple traits at once

@@ -2,7 +2,7 @@
 // Expected: Compiles successfully (runtime checking not yet implemented)
 
 trait Display {
-    fn (self: &Self!)display(): string;
+    fn display(): string;
 }
 
 struct Point impl Display {

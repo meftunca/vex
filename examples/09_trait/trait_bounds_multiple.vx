@@ -2,11 +2,11 @@
 // Expected: Compiles successfully
 
 trait Display {
-    fn (self: &Self!)display(): string;
+    fn display(): string;
 }
 
 trait Clone {
-    fn (self: &Self!)clone(): Self;
+    fn clone(): Self;
 }
 
 struct Point impl Display, Clone {

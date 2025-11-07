@@ -105,9 +105,11 @@ impl<'a> Parser<'a> {
 
     pub(crate) fn parse_trait_method_signature(&mut self) -> Result<TraitMethod, ParseError> {
         // Parse trait method signature (no body, just signature)
-        // fn method_name(self: &Self, param: Type) -> ReturnType;
+        // Supports both:
+        // 1. Golang-style: fn (self: &Self!) method_name(params): ReturnType;
+        // 2. Simplified: fn method_name(params): ReturnType;
 
-        // Check for method receiver: fn (self: Type) method_name()
+        // Check for optional golang-style receiver: fn (self: Type) method_name()
         let receiver = if self.check(&Token::LParen) {
             // Peek ahead to see if this is a receiver
             let checkpoint = self.current;
@@ -121,7 +123,7 @@ impl<'a> Parser<'a> {
             };
 
             if is_self {
-                // This is a receiver!
+                // This is a golang-style receiver!
                 let _self_name = self.consume_identifier()?;
                 self.consume(&Token::Colon, "Expected ':' after 'self'")?;
                 let receiver_type = self.parse_type()?;

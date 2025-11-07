@@ -3,7 +3,7 @@
 
 // 1. Define a Display trait
 trait Display {
-    fn (self: &Self!) show();
+    fn show();
 }
 
 // 2. Point struct with Display implementation

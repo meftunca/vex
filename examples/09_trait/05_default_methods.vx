@@ -1,11 +1,11 @@
-// Test trait methods (signature only)
+// Test trait methods (signature only - simplified syntax)
 // Traits can only have method signatures, no body
 
 trait Logger {
-    // All methods are signatures only (no body)
-    fn (self: &Self!) log(msg: string);
-    fn (self: &Self!) info(msg: string);
-    fn (self: &Self!) debug(msg: string);
+    // Simplified syntax - no explicit receiver
+    fn log(msg: string);
+    fn info(msg: string);
+    fn debug(msg: string);
 }
 
 fn log2(msg: string) {
@@ -17,19 +17,19 @@ fn log2(msg: string) {
 struct ConsoleLogger impl Logger {
     prefix: string,
     
-    // Must implement all methods from trait
-    fn (self: &ConsoleLogger!) log(msg: string) {
+    // Implement all methods from trait (simplified syntax)
+    fn log(msg: string) {
         log2(msg);
         return;
     }
     
-    fn (self: &ConsoleLogger!) info(msg: string) {
+    fn info(msg: string) {
         print("[INFO] ");
         self.log(msg);
         return;
     }
     
-    fn (self: &ConsoleLogger!) debug(msg: string) {
+    fn debug(msg: string) {
         print("[DEBUG] ");
         self.log(msg);
         return;

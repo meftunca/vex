@@ -1,58 +1,58 @@
 // Vex v1.3 Trait System Example
 // struct ... impl Trait { ... methods ... }
 
-// 1. Define a trait (signatures only - no body)
+// 1. Define a trait (simplified syntax - no explicit receiver)
 trait Logger {
-    // All methods are signatures only
-    fn (self: &Self!) log(level: string, msg: string);
-    fn (self: &Self!) info(msg: string);
-    fn (self: &Self!) warn(msg: string);
+    // All methods are signatures only (no body)
+    fn log(level: string, msg: string);
+    fn info(msg: string);
+    fn warn(msg: string);
 }
 
-// 2. Struct with inline trait implementation
+// 2. Struct with inline trait implementation (simplified syntax)
 struct FileLogger impl Logger {
     // Fields
     path: string,
     
-    // Implement all trait methods (inline)
-    fn (self: &FileLogger!) log(level: string, msg: string) {
+    // Implement all trait methods (simplified syntax - no explicit receiver)
+    fn log(level: string, msg: string) {
         // Implementation here
         print("[", level, "] ", msg);
         return;
     }
     
-    fn (self: &FileLogger!) info(msg: string) {
+    fn info(msg: string) {
         self.log("INFO", msg);
         return;
     }
     
-    fn (self: &FileLogger!) warn(msg: string) {
+    fn warn(msg: string) {
         self.log("WARNING", msg);
         return;
     }
     
     // Struct-specific method (not from trait)
-    fn (self: &FileLogger!) close() {
+    fn close() {
         // Close file
         return;
     }
 }
 
-// 3. Another implementation
+// 3. Another implementation (simplified syntax)
 struct ConsoleLogger impl Logger {
     prefix: string,
     
-    fn (self: &ConsoleLogger!) log(level: string, msg: string) {
+    fn log(level: string, msg: string) {
         print(self.prefix, " [", level, "] ", msg);
         return;
     }
     
-    fn (self: &ConsoleLogger!) info(msg: string) {
+    fn info(msg: string) {
         self.log("INFO", msg);
         return;
     }
     
-    fn (self: &ConsoleLogger!) warn(msg: string) {
+    fn warn(msg: string) {
         self.log("WARN", msg);
         return;
     }

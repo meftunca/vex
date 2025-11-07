@@ -3,7 +3,7 @@
 
 // 1. Define a trait with only required methods
 trait Printer {
-    fn (self: &Self!) print();
+    fn print();
 }
 
 // 2. Struct with inline trait implementation

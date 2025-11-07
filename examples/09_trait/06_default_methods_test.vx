@@ -1,28 +1,28 @@
-// Test trait methods (all signatures only)
+// Test trait methods (simplified syntax)
 
 trait Greeter {
-    // All methods are signatures only (no body)
-    fn (self: &Self!) get_name(): string;
-    fn (self: &Self!) greet(): i32;
-    fn (self: &Self!) farewell(): i32;
+    // Simplified syntax - no explicit receiver
+    fn get_name(): string;
+    fn greet(): i32;
+    fn farewell(): i32;
 }
 
 struct Person impl Greeter {
     name: string,
     age: i32,
     
-    // Implement all methods
-    fn (self: &Person!) get_name(): string {
+    // Implement all methods (simplified syntax)
+    fn get_name(): string {
         return self.name;
     }
     
-    fn (self: &Person!) greet(): i32 {
+    fn greet(): i32 {
         let name = self.get_name();
         print("Hello, ", name, "!");
         return 0;
     }
     
-    fn (self: &Person!) farewell(): i32 {
+    fn farewell(): i32 {
         print("Goodbye!");
         return 0;
     }
