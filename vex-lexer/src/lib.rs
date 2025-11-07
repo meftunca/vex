@@ -129,6 +129,8 @@ pub enum Token {
     Error,
     #[token("Map")]
     Map,
+    #[token("Set")]
+    Set,
 
     // Intrinsics
     #[token("@vectorize")]
@@ -199,6 +201,8 @@ pub enum Token {
     Dot,
     #[token("..")]
     DotDot,
+    #[token("..=")]
+    DotDotEq,
     #[token("->")]
     Arrow,
     #[token("=>")]

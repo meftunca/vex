@@ -7,6 +7,19 @@ use vex_lexer::Token;
 
 impl<'a> Parser<'a> {
     pub(crate) fn parse_type(&mut self) -> Result<Type, ParseError> {
+        // Never type: !
+        if self.check(&Token::Not) {
+            self.advance();
+            return Ok(Type::Never);
+        }
+
+        // Raw pointer type: *T
+        if self.check(&Token::Star) {
+            self.advance();
+            let inner_ty = self.parse_type()?;
+            return Ok(Type::RawPtr(Box::new(inner_ty)));
+        }
+
         // Function type: fn(T1, T2): R (Vex uses : not ->)
         if self.check(&Token::Fn) {
             self.advance();
@@ -156,10 +169,32 @@ impl<'a> Parser<'a> {
                 self.advance();
                 Type::Nil
             }
+            Token::Map => {
+                // Map or Map<K, V>
+                self.advance();
+                if self.check(&Token::Lt) {
+                    self.consume(&Token::Lt, "Expected '<' after 'Map'")?;
+                    let _key_type = self.parse_type()?;
+                    self.consume(&Token::Comma, "Expected ',' in Map type")?;
+                    let _value_type = self.parse_type()?;
+                    self.consume(&Token::Gt, "Expected '>' after Map type arguments")?;
+                }
+                Type::Named("Map".to_string())
+            }
+            Token::Set => {
+                // Set or Set<T>
+                self.advance();
+                if self.check(&Token::Lt) {
+                    self.consume(&Token::Lt, "Expected '<' after 'Set'")?;
+                    let _elem_type = self.parse_type()?;
+                    self.consume(&Token::Gt, "Expected '>' after Set type argument")?;
+                }
+                Type::Named("Set".to_string())
+            }
             Token::Ident(_) => {
                 let name = self.consume_identifier()?;
 
-                // Check for builtin types (Phase 0: Option, Result, Vec, Box)
+                // Check for builtin types (Phase 0: Option, Result, Vec, Box, Map)
                 // These are parsed specially to generate Type enum variants
                 match name.as_str() {
                     "Option" => {
@@ -192,6 +227,25 @@ impl<'a> Parser<'a> {
                         self.consume(&Token::Gt, "Expected '>' after Box type argument")?;
                         Type::Box(inner_type)
                     }
+                    "Channel" => {
+                        // Channel<T>
+                        self.consume(&Token::Lt, "Expected '<' after 'Channel'")?;
+                        let inner_type = Box::new(self.parse_type()?);
+                        self.consume(&Token::Gt, "Expected '>' after Channel type argument")?;
+                        Type::Channel(inner_type)
+                    }
+                    "Map" => {
+                        // Map<K, V> - For now, treat as Named("Map") since we don't have generic maps yet
+                        // Just consume the type arguments but don't use them
+                        if self.check(&Token::Lt) {
+                            self.consume(&Token::Lt, "Expected '<' after 'Map'")?;
+                            let _key_type = self.parse_type()?;
+                            self.consume(&Token::Comma, "Expected ',' in Map type")?;
+                            let _value_type = self.parse_type()?;
+                            self.consume(&Token::Gt, "Expected '>' after Map type arguments")?;
+                        }
+                        Type::Named("Map".to_string())
+                    }
                     _ => {
                         // Generic type or named type
                         if self.match_token(&Token::Lt) {
@@ -218,6 +272,19 @@ impl<'a> Parser<'a> {
             Token::Type => {
                 self.advance();
                 Type::Named("type".to_string())
+            }
+            Token::Not => {
+                // Never type: !
+                eprintln!("🔵 Token::Not in match statement");
+                self.advance();
+                Type::Never
+            }
+            Token::Star => {
+                // Raw pointer: *T
+                eprintln!("🔵 Token::Star in match statement");
+                self.advance();
+                let inner_ty = self.parse_type()?;
+                Type::RawPtr(Box::new(inner_ty))
             }
             _ => {
                 eprintln!(
@@ -289,6 +356,27 @@ impl<'a> Parser<'a> {
     /// Parse a primary type (without union operator)
     /// This is used internally to avoid infinite recursion in union type parsing
     pub(crate) fn parse_type_primary(&mut self) -> Result<Type, ParseError> {
+        eprintln!(
+            "🔵 parse_type_primary called, current token: {:?} at position {}",
+            self.peek(),
+            self.current
+        );
+
+        // Never type: !
+        if self.check(&Token::Not) {
+            eprintln!("🔵 parse_type_primary: Detected Token::Not, parsing Never type");
+            self.advance();
+            return Ok(Type::Never);
+        }
+
+        // Raw pointer type: *T
+        if self.check(&Token::Star) {
+            eprintln!("🔵 parse_type_primary: Detected Token::Star, parsing RawPtr type");
+            self.advance();
+            let inner_ty = self.parse_type_primary()?;
+            return Ok(Type::RawPtr(Box::new(inner_ty)));
+        }
+
         // Infer type: infer E (used in conditional types)
         if self.check(&Token::Infer) {
             self.advance();

@@ -413,7 +413,7 @@ impl BorrowRulesChecker {
                 Ok(())
             }
 
-            Expression::Await(expr) | Expression::Go(expr) | Expression::Try(expr) => {
+            Expression::Await(expr) | Expression::QuestionMark(expr) => {
                 self.check_expression_for_borrows(expr)?;
                 Ok(())
             }

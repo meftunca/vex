@@ -7,7 +7,7 @@ fn main() {
     let r2 = &x;  // ✅ OK: multiple immutable borrows are allowed
     let r3 = &x;  // ✅ OK
     
-    log(r1);
-    log(r2);
-    log(r3);
+    println(r1);
+    println(r2);
+    println(r3);
 }

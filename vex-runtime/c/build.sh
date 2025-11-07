@@ -44,11 +44,15 @@ SOURCES=(
     "vex_strconv.c"
     "vex_url.c"
     "vex_cpu.c"
-    # Builtin Types - Phase 0 (Nov 5, 2025)
+    # Builtin Types - Phase 0 (Nov 6, 2025)
     "vex_vec.c"
     "vex_option.c"
     "vex_result.c"
+    "vex_string_type.c"
+    "vex_range.c"
+    "vex_slice.c"
     "vex_box.c"
+    "vex_set.c"
     # vex_tuple.c is documentation only, no compilation needed
 )
 

@@ -12,6 +12,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         args: &[Expression],
     ) -> Result<BasicValueEnum<'ctx>, String> {
         // Phase 0.4c: Check for builtin type instance methods (vec.push, vec.len, etc.)
+        // This MUST come first before struct name checking
         if let Some(result) = self.try_compile_builtin_method(receiver, method, args)? {
             return Ok(result);
         }

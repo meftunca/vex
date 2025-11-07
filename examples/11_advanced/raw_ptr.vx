@@ -1,0 +1,18 @@
+// Raw pointer test - FFI/C interop
+
+fn get_ptr(): *i32 {
+    let x = 42;
+    return &x as *i32;
+}
+
+fn pointer_test(): i32 {
+    let arr = [1, 2, 3, 4, 5];
+    let ptr: *i32 = &arr as *i32;
+    return 0;
+}
+
+fn main(): i32 {
+    let p = get_ptr();
+    let result = pointer_test();
+    return result;
+}

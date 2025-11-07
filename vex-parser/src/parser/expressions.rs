@@ -7,7 +7,31 @@ use vex_lexer::Token;
 
 impl<'a> Parser<'a> {
     pub(crate) fn parse_expression(&mut self) -> Result<Expression, ParseError> {
-        self.parse_comparison()
+        self.parse_range()
+    }
+
+    /// Parse range expressions: 0..10 or 0..=10
+    /// Lowest precedence (below comparison)
+    pub(crate) fn parse_range(&mut self) -> Result<Expression, ParseError> {
+        let expr = self.parse_comparison()?;
+
+        if self.match_token(&Token::DotDotEq) {
+            // Inclusive range: 0..=10
+            let end = self.parse_comparison()?;
+            return Ok(Expression::RangeInclusive {
+                start: Box::new(expr),
+                end: Box::new(end),
+            });
+        } else if self.match_token(&Token::DotDot) {
+            // Exclusive range: 0..10
+            let end = self.parse_comparison()?;
+            return Ok(Expression::Range {
+                start: Box::new(expr),
+                end: Box::new(end),
+            });
+        }
+
+        Ok(expr)
     }
 
     /// Parse type cast: expr as TargetType

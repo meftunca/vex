@@ -1,0 +1,10 @@
+// Simple never type test
+
+fn diverge(): ! {
+    return 1 as !;
+}
+
+fn main(): i32 {
+    let x = 42;
+    return x;
+}

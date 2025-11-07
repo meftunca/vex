@@ -6,5 +6,5 @@ fn main() {
     let r = &x;    // immutable borrow
     x = 20;        // ❌ ERROR: cannot mutate while borrowed
     
-    log(r);
+    println(r);
 }

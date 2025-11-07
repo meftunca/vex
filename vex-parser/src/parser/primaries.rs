@@ -24,7 +24,7 @@ impl<'a> Parser<'a> {
 
     pub(crate) fn parse_primary(&mut self) -> Result<Expression, ParseError> {
         // Closure/Lambda: |x, y| expr or |x: i32, y: i32| { body }
-        if self.match_token(&Token::Pipe) {
+        if self.check(&Token::Pipe) {
             return self.parse_closure();
         }
 
@@ -74,6 +74,11 @@ impl<'a> Parser<'a> {
             return self.parse_map_constructor();
         }
 
+        // Set() constructor - keyword handling
+        if self.match_token(&Token::Set) {
+            return self.parse_set_constructor();
+        }
+
         // Match expression
         if self.match_token(&Token::Match) {
             return self.parse_match_expression();
@@ -85,8 +90,29 @@ impl<'a> Parser<'a> {
 
             if !self.check(&Token::RBracket) {
                 loop {
-                    elements.push(self.parse_expression()?);
+                    // Parse element expression (support full expressions except commas)
+                    let elem = self.parse_comparison()?;
+
+                    // Check for repeat syntax after first element: [value; count]
+                    if elements.is_empty() && self.check(&Token::Semicolon) {
+                        self.match_token(&Token::Semicolon); // consume the semicolon
+                        let count_expr = self.parse_comparison()?;
+                        self.consume(&Token::RBracket, "Expected ']' after array repeat syntax")?;
+                        return Ok(Expression::ArrayRepeat(
+                            Box::new(elem),
+                            Box::new(count_expr),
+                        ));
+                    }
+
+                    elements.push(elem);
+
+                    // Check for more elements
                     if !self.match_token(&Token::Comma) {
+                        break;
+                    }
+
+                    // Allow trailing comma
+                    if self.check(&Token::RBracket) {
                         break;
                     }
                 }
@@ -94,6 +120,56 @@ impl<'a> Parser<'a> {
 
             self.consume(&Token::RBracket, "Expected ']'")?;
             return Ok(Expression::Array(elements));
+        }
+
+        // Map literal: {"key": value, "key2": value2}
+        if self.match_token(&Token::LBrace) {
+            // Check if it's a map literal by looking ahead
+            // Map literal: { "key": value, ... } or { key: value, ... }
+            // Empty map: {}
+
+            if self.check(&Token::RBrace) {
+                self.advance(); // consume '}'
+                return Ok(Expression::MapLiteral(Vec::new()));
+            }
+
+            // Try to parse as map literal
+            // Peek ahead to see if it looks like key: value pattern
+            let checkpoint = self.current;
+
+            // Try parsing first key
+            let first_key_result = self.parse_expression();
+
+            if first_key_result.is_ok() && self.check(&Token::Colon) {
+                // It's a map literal!
+                self.advance(); // consume ':'
+                let first_value = self.parse_expression()?;
+
+                let mut entries = vec![(first_key_result.unwrap(), first_value)];
+
+                while self.match_token(&Token::Comma) {
+                    // Allow trailing comma
+                    if self.check(&Token::RBrace) {
+                        break;
+                    }
+
+                    let key = self.parse_expression()?;
+                    self.consume(&Token::Colon, "Expected ':' after map key")?;
+                    let value = self.parse_expression()?;
+
+                    entries.push((key, value));
+                }
+
+                self.consume(&Token::RBrace, "Expected '}' after map literal")?;
+                return Ok(Expression::MapLiteral(entries));
+            } else {
+                // Not a map literal, restore position and fail
+                self.current = checkpoint;
+                return Err(ParseError::SyntaxError {
+                    location: format!("line {}", self.current),
+                    message: "Unexpected '{', map literals need key: value pairs".to_string(),
+                });
+            }
         }
 
         // Parenthesized expression or tuple literal
@@ -256,6 +332,22 @@ impl<'a> Parser<'a> {
                         return Ok(Expression::Ident(name));
                     }
                 }
+                "Channel" => {
+                    // Channel(capacity) or Channel<T>(capacity): Create new Channel
+                    // Type-as-constructor pattern
+                    if self.check(&Token::LParen) {
+                        self.advance(); // consume '('
+                        let capacity = self.parse_expression()?;
+                        self.consume(&Token::RParen, "Expected ')' after Channel argument")?;
+                        // Map to channel_new(capacity) builtin call
+                        return Ok(Expression::Call {
+                            func: Box::new(Expression::Ident("channel_new".to_string())),
+                            args: vec![capacity],
+                        });
+                    } else {
+                        return Ok(Expression::Ident(name));
+                    }
+                }
                 "String" => {
                     // String() or String(str): Create new String
                     // Type-as-constructor pattern - converts string literals to heap strings
@@ -282,6 +374,21 @@ impl<'a> Parser<'a> {
                         return Ok(Expression::Call {
                             func: Box::new(Expression::Ident(func_name.to_string())),
                             args,
+                        });
+                    } else {
+                        return Ok(Expression::Ident(name));
+                    }
+                }
+                "Channel" => {
+                    // Channel<T>(capacity): Create new Channel
+                    if self.check(&Token::LParen) {
+                        self.advance(); // consume '('
+                        let capacity = self.parse_expression()?;
+                        self.consume(&Token::RParen, "Expected ')' after Channel argument")?;
+                        // Map to channel_new(capacity) builtin call
+                        return Ok(Expression::Call {
+                            func: Box::new(Expression::Ident("channel_new".to_string())),
+                            args: vec![capacity],
                         });
                     } else {
                         return Ok(Expression::Ident(name));
@@ -343,6 +450,38 @@ impl<'a> Parser<'a> {
         } else {
             // Just "Map" identifier (for type annotations)
             Ok(Expression::Ident("Map".to_string()))
+        }
+    }
+
+    fn parse_set_constructor(&mut self) -> Result<Expression, ParseError> {
+        // Set() or Set(capacity): Create new HashSet (wraps Map)
+        if self.check(&Token::LParen) {
+            self.advance(); // consume '('
+
+            // Empty Set() or Set(capacity)
+            let args = if self.check(&Token::RParen) {
+                self.advance(); // consume ')'
+                vec![]
+            } else {
+                let arg = self.parse_expression()?;
+                self.consume(&Token::RParen, "Expected ')' after Set argument")?;
+                vec![arg]
+            };
+
+            // Map to set_new() or set_with_capacity() builtin call
+            let func_name = if args.is_empty() {
+                "set_new"
+            } else {
+                "set_with_capacity"
+            };
+
+            Ok(Expression::Call {
+                func: Box::new(Expression::Ident(func_name.to_string())),
+                args,
+            })
+        } else {
+            // Just "Set" identifier (for type annotations)
+            Ok(Expression::Ident("Set".to_string()))
         }
     }
 }

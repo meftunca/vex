@@ -1,0 +1,24 @@
+// Simple async function test
+// EXPECTED_OUTPUT: Starting async demo
+// EXPECTED_OUTPUT: Before sleep
+// EXPECTED_OUTPUT: After sleep (1000ms)
+// EXPECTED_OUTPUT: Async demo complete
+
+async fn sleep_and_print(ms: i32): i32 {
+    println("Before sleep");
+    
+    // TODO: await async_sleep(ms);
+    
+    println("After sleep (1000ms)");
+    return 0;
+}
+
+fn main(): i32 {
+    println("Starting async demo");
+    
+    // Spawn async task
+    let result = sleep_and_print(1000);
+    
+    println("Async demo complete");
+    return 0;
+}

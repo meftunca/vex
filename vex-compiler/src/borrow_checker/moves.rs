@@ -413,7 +413,7 @@ impl MoveChecker {
                 Ok(())
             }
 
-            Expression::Await(expr) | Expression::Go(expr) | Expression::Try(expr) => {
+            Expression::Await(expr) | Expression::QuestionMark(expr) => {
                 self.check_expression(expr)?;
                 Ok(())
             }
@@ -497,12 +497,9 @@ impl MoveChecker {
             Type::Option(_) => true,    // Option<T> is Move (contains T)
             Type::Result(_, _) => true, // Result<T,E> is Move
             Type::Vec(_) => true,       // Vec<T> is Move (owns heap data)
-            Type::Box(_) => true,       // Box<T> is Move (owns heap allocation)
-
-            // Named types are Move by default (structs, enums)
-            Type::Named(_) => true,
-
-            // Generic types are Move by default
+            Type::Box(_) => false,
+            Type::Channel(_) => false,
+            Type::Named(_) => true, // Assume move for now, will be refined with Copy trait
             Type::Generic { .. } => true,
 
             // Arrays and slices are Move
@@ -521,6 +518,12 @@ impl MoveChecker {
             Type::Unit | Type::Nil | Type::Error => false,
 
             Type::Infer(_) => false, // Infer is only for type checking
+
+            // Never type is Copy (never instantiated)
+            Type::Never => false,
+
+            // Raw pointers are Copy (just addresses)
+            Type::RawPtr(_) => false,
         }
     }
 }

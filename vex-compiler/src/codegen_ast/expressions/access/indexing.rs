@@ -6,34 +6,69 @@ use inkwell::values::BasicValueEnum;
 use vex_ast::*;
 
 impl<'ctx> ASTCodeGen<'ctx> {
-    /// Compile array indexing
+    /// Compile array/map indexing: arr[i] or map[key]
     pub(crate) fn compile_index(
         &mut self,
         object: &Expression,
         index: &Expression,
     ) -> Result<BasicValueEnum<'ctx>, String> {
-        // Get array variable name
-        let array_name = if let Expression::Ident(name) = object {
+        // Get variable name
+        let var_name = if let Expression::Ident(name) = object {
             name
         } else {
-            return Err("Complex array expressions not yet supported".to_string());
+            return Err("Complex indexing expressions not yet supported".to_string());
         };
 
-        // Get array pointer and type (copy to avoid borrow issues)
+        // Check if this is a Map
+        if let Some(struct_name) = self.variable_struct_names.get(var_name) {
+            if struct_name == "Map" {
+                // Map indexing: map[key] -> map.get(key)
+                let map_ptr_var = *self
+                    .variables
+                    .get(var_name)
+                    .ok_or_else(|| format!("Map {} not found", var_name))?;
+
+                let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                let map_ptr = self
+                    .builder
+                    .build_load(ptr_type, map_ptr_var, &format!("{}_ptr", var_name))
+                    .map_err(|e| format!("Failed to load map pointer: {}", e))?;
+
+                // Compile key expression
+                let key = self.compile_expression(index)?;
+
+                // Call vex_map_get(map, key)
+                let vex_map_get = self.declare_runtime_fn(
+                    "vex_map_get",
+                    &[ptr_type.into(), ptr_type.into()],
+                    ptr_type.into(),
+                );
+
+                return self
+                    .builder
+                    .build_call(vex_map_get, &[map_ptr.into(), key.into()], "map_get")
+                    .map_err(|e| format!("Failed to call vex_map_get: {}", e))?
+                    .try_as_basic_value()
+                    .left()
+                    .ok_or("map_get should return a value".to_string());
+            }
+        }
+
+        // Array indexing
         let array_ptr = *self
             .variables
-            .get(array_name)
-            .ok_or_else(|| format!("Array {} not found", array_name))?;
+            .get(var_name)
+            .ok_or_else(|| format!("Array {} not found", var_name))?;
         let array_type = *self
             .variable_types
-            .get(array_name)
-            .ok_or_else(|| format!("Type for array {} not found", array_name))?;
+            .get(var_name)
+            .ok_or_else(|| format!("Type for array {} not found", var_name))?;
 
         // Get element type from array type
         let elem_type = if let BasicTypeEnum::ArrayType(arr_ty) = array_type {
             arr_ty.get_element_type()
         } else {
-            return Err(format!("{} is not an array", array_name));
+            return Err(format!("{} is not an array", var_name));
         };
 
         // Compile index expression
@@ -133,26 +168,36 @@ impl<'ctx> ASTCodeGen<'ctx> {
         ))
     }
 
-    /// Get pointer to an array element for assignment
+    /// Get pointer to an array element or map entry for assignment
     pub(crate) fn get_index_pointer(
         &mut self,
         object: &Expression,
         index: &Expression,
     ) -> Result<inkwell::values::PointerValue<'ctx>, String> {
-        let array_name = if let Expression::Ident(name) = object {
+        let var_name = if let Expression::Ident(name) = object {
             name
         } else {
-            return Err("Complex array expressions not yet supported".to_string());
+            return Err("Complex indexing expressions not yet supported".to_string());
         };
+
+        // Check if this is a Map - for Map, we don't return pointer, we handle in assignment
+        if let Some(struct_name) = self.variable_struct_names.get(var_name) {
+            if struct_name == "Map" {
+                return Err(
+                    "Map indexing assignment should use map.insert() - handled specially"
+                        .to_string(),
+                );
+            }
+        }
 
         let array_ptr = *self
             .variables
-            .get(array_name)
-            .ok_or_else(|| format!("Array {} not found", array_name))?;
+            .get(var_name)
+            .ok_or_else(|| format!("Array {} not found", var_name))?;
         let array_type = *self
             .variable_types
-            .get(array_name)
-            .ok_or_else(|| format!("Type for array {} not found", array_name))?;
+            .get(var_name)
+            .ok_or_else(|| format!("Type for array {} not found", var_name))?;
 
         // Compile index expression
         let index_val = self.compile_expression(index)?;

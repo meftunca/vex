@@ -150,6 +150,54 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 .map_err(|e| format!("Failed to build operation: {}", e))?;
                 Ok(result.into())
             }
+            (BasicValueEnum::PointerValue(l), BasicValueEnum::PointerValue(r)) => {
+                // String comparison using vex_strcmp
+                match op {
+                    BinaryOp::Eq | BinaryOp::NotEq => {
+                        // Declare vex_strcmp if not already declared
+                        let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                        let strcmp_fn = self.declare_runtime_fn(
+                            "vex_strcmp",
+                            &[ptr_type.into(), ptr_type.into()],
+                            self.context.i32_type().into(),
+                        );
+
+                        // Call vex_strcmp(left, right)
+                        let cmp_result = self
+                            .builder
+                            .build_call(strcmp_fn, &[l.into(), r.into()], "strcmp_result")
+                            .map_err(|e| format!("Failed to call vex_strcmp: {}", e))?;
+
+                        let cmp_value = cmp_result
+                            .try_as_basic_value()
+                            .left()
+                            .ok_or("vex_strcmp didn't return a value")?
+                            .into_int_value();
+
+                        // vex_strcmp returns 0 if equal
+                        let zero = self.context.i32_type().const_int(0, false);
+                        let result = if matches!(op, BinaryOp::Eq) {
+                            self.builder.build_int_compare(
+                                IntPredicate::EQ,
+                                cmp_value,
+                                zero,
+                                "streq",
+                            )
+                        } else {
+                            self.builder.build_int_compare(
+                                IntPredicate::NE,
+                                cmp_value,
+                                zero,
+                                "strne",
+                            )
+                        }
+                        .map_err(|e| format!("Failed to compare strcmp result: {}", e))?;
+
+                        Ok(result.into())
+                    }
+                    _ => Err("Only == and != are supported for string comparison".to_string()),
+                }
+            }
             _ => Err("Type mismatch in binary operation".to_string()),
         }
     }

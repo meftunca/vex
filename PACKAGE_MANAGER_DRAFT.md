@@ -64,7 +64,9 @@ Vex Paket Yöneticisi (`vexpm`), `vex` adlı tek bir komut satırı aracı (CLI 
 
     // NPM 'scripts' gibi basit görev otomasyonu
     "scripts": {
-        "test": "vex test --verbose",
+        "test": "vex test --verbose", // profiles.testing kullanır
+        "dev": "vex build --watch --accelerator=cpu-simd", // profiles.development kullanır
+        "build": "vex build --release --accelerator=cpu-simd", // profiles.production kullanır
         "lint": "vex-linter ./...",
         "build:prod": "vex build --release --accelerator=cpu-simd"
     },

@@ -6,7 +6,10 @@ use inkwell::values::BasicValueEnum;
 use vex_ast::*;
 
 impl<'ctx> ASTCodeGen<'ctx> {
-    pub(crate) fn compile_return_statement(&mut self, expr: Option<&Expression>) -> Result<(), String> {
+    pub(crate) fn compile_return_statement(
+        &mut self,
+        expr: Option<&Expression>,
+    ) -> Result<(), String> {
         // Compile return value FIRST (may reference variables)
         let return_val = if let Some(e) = expr {
             Some(self.compile_expression(e)?)
@@ -69,6 +72,15 @@ impl<'ctx> ASTCodeGen<'ctx> {
     pub(crate) fn compile_defer_statement(&mut self, stmt: &Statement) -> Result<(), String> {
         // Add statement to defer stack (LIFO). Do not execute now.
         self.deferred_statements.push(stmt.clone());
+        Ok(())
+    }
+
+    /// Compile go statement: go { ... } or go func()
+    /// For now, just execute the expression/block directly (no actual async spawning yet)
+    pub(crate) fn compile_go_statement(&mut self, expr: &Expression) -> Result<(), String> {
+        // TODO: Implement actual async task spawning
+        // For now, just compile the expression directly
+        self.compile_expression(expr)?;
         Ok(())
     }
 }

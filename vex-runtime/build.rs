@@ -6,31 +6,35 @@ use std::path::PathBuf;
 
 fn main() {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
-    let async_io_dir = PathBuf::from(&manifest_dir).join("c/vex_async_io");
+    let c_dir = PathBuf::from(&manifest_dir).join("c");
+    let async_io_dir = c_dir.join("async_runtime");
 
     // Source files
     let sources = vec![
-        "src/runtime.c",
-        "src/worker_context.c",
-        "src/lockfree_queue.c",
-        "src/common.c",
+        async_io_dir.join("src/runtime.c"),
+        async_io_dir.join("src/worker_context.c"),
+        async_io_dir.join("src/lockfree_queue.c"),
+        async_io_dir.join("src/common.c"),
+        c_dir.join("vex_channel.c"),
     ];
 
     // Detect platform and add appropriate poller
     let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap();
     let poller_source = match target_os.as_str() {
-        "macos" | "ios" | "freebsd" | "openbsd" | "netbsd" | "dragonfly" => "src/poller_kqueue.c",
+        "macos" | "ios" | "freebsd" | "openbsd" | "netbsd" | "dragonfly" => {
+            async_io_dir.join("src/poller_kqueue.c")
+        }
         "linux" | "android" => {
             // TODO: Detect kernel version for io_uring support
-            "src/poller_epoll.c"
+            async_io_dir.join("src/poller_epoll.c")
         }
-        "windows" => "src/poller_iocp.c",
+        "windows" => async_io_dir.join("src/poller_iocp.c"),
         _ => panic!("Unsupported target OS: {}", target_os),
     };
 
     println!(
         "cargo:warning=Building async runtime with poller: {}",
-        poller_source
+        poller_source.display()
     );
 
     // Build C library
@@ -39,6 +43,7 @@ fn main() {
         .warnings(true)
         .extra_warnings(true)
         .include(async_io_dir.join("include"))
+        .include(&c_dir) // For vex_channel.h
         .flag("-std=c11")
         .flag("-O2");
 
@@ -49,17 +54,44 @@ fn main() {
 
     // Add all source files
     for source in sources {
-        builder.file(async_io_dir.join(source));
+        builder.file(source);
     }
-    builder.file(async_io_dir.join(poller_source));
+    builder.file(poller_source);
 
-    // Compile
-    builder.compile("vex_async_runtime");
+    // Compile into libvex_runtime.a
+    builder.compile("vex_runtime");
 
-    // Link pthread on Unix
+    // --- Linker Configuration ---
+
+    let out_dir = env::var("OUT_DIR").unwrap();
+
+    // 1. Instruct Cargo how to link the `vex` binary itself (for `cargo test`, etc.).
+    println!("cargo:rustc-link-search=native={}", out_dir);
+    println!("cargo:rustc-link-lib=static=vex_runtime");
+
+    // 2. Save linker arguments for the CLI (`vex compile` / `vex run`) to use.
+    let linker_args_path = PathBuf::from(&out_dir).join("vex_linker_args.txt");
+    println!("cargo:warning=OUT_DIR is: {}", out_dir);
+    println!(
+        "cargo:warning=Will write linker args to: {}",
+        linker_args_path.display()
+    );
+
+    let mut linker_args = format!("-L{} -lvex_runtime", out_dir);
+
+    // Add platform-specific libraries.
     if target_os != "windows" {
         println!("cargo:rustc-link-lib=pthread");
+        linker_args.push_str(" -lpthread");
     }
+    // NOTE: Add other libs like -ldl, -lrt for Linux if needed later.
+
+    println!("cargo:warning=Linker args content: {}", linker_args);
+    std::fs::write(&linker_args_path, &linker_args).expect("Failed to write linker args for CLI");
+    println!("cargo:warning=Successfully wrote linker args file.");
+
+    // 3. Expose the output directory to the `vex-runtime` crate so it can find the args file.
+    println!("cargo:rustc-env=VEX_RUNTIME_OUT_DIR={}", out_dir);
 
     // Link simdutf library if feature enabled
     #[cfg(feature = "simdutf")]
@@ -85,7 +117,9 @@ fn main() {
     }
 
     // Tell cargo to rerun if sources change
-    println!("cargo:rerun-if-changed=c/vex_async_io/src");
-    println!("cargo:rerun-if-changed=c/vex_async_io/include");
+    println!("cargo:rerun-if-changed=c/async_runtime/src");
+    println!("cargo:rerun-if-changed=c/async_runtime/include");
+    println!("cargo:rerun-if-changed=c/vex_channel.h");
+    println!("cargo:rerun-if-changed=c/vex_channel.c");
     println!("cargo:rerun-if-changed=build.rs");
 }

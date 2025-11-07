@@ -1,0 +1,48 @@
+// Test Map literal syntax: {"key": value}
+// EXPECTED_OUTPUT: === Map Literal Syntax Test ===
+// EXPECTED_OUTPUT: ✓ Created map with literal syntax
+// EXPECTED_OUTPUT: Length: 3
+// EXPECTED_OUTPUT: rust -> systems
+// EXPECTED_OUTPUT: go -> simplicity
+// EXPECTED_OUTPUT: vex -> performance
+// EXPECTED_OUTPUT: python -> dynamic
+// EXPECTED_OUTPUT: === Map literal + method syntax works! ===
+
+fn main(): i32 {
+    println("=== Map Literal Syntax Test ===");
+    
+    // Map literal syntax
+    let! map = {
+        "rust": "systems",
+        "go": "simplicity",
+        "vex": "performance"
+    };
+    
+    println("✓ Created map with literal syntax");
+    
+    // Check length
+    let len = map.len();
+    print("Length: ");
+    println(len as i32);
+    
+    // Get values using method syntax
+    let val1 = map.get("rust");
+    let val2 = map.get("go");
+    let val3 = map.get("vex");
+    
+    print("rust -> ");
+    println(val1);
+    print("go -> ");
+    println(val2);
+    print("vex -> ");
+    println(val3);
+    
+    // Add more entries
+    map.insert("python", "dynamic");
+    let val4 = map.get("python");
+    print("python -> ");
+    println(val4);
+    
+    println("=== Map literal + method syntax works! ===");
+    return 0;
+}

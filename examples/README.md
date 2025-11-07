@@ -154,14 +154,16 @@ fn example(): i32 {
 
 ### 07_strings/ - Strings
 
-| File            | Description   | Features        |
-| --------------- | ------------- | --------------- |
-| `literals.vx`   | String basics | String literals |
-| `formatting.vx` | F-strings     | f"Value: {x}"   |
+| File                   | Description        | Features         |
+| ---------------------- | ------------------ | ---------------- |
+| `literals.vx`          | String basics      | String literals  |
+| `formatting.vx`        | F-strings          | f"Value: {x}"    |
+| `string_comparison.vx` | String comparisons | ==, != operators |
 
 **Key Concepts:**
 
 - ✅ String literals
+- ✅ String comparison (==, !=)
 - ✅ F-string syntax (limited codegen)
 - ✅ Global string constants
 

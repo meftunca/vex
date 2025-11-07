@@ -2,23 +2,23 @@
 
 fn test_immutable() {
     let x = 10;
-    log(x);
-    log(x + 5);  // ✅ Reading is fine
+    println(x);
+    println(x + 5);  // ✅ Reading is fine
 }
 
 fn test_mutable() {
     let! y = 5;
-    log(y);
+    println(y);
     
     y = 15;  // ✅ OK: y is mutable
-    log(y);
+    println(y);
     
     y = y + 10;  // ✅ Can update mutable variable
-    log(y);
+    println(y);
 }
 
 fn main() {
     test_immutable();
     test_mutable();
-    log("All tests passed!");
+    println("All tests passed!");
 }

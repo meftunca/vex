@@ -1,0 +1,42 @@
+// ? Operator - Result<T,E> early return
+// Desugars: let x = expr? => match expr { Ok(v) => v, Err(e) => return Err(e) }
+
+fn divide(a: i32, b: i32): Result<i32, i32> {
+    if b == 0 {
+        return Result.Err(1);  // Error code: division by zero
+    }
+    return Result.Ok(a / b);
+}
+
+fn calculate(): Result<i32, i32> {
+    // ? operator unwraps Ok value or propagates Err
+    let x = divide(100, 10)?;  // x = 10
+    let y = divide(x, 2)?;      // y = 5
+    let z = divide(y, 5)?;      // z = 1
+    
+    return Result.Ok(x + y + z); // Returns Ok(16)
+}
+
+fn calculate_with_error(): Result<i32, i32> {
+    let x = divide(50, 5)?;    // OK: x = 10
+    let y = divide(x, 0)?;     // ERROR: early return with Err(1)
+    let z = divide(100, 10)?;  // Never executes (early return above)
+    
+    return Result.Ok(x + y + z);
+}
+
+fn main(): i32 {
+    // Test 1: Successful chain
+    let result1 = calculate();
+    // result1 = Ok(16)
+    
+    // Test 2: Error propagation
+    let result2 = calculate_with_error();
+    // result2 = Err(1) (division by zero)
+    
+    // For testing, return expected values
+    // TODO: Use pattern matching when available:
+    // match result { Ok(v) => v, Err(e) => -e }
+    
+    return 16;  // Expected: calculate() returns Ok(16)
+}

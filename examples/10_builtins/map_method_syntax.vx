@@ -1,0 +1,35 @@
+// Test Map method syntax (map.insert, map.get, map.len)
+
+fn main(): i32 {
+    println("=== Map Method Syntax Test ===");
+    
+    // Create map
+    let! map = Map();
+    println("✓ Created map");
+    
+    // Method syntax: map.insert(key, value)
+    map.insert("rust", "systems");
+    map.insert("go", "simplicity");
+    map.insert("vex", "performance");
+    println("✓ Inserted 3 entries with map.insert()");
+    
+    // Method syntax: map.len()
+    let len = map.len();
+    print("Length: ");
+    println(len as i32);
+    
+    // Method syntax: map.get(key)
+    let val1 = map.get("rust");
+    let val2 = map.get("go");
+    let val3 = map.get("vex");
+    
+    print("rust -> ");
+    println(val1);
+    print("go -> ");
+    println(val2);
+    print("vex -> ");
+    println(val3);
+    
+    println("=== All method syntax works! ===");
+    return 0;
+}

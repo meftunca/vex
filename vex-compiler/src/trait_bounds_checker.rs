@@ -190,6 +190,9 @@ impl TraitBoundsChecker {
             Type::Error => "error".to_string(),
             Type::Nil => "nil".to_string(),
             Type::Unit => "unit".to_string(),
+            Type::Never => "!".to_string(),
+            Type::RawPtr(inner) => format!("*{}", self.extract_type_name(inner)),
+            Type::Channel(inner) => format!("Channel<{}>", self.extract_type_name(inner)),
         }
     }
 }

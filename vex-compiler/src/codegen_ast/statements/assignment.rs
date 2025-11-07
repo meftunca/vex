@@ -6,7 +6,11 @@ use inkwell::values::BasicValueEnum;
 use vex_ast::*;
 
 impl<'ctx> ASTCodeGen<'ctx> {
-    pub(crate) fn compile_assign_statement(&mut self, target: &Expression, value: &Expression) -> Result<(), String> {
+    pub(crate) fn compile_assign_statement(
+        &mut self,
+        target: &Expression,
+        value: &Expression,
+    ) -> Result<(), String> {
         let val = self.compile_expression(value)?;
 
         match target {
@@ -54,10 +58,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         .iter()
                         .position(|(name, _)| name == field)
                         .ok_or_else(|| {
-                            format!(
-                                "Field '{}' not found in struct '{}'",
-                                field, struct_name
-                            )
+                            format!("Field '{}' not found in struct '{}'", field, struct_name)
                         })? as u32;
 
                     // Build struct type
@@ -86,6 +87,51 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 } else {
                     return Err("Complex field assignment not yet supported".to_string());
                 }
+            }
+
+            // Index assignment: arr[i] = value or map[key] = value
+            Expression::Index { object, index } => {
+                // Check if this is a Map
+                if let Expression::Ident(var_name) = &**object {
+                    if let Some(struct_name) = self.variable_struct_names.get(var_name) {
+                        if struct_name == "Map" {
+                            // Map indexing: map[key] = value -> map.insert(key, value)
+                            let map_ptr_var = *self
+                                .variables
+                                .get(var_name)
+                                .ok_or_else(|| format!("Map {} not found", var_name))?;
+
+                            let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                            let map_ptr = self
+                                .builder
+                                .build_load(ptr_type, map_ptr_var, &format!("{}_ptr", var_name))
+                                .map_err(|e| format!("Failed to load map pointer: {}", e))?;
+
+                            // Compile key and value
+                            let key = self.compile_expression(index)?;
+
+                            // Call vex_map_insert(map, key, value)
+                            let vex_map_insert = self.declare_runtime_fn(
+                                "vex_map_insert",
+                                &[ptr_type.into(), ptr_type.into(), ptr_type.into()],
+                                self.context.bool_type().into(),
+                            );
+
+                            self.builder
+                                .build_call(
+                                    vex_map_insert,
+                                    &[map_ptr.into(), key.into(), val.into()],
+                                    "map_insert",
+                                )
+                                .map_err(|e| format!("Failed to call vex_map_insert: {}", e))?;
+
+                            return Ok(());
+                        }
+                    }
+                }
+
+                // Array indexing - not yet supported
+                return Err("Array index assignment not yet supported".to_string());
             }
 
             _ => {
@@ -180,21 +226,19 @@ impl<'ctx> ASTCodeGen<'ctx> {
             Expression::FieldAccess { object, field } => {
                 // Field access assignment: obj.field += value
                 let field_ptr = self.get_field_pointer(object, field)?;
-                self.builder.build_store(field_ptr, result).map_err(|e| {
-                    format!("Failed to store field compound assignment: {}", e)
-                })?;
+                self.builder
+                    .build_store(field_ptr, result)
+                    .map_err(|e| format!("Failed to store field compound assignment: {}", e))?;
             }
             Expression::Index { object, index } => {
                 // Array index assignment: arr[i] += value
                 let elem_ptr = self.get_index_pointer(object, index)?;
-                self.builder.build_store(elem_ptr, result).map_err(|e| {
-                    format!("Failed to store array compound assignment: {}", e)
-                })?;
+                self.builder
+                    .build_store(elem_ptr, result)
+                    .map_err(|e| format!("Failed to store array compound assignment: {}", e))?;
             }
             _ => {
-                return Err(
-                    "This compound assignment target is not yet supported".to_string()
-                );
+                return Err("This compound assignment target is not yet supported".to_string());
             }
         }
 

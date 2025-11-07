@@ -1,0 +1,74 @@
+// Comprehensive Map test - all operations
+// EXPECTED_OUTPUT: === Map Comprehensive Test ===
+// EXPECTED_OUTPUT: ✓ Created Map with literal syntax
+// EXPECTED_OUTPUT: Initial length: 3
+// EXPECTED_OUTPUT: ✓ Inserted 2 more entries
+// EXPECTED_OUTPUT: Length after insert: 5
+// EXPECTED_OUTPUT: rust -> systems
+// EXPECTED_OUTPUT: go -> simplicity
+// EXPECTED_OUTPUT: vex -> performance
+// EXPECTED_OUTPUT: python -> dynamic
+// EXPECTED_OUTPUT: java -> enterprise
+// EXPECTED_OUTPUT: rust (updated) -> blazing-fast
+// EXPECTED_OUTPUT: Empty map length: 0
+// EXPECTED_OUTPUT: === All tests passed! ===
+
+fn main(): i32 {
+    println("=== Map Comprehensive Test ===");
+    
+    // 1. Create map with literal syntax
+    let! map = {
+        "rust": "systems",
+        "go": "simplicity",
+        "vex": "performance"
+    };
+    println("✓ Created Map with literal syntax");
+    
+    // 2. Check initial length with method syntax
+    let len1 = map.len();
+    print("Initial length: ");
+    println(len1 as i32);
+    
+    // 3. Insert more entries with method syntax
+    map.insert("python", "dynamic");
+    map.insert("java", "enterprise");
+    println("✓ Inserted 2 more entries");
+    
+    // 4. Check length after insert
+    let len2 = map.len();
+    print("Length after insert: ");
+    println(len2 as i32);
+    
+    // 5. Get values with method syntax
+    let val1 = map.get("rust");
+    let val2 = map.get("go");
+    let val3 = map.get("vex");
+    let val4 = map.get("python");
+    let val5 = map.get("java");
+    
+    print("rust -> ");
+    println(val1);
+    print("go -> ");
+    println(val2);
+    print("vex -> ");
+    println(val3);
+    print("python -> ");
+    println(val4);
+    print("java -> ");
+    println(val5);
+    
+    // 6. Update existing key
+    map.insert("rust", "blazing-fast");
+    let val_updated = map.get("rust");
+    print("rust (updated) -> ");
+    println(val_updated);
+    
+    // 7. Empty map literal
+    let! empty_map = {};
+    let empty_len = empty_map.len();
+    print("Empty map length: ");
+    println(empty_len as i32);
+    
+    println("=== All tests passed! ===");
+    return 0;
+}

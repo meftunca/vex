@@ -4,18 +4,18 @@ fn main() {
     // Copy type (i32) - can use after "move"
     let x = 42;
     let y = x;
-    log(x);  // ✅ OK: i32 is Copy
-    log(y);
+    println(x);  // ✅ OK: i32 is Copy
+    println(y);
     
     // Move type (String) - proper usage
     let s1 = "hello";
     let s2 = s1;
-    log(s2);  // ✅ OK: using s2, not s1
+    println(s2);  // ✅ OK: using s2, not s1
     
     // Reassignment makes valid again
     let s3 = "world";
     let s4 = s3;
     // s3 is now invalid
     let s3 = "new value";  // Reassignment
-    log(s3);  // ✅ OK: s3 is valid again
+    println(s3);  // ✅ OK: s3 is valid again
 }

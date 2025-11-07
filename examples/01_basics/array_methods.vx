@@ -1,0 +1,32 @@
+// Array methods test: len(), get(), size validation
+// Tests Array<T,N> builtin type features
+
+fn main(): i32 {
+    // Test 1: Array literal with len()
+    let arr1 = [10, 20, 30, 40, 50];
+    let len1 = arr1.len();  // Should be 5
+    
+    // Test 2: Array repeat with len()
+    let arr2 = [99; 3];
+    let len2 = arr2.len();  // Should be 3
+    
+    // Test 3: Array get() in-bounds
+    let val1 = arr1.get(2);  // Should be 30 (index 2)
+    let val2 = arr2.get(0);  // Should be 99 (index 0)
+    
+    // Test 4: Array get() out-of-bounds
+    let val3 = arr1.get(10); // Should be 0 (OOB)
+    
+    // Test 5: Type annotation with size validation
+    let arr3: [i32; 3] = [1, 2, 3];  // Correct size
+    let len3 = arr3.len();
+    
+    // Test 6: Array repeat with type annotation
+    let arr4: [i32; 4] = [7; 4];  // Correct size
+    let len4 = arr4.len();
+    
+    // Verify all results
+    // len1=5, len2=3, val1=30, val2=99, val3=0, len3=3, len4=4
+    // Expected total: 5 + 3 + 30 + 99 + 0 + 3 + 4 = 144
+    return len1 + len2 + val1 + val2 + val3 + len3 + len4;
+}

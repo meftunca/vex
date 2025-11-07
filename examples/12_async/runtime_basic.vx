@@ -1,0 +1,22 @@
+// Test async runtime builtins
+// EXPECTED_OUTPUT: Creating runtime with 4 workers
+// EXPECTED_OUTPUT: Runtime created
+// EXPECTED_OUTPUT: Running runtime
+// EXPECTED_OUTPUT: Destroying runtime
+// EXPECTED_OUTPUT: Done
+
+fn main(): i32 {
+    println("Creating runtime with 4 workers");
+    
+    let! runtime = runtime_create(4);
+    println("Runtime created");
+    
+    println("Running runtime");
+    runtime_run(runtime);
+    
+    println("Destroying runtime");
+    runtime_destroy(runtime);
+    
+    println("Done");
+    return 0;
+}

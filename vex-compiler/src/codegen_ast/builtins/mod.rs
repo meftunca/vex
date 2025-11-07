@@ -7,7 +7,9 @@ use std::collections::HashMap;
 
 // Submodules
 mod array;
+mod async_runtime; // Async/await runtime integration
 mod builtin_types; // Phase 0: Vec, Option, Result, Box
+mod channel;
 mod core;
 mod hashmap;
 mod hints;
@@ -15,6 +17,8 @@ mod intrinsics;
 mod memory;
 mod memory_ops;
 mod reflection;
+mod set; // Set<T> builtin functions (wraps Map)
+mod slice; // Slice<T> builtin functions
 mod stdlib; // Zero-cost stdlib C runtime declarations
 mod stdlib_logger; // Stdlib: logger module
 mod stdlib_testing;
@@ -24,7 +28,9 @@ mod utf8; // Stdlib: testing module
 
 // Re-export all builtin implementations
 pub use array::*;
+pub use async_runtime::*; // Async runtime functions
 pub use builtin_types::*; // Phase 0 builtin types
+pub use channel::*;
 pub use core::*;
 pub use hashmap::*;
 pub use hints::*;
@@ -32,6 +38,8 @@ pub use intrinsics::*;
 pub use memory::*;
 pub use memory_ops::*;
 pub use reflection::*;
+pub use set::*; // Set<T> operations
+pub use slice::*; // Slice<T> operations
 pub use stdlib::*; // Stdlib runtime functions
 pub use stdlib_logger::*; // Stdlib logger implementations
 pub use stdlib_testing::*; // Stdlib testing implementations
@@ -136,6 +144,21 @@ impl<'ctx> BuiltinRegistry<'ctx> {
         registry.register("map_len", hashmap::builtin_hashmap_len);
         registry.register("map_free", hashmap::builtin_hashmap_free);
 
+        // Register Slice<T> functions
+        registry.register("slice_from_vec", slice::builtin_slice_from_vec);
+        registry.register("slice_new", slice::builtin_slice_new);
+        registry.register("slice_get", slice::builtin_slice_get);
+        registry.register("slice_len", slice::builtin_slice_len);
+
+        // Register Set<T> functions (wraps Map<T, ()>)
+        registry.register("set_new", set::builtin_set_new);
+        registry.register("set_with_capacity", set::builtin_set_with_capacity);
+        registry.register("set_insert", set::builtin_set_insert);
+        registry.register("set_contains", set::builtin_set_contains);
+        registry.register("set_remove", set::builtin_set_remove);
+        registry.register("set_len", set::builtin_set_len);
+        registry.register("set_clear", set::builtin_set_clear);
+
         // Phase 0.4b: Builtin type constructors (free functions)
         registry.register("vec_new", builtin_types::builtin_vec_new);
         registry.register(
@@ -148,12 +171,26 @@ impl<'ctx> BuiltinRegistry<'ctx> {
         registry.register("string_new", builtin_types::builtin_string_new);
         registry.register("string_from", builtin_types::builtin_string_from);
         registry.register("string_free", builtin_types::builtin_string_free);
+        registry.register("channel_new", channel::builtin_channel_new);
 
         // Phase 0.8: Option<T> and Result<T,E> constructors
         registry.register("Some", builtin_types::builtin_option_some);
         registry.register("None", builtin_types::builtin_option_none);
         registry.register("Ok", builtin_types::builtin_result_ok);
         registry.register("Err", builtin_types::builtin_result_err);
+
+        // Async runtime functions
+        registry.register("runtime_create", ASTCodeGen::builtin_runtime_create);
+        registry.register("runtime_destroy", ASTCodeGen::builtin_runtime_destroy);
+        registry.register("runtime_run", ASTCodeGen::builtin_runtime_run);
+        registry.register("runtime_shutdown", ASTCodeGen::builtin_runtime_shutdown);
+        registry.register("async_sleep", ASTCodeGen::builtin_async_sleep);
+        registry.register("spawn_async", ASTCodeGen::builtin_spawn_async);
+
+        // Channel functions
+        registry.register("Channel.new", channel::builtin_channel_new);
+        registry.register("Channel.send", channel::builtin_channel_send);
+        registry.register("Channel.recv", channel::builtin_channel_recv);
 
         // Phase 0.7: Numeric to string conversions
         registry.register(
@@ -244,7 +281,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             return func;
         }
 
-        let i8_ptr_type = self.context.i8_type().ptr_type(AddressSpace::default());
+        let i8_ptr_type = self.context.ptr_type(AddressSpace::default());
         let size_type = self.context.i64_type(); // size_t
 
         let fn_type = i8_ptr_type.fn_type(&[size_type.into()], false);
@@ -257,7 +294,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             return func;
         }
 
-        let i8_ptr_type = self.context.i8_type().ptr_type(AddressSpace::default());
+        let i8_ptr_type = self.context.ptr_type(AddressSpace::default());
         let void_type = self.context.void_type();
 
         let fn_type = void_type.fn_type(&[i8_ptr_type.into()], false);
@@ -270,7 +307,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             return func;
         }
 
-        let i8_ptr_type = self.context.i8_type().ptr_type(AddressSpace::default());
+        let i8_ptr_type = self.context.ptr_type(AddressSpace::default());
         let size_type = self.context.i64_type(); // size_t
 
         let fn_type = i8_ptr_type.fn_type(&[i8_ptr_type.into(), size_type.into()], false);

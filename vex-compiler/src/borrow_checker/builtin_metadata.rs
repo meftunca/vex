@@ -231,6 +231,7 @@ impl BuiltinBorrowRegistry {
         registry.register("string_new", vec![]); // No args, returns empty String
         registry.register("string_from", vec![ParamEffect::BorrowsImmut]); // Takes string literal
         registry.register("string_free", vec![ParamEffect::Moves]); // Takes String by value
+        registry.register("channel_new", vec![ParamEffect::ReadOnly]); // Takes capacity
         registry.register("map_new", vec![]); // No args, returns new Map
         registry.register("map_with_capacity", vec![ParamEffect::ReadOnly]); // Takes capacity
         registry.register(
@@ -248,13 +249,59 @@ impl BuiltinBorrowRegistry {
         registry.register("map_len", vec![ParamEffect::BorrowsImmut]); // Takes &Map
         registry.register("map_free", vec![ParamEffect::Moves]); // Takes Map by value
 
-        // Phase 0.7: Numeric to string conversions (all read-only)
+        // Set<T> constructor (wraps Map<T,()>)
+        registry.register("set_new", vec![]); // No args, returns new Set
+        registry.register("set_with_capacity", vec![ParamEffect::ReadOnly]); // Takes capacity
+        registry.register(
+            "set_insert",
+            vec![ParamEffect::BorrowsMut, ParamEffect::ReadOnly],
+        ); // Takes &Set!, value
+        registry.register(
+            "set_contains",
+            vec![ParamEffect::BorrowsImmut, ParamEffect::BorrowsImmut],
+        ); // Takes &Set, value
+        registry.register(
+            "set_remove",
+            vec![ParamEffect::BorrowsMut, ParamEffect::BorrowsImmut],
+        ); // Takes &Set!, value
+        registry.register("set_len", vec![ParamEffect::BorrowsImmut]); // Takes &Set
+        registry.register("set_clear", vec![ParamEffect::BorrowsMut]); // Takes &Set!
+        registry.register("set_free", vec![ParamEffect::Moves]); // Takes Set by value
+
+        // Slice<T> operations
+        registry.register("slice_from_vec", vec![ParamEffect::BorrowsImmut]); // Takes &Vec
+        registry.register(
+            "slice_new",
+            vec![
+                ParamEffect::BorrowsImmut, // data
+                ParamEffect::ReadOnly,     // len
+                ParamEffect::ReadOnly,     // elem_size
+            ],
+        );
+        registry.register(
+            "slice_get",
+            vec![ParamEffect::BorrowsImmut, ParamEffect::ReadOnly],
+        ); // Takes &Slice, index
+        registry.register("slice_len", vec![ParamEffect::BorrowsImmut]); // Takes &Slice
+
+        // Numeric to string conversions
         registry.register("vex_i32_to_string", vec![ParamEffect::ReadOnly]);
         registry.register("vex_i64_to_string", vec![ParamEffect::ReadOnly]);
         registry.register("vex_u32_to_string", vec![ParamEffect::ReadOnly]);
         registry.register("vex_u64_to_string", vec![ParamEffect::ReadOnly]);
         registry.register("vex_f32_to_string", vec![ParamEffect::ReadOnly]);
         registry.register("vex_f64_to_string", vec![ParamEffect::ReadOnly]);
+
+        // Async runtime functions
+        registry.register("runtime_create", vec![ParamEffect::ReadOnly]); // Creates runtime
+        registry.register("runtime_destroy", vec![ParamEffect::Moves]); // Destroys runtime
+        registry.register("runtime_run", vec![ParamEffect::BorrowsMut]); // Runs runtime
+        registry.register("runtime_shutdown", vec![ParamEffect::BorrowsMut]); // Shuts down runtime
+        registry.register("async_sleep", vec![ParamEffect::ReadOnly]); // Sleep duration
+        registry.register(
+            "spawn_async",
+            vec![ParamEffect::ReadOnly, ParamEffect::ReadOnly],
+        ); // fn_ptr, args
 
         registry
     }

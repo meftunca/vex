@@ -113,6 +113,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
             Expression::Array(elements) => self.compile_array_literal(elements),
 
+            Expression::ArrayRepeat(value, count) => {
+                self.compile_array_repeat_literal(value, count)
+            }
+
+            Expression::MapLiteral(entries) => self.compile_map_literal(entries),
+
             Expression::TupleLiteral(elements) => self.compile_tuple_literal(elements),
 
             Expression::StructLiteral {
@@ -143,7 +149,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 return_expr,
             } => self.compile_block_expression(statements, return_expr),
 
-            Expression::Try(expr) => {
+            Expression::QuestionMark(expr) => {
                 // ? operator: Unwrap Result, propagate Err
                 // Desugar: let x = expr? => match expr { Ok(v) => v, Err(e) => return Err(e) }
 
@@ -240,21 +246,6 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 self.builder.position_at_end(merge_block);
 
                 Ok(ok_value)
-            }
-
-            Expression::Go(expr) => {
-                // Spawn a new task with runtime
-                // For now, just execute synchronously and return a task ID placeholder
-                // TODO: Proper goroutine/task spawning with:
-                // 1. Creating a new thread/task in runtime
-                // 2. Copying captured variables
-                // 3. Returning JoinHandle
-
-                // Compile the expression (this executes it synchronously for now)
-                let _result = self.compile_expression(expr)?;
-
-                // Return a task ID (0 for now - placeholder)
-                Ok(self.context.i32_type().const_int(0, false).into())
             }
 
             Expression::Reference { is_mutable, expr } => {
@@ -492,7 +483,80 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 self.compile_cast_expression(expr, target_type)
             }
 
+            Expression::Range { start, end } => self.compile_range(start, end, false),
+
+            Expression::RangeInclusive { start, end } => self.compile_range(start, end, true),
+
             _ => Err(format!("Expression not yet implemented: {:?}", expr)),
         }
+    }
+
+    /// Compile Range or RangeInclusive expressions
+    fn compile_range(
+        &mut self,
+        start: &Expression,
+        end: &Expression,
+        _inclusive: bool,
+    ) -> Result<BasicValueEnum<'ctx>, String> {
+        // Compile start and end expressions
+        let start_val = self.compile_expression(start)?;
+        let end_val = self.compile_expression(end)?;
+
+        // Cast to i64 if needed
+        let start_i64 = if start_val.is_int_value() {
+            let int_val = start_val.into_int_value();
+            if int_val.get_type().get_bit_width() < 64 {
+                self.builder
+                    .build_int_s_extend(int_val, self.context.i64_type(), "start_ext")
+                    .map_err(|e| format!("Failed to extend start: {}", e))?
+            } else {
+                int_val
+            }
+        } else {
+            return Err("Range start must be an integer".to_string());
+        };
+
+        let end_i64 = if end_val.is_int_value() {
+            let int_val = end_val.into_int_value();
+            if int_val.get_type().get_bit_width() < 64 {
+                self.builder
+                    .build_int_s_extend(int_val, self.context.i64_type(), "end_ext")
+                    .map_err(|e| format!("Failed to extend end: {}", e))?
+            } else {
+                int_val
+            }
+        } else {
+            return Err("Range end must be an integer".to_string());
+        };
+
+        // Create Range struct: { start: i64, end: i64, current: i64 }
+        let range_struct_type = self.context.struct_type(
+            &[
+                self.context.i64_type().into(),
+                self.context.i64_type().into(),
+                self.context.i64_type().into(),
+            ],
+            false,
+        );
+
+        // Build struct value
+        let mut range_val = range_struct_type.get_undef();
+        range_val = self
+            .builder
+            .build_insert_value(range_val, start_i64, 0, "range_start")
+            .map_err(|e| format!("Failed to insert start: {}", e))?
+            .into_struct_value();
+        range_val = self
+            .builder
+            .build_insert_value(range_val, end_i64, 1, "range_end")
+            .map_err(|e| format!("Failed to insert end: {}", e))?
+            .into_struct_value();
+        range_val = self
+            .builder
+            .build_insert_value(range_val, start_i64, 2, "range_current")
+            .map_err(|e| format!("Failed to insert current: {}", e))?
+            .into_struct_value();
+
+        Ok(range_val.into())
     }
 }

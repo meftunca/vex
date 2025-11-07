@@ -1,0 +1,14 @@
+fn main(): i32 {
+    let s1 = "hello";
+    let s2 = "hello";
+    let s3 = "world";
+    
+    // Test equality
+    if s1 == s2 {
+        // Test inequality
+        if s1 != s3 {
+            return 42;  // Success
+        }
+    }
+    return 0;  // Failed
+}

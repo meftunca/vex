@@ -187,6 +187,9 @@ impl BorrowChecker {
             Statement::Defer(stmt) => {
                 self.analyze_statement_closures(stmt)?;
             }
+            Statement::Go(expr) => {
+                self.analyze_expression_closures(expr)?;
+            }
             Statement::CompoundAssign { target, value, .. } => {
                 self.analyze_expression_closures(target)?;
                 self.analyze_expression_closures(value)?;
@@ -256,6 +259,11 @@ impl BorrowChecker {
                 }
                 Ok(())
             }
+            Expression::ArrayRepeat(value, count) => {
+                self.analyze_expression_closures(value)?;
+                self.analyze_expression_closures(count)?;
+                Ok(())
+            }
             Expression::TupleLiteral(elements) => {
                 for elem in elements {
                     self.analyze_expression_closures(elem)?;
@@ -264,6 +272,13 @@ impl BorrowChecker {
             }
             Expression::StructLiteral { fields, .. } => {
                 for (_, value) in fields {
+                    self.analyze_expression_closures(value)?;
+                }
+                Ok(())
+            }
+            Expression::MapLiteral(entries) => {
+                for (key, value) in entries {
+                    self.analyze_expression_closures(key)?;
                     self.analyze_expression_closures(value)?;
                 }
                 Ok(())
@@ -300,14 +315,13 @@ impl BorrowChecker {
                 self.analyze_expression_closures(expr)?;
                 Ok(())
             }
-            Expression::Range { start, end } => {
+            Expression::Range { start, end } | Expression::RangeInclusive { start, end } => {
                 self.analyze_expression_closures(start)?;
                 self.analyze_expression_closures(end)?;
                 Ok(())
             }
             Expression::Await(expr)
-            | Expression::Go(expr)
-            | Expression::Try(expr)
+            | Expression::QuestionMark(expr)
             | Expression::New(expr)
             | Expression::Deref(expr)
             | Expression::ErrorNew(expr) => {

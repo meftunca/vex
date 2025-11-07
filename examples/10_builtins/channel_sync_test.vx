@@ -1,0 +1,23 @@
+// Test channel without go statement (synchronous)
+
+fn main(): i32 {
+    let! ch: Channel<i64> = Channel(4);
+    
+    // Send values directly (no go statement)
+    ch.send(10);
+    ch.send(20);
+    
+    // Receive values
+    let val1 = ch.recv();
+    let val2 = ch.recv();
+    
+    if val1 != 10 {
+        return 1;
+    }
+    
+    if val2 != 20 {
+        return 2;
+    }
+    
+    return 0;
+}

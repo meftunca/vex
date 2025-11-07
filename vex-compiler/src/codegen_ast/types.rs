@@ -322,6 +322,39 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 BasicTypeEnum::StructType(result_struct)
             }
 
+            Type::Slice(_elem_ty, _is_mutable) => {
+                // Slice<T> layout: { i8*, i64, i64 }
+                // Fields: data_ptr, len, elem_size
+                // Match C runtime VexSlice struct
+                let ptr_ty = self.context.ptr_type(inkwell::AddressSpace::default());
+                let size_ty = self.context.i64_type();
+
+                let slice_struct = self.context.struct_type(
+                    &[
+                        ptr_ty.into(),  // void *data
+                        size_ty.into(), // size_t len
+                        size_ty.into(), // size_t elem_size
+                    ],
+                    false,
+                );
+
+                BasicTypeEnum::StructType(slice_struct)
+            }
+
+            Type::Never => {
+                // Never type (!) - represents diverging functions (panic, exit, infinite loop)
+                // In LLVM, use i8 as a minimal type (should never be instantiated)
+                BasicTypeEnum::IntType(self.context.i8_type())
+            }
+
+            Type::RawPtr(inner_ty) => {
+                // Raw pointer: *T
+                // Unsafe pointer for FFI/C interop
+                // In LLVM, all pointers are opaque (LLVM 15+)
+                let _inner_llvm = self.ast_type_to_llvm(inner_ty);
+                BasicTypeEnum::PointerType(self.context.ptr_type(inkwell::AddressSpace::default()))
+            }
+
             _ => {
                 // Default to i32 for unsupported types
                 BasicTypeEnum::IntType(self.context.i32_type())
@@ -417,6 +450,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             Expression::StringLiteral(_) => Ok(Type::String),
             Expression::FStringLiteral(_) => Ok(Type::String),
             Expression::BoolLiteral(_) => Ok(Type::Bool),
+            Expression::MapLiteral(_) => Ok(Type::Named("Map".to_string())),
             Expression::Ident(name) => {
                 // Check if this is a struct variable
                 if let Some(struct_name) = self.variable_struct_names.get(name) {

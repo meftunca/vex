@@ -1,0 +1,40 @@
+// Set<T> - HashSet implementation as Map<T, ()> wrapper
+// Demonstrates: Set(), insert, contains, len operations
+
+fn main(): i32 {
+    println("=== Set<T> Test ===");
+    
+    // Create new set
+    let! s = Set();
+    
+    // Insert values
+    s.insert(42);
+    s.insert(17);
+    s.insert(99);
+    
+    println("\nAfter inserting 3 values:");
+    println("  Length:");
+    println(s.len());
+    
+    // Check contains
+    if s.contains(42) {
+        println("  ✅ Set contains 42");
+    }
+    
+    if s.contains(17) {
+        println("  ✅ Set contains 17");
+    }
+    
+    if !s.contains(100) {
+        println("  ✅ Set does not contain 100");
+    }
+    
+    // Insert duplicate (should not increase size)
+    s.insert(42);
+    println("\nAfter inserting duplicate 42:");
+    println("  Length:");
+    println(s.len());
+    
+    println("\n=== Set Test Complete ===");
+    return 0;
+}

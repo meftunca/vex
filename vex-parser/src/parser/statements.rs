@@ -75,6 +75,17 @@ impl<'a> Parser<'a> {
             return Ok(Statement::Defer(deferred_stmt));
         }
 
+        // Go statement
+        if self.match_token(&Token::Go) {
+            let expr = if self.check(&Token::LBrace) {
+                self.parse_block_expression()?
+            } else {
+                self.parse_expression()?
+            };
+            self.consume(&Token::Semicolon, "Expected ';' after go statement")?;
+            return Ok(Statement::Go(expr));
+        }
+
         // If statement
         if self.match_token(&Token::If) {
             eprintln!("🟡 If: parsing condition, token={:?}", self.peek());
@@ -173,9 +184,30 @@ impl<'a> Parser<'a> {
 
         // For statement
         if self.match_token(&Token::For) {
-            // For now, we'll parse C-style for loops
-            // for i := 0; i < 5; i++ { ... }
+            // Check for for-in loop: for i in range { }
+            // Peek ahead to see if this is "ident in ..."
+            let checkpoint = self.current;
+            if let Ok(var_name) = self.consume_identifier() {
+                if self.match_token(&Token::In) {
+                    // for-in loop: for i in 0..10 { }
+                    let iterable = self.parse_expression()?;
+                    let body = self.parse_block()?;
 
+                    return Ok(Statement::ForIn {
+                        variable: var_name,
+                        iterable,
+                        body,
+                    });
+                } else {
+                    // Not a for-in, backtrack for C-style for
+                    self.current = checkpoint;
+                }
+            } else {
+                // Not identifier, reset for C-style for
+                self.current = checkpoint;
+            }
+
+            // C-style for loop: for i := 0; i < 5; i++ { ... }
             // Init
             let init = if !self.check(&Token::Semicolon) {
                 Some(Box::new(self.parse_statement()?))

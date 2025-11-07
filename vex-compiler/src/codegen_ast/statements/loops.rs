@@ -155,7 +155,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
     }
 
     /// Compile while loop: while condition { body }
-    pub(crate) fn compile_while_loop(&mut self, condition: &Expression, body: &Block) -> Result<(), String> {
+    pub(crate) fn compile_while_loop(
+        &mut self,
+        condition: &Expression,
+        body: &Block,
+    ) -> Result<(), String> {
         let fn_val = self.current_function.ok_or("No current function")?;
 
         let loop_cond = self.context.append_basic_block(fn_val, "while.cond");
@@ -393,6 +397,123 @@ impl<'ctx> ASTCodeGen<'ctx> {
         // Always position at end block for subsequent code
         // Even if unreachable, LLVM will optimize it away
         self.builder.position_at_end(end_bb);
+
+        Ok(())
+    }
+
+    /// Compile for-in loop: for i in 0..10 { body }
+    /// Desugars to: let! range = 0..10; let! i: i64; while range.next(&i) { body }
+    pub(crate) fn compile_for_in_loop(
+        &mut self,
+        variable: &str,
+        iterable: &Expression,
+        body: &Block,
+    ) -> Result<(), String> {
+        // Compile iterable (Range expression)
+        let range_val = self.compile_expression(iterable)?;
+
+        // Determine if Range or RangeInclusive based on expression type
+        let is_inclusive = matches!(iterable, Expression::RangeInclusive { .. });
+        let range_type_name = if is_inclusive {
+            "RangeInclusive"
+        } else {
+            "Range"
+        };
+
+        // Create temporary range variable
+        let range_var_name = format!("__forin_range_{}", variable);
+        let range_alloca = self.create_entry_block_alloca(
+            &range_var_name,
+            &Type::Named(range_type_name.to_string()),
+            true, // mutable
+        )?;
+        self.build_store_aligned(range_alloca, range_val)?;
+
+        // Track range variable for method calls
+        self.variables.insert(range_var_name.clone(), range_alloca);
+        self.variable_struct_names
+            .insert(range_var_name.clone(), range_type_name.to_string());
+
+        // Create loop variable (i64)
+        let loop_var_alloca = self.create_entry_block_alloca(
+            variable,
+            &Type::I64,
+            true, // mutable
+        )?;
+        self.variables.insert(variable.to_string(), loop_var_alloca);
+        self.variable_types
+            .insert(variable.to_string(), self.context.i64_type().into());
+
+        // Create loop blocks
+        let fn_val = self.current_function.ok_or("No current function")?;
+        let loop_cond = self.context.append_basic_block(fn_val, "for.cond");
+        let loop_body = self.context.append_basic_block(fn_val, "for.body");
+        let loop_end = self.context.append_basic_block(fn_val, "for.end");
+
+        // Push loop context for break/continue
+        self.loop_context_stack.push((loop_cond, loop_end));
+
+        // Branch to condition
+        self.builder
+            .build_unconditional_branch(loop_cond)
+            .map_err(|e| format!("Failed to branch to loop: {}", e))?;
+
+        // Condition: range.next(&loop_var)
+        self.builder.position_at_end(loop_cond);
+
+        // Call range.next(&loop_var) -> bool
+        let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+        let fn_name = if is_inclusive {
+            "vex_range_inclusive_next"
+        } else {
+            "vex_range_next"
+        };
+
+        let next_fn = self.declare_runtime_fn(
+            fn_name,
+            &[ptr_type.into(), ptr_type.into()],
+            self.context.bool_type().into(),
+        );
+
+        let has_next = self
+            .builder
+            .build_call(
+                next_fn,
+                &[range_alloca.into(), loop_var_alloca.into()],
+                "has_next",
+            )
+            .map_err(|e| format!("Failed to call {}: {}", fn_name, e))?
+            .try_as_basic_value()
+            .left()
+            .ok_or_else(|| format!("{} returned void", fn_name))?;
+
+        // Branch based on has_next
+        self.builder
+            .build_conditional_branch(has_next.into_int_value(), loop_body, loop_end)
+            .map_err(|e| format!("Failed to build conditional branch: {}", e))?;
+
+        // Body
+        self.builder.position_at_end(loop_body);
+        self.compile_block(body)?;
+
+        // Branch back to condition (if not terminated)
+        if self
+            .builder
+            .get_insert_block()
+            .unwrap()
+            .get_terminator()
+            .is_none()
+        {
+            self.builder
+                .build_unconditional_branch(loop_cond)
+                .map_err(|e| format!("Failed to branch back: {}", e))?;
+        }
+
+        // End
+        self.builder.position_at_end(loop_end);
+
+        // Pop loop context
+        self.loop_context_stack.pop();
 
         Ok(())
     }

@@ -6,6 +6,6 @@ fn main() {
     let r1 = &x!;  // mutable borrow
     let r2 = &x;   // ❌ ERROR: cannot borrow as immutable while mutably borrowed
     
-    log(r1);
-    log(r2);
+    println(r1);
+    println(r2);
 }

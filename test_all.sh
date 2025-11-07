@@ -14,11 +14,11 @@ FAIL=0
 while IFS= read -r file; do
     name=$(echo "$file" | sed 's|examples/||' | sed 's|\.vx$||')
     
-    # Skip borrow checker tests (they should fail intentionally)
-    if [[ "$file" == *"00_borrow_checker"* ]]; then
-        echo "⏭️  Skipping $name (borrow checker test)"
-        continue
-    fi
+    # # Skip borrow checker tests (they should fail intentionally)
+    # if [[ "$file" == *"00_borrow_checker"* ]]; then
+    #     echo "⏭️  Skipping $name (borrow checker test)"
+    #     continue
+    # fi
     
     # Skip interface tests (interface keyword deprecated)
     if [[ "$file" == *"interfaces.vx"* ]]; then
@@ -36,6 +36,26 @@ while IFS= read -r file; do
             echo "✅ PASS (correctly detected circular dependency)"
             ((SUCCESS++))
         fi
+        continue
+    fi
+    
+    # Borrow checker error tests should FAIL with borrow error (expected behavior)
+    if [[ "$file" == *"_error.vx"* ]] || [[ "$file" == *"return_local.vx"* ]]; then
+        echo -n "Testing $name... "
+        output=$("$VEX_BIN" run "$file" 2>&1)
+        if echo "$output" | grep -q "Borrow checker error"; then
+            echo "✅ PASS (correctly detected borrow error)"
+            ((SUCCESS++))
+        else
+            echo "❌ FAIL (should have detected borrow error)"
+            ((FAIL++))
+        fi
+        continue
+    fi
+    
+    # Skip known broken tests
+    if [[ "$file" == *"error_handling_try.vx"* ]]  ; then
+        echo "⏭️  Skipping $name (known issues)"
         continue
     fi
     

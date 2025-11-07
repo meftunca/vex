@@ -349,6 +349,12 @@ pub enum Type {
     /// Unit type (void)
     Unit,
 
+    /// Never type (!) - for diverging functions (panic, exit, infinite loop)
+    Never,
+
+    /// Raw pointer: *T (unsafe, for FFI/C interop)
+    RawPtr(Box<Type>),
+
     // ============================================================
     // Builtin Types - Phase 0 (No imports needed, zero-overhead)
     // ============================================================
@@ -363,6 +369,9 @@ pub enum Type {
 
     /// Box<T> - Heap allocation (enables recursive types)
     Box(Box<Type>),
+
+    /// Channel<T> - MPSC channel for concurrency
+    Channel(Box<Type>),
 }
 
 /// Block of statements
@@ -443,6 +452,9 @@ pub enum Statement {
 
     /// Select statement (async)
     Select { cases: Vec<SelectCase> },
+
+    /// Go statement (async)
+    Go(Expression),
 
     /// Unsafe block
     Unsafe(Block),
@@ -564,6 +576,12 @@ pub enum Expression {
     /// Array literal: [1, 2, 3]
     Array(Vec<Expression>),
 
+    /// Array repeat literal: [value; count]
+    ArrayRepeat(Box<Expression>, Box<Expression>),
+
+    /// Map literal: {"key": value, "key2": value2}
+    MapLiteral(Vec<(Expression, Expression)>),
+
     /// Tuple literal: (1, "hello", true)
     TupleLiteral(Vec<Expression>),
 
@@ -581,8 +599,14 @@ pub enum Expression {
         data: Option<Box<Expression>>, // Some(expr) or None for unit variants
     },
 
-    /// Range: 0..10
+    /// Range: 0..10 (exclusive end)
     Range {
+        start: Box<Expression>,
+        end: Box<Expression>,
+    },
+
+    /// RangeInclusive: 0..=10 (inclusive end)
+    RangeInclusive {
         start: Box<Expression>,
         end: Box<Expression>,
     },
@@ -598,12 +622,6 @@ pub enum Expression {
 
     /// Await: await expr
     Await(Box<Expression>),
-
-    /// Go: go expr
-    Go(Box<Expression>),
-
-    /// Try: try expr
-    Try(Box<Expression>),
 
     /// Match expression: match value { pattern => expr, ... }
     Match {
@@ -638,6 +656,10 @@ pub enum Expression {
         expr: Box<Expression>,
         target_type: Type,
     },
+
+    /// Question mark operator: expr? (Result early return)
+    /// Desugars to: match expr { Ok(v) => v, Err(e) => return Err(e) }
+    QuestionMark(Box<Expression>),
 
     /// Increment/Decrement: x++ or x--
     PostfixOp {

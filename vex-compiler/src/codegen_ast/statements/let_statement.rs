@@ -51,22 +51,15 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 } => {
                     eprintln!("  → MethodCall expression");
                     eprintln!("    → Method: {}", method);
-                    // Get struct type from receiver
-                    let struct_name = if let Expression::Ident(var_name) = receiver.as_ref() {
-                        if var_name == "self" {
-                            self.variable_struct_names.get(var_name).cloned()
-                        } else {
-                            self.variable_struct_names.get(var_name).cloned()
-                        }
-                    } else {
-                        None
-                    };
 
-                    if let Some(struct_name) = struct_name {
-                        let method_func_name = format!("{}_{}", struct_name, method);
-                        if let Some(func_def) = self.function_defs.get(&method_func_name) {
-                            if let Some(Type::Named(s_name)) = &func_def.return_type {
-                                Some(s_name.clone())
+                    // Special handling for builtin method calls that return specific types
+                    let builtin_return_type = if let Expression::Ident(var_name) = receiver.as_ref()
+                    {
+                        if let Some(struct_name) = self.variable_struct_names.get(var_name) {
+                            // Check for Vec.as_slice() -> Slice
+                            if struct_name == "Vec" && method == "as_slice" {
+                                eprintln!("    ✅ Vec.as_slice() -> Slice");
+                                Some("Slice".to_string())
                             } else {
                                 None
                             }
@@ -75,7 +68,49 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         }
                     } else {
                         None
+                    };
+
+                    if builtin_return_type.is_some() {
+                        builtin_return_type
+                    } else {
+                        // Get struct type from receiver
+                        let struct_name = if let Expression::Ident(var_name) = receiver.as_ref() {
+                            if var_name == "self" {
+                                self.variable_struct_names.get(var_name).cloned()
+                            } else {
+                                self.variable_struct_names.get(var_name).cloned()
+                            }
+                        } else {
+                            None
+                        };
+
+                        if let Some(struct_name) = struct_name {
+                            let method_func_name = format!("{}_{}", struct_name, method);
+                            if let Some(func_def) = self.function_defs.get(&method_func_name) {
+                                if let Some(Type::Named(s_name)) = &func_def.return_type {
+                                    Some(s_name.clone())
+                                } else {
+                                    None
+                                }
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
                     }
+                }
+                Expression::Range { .. } => {
+                    eprintln!("  → Range expression (0..10)");
+                    Some("Range".to_string())
+                }
+                Expression::RangeInclusive { .. } => {
+                    eprintln!("  → RangeInclusive expression (0..=10)");
+                    Some("RangeInclusive".to_string())
+                }
+                Expression::Array(_) | Expression::ArrayRepeat(_, _) => {
+                    eprintln!("  → Array literal or repeat");
+                    None // Arrays don't have struct names, they're stack-allocated
                 }
                 Expression::Call { func, .. } => {
                     eprintln!("  → Call expression");
@@ -99,6 +134,22 @@ impl<'ctx> ASTCodeGen<'ctx> {
                             "map_new" | "map_with_capacity" | "hashmap_new" => {
                                 eprintln!("    ✅ Builtin map_new() -> Map");
                                 Some("Map".to_string())
+                            }
+                            "set_new" | "set_with_capacity" => {
+                                eprintln!("    ✅ Builtin set_new() -> Set");
+                                Some("Set".to_string())
+                            }
+                            "range_new" => {
+                                eprintln!("    ✅ Builtin range_new() -> Range");
+                                Some("Range".to_string())
+                            }
+                            "range_inclusive_new" => {
+                                eprintln!("    ✅ Builtin range_inclusive_new() -> RangeInclusive");
+                                Some("RangeInclusive".to_string())
+                            }
+                            "channel_new" => {
+                                eprintln!("    ✅ Builtin channel_new() -> Channel");
+                                Some("Channel".to_string())
                             }
                             _ => {
                                 // Regular function
@@ -169,6 +220,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     // Get struct type from field access
                     self.get_field_struct_type(object, field).ok().flatten()
                 }
+                Expression::MapLiteral(_) => {
+                    eprintln!("  → MapLiteral expression");
+                    Some("Map".to_string())
+                }
                 _ => {
                     eprintln!("  → Other expression type");
                     None
@@ -180,6 +235,35 @@ impl<'ctx> ASTCodeGen<'ctx> {
         };
 
         eprintln!("  → struct_name_from_expr: {:?}", struct_name_from_expr);
+
+        // Array size validation: if type annotation is [T; N], verify array literal has N elements
+        if let Some(Type::Array(_, annotated_size)) = ty {
+            // Check array literal size
+            let actual_size = match value {
+                Expression::Array(elements) => Some(elements.len()),
+                Expression::ArrayRepeat(_, repeat_size_expr) => {
+                    if let Expression::IntLiteral(n) = repeat_size_expr.as_ref() {
+                        Some(*n as usize)
+                    } else {
+                        None
+                    }
+                }
+                _ => None,
+            };
+
+            if let Some(actual_size) = actual_size {
+                if actual_size != *annotated_size {
+                    return Err(format!(
+                        "Array size mismatch: literal has {} elements but type annotation specifies [T; {}]",
+                        actual_size, annotated_size
+                    ));
+                }
+                eprintln!(
+                    "  ✅ Array size validation passed: {} elements",
+                    actual_size
+                );
+            }
+        }
 
         // Recursively inject type args for nested generic structs
         let adjusted_value = if let Some(ref type_annotation) = ty {
@@ -244,6 +328,15 @@ impl<'ctx> ASTCodeGen<'ctx> {
             self.variable_struct_names
                 .insert(name.clone(), mangled.clone());
             var_type.clone()
+        } else if let Type::Channel(inner_ty) = &var_type {
+            let mangled = format!("Channel_{}", self.type_to_string(inner_ty.as_ref()));
+            eprintln!(
+                "  ✅ Tracking Channel type (from annotation): Channel -> {}",
+                mangled
+            );
+            self.variable_struct_names
+                .insert(name.clone(), "Channel".to_string());
+            var_type.clone()
         } else if let Type::Option(inner_ty) = &var_type {
             let mangled = format!("Option_{}", self.type_to_string(inner_ty.as_ref()));
             eprintln!(
@@ -294,6 +387,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         || type_name == "Box"
                         || type_name == "String"
                         || type_name == "Map"
+                        || type_name == "Range"
+                        || type_name == "RangeInclusive"
+                        || type_name == "Slice"
                     {
                         eprintln!("  ✅ Tracking as builtin type: {}", type_name);
                         self.variable_struct_names
@@ -323,6 +419,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 || struct_name == "Box"
                 || struct_name == "String"
                 || struct_name == "Map"
+                || struct_name == "Range"
+                || struct_name == "RangeInclusive"
             {
                 eprintln!("  ✅ Direct Named type is builtin: {}", struct_name);
                 self.variable_struct_names
@@ -353,6 +451,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 || type_name == "Box"
                 || type_name == "String"
                 || type_name == "Map"
+                || type_name == "Set"
+                || type_name == "Slice"
             {
                 eprintln!("  ✅ Tracking as builtin type: {}", type_name);
                 self.variable_struct_names
@@ -508,6 +608,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 llvm_type
             } else if self.struct_defs.contains_key(type_name) {
                 // value already a pointer to data (struct literal)
+                llvm_type
+            } else if type_name == "Range" || type_name == "RangeInclusive" {
+                // Range types are stack values with struct type {i64, i64, i64}
                 llvm_type
             } else {
                 self.ast_type_to_llvm(&final_var_type)

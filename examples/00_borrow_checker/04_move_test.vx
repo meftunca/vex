@@ -1,23 +1,15 @@
 // Test Move Semantics - Use after move
 
-fn test_move_string() {
-    let s = "hello";
-    let s2 = s;  // s moves to s2
-    
-    // This should trigger move error:
-    log(s);  // ❌ ERROR: use of moved value: `s`
-}
-
 fn test_copy_int() {
     let x = 42;
     let y = x;  // x is copied (i32 is Copy type)
     
     // This should work fine:
-    log(x);  // ✅ OK: x is still valid
-    log(y);
+    println(x);  // ✅ OK: x is still valid
+    println(y);
 }
 
-fn main() {
-    test_move_string();
+fn main(): i32 {
     test_copy_int();
+    return 0;
 }

@@ -418,7 +418,9 @@ impl LifetimeChecker {
                 self.check_block(block)
             }
 
-            Statement::Defer(_) | Statement::Break | Statement::Continue => Ok(()),
+            Statement::Defer(_) | Statement::Go(_) | Statement::Break | Statement::Continue => {
+                Ok(())
+            }
         }
     }
 
@@ -506,6 +508,12 @@ impl LifetimeChecker {
                 Ok(())
             }
 
+            Expression::ArrayRepeat(value, count) => {
+                self.check_expression(value)?;
+                self.check_expression(count)?;
+                Ok(())
+            }
+
             Expression::TupleLiteral(elements) => {
                 for elem in elements {
                     self.check_expression(elem)?;
@@ -516,6 +524,14 @@ impl LifetimeChecker {
             Expression::StructLiteral { fields, .. } => {
                 for (_, expr) in fields {
                     self.check_expression(expr)?;
+                }
+                Ok(())
+            }
+
+            Expression::MapLiteral(entries) => {
+                for (key, value) in entries {
+                    self.check_expression(key)?;
+                    self.check_expression(value)?;
                 }
                 Ok(())
             }
@@ -575,16 +591,14 @@ impl LifetimeChecker {
                 }
             }
 
-            Expression::Range { start, end } => {
+            Expression::Range { start, end } | Expression::RangeInclusive { start, end } => {
                 self.check_expression(start)?;
                 self.check_expression(end)
             }
 
             Expression::PostfixOp { expr, .. } => self.check_expression(expr),
 
-            Expression::Await(expr) | Expression::Go(expr) | Expression::Try(expr) => {
-                self.check_expression(expr)
-            }
+            Expression::Await(expr) | Expression::QuestionMark(expr) => self.check_expression(expr),
 
             Expression::Launch { args, .. } => {
                 for arg in args {

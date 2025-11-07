@@ -84,12 +84,6 @@ impl<'a> Parser<'a> {
             return Ok(Expression::Await(Box::new(expr)));
         }
 
-        // Go expression: go expr (spawn goroutine/task)
-        if self.match_token(&Token::Go) {
-            let expr = self.parse_unary()?;
-            return Ok(Expression::Go(Box::new(expr)));
-        }
-
         // Reference expression: &expr or &expr! (mutable)
         if self.match_token(&Token::Ampersand) {
             let expr = self.parse_unary()?;
@@ -402,8 +396,9 @@ impl<'a> Parser<'a> {
                     op: PostfixOp::Decrement,
                 };
             } else if self.match_token(&Token::Question) {
-                // Try operator: expr?
-                expr = Expression::Try(Box::new(expr));
+                // Question mark operator: expr? (Result early return)
+                // Desugars to: match expr { Ok(v) => v, Err(e) => return Err(e) }
+                expr = Expression::QuestionMark(Box::new(expr));
             } else {
                 break;
             }

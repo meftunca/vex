@@ -239,6 +239,57 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                 .map_err(|e| format!("Failed to call box_free: {}", e))?;
                         }
                     }
+                    "String" => {
+                        // Call vex_string_free(vex_string_t*)
+                        if let Some(var_ptr) = self.variables.get(var_name).copied() {
+                            eprintln!("🧹 Auto-cleanup: vex_string_free({})", var_name);
+
+                            let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                            let string_value = self
+                                .builder
+                                .build_load(ptr_type, var_ptr, "string_cleanup_load")
+                                .map_err(|e| format!("Failed to load string for cleanup: {}", e))?;
+
+                            // Declare void vex_string_free(vex_string_t*)
+                            let void_fn_type =
+                                self.context.void_type().fn_type(&[ptr_type.into()], false);
+                            let string_free_fn =
+                                self.module
+                                    .add_function("vex_string_free", void_fn_type, None);
+
+                            self.builder
+                                .build_call(
+                                    string_free_fn,
+                                    &[string_value.into()],
+                                    "string_auto_free",
+                                )
+                                .map_err(|e| format!("Failed to call vex_string_free: {}", e))?;
+                        }
+                    }
+                    "Map" | "Set" => {
+                        // Call vex_map_free(map_ptr) / vex_set_free(set_ptr) - both use map backend
+                        if let Some(var_ptr) = self.variables.get(var_name).copied() {
+                            eprintln!("🧹 Auto-cleanup: vex_map_free({})", var_name);
+
+                            let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                            let map_value = self
+                                .builder
+                                .build_load(ptr_type, var_ptr, "map_cleanup_load")
+                                .map_err(|e| {
+                                    format!("Failed to load map/set for cleanup: {}", e)
+                                })?;
+
+                            // Declare void vex_map_free(vex_map_t*)
+                            let void_fn_type =
+                                self.context.void_type().fn_type(&[ptr_type.into()], false);
+                            let map_free_fn =
+                                self.module.add_function("vex_map_free", void_fn_type, None);
+
+                            self.builder
+                                .build_call(map_free_fn, &[map_value.into()], "map_auto_free")
+                                .map_err(|e| format!("Failed to call vex_map_free: {}", e))?;
+                        }
+                    }
                     _ => {
                         // Other types don't need cleanup (yet)
                     }
@@ -324,7 +375,26 @@ impl<'ctx> ASTCodeGen<'ctx> {
             None => builder.position_at_end(entry),
         }
 
-        let llvm_type = self.ast_type_to_llvm(ty);
+        // Special handling for Range types - allocate struct {i64, i64, i64}
+        let llvm_type = if let Type::Named(type_name) = ty {
+            if type_name == "Range" || type_name == "RangeInclusive" {
+                self.context
+                    .struct_type(
+                        &[
+                            self.context.i64_type().into(),
+                            self.context.i64_type().into(),
+                            self.context.i64_type().into(),
+                        ],
+                        false,
+                    )
+                    .into()
+            } else {
+                self.ast_type_to_llvm(ty)
+            }
+        } else {
+            self.ast_type_to_llvm(ty)
+        };
+
         let alloca = builder
             .build_alloca(llvm_type, name)
             .map_err(|e| format!("Failed to create alloca: {}", e))?;

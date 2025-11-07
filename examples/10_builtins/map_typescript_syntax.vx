@@ -1,0 +1,62 @@
+// Test TypeScript-style Map syntax
+// EXPECTED_OUTPUT: === TypeScript-style Map Syntax Test ===
+// EXPECTED_OUTPUT: ✓ Created Map<string,string> with literal
+// EXPECTED_OUTPUT: map['rust'] = systems
+// EXPECTED_OUTPUT: map['go'] = simplicity
+// EXPECTED_OUTPUT: ✓ Added entries with map[key] = value
+// EXPECTED_OUTPUT: map['python'] = dynamic
+// EXPECTED_OUTPUT: map['java'] = enterprise
+// EXPECTED_OUTPUT: map['rust'] (updated) = blazing-fast
+// EXPECTED_OUTPUT: Final length: 5
+// EXPECTED_OUTPUT: === All TypeScript-style syntax works! ===
+
+fn main(): i32 {
+    println("=== TypeScript-style Map Syntax Test ===");
+    
+    // 1. Map literal with type annotation
+    let! map: Map<string, string> = {
+        "rust": "systems",
+        "go": "simplicity",
+        "vex": "performance"
+    };
+    
+    println("✓ Created Map<string,string> with literal");
+    
+    // 2. Index read: map[key]
+    let val1 = map["rust"];
+    print("map['rust'] = ");
+    println(val1);
+    
+    let val2 = map["go"];
+    print("map['go'] = ");
+    println(val2);
+    
+    // 3. Index write: map[key] = value
+    map["python"] = "dynamic";
+    map["java"] = "enterprise";
+    
+    println("✓ Added entries with map[key] = value");
+    
+    // 4. Read back indexed values
+    let val3 = map["python"];
+    let val4 = map["java"];
+    
+    print("map['python'] = ");
+    println(val3);
+    print("map['java'] = ");
+    println(val4);
+    
+    // 5. Update existing key
+    map["rust"] = "blazing-fast";
+    let val_updated = map["rust"];
+    print("map['rust'] (updated) = ");
+    println(val_updated);
+    
+    // 6. Check length
+    let len = map.len();
+    print("Final length: ");
+    println(len as i32);
+    
+    println("=== All TypeScript-style syntax works! ===");
+    return 0;
+}

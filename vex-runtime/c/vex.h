@@ -24,6 +24,37 @@ extern "C"
 
   typedef void *VexArray; // Opaque array type
 
+  /**
+   * Range type for iteration: 0..10 (exclusive end)
+   */
+  typedef struct
+  {
+    int64_t start;
+    int64_t end;
+    int64_t current; // Iterator state
+  } VexRange;
+
+  /**
+   * RangeInclusive type: 0..=10 (inclusive end)
+   */
+  typedef struct
+  {
+    int64_t start;
+    int64_t end;
+    int64_t current; // Iterator state
+  } VexRangeInclusive;
+
+  /**
+   * Slice<T> type: &[T] or &[T]!
+   * A view into a contiguous sequence (Vec, array, etc.)
+   */
+  typedef struct
+  {
+    void *data;       // Pointer to first element
+    size_t len;       // Number of elements
+    size_t elem_size; // Size of each element in bytes
+  } VexSlice;
+
   // ============================================================================
   // STRING OPERATIONS
   // ============================================================================
@@ -1281,6 +1312,30 @@ extern "C"
   void vex_vec_clear(vex_vec_t *vec);
   void vex_vec_free(vex_vec_t *vec);
 
+  // --- String - UTF-8 String Type ---
+
+  typedef struct vex_string_s
+  {
+    char *data;      // UTF-8 bytes
+    size_t len;      // Length in bytes (not characters)
+    size_t capacity; // Capacity in bytes
+  } vex_string_t;
+
+  vex_string_t *vex_string_new(void);
+  vex_string_t *vex_string_from_cstr(const char *cstr);
+  vex_string_t *vex_string_with_capacity(size_t capacity);
+  void vex_string_push_str(vex_string_t *str, const char *cstr);
+  void vex_string_push_char(vex_string_t *str, uint32_t unicode_codepoint);
+  size_t vex_string_len(vex_string_t *str);
+  size_t vex_string_capacity(vex_string_t *str);
+  size_t vex_string_char_count(vex_string_t *str);
+  bool vex_string_is_empty(vex_string_t *str);
+  const char *vex_string_as_cstr(vex_string_t *str);
+  void vex_string_clear(vex_string_t *str);
+  void vex_string_free(vex_string_t *str);
+  vex_string_t *vex_string_clone(vex_string_t *str);
+  void vex_string_slice(vex_string_t *str, size_t start, size_t end, VexSlice *out_slice);
+
   // --- Option<T> - Nullable Type ---
   // Compile-time struct: { u8 tag, T value }
   // tag: 0 = None, 1 = Some
@@ -1320,6 +1375,114 @@ extern "C"
   // --- Tuple<T, U, V> ---
   // Compile-time only - no runtime functions needed
   // See vex_tuple.c for documentation
+
+  // ============================================================================
+  // RANGE OPERATIONS
+  // ============================================================================
+
+  /**
+   * Create a Range (exclusive end): 0..10
+   * @param start Start value (inclusive)
+   * @param end End value (exclusive)
+   * @return Range structure
+   */
+  VexRange vex_range_new(int64_t start, int64_t end);
+
+  /**
+   * Create a RangeInclusive: 0..=10
+   * @param start Start value (inclusive)
+   * @param end End value (inclusive)
+   * @return RangeInclusive structure
+   */
+  VexRangeInclusive vex_range_inclusive_new(int64_t start, int64_t end);
+
+  /**
+   * Get next value from Range iterator
+   * @param range Range to iterate
+   * @param out_value Output for next value
+   * @return true if value available, false if exhausted
+   */
+  bool vex_range_next(VexRange *range, int64_t *out_value);
+
+  /**
+   * Get next value from RangeInclusive iterator
+   * @param range RangeInclusive to iterate
+   * @param out_value Output for next value
+   * @return true if value available, false if exhausted
+   */
+  bool vex_range_inclusive_next(VexRangeInclusive *range, int64_t *out_value);
+
+  /**
+   * Get length of Range
+   * @param range Range to measure
+   * @return Number of elements (end - start, clamped to 0)
+   */
+  int64_t vex_range_len(const VexRange *range);
+
+  /**
+   * Get length of RangeInclusive
+   * @param range RangeInclusive to measure
+   * @return Number of elements (end - start + 1, clamped to 0)
+   */
+  int64_t vex_range_inclusive_len(const VexRangeInclusive *range);
+
+  // ============================================================================
+  // SLICE OPERATIONS
+  // ============================================================================
+
+  /**
+   * Create a slice from Vec
+   * @param vec Vec to slice
+   * @return Slice view into Vec's data
+   */
+  VexSlice vex_slice_from_vec(vex_vec_t *vec);
+
+  /**
+   * Create a slice from array
+   * @param data Pointer to array data
+   * @param len Number of elements
+   * @param elem_size Size of each element
+   * @return Slice view
+   */
+  VexSlice vex_slice_new(void *data, size_t len, size_t elem_size);
+
+  /**
+   * Get element from slice (bounds checked)
+   * @param slice Slice to index
+   * @param index Element index
+   * @return Pointer to element, or NULL if out of bounds
+   */
+  void *vex_slice_get(const VexSlice *slice, size_t index);
+
+  /**
+   * Get slice length
+   * @param slice Slice to measure
+   * @return Number of elements
+   */
+  size_t vex_slice_len(const VexSlice *slice);
+
+  /**
+   * Check if slice is empty
+   * @param slice Slice to check
+   * @return true if empty
+   */
+  bool vex_slice_is_empty(const VexSlice *slice);
+
+  /**
+   * Create a sub-slice [start..end)
+   * @param slice Source slice
+   * @param start Start index (inclusive)
+   * @param end End index (exclusive)
+   * @return New slice view
+   */
+  VexSlice vex_slice_subslice(const VexSlice *slice, size_t start, size_t end);
+
+  /**
+   * Get length of RangeInclusive
+   * @param range RangeInclusive to measure
+   * @return Number of elements (end - start + 1, clamped to 0)
+   */
+  int64_t vex_range_inclusive_len(const VexRangeInclusive *range);
 
 #ifdef __cplusplus
 }

@@ -1,0 +1,14 @@
+fn main(): i32 {
+    // Test array repeat with different values
+    let zeros = [0; 10];
+    let ones = [1; 5];
+    let fortytwos = [42; 3];
+    
+    // Test indexing
+    let z = zeros[5];
+    let o = ones[2];
+    let f = fortytwos[1];
+    
+    // Should return 42 + 1 + 0 = 43
+    return f + o + z;
+}

@@ -202,20 +202,29 @@ pub fn builtin_box_free<'ctx>(
 }
 
 /// Builtin: string_new() - Create empty String
+/// Returns vex_string_t* (heap-allocated String struct)
 pub fn builtin_string_new<'ctx>(
     codegen: &mut ASTCodeGen<'ctx>,
     _args: &[BasicValueEnum<'ctx>],
 ) -> Result<BasicValueEnum<'ctx>, String> {
-    // Empty string: just return a pointer to empty C string ""
-    let empty_str = codegen
-        .builder
-        .build_global_string_ptr("", "empty_string")
-        .map_err(|e| format!("Failed to create empty string: {}", e))?;
+    // Call vex_string_new() -> vex_string_t*
+    let ptr_type = codegen.context.ptr_type(inkwell::AddressSpace::default());
 
-    Ok(empty_str.as_pointer_value().into())
+    let string_new_fn = codegen.declare_runtime_fn("vex_string_new", &[], ptr_type.into());
+
+    let result = codegen
+        .builder
+        .build_call(string_new_fn, &[], "string_new")
+        .map_err(|e| format!("Failed to call vex_string_new: {}", e))?;
+
+    result
+        .try_as_basic_value()
+        .left()
+        .ok_or("vex_string_new didn't return a value".to_string())
 }
 
 /// Builtin: string_from(literal) - Create String from string literal
+/// Returns vex_string_t* (heap-allocated String struct)
 pub fn builtin_string_from<'ctx>(
     codegen: &mut ASTCodeGen<'ctx>,
     args: &[BasicValueEnum<'ctx>],
@@ -224,15 +233,30 @@ pub fn builtin_string_from<'ctx>(
         return Err("string_from() requires exactly 1 argument".to_string());
     }
 
-    // If argument is already a string pointer, just return it
-    // (String literals are already heap-allocated in LLVM)
-    match args[0] {
-        BasicValueEnum::PointerValue(ptr) => Ok(ptr.into()),
-        _ => Err("string_from() requires a string literal argument".to_string()),
-    }
+    // Get string literal pointer
+    let str_ptr = match args[0] {
+        BasicValueEnum::PointerValue(ptr) => ptr,
+        _ => return Err("string_from() requires a string literal argument".to_string()),
+    };
+
+    // Call vex_string_from_cstr(cstr) -> vex_string_t*
+    let ptr_type = codegen.context.ptr_type(inkwell::AddressSpace::default());
+
+    let string_from_fn =
+        codegen.declare_runtime_fn("vex_string_from_cstr", &[ptr_type.into()], ptr_type.into());
+
+    let result = codegen
+        .builder
+        .build_call(string_from_fn, &[str_ptr.into()], "string_from")
+        .map_err(|e| format!("Failed to call vex_string_from_cstr: {}", e))?;
+
+    result
+        .try_as_basic_value()
+        .left()
+        .ok_or("vex_string_from_cstr didn't return a value".to_string())
 }
 
-/// Builtin: string_free() - Free String (for manual memory management)
+/// Builtin: string_free() - Free String memory
 pub fn builtin_string_free<'ctx>(
     codegen: &mut ASTCodeGen<'ctx>,
     args: &[BasicValueEnum<'ctx>],
@@ -241,8 +265,26 @@ pub fn builtin_string_free<'ctx>(
         return Err("string_free() requires exactly 1 argument".to_string());
     }
 
-    // For now, strings are static in LLVM IR, so free is a no-op
-    // TODO: When we implement true heap strings with strdup, add free(ptr) here
+    let string_ptr = match args[0] {
+        BasicValueEnum::PointerValue(ptr) => ptr,
+        _ => return Err("string_free() requires a String pointer".to_string()),
+    };
+
+    // Call vex_string_free(str_ptr) - void function
+    let ptr_type = codegen.context.ptr_type(inkwell::AddressSpace::default());
+
+    let void_fn_type = codegen
+        .context
+        .void_type()
+        .fn_type(&[ptr_type.into()], false);
+    let string_free_fn = codegen
+        .module
+        .add_function("vex_string_free", void_fn_type, None);
+
+    codegen
+        .builder
+        .build_call(string_free_fn, &[string_ptr.into()], "")
+        .map_err(|e| format!("Failed to call vex_string_free: {}", e))?;
 
     Ok(codegen.context.i8_type().const_zero().into())
 }

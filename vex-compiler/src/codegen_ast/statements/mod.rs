@@ -9,15 +9,15 @@
 //
 // Public re-exports provide a flat surface for the parent module.
 
-mod loops;
-mod control_flow;
 mod assignment;
+mod control_flow;
 mod let_statement;
+mod loops;
 
-pub use loops::*;
-pub use control_flow::*;
 pub use assignment::*;
+pub use control_flow::*;
 pub use let_statement::*;
+pub use loops::*;
 
 use super::ASTCodeGen;
 use inkwell::values::BasicValueEnum;
@@ -43,7 +43,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
     pub(crate) fn compile_statement(&mut self, stmt: &Statement) -> Result<(), String> {
         match stmt {
             // let statement
-            Statement::Let { is_mutable, name, ty, value } => {
+            Statement::Let {
+                is_mutable,
+                name,
+                ty,
+                value,
+            } => {
                 self.compile_let_statement(*is_mutable, name, ty.as_ref(), value)?;
             }
 
@@ -70,18 +75,42 @@ impl<'ctx> ASTCodeGen<'ctx> {
             Statement::Defer(stmt) => {
                 self.compile_defer_statement(stmt.as_ref())?;
             }
+            Statement::Go(expr) => {
+                self.compile_go_statement(expr)?;
+            }
 
             // loops & branching
-            Statement::If { condition, then_block, elif_branches, else_block } => {
+            Statement::If {
+                condition,
+                then_block,
+                elif_branches,
+                else_block,
+            } => {
                 self.compile_if_statement(condition, then_block, elif_branches, else_block)?;
             }
-            Statement::For { init, condition, post, body } => {
+            Statement::For {
+                init,
+                condition,
+                post,
+                body,
+            } => {
                 self.compile_for_loop(init, condition, post, body)?;
             }
             Statement::While { condition, body } => {
                 self.compile_while_loop(condition, body)?;
             }
-            Statement::Switch { value, cases, default_case } => {
+            Statement::ForIn {
+                variable,
+                iterable,
+                body,
+            } => {
+                self.compile_for_in_loop(variable, iterable, body)?;
+            }
+            Statement::Switch {
+                value,
+                cases,
+                default_case,
+            } => {
                 self.compile_switch_statement(value, cases, default_case)?;
             }
 

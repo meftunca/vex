@@ -1,0 +1,13 @@
+// Simple never type test
+
+fn diverge(): ! {
+    loop {
+        // Never returns
+    }
+}
+
+fn main(): i32 {
+    // Test that Never type is recognized
+    let x = 42;
+    return x;
+}

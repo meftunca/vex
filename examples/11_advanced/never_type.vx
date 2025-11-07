@@ -1,0 +1,10 @@
+// Never type (!) - for functions that never return
+
+fn panic_fn(): ! {
+    print("PANIC!");
+    return 1 as !;
+}
+
+fn main(): i32 {
+    return 42;
+}

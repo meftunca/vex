@@ -1,0 +1,19 @@
+// HashMap simple test with optimized Swiss Tables
+
+fn main(): i32 {
+    // Create Map with initial capacity
+    let! map = Map();
+    
+    // Insert some key-value pairs
+    map_insert(&map, "name", "Vex");
+    map_insert(&map, "version", "0.2.0");
+    map_insert(&map, "type", "systems language");
+    
+    // Check map length
+    let len = map_len(&map);
+    print("Map has ");
+    print(len as i32);
+    println(" entries");
+    
+    return 0;
+}

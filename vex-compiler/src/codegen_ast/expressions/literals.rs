@@ -64,6 +64,73 @@ impl<'ctx> ASTCodeGen<'ctx> {
             .map_err(|e| format!("Failed to load array: {}", e))
     }
 
+    /// Compile array repeat literal: [value; count]
+    pub(crate) fn compile_array_repeat_literal(
+        &mut self,
+        value_expr: &Expression,
+        count_expr: &Expression,
+    ) -> Result<BasicValueEnum<'ctx>, String> {
+        // Compile the value to determine element type
+        let value_val = self.compile_expression(value_expr)?;
+        let elem_type = value_val.get_type();
+
+        // Compile the count expression
+        let count_val = self.compile_expression(count_expr)?;
+        let count_int = match count_val {
+            BasicValueEnum::IntValue(iv) => iv,
+            _ => return Err("Array repeat count must be an integer".to_string()),
+        };
+
+        // Get the count as a constant if possible, otherwise use dynamic size
+        let count_u32 = if let Some(count_const) = count_int.get_zero_extended_constant() {
+            count_const as u32
+        } else {
+            return Err("Array repeat count must be a compile-time constant".to_string());
+        };
+
+        // Create array type
+        let array_type = if let BasicTypeEnum::IntType(it) = elem_type {
+            it.array_type(count_u32)
+        } else if let BasicTypeEnum::FloatType(ft) = elem_type {
+            ft.array_type(count_u32)
+        } else {
+            return Err("Unsupported array element type for repeat".to_string());
+        };
+
+        // Allocate on stack
+        let array_ptr = self
+            .builder
+            .build_alloca(array_type, "arrayrepeat")
+            .map_err(|e| format!("Failed to allocate array: {}", e))?;
+
+        // Store the value in each element
+        let zero = self.context.i32_type().const_int(0, false);
+        for i in 0..count_u32 {
+            let index = self.context.i32_type().const_int(i as u64, false);
+
+            unsafe {
+                let elem_ptr = self
+                    .builder
+                    .build_in_bounds_gep(
+                        array_type,
+                        array_ptr,
+                        &[zero, index],
+                        &format!("elem{}", i),
+                    )
+                    .map_err(|e| format!("Failed to build GEP: {}", e))?;
+
+                self.builder
+                    .build_store(elem_ptr, value_val)
+                    .map_err(|e| format!("Failed to store element: {}", e))?;
+            }
+        }
+
+        // Return the array value
+        self.builder
+            .build_load(array_type, array_ptr, "arrayrepeatval")
+            .map_err(|e| format!("Failed to load array: {}", e))
+    }
+
     /// Compile struct literal: TypeName { field1: val1, field2: val2 } or Box<i32> { value: 10 }
     pub(crate) fn compile_struct_literal(
         &mut self,
@@ -341,11 +408,40 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 let value = self.compile_expression(value_expr)?;
                 let value_type = value.get_type();
 
-                // Create Result<T,E> struct: { i32, value_type }
-                // For now, use same type for Ok/Err (proper union support later)
-                let result_struct_type = self
-                    .context
-                    .struct_type(&[self.context.i32_type().into(), value_type], false);
+                // Try to infer Result<T,E> type from current function's return type
+                let result_struct_type = if let Some(func) = self.current_function {
+                    if let Some(func_def) = self
+                        .function_defs
+                        .get(&func.get_name().to_str().unwrap().to_string())
+                    {
+                        if let Some(Type::Result(ok_ty, err_ty)) = &func_def.return_type {
+                            // Use proper union type from ast_type_to_llvm
+                            if let BasicTypeEnum::StructType(st) =
+                                self.ast_type_to_llvm(&Type::Result(ok_ty.clone(), err_ty.clone()))
+                            {
+                                st
+                            } else {
+                                // Fallback: use value_type directly
+                                self.context.struct_type(
+                                    &[self.context.i32_type().into(), value_type],
+                                    false,
+                                )
+                            }
+                        } else {
+                            // Not a Result return type, use value_type
+                            self.context
+                                .struct_type(&[self.context.i32_type().into(), value_type], false)
+                        }
+                    } else {
+                        // Function def not found, use value_type
+                        self.context
+                            .struct_type(&[self.context.i32_type().into(), value_type], false)
+                    }
+                } else {
+                    // Outside function context, use value_type
+                    self.context
+                        .struct_type(&[self.context.i32_type().into(), value_type], false)
+                };
 
                 // Allocate on stack
                 let result_ptr = self
@@ -370,9 +466,25 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     .builder
                     .build_struct_gep(result_struct_type, result_ptr, 1, "value_ptr")
                     .map_err(|e| format!("Failed to GEP value: {}", e))?;
-                self.builder
-                    .build_store(value_ptr, value)
-                    .map_err(|e| format!("Failed to store value: {}", e))?;
+
+                // Get union field type
+                let union_field_type = result_struct_type
+                    .get_field_type_at_index(1)
+                    .ok_or_else(|| "Result struct missing value field".to_string())?;
+
+                // Cast or store value based on type compatibility
+                if value_type == union_field_type {
+                    // Same type, direct store
+                    self.builder
+                        .build_store(value_ptr, value)
+                        .map_err(|e| format!("Failed to store value: {}", e))?;
+                } else {
+                    // Different types: bitcast if needed (ptr types, sizes match)
+                    // For now, try direct store (LLVM will error if incompatible)
+                    self.builder
+                        .build_store(value_ptr, value)
+                        .map_err(|e| format!("Failed to store value (type mismatch): {}", e))?;
+                }
 
                 // Load and return struct value
                 let result_value = self
@@ -384,5 +496,60 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }
             _ => Err(format!("Unknown builtin enum: {}", enum_name)),
         }
+    }
+
+    /// Compile map literal: {"key": value, "key2": value2}
+    pub(crate) fn compile_map_literal(
+        &mut self,
+        entries: &[(Expression, Expression)],
+    ) -> Result<BasicValueEnum<'ctx>, String> {
+        // Create a new Map
+        let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+        let capacity = self.context.i64_type().const_int(
+            if entries.is_empty() {
+                8
+            } else {
+                entries.len() as u64 * 2
+            },
+            false,
+        );
+
+        let vex_map_create = self.declare_runtime_fn(
+            "vex_map_create",
+            &[self.context.i64_type().into()],
+            ptr_type.into(),
+        );
+
+        let map_ptr = self
+            .builder
+            .build_call(vex_map_create, &[capacity.into()], "map_create")
+            .map_err(|e| format!("Failed to create map: {}", e))?
+            .try_as_basic_value()
+            .left()
+            .ok_or("map_create should return a value")?;
+
+        // Insert each entry
+        if !entries.is_empty() {
+            let vex_map_insert = self.declare_runtime_fn(
+                "vex_map_insert",
+                &[ptr_type.into(), ptr_type.into(), ptr_type.into()],
+                self.context.bool_type().into(),
+            );
+
+            for (key_expr, value_expr) in entries {
+                let key = self.compile_expression(key_expr)?;
+                let value = self.compile_expression(value_expr)?;
+
+                self.builder
+                    .build_call(
+                        vex_map_insert,
+                        &[map_ptr.into(), key.into(), value.into()],
+                        "map_insert",
+                    )
+                    .map_err(|e| format!("Failed to insert map entry: {}", e))?;
+            }
+        }
+
+        Ok(map_ptr)
     }
 }

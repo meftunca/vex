@@ -6,7 +6,7 @@ use inkwell::values::BasicValueEnum;
 use inkwell::AddressSpace;
 
 /// Create a new HashMap
-/// Usage: let map = hashmap_new(initial_capacity);
+/// Usage: let map = map_new(initial_capacity);
 pub fn builtin_hashmap_new<'ctx>(
     codegen: &mut ASTCodeGen<'ctx>,
     args: &[BasicValueEnum<'ctx>],
@@ -18,12 +18,12 @@ pub fn builtin_hashmap_new<'ctx>(
         args[0].into_int_value()
     } else {
         return Err(format!(
-            "hashmap_new expects 0 or 1 argument (initial_capacity), got {}",
+            "map_new expects 0 or 1 argument (initial_capacity), got {}",
             args.len()
         ));
     };
 
-    // Declare vex_map_create from runtime (Vec-style API)
+    // Use vex_map_create (heap-allocated, like Vec)
     let ptr_type = codegen.context.ptr_type(AddressSpace::default());
     let vex_map_create = codegen.declare_runtime_fn(
         "vex_map_create",
@@ -35,144 +35,154 @@ pub fn builtin_hashmap_new<'ctx>(
     let map_ptr = codegen
         .builder
         .build_call(vex_map_create, &[capacity.into()], "map_create")
-        .map_err(|e| format!("Failed to build hashmap_new call: {:?}", e))?
+        .map_err(|e| format!("Failed to build map_new call: {:?}", e))?
         .try_as_basic_value()
         .left()
-        .ok_or("hashmap_new should return a value")?;
+        .ok_or("map_new should return a value")?;
 
     Ok(map_ptr)
 }
 
 /// Insert key-value pair into HashMap
-/// Usage: hashmap_insert(map, key, value);
+/// Usage: map_insert(map, key, value);
 pub fn builtin_hashmap_insert<'ctx>(
     codegen: &mut ASTCodeGen<'ctx>,
     args: &[BasicValueEnum<'ctx>],
 ) -> Result<BasicValueEnum<'ctx>, String> {
     if args.len() != 3 {
         return Err(format!(
-            "hashmap_insert expects 3 arguments (map, key, value), got {}",
+            "map_insert expects 3 arguments (map, key, value), got {}",
             args.len()
         ));
     }
 
-    let map_ptr = args[0].into_pointer_value();
-    let key = args[1]; // Assuming string key for now
+    // args[0] is the map variable (ptr to VexMap*)
+    // Need to load it to get the actual VexMap*
+    let map_var_ptr = args[0].into_pointer_value();
+    let ptr_type = codegen.context.ptr_type(AddressSpace::default());
+    let map_ptr = codegen
+        .builder
+        .build_load(ptr_type, map_var_ptr, "map_load")
+        .map_err(|e| format!("Failed to load map pointer: {:?}", e))?
+        .into_pointer_value();
+
+    let key = args[1];
     let value = args[2].into_pointer_value();
 
     // Declare vex_map_insert from runtime
-    let i8_ptr = codegen.context.i8_type().ptr_type(AddressSpace::default());
+    let ptr_type = codegen.context.ptr_type(AddressSpace::default());
     let vex_map_insert = codegen.declare_runtime_fn(
         "vex_map_insert",
         &[
-            i8_ptr.into(), // map
-            i8_ptr.into(), // key
-            i8_ptr.into(), // value
+            ptr_type.into(), // map
+            ptr_type.into(), // key
+            ptr_type.into(), // value
         ],
         codegen.context.bool_type().into(), // returns bool
     );
 
-    // Cast key to i8* if it's a string
+    // Cast key to ptr if it's a string
     let key_ptr = if let BasicValueEnum::PointerValue(p) = key {
-        codegen
-            .builder
-            .build_pointer_cast(p, i8_ptr, "key_cast")
-            .map_err(|e| format!("Failed to cast key: {:?}", e))?
+        p
     } else {
-        return Err("hashmap_insert: key must be a pointer (string)".to_string());
+        return Err("map_insert: key must be a pointer (string)".to_string());
     };
-
-    // Cast value to i8*
-    let value_cast = codegen
-        .builder
-        .build_pointer_cast(value, i8_ptr, "value_cast")
-        .map_err(|e| format!("Failed to cast value: {:?}", e))?;
 
     // Call vex_map_insert(map, key, value)
     let success = codegen
         .builder
         .build_call(
             vex_map_insert,
-            &[map_ptr.into(), key_ptr.into(), value_cast.into()],
+            &[map_ptr.into(), key_ptr.into(), value.into()],
             "map_insert",
         )
-        .map_err(|e| format!("Failed to build hashmap_insert call: {:?}", e))?
+        .map_err(|e| format!("Failed to build map_insert call: {:?}", e))?
         .try_as_basic_value()
         .left()
-        .ok_or("hashmap_insert should return a value")?;
+        .ok_or("map_insert should return a value")?;
 
     Ok(success)
 }
 
 /// Get value from HashMap by key
-/// Usage: let value = hashmap_get(map, key);
+/// Usage: let value = map_get(map, key);
 pub fn builtin_hashmap_get<'ctx>(
     codegen: &mut ASTCodeGen<'ctx>,
     args: &[BasicValueEnum<'ctx>],
 ) -> Result<BasicValueEnum<'ctx>, String> {
     if args.len() != 2 {
         return Err(format!(
-            "hashmap_get expects 2 arguments (map, key), got {}",
+            "map_get expects 2 arguments (map, key), got {}",
             args.len()
         ));
     }
 
-    let map_ptr = args[0].into_pointer_value();
+    // Load map pointer from variable
+    let map_var_ptr = args[0].into_pointer_value();
+    let ptr_type = codegen.context.ptr_type(AddressSpace::default());
+    let map_ptr = codegen
+        .builder
+        .build_load(ptr_type, map_var_ptr, "map_load")
+        .map_err(|e| format!("Failed to load map pointer: {:?}", e))?
+        .into_pointer_value();
+
     let key = args[1];
 
     // Declare vex_map_get from runtime
-    let i8_ptr = codegen.context.i8_type().ptr_type(AddressSpace::default());
     let vex_map_get = codegen.declare_runtime_fn(
         "vex_map_get",
         &[
-            i8_ptr.into(), // map
-            i8_ptr.into(), // key
+            ptr_type.into(), // map
+            ptr_type.into(), // key
         ],
-        i8_ptr.into(), // returns pointer
+        ptr_type.into(), // returns pointer
     );
 
-    // Cast key to i8* if it's a string
+    // Cast key to ptr if it's a string
     let key_ptr = if let BasicValueEnum::PointerValue(p) = key {
-        codegen
-            .builder
-            .build_pointer_cast(p, i8_ptr, "key_cast")
-            .map_err(|e| format!("Failed to cast key: {:?}", e))?
+        p
     } else {
-        return Err("hashmap_get: key must be a pointer (string)".to_string());
+        return Err("map_get: key must be a pointer (string)".to_string());
     };
 
     // Call vex_map_get(map, key)
     let value_ptr = codegen
         .builder
         .build_call(vex_map_get, &[map_ptr.into(), key_ptr.into()], "map_get")
-        .map_err(|e| format!("Failed to build hashmap_get call: {:?}", e))?
+        .map_err(|e| format!("Failed to build map_get call: {:?}", e))?
         .try_as_basic_value()
         .left()
-        .ok_or("hashmap_get should return a value")?;
+        .ok_or("map_get should return a value")?;
 
     Ok(value_ptr)
 }
 
 /// Get HashMap length
-/// Usage: let len = hashmap_len(map);
+/// Usage: let len = map_len(map);
 pub fn builtin_hashmap_len<'ctx>(
     codegen: &mut ASTCodeGen<'ctx>,
     args: &[BasicValueEnum<'ctx>],
 ) -> Result<BasicValueEnum<'ctx>, String> {
     if args.len() != 1 {
         return Err(format!(
-            "hashmap_len expects 1 argument (map), got {}",
+            "map_len expects 1 argument (map), got {}",
             args.len()
         ));
     }
 
-    let map_ptr = args[0].into_pointer_value();
+    // Load map pointer from variable
+    let map_var_ptr = args[0].into_pointer_value();
+    let ptr_type = codegen.context.ptr_type(AddressSpace::default());
+    let map_ptr = codegen
+        .builder
+        .build_load(ptr_type, map_var_ptr, "map_load")
+        .map_err(|e| format!("Failed to load map pointer: {:?}", e))?
+        .into_pointer_value();
 
     // Declare vex_map_len from runtime
-    let i8_ptr = codegen.context.i8_type().ptr_type(AddressSpace::default());
     let vex_map_len = codegen.declare_runtime_fn(
         "vex_map_len",
-        &[i8_ptr.into()],
+        &[ptr_type.into()],
         codegen.context.i64_type().into(), // returns i64
     );
 
@@ -180,10 +190,10 @@ pub fn builtin_hashmap_len<'ctx>(
     let len = codegen
         .builder
         .build_call(vex_map_len, &[map_ptr.into()], "map_len")
-        .map_err(|e| format!("Failed to build hashmap_len call: {:?}", e))?
+        .map_err(|e| format!("Failed to build map_len call: {:?}", e))?
         .try_as_basic_value()
         .left()
-        .ok_or("hashmap_len should return a value")?;
+        .ok_or("map_len should return a value")?;
 
     Ok(len)
 }

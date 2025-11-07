@@ -290,6 +290,9 @@ impl<'a> CaptureAnalyzer<'a> {
             Statement::Defer(stmt) => {
                 self.visit_statement(stmt);
             }
+            Statement::Go(expr) => {
+                self.visit_expression(expr);
+            }
 
             Statement::Break | Statement::Continue => {}
 

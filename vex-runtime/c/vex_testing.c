@@ -1,12 +1,17 @@
-// vex_testing.c
-// Full-featured testing & benchmarking harness for Vex (single-file C)
-// Now with: subtests, logging (non-fatal), skip, fine timer control (Reset/Start/Stop),
-// auto-calibration (Go-like b.N), bytes/op & MB/s throughput.
-//
-// Build: cc -O3 -std=c11 -Wall -Wextra vex_testing.c -o vt_demo
-// Demo:  cc -O3 -std=c11 -DVEX_TESTING_DEMO vex_testing.c -o vt_demo && ./vt_demo
-//
-// License: CC0 / Public Domain. Use at your own risk.
+/* vex_testing.c (C17-stable + TAP/JUnit + Fixtures)
+ * Full-featured testing & benchmarking harness for Vex (single-file C)
+ * - Subtests (C17-friendly macro), logging, skip
+ * - Fixtures: setup_all/teardown_all, setup_each/teardown_each
+ * - Reporters: text (default), TAP v13, JUnit XML (JUnit4-compatible)
+ * - Fine timer control (Reset/Start/Stop)
+ * - Auto-calibration (Go-like b.N), bytes/op & MB/s throughput
+ * - Cross-platform: GCC/Clang/MSVC friendly; x86 rdtscp if available
+ *
+ * Build: cc -O3 -std=c17 -Wall -Wextra vex_testing.c -o vt_demo
+ * Demo:  cc -O3 -std=c17 -DVEX_TESTING_DEMO vex_testing.c -o vt_demo && ./vt_demo
+ *
+ * License: CC0 / Public Domain.
+ */
 
 #include <stdint.h>
 #include <stddef.h>
@@ -24,11 +29,23 @@
 #define VEX_LINUX 0
 #endif
 
+#if defined(__has_include)
+#if __has_include(<x86intrin.h>)
+#include <x86intrin.h>
+#define VEX_X86 1
+#elif __has_include(<immintrin.h>)
+#include <immintrin.h>
+#define VEX_X86 1
+#else
+#define VEX_X86 0
+#endif
+#else
 #if defined(__x86_64__) || defined(__i386__)
 #include <x86intrin.h>
 #define VEX_X86 1
 #else
 #define VEX_X86 0
+#endif
 #endif
 
 #if VEX_LINUX
@@ -37,24 +54,17 @@
 #include <sys/mman.h>
 #include <sys/time.h>
 #include <sys/resource.h>
-#if !defined(__GLIBC__) || (__GLIBC__ * 1000 + __GLIBC_MINOR__) < 2016
-// mallinfo2 may be unavailable; we gate it later
-#endif
 #endif
 
-// =========================
-// Config macros (tweakable)
-// =========================
+/* =========================
+ * Config macros (tweakable)
+ * ========================= */
 #ifndef VEX_TEST_ENABLE_RDTSC
-#define VEX_TEST_ENABLE_RDTSC 1 // use rdtscp on x86
+#define VEX_TEST_ENABLE_RDTSC 1
 #endif
 
 #ifndef VEX_TEST_ENABLE_AFFINITY
-#define VEX_TEST_ENABLE_AFFINITY 1 // pin thread to a core (Linux)
-#endif
-
-#ifndef VEX_TEST_DEFAULT_ITER
-#define VEX_TEST_DEFAULT_ITER 100000ULL
+#define VEX_TEST_ENABLE_AFFINITY 1
 #endif
 
 #ifndef VEX_TEST_DEFAULT_WARMUP
@@ -70,21 +80,48 @@
 #endif
 
 #ifndef VEX_TEST_AUTOTGT_NS
-#define VEX_TEST_AUTOTGT_NS 1000000000ULL // 1s auto-calibration target
+#define VEX_TEST_AUTOTGT_NS 1000000000ULL
 #endif
 
-// =========================
-// Low-level time utilities
-// =========================
+#ifndef VEX_TEST_LOGBUF_SZ
+#define VEX_TEST_LOGBUF_SZ 8192
+#endif
+
+/* =========================
+ * Small portability helpers
+ * ========================= */
+#if !defined(__has_builtin)
+#define __has_builtin(x) 0
+#endif
+
+#if __has_builtin(__builtin_prefetch) || defined(__GNUC__)
+#define VEX_PREFETCH(p, rw, loc) __builtin_prefetch((p), (rw), (loc))
+#else
+#define VEX_PREFETCH(p, rw, loc) ((void)0)
+#endif
+
+#if defined(_MSC_VER)
+#define VEX_BARRIER() _ReadWriteBarrier()
+#else
+#define VEX_BARRIER() asm volatile("" ::: "memory")
+#endif
+
+/* =========================
+ * Low-level time utilities
+ * ========================= */
 static inline uint64_t vex_monotonic_ns(void)
 {
 #if defined(CLOCK_MONOTONIC_RAW)
   struct timespec ts;
   clock_gettime(CLOCK_MONOTONIC_RAW, &ts);
   return (uint64_t)ts.tv_sec * 1000000000ull + (uint64_t)ts.tv_nsec;
-#else
+#elif defined(CLOCK_MONOTONIC)
   struct timespec ts;
   clock_gettime(CLOCK_MONOTONIC, &ts);
+  return (uint64_t)ts.tv_sec * 1000000000ull + (uint64_t)ts.tv_nsec;
+#else
+  struct timespec ts;
+  timespec_get(&ts, TIME_UTC);
   return (uint64_t)ts.tv_sec * 1000000000ull + (uint64_t)ts.tv_nsec;
 #endif
 }
@@ -99,68 +136,67 @@ static inline uint64_t vex_read_cycles(void)
 #endif
 }
 
-// Memory barrier / fence
+/* Memory barrier */
 static inline void vex_fence_seqcst(void)
 {
+#if __has_builtin(__sync_synchronize) || defined(__GNUC__)
   __sync_synchronize();
+#else
+  VEX_BARRIER();
+#endif
 }
 
-// Expect/Assume
+/* Expect/Assume */
 static inline int vex_expect(int x, int expected)
 {
-#if defined(__has_builtin)
 #if __has_builtin(__builtin_expect)
   return __builtin_expect(x, expected);
-#endif
-#endif
+#else
   return x;
+#endif
 }
 static inline void vex_assume(int cond)
 {
-#if defined(__has_builtin)
 #if __has_builtin(__builtin_assume)
   __builtin_assume(cond);
 #elif __has_builtin(__builtin_unreachable)
   if (!cond)
     __builtin_unreachable();
-#endif
+#else
+  (void)cond;
 #endif
 }
 
-// Black-box DCE barriers
+/* Black-box DCE barriers */
 static inline void *vex_black_box_ptr(void *p)
 {
-  asm volatile("" : "+r"(p)::"memory");
+  VEX_BARRIER();
   return p;
 }
 static inline uint64_t vex_black_box_u64(uint64_t x)
 {
-  asm volatile("" : "+r"(x)::"memory");
+  VEX_BARRIER();
   return x;
 }
 static inline double vex_black_box_f64(double x)
 {
-  asm volatile("" : "+x"(x)::"memory");
+  VEX_BARRIER();
   return x;
 }
 
-// Trap/assert
+/* Trap/assert */
 static inline void vex_trap(void)
 {
-#if defined(__has_builtin)
 #if __has_builtin(__builtin_trap)
   __builtin_trap();
 #else
   *(volatile int *)0 = 0;
 #endif
-#else
-  *(volatile int *)0 = 0;
-#endif
 }
 
-// =========================
-// Test API + logging/skip
-// =========================
+/* =========================
+ * Test API + logging/skip
+ * ========================= */
 typedef void (*vex_test_fn)(void);
 typedef struct
 {
@@ -168,12 +204,35 @@ typedef struct
   vex_test_fn fn;
 } vex_test_case;
 
-// simple test-local state (thread-local if available)
+/* Reporter kind */
+typedef enum
+{
+  VEX_REP_TEXT = 0,
+  VEX_REP_TAP = 1,
+  VEX_REP_JUNIT = 2
+} vex_reporter_kind;
+
+static vex_reporter_kind vex_pick_reporter(void)
+{
+  const char *r = getenv("VEX_REPORTER");
+  if (!r || !*r)
+    return VEX_REP_TEXT;
+  if (!strcmp(r, "tap"))
+    return VEX_REP_TAP;
+  if (!strcmp(r, "junit"))
+    return VEX_REP_JUNIT;
+  return VEX_REP_TEXT;
+}
+
+/* test-local state (thread-local if available) */
 #if defined(__STDC_NO_THREADS__)
 static struct
 {
   const char *current;
   int errors;
+  char *logbuf;
+  size_t logcap;
+  size_t loglen;
 } g_tstate;
 #define TLS
 #else
@@ -182,28 +241,95 @@ static TLS struct
 {
   const char *current;
   int errors;
+  char *logbuf;
+  size_t logcap;
+  size_t loglen;
 } g_tstate;
 #endif
 
 #define VEX_TEST(name) static void name(void)
 #define VEX_TEST_ENTRY(name) {#name, name}
 
-#define VEX_TLOG(fmt, ...)                                                                                 \
-  do                                                                                                       \
-  {                                                                                                        \
-    fprintf(stderr, "[LOG] %s: " fmt "\n", g_tstate.current ? g_tstate.current : "<test>", ##__VA_ARGS__); \
+/* C17-friendly SUBTEST macro */
+#define VEX_CAT_(a, b) a##b
+#define VEX_CAT(a, b) VEX_CAT_(a, b)
+#define VEX_SUBTEST(title, CODE)                         \
+  do                                                     \
+  {                                                      \
+    static void VEX_CAT(_vex_st_, __LINE__)(void) CODE   \
+        vex_subtest(title, VEX_CAT(_vex_st_, __LINE__)); \
   } while (0)
-#define VEX_TERROR(fmt, ...)                                                                                 \
-  do                                                                                                         \
-  {                                                                                                          \
-    g_tstate.errors++;                                                                                       \
-    fprintf(stderr, "[ERROR] %s: " fmt "\n", g_tstate.current ? g_tstate.current : "<test>", ##__VA_ARGS__); \
+
+/* Append to log buffer (and also print to stderr for live view) */
+static void vex_log_appendf(const char *level, const char *fmt, va_list ap)
+{
+  /* duplicate print to stderr */
+  fprintf(stderr, "[%s] %s: ", level, g_tstate.current ? g_tstate.current : "<test>");
+  vfprintf(stderr, fmt, ap);
+  fputc('\n', stderr);
+
+  if (!g_tstate.logbuf || g_tstate.logcap == 0)
+    return;
+  size_t left = (g_tstate.logcap - g_tstate.loglen);
+  if (left == 0)
+    return;
+  int n = snprintf(g_tstate.logbuf + g_tstate.loglen, left, "[%s] ", level);
+  if (n < 0)
+    return;
+  size_t used = (size_t)n;
+  if (used >= left)
+  {
+    g_tstate.loglen += left - 1;
+    return;
+  }
+  left -= used;
+  g_tstate.loglen += used;
+
+  n = vsnprintf(g_tstate.logbuf + g_tstate.loglen, left, fmt, ap);
+  if (n < 0)
+    return;
+  used = (size_t)n;
+  if (used >= left)
+  {
+    g_tstate.loglen += left - 1;
+    return;
+  }
+  left -= used;
+  g_tstate.loglen += used;
+
+  if (left > 1)
+  {
+    g_tstate.logbuf[g_tstate.loglen++] = '\n';
+    g_tstate.logbuf[g_tstate.loglen] = '\0';
+  }
+}
+
+#include <stdarg.h>
+#define VEX_TLOG(fmt, ...)           \
+  do                                 \
+  {                                  \
+    va_list ap;                      \
+    va_start(ap, fmt);               \
+    vex_log_appendf("LOG", fmt, ap); \
+    va_end(ap);                      \
   } while (0)
-#define VEX_TFAILNOW(fmt, ...)                                                                              \
-  do                                                                                                        \
-  {                                                                                                         \
-    fprintf(stderr, "[FAIL] %s: " fmt "\n", g_tstate.current ? g_tstate.current : "<test>", ##__VA_ARGS__); \
-    vex_trap();                                                                                             \
+#define VEX_TERROR(fmt, ...)           \
+  do                                   \
+  {                                    \
+    g_tstate.errors++;                 \
+    va_list ap;                        \
+    va_start(ap, fmt);                 \
+    vex_log_appendf("ERROR", fmt, ap); \
+    va_end(ap);                        \
+  } while (0)
+#define VEX_TFAILNOW(fmt, ...)        \
+  do                                  \
+  {                                   \
+    va_list ap;                       \
+    va_start(ap, fmt);                \
+    vex_log_appendf("FAIL", fmt, ap); \
+    va_end(ap);                       \
+    vex_trap();                       \
   } while (0)
 #define VEX_ASSERT(cond)                           \
   do                                               \
@@ -220,6 +346,28 @@ static TLS struct
     return;                                                                                            \
   } while (0)
 
+/* Fixtures */
+typedef struct
+{
+  void (*setup_all)(void);
+  void (*teardown_all)(void);
+  void (*setup_each)(void);
+  void (*teardown_each)(void);
+} vex_fixture;
+
+/* Per-test result for reporters */
+typedef struct
+{
+  const char *name;
+  int errors;
+  bool skipped;
+  char *log; /* owned, may be NULL */
+} vex_test_result;
+
+/* Forward decls */
+static void vex_subtest(const char *name, vex_test_fn fn);
+
+/* Subtest runner */
 static inline void vex_subtest(const char *name, vex_test_fn fn)
 {
   const char *prev = g_tstate.current;
@@ -235,67 +383,227 @@ static inline void vex_subtest(const char *name, vex_test_fn fn)
   g_tstate.current = prev;
 }
 
-static inline int vex_run_tests(const vex_test_case *tests, size_t count)
+/* ========== Reporters ========== */
+static void vex_report_text(const vex_test_result *rs, size_t n)
 {
-  int failed = 0;
-  fprintf(stdout, "== Running %zu tests ==\n", count);
-  for (size_t i = 0; i < count; i++)
+  int failed = 0, skipped = 0;
+  fprintf(stdout, "== Summary ==\n");
+  for (size_t i = 0; i < n; i++)
   {
-    g_tstate.current = tests[i].name;
-    g_tstate.errors = 0;
-    fprintf(stdout, "[TEST] %s ... ", tests[i].name);
-    fflush(stdout);
-    tests[i].fn();
-    if (g_tstate.errors)
+    if (rs[i].skipped)
     {
-      fprintf(stdout, "FAIL (%d)\n", g_tstate.errors);
-      failed += 1;
+      fprintf(stdout, "[TEST] %s ... SKIP\n", rs[i].name);
+      skipped++;
+      continue;
+    }
+    if (rs[i].errors)
+    {
+      fprintf(stdout, "[TEST] %s ... FAIL (%d)\n", rs[i].name, rs[i].errors);
+      failed++;
     }
     else
     {
-      fprintf(stdout, "OK\n");
+      fprintf(stdout, "[TEST] %s ... OK\n", rs[i].name);
     }
   }
-  return failed;
+  fprintf(stdout, "Total: %zu  Failed: %d  Skipped: %d  Passed: %zu\n",
+          n, failed, skipped, n - failed - skipped);
 }
 
-// =========================
-// CPU pinning / priority
-// =========================
+/* TAP v13 */
+static void vex_report_tap(const vex_test_result *rs, size_t n)
+{
+  fprintf(stdout, "TAP version 13\n");
+  fprintf(stdout, "1..%zu\n", n);
+  for (size_t i = 0; i < n; i++)
+  {
+    if (rs[i].skipped)
+    {
+      fprintf(stdout, "ok %zu - %s # SKIP\n", i + 1, rs[i].name);
+      continue;
+    }
+    if (rs[i].errors == 0)
+    {
+      fprintf(stdout, "ok %zu - %s\n", i + 1, rs[i].name);
+    }
+    else
+    {
+      fprintf(stdout, "not ok %zu - %s\n", i + 1, rs[i].name);
+      if (rs[i].log && *rs[i].log)
+      {
+        /* YAMLish diagnostics block */
+        fprintf(stdout, "  ---\n");
+        fprintf(stdout, "  log: |\n");
+        const char *p = rs[i].log;
+        while (*p)
+        { /* indent */
+          const char *nl = strchr(p, '\n');
+          size_t len = nl ? (size_t)(nl - p) : strlen(p);
+          fprintf(stdout, "    %.*s\n", (int)len, p);
+          if (!nl)
+            break;
+          p = nl + 1;
+        }
+        fprintf(stdout, "  ...\n");
+      }
+    }
+  }
+}
+
+/* XML escape helper */
+static void vex_xml_esc(FILE *f, const char *s)
+{
+  for (; *s; ++s)
+  {
+    unsigned char c = (unsigned char)*s;
+    switch (c)
+    {
+    case '&':
+      fputs("&amp;", f);
+      break;
+    case '<':
+      fputs("&lt;", f);
+      break;
+    case '>':
+      fputs("&gt;", f);
+      break;
+    case '"':
+      fputs("&quot;", f);
+      break;
+    case '\'':
+      fputs("&apos;", f);
+      break;
+    default:
+      fputc(c, f);
+      break;
+    }
+  }
+}
+
+/* JUnit (single testsuite) */
+static void vex_report_junit(const char *suite_name, const vex_test_result *rs, size_t n)
+{
+  int failures = 0, skipped = 0;
+  for (size_t i = 0; i < n; i++)
+  {
+    if (rs[i].skipped)
+      skipped++;
+    else if (rs[i].errors)
+      failures++;
+  }
+  const char *out = getenv("VEX_JUNIT_FILE");
+  FILE *fp = (out && *out) ? fopen(out, "wb") : stdout;
+  if (!fp)
+    fp = stdout;
+
+  fprintf(fp, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
+  fprintf(fp, "<testsuite name=\"");
+  vex_xml_esc(fp, suite_name ? suite_name : "vex");
+  fprintf(fp, "\" tests=\"%zu\" failures=\"%d\" skipped=\"%d\">\n", n, failures, skipped);
+
+  for (size_t i = 0; i < n; i++)
+  {
+    fprintf(fp, "  <testcase classname=\"");
+    vex_xml_esc(fp, suite_name ? suite_name : "vex");
+    fprintf(fp, "\" name=\"");
+    vex_xml_esc(fp, rs[i].name);
+    fprintf(fp, "\">");
+    if (rs[i].skipped)
+    {
+      fprintf(fp, "<skipped/>");
+    }
+    else if (rs[i].errors)
+    {
+      fprintf(fp, "<failure message=\"%d error(s)\">", rs[i].errors);
+      if (rs[i].log && *rs[i].log)
+        vex_xml_esc(fp, rs[i].log);
+      fprintf(fp, "</failure>");
+    }
+    else
+    {
+      /* success: nothing */
+    }
+    fprintf(fp, "</testcase>\n");
+  }
+  fprintf(fp, "</testsuite>\n");
+  if (fp != stdout)
+    fclose(fp);
+}
+
+/* =========================
+ * CPU pinning / priority
+ * ========================= */
 static inline void vex_pin_to_cpu(int cpu)
 {
 #if VEX_LINUX && VEX_TEST_ENABLE_AFFINITY
   cpu_set_t set;
   CPU_ZERO(&set);
   CPU_SET(cpu, &set);
-  sched_setaffinity(0, sizeof(set), &set);
+  (void)sched_setaffinity(0, sizeof(set), &set);
 #else
   (void)cpu;
 #endif
 }
+
 static inline void vex_set_realtime_hint(void)
 {
 #if VEX_LINUX
   struct sched_param sp;
   memset(&sp, 0, sizeof(sp));
   sp.sched_priority = 1;
-  sched_setscheduler(0, SCHED_FIFO, &sp);
-  mlockall(MCL_CURRENT | MCL_FUTURE);
+  (void)sched_setscheduler(0, SCHED_FIFO, &sp);
+  (void)mlockall(MCL_CURRENT | MCL_FUTURE);
 #endif
 }
 
-// =========================
-// Benchmark API
-// =========================
+/* =========================
+ * Aligned allocation (portable)
+ * ========================= */
+static void *vex_aligned_alloc(size_t alignment, size_t size)
+{
+#if defined(_MSC_VER)
+  return _aligned_malloc(size, alignment);
+#elif defined(_POSIX_VERSION)
+  void *p = NULL;
+  if (posix_memalign(&p, alignment, size) != 0)
+    return NULL;
+  return p;
+#else
+#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
+  if (size % alignment == 0)
+    return aligned_alloc(alignment, size);
+#endif
+  void *base = malloc(size + alignment - 1 + sizeof(void *));
+  if (!base)
+    return NULL;
+  uintptr_t raw = (uintptr_t)base + sizeof(void *);
+  uintptr_t aligned = (raw + (alignment - 1)) & ~(uintptr_t)(alignment - 1);
+  ((void **)aligned)[-1] = base;
+  return (void *)aligned;
+#endif
+}
+static void vex_aligned_free(void *p)
+{
+#if defined(_MSC_VER)
+  _aligned_free(p);
+#elif defined(_POSIX_VERSION)
+  free(p);
+#else
+  if (p)
+    free(((void **)p)[-1]);
+#endif
+}
+
+/* =========================
+ * Benchmark API (unchanged)
+ * ========================= */
 typedef void (*vex_bench_fn)(void *ctx);
 
-// Timer control state (thread-local)
 typedef struct
 {
   bool running;
   uint64_t t0_ns, t_accum_ns;
   uint64_t c0, c_accum;
-  // bytes/op (can be set by user)
   uint64_t bytes_per_op;
 } vex_bench_timer;
 
@@ -304,32 +612,31 @@ static TLS vex_bench_timer *g_bench_timer = NULL;
 typedef struct
 {
   const char *name;
-  uint64_t iters;        // fixed iterations; if zero, auto-calibration or time-bound is used
-  uint64_t time_ns;      // time-bound target (if iters==0 and auto_calibrate==false)
-  uint64_t warmup_iters; // warmup iterations
-  uint64_t warmup_ns;    // or warmup time
-  int pin_cpu;           // -1: no pin
-  int repeats;           // number of repeated measurements
+  uint64_t iters;
+  uint64_t time_ns;
+  uint64_t warmup_iters;
+  uint64_t warmup_ns;
+  int pin_cpu;
+  int repeats;
   bool report_json;
-  bool auto_calibrate;   // Go-like b.N calibration to reach ~VEX_TEST_AUTOTGT_NS
-  uint64_t bytes_per_op; // for throughput (MB/s) reporting; can be overridden at runtime
+  bool auto_calibrate;
+  uint64_t bytes_per_op;
 } vex_bench_cfg;
 
 typedef struct
 {
   double ns_per_op;
   double cycles_per_op;
-  double mb_per_s; // decimal MB/s using bytes_per_op
+  double mb_per_s;
   uint64_t iters_done;
   uint64_t elapsed_ns;
   uint64_t elapsed_cycles;
-  // stats across repeats
   double min_ns, max_ns, mean_ns, stddev_ns, median_ns, p90_ns, p95_ns, p99_ns;
   int samples;
   const char *name;
 } vex_bench_res;
 
-// --- Timer control API (to be used inside benchmark function) ---
+/* Timer control API */
 static inline void vex_bench_set_bytes(uint64_t bytes_per_op)
 {
   if (g_bench_timer)
@@ -337,10 +644,11 @@ static inline void vex_bench_set_bytes(uint64_t bytes_per_op)
 }
 static inline void vex_bench_reset_timer(void)
 {
-  if (!g_bench_timer)
-    return;
-  g_bench_timer->t_accum_ns = 0;
-  g_bench_timer->c_accum = 0;
+  if (g_bench_timer)
+  {
+    g_bench_timer->t_accum_ns = 0;
+    g_bench_timer->c_accum = 0;
+  }
 }
 static inline void vex_bench_start_timer(void)
 {
@@ -361,7 +669,7 @@ static inline void vex_bench_stop_timer(void)
   g_bench_timer->running = false;
 }
 
-// Helpers: statistics
+/* Stats helpers */
 static int cmp_u64(const void *a, const void *b)
 {
   uint64_t x = *(const uint64_t *)a, y = *(const uint64_t *)b;
@@ -410,15 +718,15 @@ static inline void vex_stats_from_samples(const uint64_t *arr, int n, vex_bench_
   r->samples = n;
 }
 
-// Core bench once (with timer controls available to fn)
-static inline void vex_bench_once(vex_bench_fn fn, void *ctx, const vex_bench_cfg *cfg,
-                                  uint64_t *out_elapsed_ns, uint64_t *out_elapsed_cycles, uint64_t *out_iters)
+/* Bench core */
+static inline void vex_bench_once(
+    vex_bench_fn fn, void *ctx, const vex_bench_cfg *cfg,
+    uint64_t *out_elapsed_ns, uint64_t *out_elapsed_cycles, uint64_t *out_iters)
 {
-  vex_bench_timer timer = {0};
+  vex_bench_timer timer = (vex_bench_timer){0};
   timer.bytes_per_op = cfg->bytes_per_op;
   g_bench_timer = &timer;
 
-  // Warmup
   if (cfg->warmup_ns)
   {
     uint64_t t0 = vex_monotonic_ns();
@@ -433,11 +741,8 @@ static inline void vex_bench_once(vex_bench_fn fn, void *ctx, const vex_bench_cf
   }
 
   uint64_t iters_done = 0;
-
-  // measurement window: either fixed iters or time-bound (default)
   if (cfg->iters)
   {
-    // allow user to place Reset/Start/Stop around hot section
     vex_bench_reset_timer();
     vex_bench_start_timer();
     for (uint64_t i = 0; i < cfg->iters; i++)
@@ -459,7 +764,6 @@ static inline void vex_bench_once(vex_bench_fn fn, void *ctx, const vex_bench_cf
   }
   else
   {
-    // default 100ms
     uint64_t target = 100000000ULL;
     uint64_t start_ns = vex_monotonic_ns();
     vex_bench_reset_timer();
@@ -475,24 +779,20 @@ static inline void vex_bench_once(vex_bench_fn fn, void *ctx, const vex_bench_cf
   *out_elapsed_ns = timer.t_accum_ns;
   *out_elapsed_cycles = timer.c_accum;
   *out_iters = iters_done;
-
   g_bench_timer = NULL;
 }
 
-// Auto-calibration for iters to reach ~target_ns
 static inline uint64_t vex_bench_calibrate_iters(vex_bench_fn fn, void *ctx, uint64_t target_ns)
 {
-  // Start with 1, double until we get reasonable time
   uint64_t n = 1;
   for (;;)
   {
     uint64_t t_ns = 0, t_cy = 0, it = 0;
-    vex_bench_cfg tmp = {0};
+    vex_bench_cfg tmp = (vex_bench_cfg){0};
     tmp.iters = n;
     vex_bench_once(fn, ctx, &tmp, &t_ns, &t_cy, &it);
     if (t_ns >= target_ns / 8)
     {
-      // scale proportionally
       if (t_ns == 0)
       {
         n *= 10;
@@ -502,18 +802,16 @@ static inline uint64_t vex_bench_calibrate_iters(vex_bench_fn fn, void *ctx, uin
       uint64_t nn = (uint64_t)(n * scale);
       if (nn < n + 1)
         nn = n + 1;
-      // re-run with nn to stabilize
       tmp.iters = nn;
       vex_bench_once(fn, ctx, &tmp, &t_ns, &t_cy, &it);
       return nn;
     }
     if (n > (1ULL << 60))
-      return n; // guard
+      return n;
     n *= 2;
   }
 }
 
-// Public bench run with repeats + stats
 static inline vex_bench_res vex_bench_run(vex_bench_fn fn, void *ctx, vex_bench_cfg cfg)
 {
   if (cfg.pin_cpu >= 0)
@@ -524,7 +822,7 @@ static inline vex_bench_res vex_bench_run(vex_bench_fn fn, void *ctx, vex_bench_
   {
     uint64_t target = cfg.time_ns ? cfg.time_ns : VEX_TEST_AUTOTGT_NS;
     cfg.iters = vex_bench_calibrate_iters(fn, ctx, target);
-    cfg.time_ns = 0; // use fixed iterations now
+    cfg.time_ns = 0;
   }
 
   int reps = cfg.repeats > 0 ? cfg.repeats : 5;
@@ -549,8 +847,7 @@ static inline vex_bench_res vex_bench_run(vex_bench_fn fn, void *ctx, vex_bench_
     samples_it[r] = it;
   }
 
-  // stats over ns
-  vex_bench_res res = {0};
+  vex_bench_res res = (vex_bench_res){0};
   vex_stats_from_samples(samples_ns, reps, &res);
   double mean_iters = 0.0;
   for (int r = 0; r < reps; r++)
@@ -559,7 +856,6 @@ static inline vex_bench_res vex_bench_run(vex_bench_fn fn, void *ctx, vex_bench_
 
   res.ns_per_op = res.mean_ns / (mean_iters > 0 ? mean_iters : 1.0);
 #if VEX_X86 && VEX_TEST_ENABLE_RDTSC
-  // cycles from mean of samples
   double mean_cy = 0.0;
   for (int r = 0; r < reps; r++)
     mean_cy += (double)samples_cy[r];
@@ -575,16 +871,13 @@ static inline vex_bench_res vex_bench_run(vex_bench_fn fn, void *ctx, vex_bench_
   res.name = cfg.name ? cfg.name : "bench";
   res.samples = reps;
 
-  // MB/s: decimal MB (1e6) like Go
   uint64_t bytes_per_op = cfg.bytes_per_op;
   if (bytes_per_op == 0 && g_bench_timer)
     bytes_per_op = g_bench_timer->bytes_per_op;
-  if (bytes_per_op == 0)
-    bytes_per_op = 0; // nothing to report
   if (bytes_per_op)
   {
-    double bps = (double)bytes_per_op * (1e9 / res.ns_per_op); // bytes/sec
-    res.mb_per_s = bps / 1e6;                                  // MB/s (decimal)
+    double bps = (double)bytes_per_op * (1e9 / res.ns_per_op);
+    res.mb_per_s = bps / 1e6;
   }
   else
   {
@@ -597,7 +890,6 @@ static inline vex_bench_res vex_bench_run(vex_bench_fn fn, void *ctx, vex_bench_
   return res;
 }
 
-// Reporting
 static inline void vex_bench_report_text(const vex_bench_res *r)
 {
   printf("[BENCH] %s\n", r->name);
@@ -616,7 +908,6 @@ static inline void vex_bench_report_text(const vex_bench_res *r)
 
 static inline const char *vex_bench_report_json(const vex_bench_res *r, char *buf, size_t bufsz)
 {
-  // Minimal JSON (no escapes)
   int n = snprintf(buf, bufsz,
                    "{"
                    "\"name\":\"%s\","
@@ -644,12 +935,154 @@ static inline const char *vex_bench_report_json(const vex_bench_res *r, char *bu
   return buf;
 }
 
-// =========================
-// Demo / Self-test (opt-in)
-// =========================
+/* =========================
+ * Test runner (with fixtures & reporters)
+ * ========================= */
+static inline int vex_run_tests_with(const char *suite_name,
+                                     const vex_test_case *tests, size_t count,
+                                     const vex_fixture *fixture_opt)
+{
+  vex_reporter_kind rep = vex_pick_reporter();
+  const char *filter = getenv("VEX_TEST_FILTER");
+
+  if (rep == VEX_REP_TAP)
+  {
+    /* TAP prints header + plan first */
+    size_t planned = 0;
+    for (size_t i = 0; i < count; i++)
+      if (!filter || !*filter || strstr(tests[i].name, filter))
+        planned++;
+    fprintf(stdout, "TAP version 13\n");
+    fprintf(stdout, "1..%zu\n", planned);
+  }
+  else
+  {
+    fprintf(stdout, "== Running %zu tests ==\n", count);
+  }
+
+  if (fixture_opt && fixture_opt->setup_all)
+    fixture_opt->setup_all();
+
+  vex_test_result *results = (vex_test_result *)calloc(count, sizeof(*results));
+  if (!results)
+  {
+    fprintf(stderr, "OOM\n");
+    if (fixture_opt && fixture_opt->teardown_all)
+      fixture_opt->teardown_all();
+    return 1;
+  }
+
+  size_t ran = 0;
+  for (size_t i = 0; i < count; i++)
+  {
+    if (filter && *filter && !strstr(tests[i].name, filter))
+    {
+      results[i].name = tests[i].name;
+      results[i].skipped = true;
+      continue;
+    }
+
+    if (fixture_opt && fixture_opt->setup_each)
+      fixture_opt->setup_each();
+
+    /* prepare per-test log buffer */
+    char *logbuf = (char *)malloc(VEX_TEST_LOGBUF_SZ);
+    if (logbuf)
+    {
+      logbuf[0] = '\0';
+    }
+    g_tstate.logbuf = logbuf;
+    g_tstate.logcap = logbuf ? VEX_TEST_LOGBUF_SZ : 0;
+    g_tstate.loglen = 0;
+
+    g_tstate.current = tests[i].name;
+    g_tstate.errors = 0;
+
+    if (rep == VEX_REP_TEXT)
+    {
+      fprintf(stdout, "[TEST] %s ... ", tests[i].name);
+      fflush(stdout);
+    }
+
+    tests[i].fn();
+
+    results[i].name = tests[i].name;
+    results[i].errors = g_tstate.errors;
+    results[i].log = logbuf;
+
+    if (rep == VEX_REP_TEXT)
+    {
+      if (g_tstate.errors)
+        fprintf(stdout, "FAIL (%d)\n", g_tstate.errors);
+      else
+        fprintf(stdout, "OK\n");
+    }
+    else if (rep == VEX_REP_TAP)
+    {
+      if (g_tstate.errors == 0)
+        fprintf(stdout, "ok %zu - %s\n", ++ran, tests[i].name);
+      else
+        fprintf(stdout, "not ok %zu - %s\n", ++ran, tests[i].name);
+    }
+
+    if (fixture_opt && fixture_opt->teardown_each)
+      fixture_opt->teardown_each();
+  }
+
+  if (fixture_opt && fixture_opt->teardown_all)
+    fixture_opt->teardown_all();
+
+  /* suite reporting */
+  if (rep == VEX_REP_TEXT)
+  {
+    vex_report_text(results, count);
+  }
+  else if (rep == VEX_REP_JUNIT)
+  {
+    vex_report_junit(suite_name ? suite_name : "vex", results, count);
+  } /* TAP per-test zaten yazıldı */
+
+  int failed = 0;
+  for (size_t i = 0; i < count; i++)
+    if (!results[i].skipped && results[i].errors)
+      failed++;
+
+  for (size_t i = 0; i < count; i++)
+    free(results[i].log);
+  free(results);
+  return failed;
+}
+
+/* Back-compat shim */
+static inline int vex_run_tests(const vex_test_case *tests, size_t count)
+{
+  return vex_run_tests_with("vex", tests, count, NULL);
+}
+
+/* Convenience: fixture factory helpers */
+static inline vex_fixture vex_fixture_all(void (*setup_all)(void), void (*teardown_all)(void))
+{
+  vex_fixture f = {setup_all, teardown_all, NULL, NULL};
+  return f;
+}
+static inline vex_fixture vex_fixture_each(void (*setup_each)(void), void (*teardown_each)(void))
+{
+  vex_fixture f = {NULL, NULL, setup_each, teardown_each};
+  return f;
+}
+static inline vex_fixture vex_fixture_full(void (*setup_all)(void), void (*teardown_all)(void),
+                                           void (*setup_each)(void), void (*teardown_each)(void))
+{
+  vex_fixture f = {setup_all, teardown_all, setup_each, teardown_each};
+  return f;
+}
+
+/* =========================
+ * Demo / Self-test (opt-in)
+ * ========================= */
 #ifdef VEX_TESTING_DEMO
 
-// A tiny PRNG for demo
+/* Tiny PRNG */
 static inline uint64_t splitmix64(uint64_t *x)
 {
   uint64_t z = (*x += 0x9e3779b97f4a7c15ULL);
@@ -658,18 +1091,29 @@ static inline uint64_t splitmix64(uint64_t *x)
   return z ^ (z >> 31);
 }
 
-// Example tests with subtests/log/skip
+/* Fixtures */
+static int g_demo_resource = 0;
+static void demo_setup_all(void) { g_demo_resource = 42; }
+static void demo_teardown_all(void) { g_demo_resource = 0; }
+static void demo_setup_each(void) { /* e.g., reset per-test state */ }
+static void demo_teardown_each(void) { /* e.g., verify invariants */ }
+
+/* Tests */
 VEX_TEST(test_math)
 {
-  vex_subtest("add", []
-              { int a=2,b=3; VEX_ASSERT(a+b==5); });
-  vex_subtest("mul", []
-              { int a=2,b=3; VEX_ASSERT(a*b==6); });
-  vex_subtest("skip-demo", []
-              { VEX_TLOG("about to skip"); VEX_SKIP("not applicable"); });
+  VEX_TLOG("suite resource=%d", g_demo_resource);
+  VEX_SUBTEST("add", { int a=2,b=3; VEX_ASSERT(a+b==5); });
+  VEX_SUBTEST("mul", { int a=2,b=3; VEX_ASSERT(a*b==6); });
+  VEX_SUBTEST("skip-demo", { VEX_TLOG("about to skip"); VEX_SKIP("not applicable"); });
 }
 
-// Example benchmark function
+VEX_TEST(test_fail_demo)
+{
+  VEX_TERROR("this is a non-fatal error");
+  VEX_ASSERT(1 == 1);
+}
+
+/* Benchmark */
 typedef struct
 {
   double *a, *b, *c;
@@ -678,30 +1122,40 @@ typedef struct
 static void saxpy(void *p)
 {
   SaxpyCtx *x = (SaxpyCtx *)p;
-  // exclude allocation/init from timing via timer controls
   vex_bench_start_timer();
   for (size_t i = 0; i < x->n; i++)
   {
-    x->c[i] = vex_black_box_f64(x->a[i]) * 2.0 + vex_black_box_f64(x->b[i]);
+    double ai = vex_black_box_f64(x->a[i]);
+    double bi = vex_black_box_f64(x->b[i]);
+    x->c[i] = ai * 2.0 + bi;
   }
   vex_bench_stop_timer();
-  vex_bench_set_bytes((uint64_t)(3 * sizeof(double)) * x->n); // 3 arrays touched
-  // timer remains stopped when function returns
+  vex_bench_set_bytes((uint64_t)(3 * sizeof(double)) * x->n);
 }
 
 int main(void)
 {
-  // Run tests
   const vex_test_case tests[] = {
       VEX_TEST_ENTRY(test_math),
+      VEX_TEST_ENTRY(test_fail_demo),
   };
-  vex_run_tests(tests, sizeof(tests) / sizeof(tests[0]));
+  vex_fixture fx = vex_fixture_full(demo_setup_all, demo_teardown_all,
+                                    demo_setup_each, demo_teardown_each);
+  int failed = vex_run_tests_with("vex_demo", tests, sizeof(tests) / sizeof(tests[0]), &fx);
+  if (failed)
+    return 1;
 
-  // Prepare bench data
-  size_t n = 1 << 16;
-  double *a = aligned_alloc(64, n * sizeof(double));
-  double *b = aligned_alloc(64, n * sizeof(double));
-  double *c = aligned_alloc(64, n * sizeof(double));
+  /* Bench */
+  size_t n = 1u << 16;
+  double *a = (double *)vex_aligned_alloc(64, n * sizeof(double));
+  double *b = (double *)vex_aligned_alloc(64, n * sizeof(double));
+  double *c = (double *)vex_aligned_alloc(64, n * sizeof(double));
+  if (!a || !b || !c)
+  {
+    fprintf(stderr, "alloc failed\n");
+    return 2;
+  }
+
   uint64_t seed = 1;
   for (size_t i = 0; i < n; i++)
   {
@@ -715,25 +1169,22 @@ int main(void)
       .iters = 0,
       .time_ns = 0,
       .warmup_iters = 0,
-      .warmup_ns = 20000000, // 20ms
+      .warmup_ns = 20000000,
       .pin_cpu = 0,
       .repeats = 5,
       .report_json = false,
-      .auto_calibrate = true, // find iters ~ 1s
-      .bytes_per_op = 0       // set inside fn
-  };
+      .auto_calibrate = true,
+      .bytes_per_op = 0};
   vex_bench_res r = vex_bench_run(saxpy, &ctx, cfg);
   vex_bench_report_text(&r);
 
   char json[VEX_TEST_JSON_BUFSZ];
   if (vex_bench_report_json(&r, json, sizeof(json)))
-  {
     printf("JSON: %s\n", json);
-  }
 
-  free(a);
-  free(b);
-  free(c);
+  vex_aligned_free(a);
+  vex_aligned_free(b);
+  vex_aligned_free(c);
   return 0;
 }
-#endif // VEX_TESTING_DEMO
+#endif /* VEX_TESTING_DEMO */
