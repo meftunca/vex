@@ -1,7 +1,7 @@
 # Modules and Imports
 
-**Version:** 0.9.0  
-**Last Updated:** November 3, 2025
+**Version:** 0.9.2  
+**Last Updated:** November 2025
 
 This document defines the module system and import/export mechanism in Vex.
 
@@ -171,6 +171,20 @@ export trait Display {
 ```vex
 export const MAX_SIZE: i32 = 1024;
 export const VERSION: string = "0.9.0";
+```
+
+### Export Policies
+
+```vex
+export policy Debug {
+    description: "Debug information",
+    version: "1.0.0",
+}
+
+export policy Serializable {
+    description: "Can be serialized",
+    format: "json",
+}
 ```
 
 ### Re-exports

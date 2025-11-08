@@ -624,15 +624,21 @@ vex_buffer_t* vex_gzip_compress_with_dict(const uint8_t *input, size_t input_siz
   stream.next_out = output->data;
   stream.avail_out = max_size;
   
-  if (deflateInit2(&stream, level, Z_DEFLATED, 15 + 16, 8, Z_DEFAULT_STRATEGY) != Z_OK) {
+  // Initialize deflate with gzip format
+  int ret = deflateInit2(&stream, level, Z_DEFLATED, 15 + 16, 8, Z_DEFAULT_STRATEGY);
+  if (ret != Z_OK) {
     free(output->data);
     free(output);
     return NULL;
   }
   
-  // Set dictionary
+  // Set dictionary BEFORE compressing data
+  // Dictionary must be set after init but before first deflate call
   if (dict && dict->data && dict->size > 0) {
-    if (deflateSetDictionary(&stream, dict->data, dict->size) != Z_OK) {
+    // zlib dictionary max size is 32KB (32768 bytes)
+    size_t dict_len = dict->size > 32768 ? 32768 : dict->size;
+    ret = deflateSetDictionary(&stream, dict->data, dict_len);
+    if (ret != Z_OK) {
       deflateEnd(&stream);
       free(output->data);
       free(output);
@@ -640,7 +646,9 @@ vex_buffer_t* vex_gzip_compress_with_dict(const uint8_t *input, size_t input_siz
     }
   }
   
-  if (deflate(&stream, Z_FINISH) != Z_STREAM_END) {
+  // Compress data
+  ret = deflate(&stream, Z_FINISH);
+  if (ret != Z_STREAM_END) {
     deflateEnd(&stream);
     free(output->data);
     free(output);
@@ -667,19 +675,34 @@ uint32_t vex_crc32(const uint8_t *data, size_t size) {
 vex_buffer_t* vex_lz4_frame_compress(const uint8_t *input, size_t input_size, int level) {
   if (!input || input_size == 0) return NULL;
   
-  size_t max_size = LZ4F_compressFrameBound(input_size, NULL);
-  vex_buffer_t *output = (vex_buffer_t*)malloc(sizeof(vex_buffer_t));
-  output->data = (uint8_t*)malloc(max_size);
-  output->capacity = max_size;
+  // Initialize preferences structure (zero all fields first)
+  LZ4F_preferences_t prefs = {0};
+  prefs.frameInfo.blockSizeID = LZ4F_max4MB;
+  prefs.frameInfo.blockMode = LZ4F_blockLinked;
+  prefs.frameInfo.contentChecksumFlag = LZ4F_contentChecksumEnabled;
+  prefs.frameInfo.frameType = LZ4F_frame;
+  prefs.compressionLevel = (level > 0 && level <= 12) ? level : 0;
+  prefs.autoFlush = 1;
+  prefs.favorDecSpeed = 0;
+  prefs.reserved[0] = 0;
+  prefs.reserved[1] = 0;
+  prefs.reserved[2] = 0;
   
-  LZ4F_preferences_t prefs = {
-    .frameInfo = {
-      .blockSizeID = LZ4F_max4MB,
-      .blockMode = LZ4F_blockLinked,
-      .contentChecksumFlag = LZ4F_contentChecksumEnabled
-    },
-    .compressionLevel = level
-  };
+  // Calculate bound with preferences
+  size_t max_size = LZ4F_compressFrameBound(input_size, &prefs);
+  if (LZ4F_isError(max_size)) {
+    return NULL;
+  }
+  
+  vex_buffer_t *output = (vex_buffer_t*)malloc(sizeof(vex_buffer_t));
+  if (!output) return NULL;
+  
+  output->data = (uint8_t*)malloc(max_size);
+  if (!output->data) {
+    free(output);
+    return NULL;
+  }
+  output->capacity = max_size;
   
   size_t result = LZ4F_compressFrame(output->data, max_size, input, input_size, &prefs);
   
@@ -706,48 +729,70 @@ vex_buffer_t* vex_lz4_frame_decompress(const uint8_t *input, size_t input_size) 
   // Start with 4x input size (LZ4 typically compresses well)
   size_t output_capacity = input_size * 4;
   vex_buffer_t *output = (vex_buffer_t*)malloc(sizeof(vex_buffer_t));
+  if (!output) {
+    LZ4F_freeDecompressionContext(ctx);
+    return NULL;
+  }
+  
   output->data = (uint8_t*)malloc(output_capacity);
+  if (!output->data) {
+    LZ4F_freeDecompressionContext(ctx);
+    free(output);
+    return NULL;
+  }
   output->capacity = output_capacity;
   output->size = 0;
   
   size_t src_size = input_size;
   size_t dst_size = output_capacity;
-  const void *src_ptr = input;
-  void *dst_ptr = output->data;
   
   // Decompress in a loop until all data is processed
   while (src_size > 0) {
     size_t prev_dst_size = dst_size;
     size_t prev_src_size = src_size;
     
-    err = LZ4F_decompress(ctx, dst_ptr, &dst_size, src_ptr, &src_size, NULL);
+    // LZ4F_decompress: src_size/dst_size are input/output buffer sizes
+    // They are updated to remaining bytes after the call
+    size_t next_expected = LZ4F_decompress(ctx, 
+                                          output->data + output->size, &dst_size,
+                                          input + (input_size - src_size), &src_size, 
+                                          NULL);
     
-    if (LZ4F_isError(err)) {
+    if (LZ4F_isError(next_expected)) {
       LZ4F_freeDecompressionContext(ctx);
       free(output->data);
       free(output);
       return NULL;
     }
     
-    // Update pointers
-    src_ptr = (const uint8_t*)src_ptr + (prev_src_size - src_size);
-    dst_ptr = (uint8_t*)dst_ptr + (prev_dst_size - dst_size);
-    output->size += (prev_dst_size - dst_size);
+    // Calculate how much was produced
+    size_t produced_dst = prev_dst_size - dst_size;
+    output->size += produced_dst;
     
     // If we need more space, realloc
     if (dst_size == 0 && src_size > 0) {
       output_capacity *= 2;
-      size_t current_offset = output->size;
       output->data = (uint8_t*)realloc(output->data, output_capacity);
-      dst_ptr = (uint8_t*)output->data + current_offset;
-      dst_size = output_capacity - current_offset;
+      if (!output->data) {
+        LZ4F_freeDecompressionContext(ctx);
+        free(output);
+        return NULL;
+      }
+      dst_size = output_capacity - output->size;
     }
     
-    // Check if decompression is complete
-    if (err == 0) break;  // All data consumed
+    // Check if decompression is complete (next_expected == 0 means frame complete)
+    if (next_expected == 0) break;
   }
   
   LZ4F_freeDecompressionContext(ctx);
+  
+  // Resize to actual size
+  if (output->size < output->capacity) {
+    output->data = (uint8_t*)realloc(output->data, output->size);
+    output->capacity = output->size;
+  }
+  
   return output;
 }
 

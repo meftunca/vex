@@ -1,7 +1,7 @@
 # Memory Management
 
-**Version:** 0.9.0  
-**Last Updated:** November 3, 2025
+**Version:** 0.9.2  
+**Last Updated:** November 2025
 
 This document defines memory management, ownership, and borrowing in the Vex programming language.
 
@@ -181,9 +181,9 @@ scale_rectangle(&r, 2);
 
 ## Borrow Checker
 
-### Three-Phase System (v0.9)
+### Four-Phase System (v0.9.2)
 
-Vex implements a **three-phase borrow checker**:
+Vex implements a **four-phase borrow checker**:
 
 #### Phase 1: Immutability Checking ✅
 
@@ -223,23 +223,27 @@ let r1: &i32! = &x;
 
 **Test Coverage**: 5 tests passing
 
-#### Phase 4: Lifetime Analysis 🚧
+#### Phase 4: Lifetime Analysis ✅
 
-**Status**: Planned (high priority)
+**Status**: Complete (v0.9.2)
 
-**Purpose**: Track reference validity across scopes
+**Purpose**: Track reference validity across scopes and prevent dangling references
 
-**Example** (future):
+**Example**:
 
 ```vex
-fn longest<'a>(x: &'a string, y: &'a string): &'a string {
-    if x.len() > y.len() {
-        return x;
-    } else {
-        return y;
-    }
+fn get_ref<'a>(data: &'a Vec<i32>): &'a i32 {
+    return &data[0];  // Lifetime 'a ensures reference validity
 }
+
+let vec = Vec.new<i32>();
+vec.push(42);
+let ref = get_ref(&vec);  // Valid: reference lifetime matches vec
+// vec dropped here would be error
+println("{}", ref);       // OK: ref still valid
 ```
+
+**Test Coverage**: 3 tests passing
 
 ### Borrow Checker Errors
 

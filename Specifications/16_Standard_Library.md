@@ -1,7 +1,7 @@
 # Standard Library
 
-**Version:** 0.9.1  
-**Last Updated:** January 2025
+**Version:** 0.9.2  
+**Last Updated:** November 2025
 
 This document provides an overview of the Vex standard library organization and API reference.
 
@@ -59,28 +59,28 @@ Low-level memory management functions:
 fn main(): i32 {
     // Allocate memory
     let ptr = alloc(1024);  // Allocate 1024 bytes
-    
+
     // Get type information
     let size = sizeof(i64);     // Returns 8
     let align = alignof(i64);   // Returns 8
-    
+
     // Memory operations
     memset(ptr, 0, 1024);       // Zero out memory
-    
+
     // Copy memory
     let src = alloc(100);
     let dst = alloc(100);
     memcpy(dst, src, 100);      // Copy 100 bytes
-    
+
     // Compare memory
     let result = memcmp(ptr1, ptr2, 100);  // Returns 0 if equal
-    
+
     // Move overlapping memory
     memmove(dst, src, 100);     // Safe for overlapping regions
-    
+
     // Resize allocation
     let new_ptr = realloc(ptr, 2048);
-    
+
     // Free memory
     free(new_ptr);
     return 0;
@@ -88,6 +88,7 @@ fn main(): i32 {
 ```
 
 **Available Functions**:
+
 - `alloc(size: u64): &u8!` - Allocate memory
 - `free(ptr: &u8!)` - Free memory
 - `realloc(ptr: &u8!, size: u64): &u8!` - Resize allocation
@@ -108,28 +109,29 @@ C-style string manipulation:
 fn main(): i32 {
     let str1 = "Hello";
     let str2 = "World";
-    
+
     // Get string length
     let len = strlen(str1);  // Returns 5
-    
+
     // Compare strings
     let cmp = strcmp(str1, str2);  // Returns <0, 0, or >0
-    
+
     // Copy string
     let dest = alloc(100);
     strcpy(dest, str1);
-    
+
     // Concatenate strings
     strcat(dest, str2);
-    
+
     // Duplicate string
     let copy = strdup(str1);
-    
+
     return 0;
 }
 ```
 
 **Available Functions**:
+
 - `strlen(s: string): u64` - Get string length
 - `strcmp(s1: string, s2: string): i32` - Compare strings
 - `strcpy(dst: &u8!, src: string)` - Copy string
@@ -145,21 +147,22 @@ Unicode string validation and manipulation:
 ```vex
 fn main(): i32 {
     let text = "Hello 🌍";
-    
+
     // Validate UTF-8
     if utf8_valid(text) {
         // Count Unicode characters (not bytes)
         let char_count = utf8_char_count(text);  // Returns 7 (not 10)
-        
+
         // Get character at index
         let ch = utf8_char_at(text, 6);  // Returns '🌍'
     }
-    
+
     return 0;
 }
 ```
 
 **Available Functions**:
+
 - `utf8_valid(s: string): bool` - Check if string is valid UTF-8
 - `utf8_char_count(s: string): u64` - Count Unicode characters
 - `utf8_char_at(s: string, index: u64): u32` - Get character at index
@@ -174,35 +177,36 @@ Runtime type information and checking:
 fn main(): i32 {
     let x: i32 = 42;
     let y: f64 = 3.14;
-    
+
     // Get type name as string
     let type_name = typeof(x);  // Returns "i32"
-    
+
     // Get numeric type ID
     let id = type_id(x);  // Returns unique ID for i32
-    
+
     // Get type size and alignment
     let size = type_size(x);   // Returns 4
     let align = type_align(x); // Returns 4
-    
+
     // Check type categories
     if is_int_type(x) {
         println("x is an integer");
     }
-    
+
     if is_float_type(y) {
         println("y is a float");
     }
-    
+
     if is_pointer_type(&x) {
         println("This is a pointer");
     }
-    
+
     return 0;
 }
 ```
 
 **Available Functions**:
+
 - `typeof<T>(value: T): string` - Get type name
 - `type_id<T>(value: T): u64` - Get unique type identifier
 - `type_size<T>(value: T): u64` - Get type size
@@ -222,22 +226,22 @@ Direct access to LLVM's optimized intrinsic functions:
 ```vex
 fn main(): i32 {
     let x: u32 = 0b00001000;
-    
+
     // Count leading zeros
     let lz = ctlz(x);  // Returns 28
-    
+
     // Count trailing zeros
     let tz = cttz(x);  // Returns 3
-    
+
     // Count population (number of 1 bits)
     let pop = ctpop(x);  // Returns 1
-    
+
     // Byte swap (reverse byte order)
     let swapped = bswap(0x12345678);  // Returns 0x78563412
-    
+
     // Reverse all bits
     let reversed = bitreverse(0b00001111);  // Returns 0b11110000...
-    
+
     return 0;
 }
 ```
@@ -248,17 +252,17 @@ fn main(): i32 {
 fn main(): i32 {
     let a: i32 = 2147483647;  // Max i32
     let b: i32 = 1;
-    
+
     // Signed addition with overflow detection
     let result = sadd_overflow(a, b);
     // Returns: {sum: -2147483648, overflow: true}
-    
+
     // Signed subtraction with overflow
     let result2 = ssub_overflow(a, b);
-    
+
     // Signed multiplication with overflow
     let result3 = smul_overflow(a, 2);
-    
+
     return 0;
 }
 ```
@@ -266,6 +270,7 @@ fn main(): i32 {
 **Available Intrinsics**:
 
 **Bit Manipulation**:
+
 - `ctlz(x: int): int` - Count leading zeros
 - `cttz(x: int): int` - Count trailing zeros
 - `ctpop(x: int): int` - Count population (1 bits)
@@ -273,6 +278,7 @@ fn main(): i32 {
 - `bitreverse(x: int): int` - Reverse all bits
 
 **Overflow Checking**:
+
 - `sadd_overflow(a: int, b: int): {int, bool}` - Signed add with overflow flag
 - `ssub_overflow(a: int, b: int): {int, bool}` - Signed subtract with overflow flag
 - `smul_overflow(a: int, b: int): {int, bool}` - Signed multiply with overflow flag
@@ -286,31 +292,32 @@ Optimization hints for the compiler:
 ```vex
 fn main(): i32 {
     let x = 10;
-    
+
     // Tell compiler to assume condition is true
     assume(x > 0);  // Enables optimizations
-    
+
     // Branch prediction hints
     if likely(x > 0) {
         // This branch is expected to execute
         println("Positive");
     }
-    
+
     if unlikely(x == 0) {
         // This branch is rarely executed
         println("Zero");
     }
-    
+
     // Memory prefetch hint
     let data: [i32; 1000] = [...];
     prefetch(&data[500], 0, 3, 1);  // Prefetch for reading
     // Parameters: addr, rw (0=read, 1=write), locality (0-3), cache_type
-    
+
     return 0;
 }
 ```
 
 **Available Hints**:
+
 - `assume(condition: bool)` - Assert condition is true (undefined if false)
 - `likely(x: bool): bool` - Hint that condition is likely true
 - `unlikely(x: bool): bool` - Hint that condition is likely false
@@ -337,6 +344,7 @@ fn main(): i32 {
 ```
 
 **Available Functions**:
+
 - `logger.debug(msg: string)` - Log debug message
 - `logger.info(msg: string)` - Log info message
 - `logger.warn(msg: string)` - Log warning message
@@ -352,18 +360,19 @@ import * as time from "time";
 fn main(): i32 {
     // Get current time (seconds since epoch)
     let now = time.now();
-    
+
     // Get high-resolution time (nanoseconds)
     let precise = time.high_res();
-    
+
     // Sleep for milliseconds
     time.sleep_ms(1000);  // Sleep 1 second
-    
+
     return 0;
 }
 ```
 
 **Available Functions**:
+
 - `time.now(): i64` - Get current Unix timestamp (seconds)
 - `time.high_res(): i64` - Get high-resolution time (nanoseconds)
 - `time.sleep_ms(ms: i64)` - Sleep for milliseconds
@@ -377,21 +386,22 @@ import * as testing from "testing";
 
 fn main(): i32 {
     let result = 2 + 2;
-    
+
     // Basic assertion
     testing.assert(result == 4);
-    
+
     // Equality assertion
     testing.assert_eq(result, 4);
-    
+
     // Inequality assertion
     testing.assert_ne(result, 5);
-    
+
     return 0;
 }
 ```
 
 **Available Functions**:
+
 - `testing.assert(condition: bool)` - Assert condition is true
 - `testing.assert_eq<T>(a: T, b: T)` - Assert values are equal
 - `testing.assert_ne<T>(a: T, b: T)` - Assert values are not equal

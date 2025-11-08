@@ -1,8 +1,8 @@
 # Vex Language - Introduction and Overview
 
-**Version:** 0.9.1  
+**Version:** 0.9.2  
 **Status:** Living Specification  
-**Last Updated:** January 2025
+**Last Updated:** November 2025
 
 ---
 
@@ -42,6 +42,10 @@ Vex is a modern systems programming language that combines:
 - Pattern matching with exhaustiveness checking
 - Trait-based polymorphism
 - Powerful generics system
+- Policy-based metadata system
+- Comprehensive error handling
+- Foreign function interface
+- Full tooling ecosystem (LSP, formatter, package manager)
 
 ## Key Features
 
@@ -89,6 +93,7 @@ let c = a + b;  // Automatically vectorized!
 - **User-Defined Types**: Structs, enums, type aliases
 - **Advanced Types**: Union types, intersection types, conditional types
 - **Option/Result**: Builtin Some/None, Ok/Err constructors
+- **Policy System**: Metadata annotations with inheritance and composition
 - **Reflection**: typeof, type_id, is_int_type, is_float_type, is_pointer_type (runtime type information)
 
 ### Memory Management
@@ -127,12 +132,40 @@ let c = a + b;  // Automatically vectorized!
 - Trait inheritance with supertraits (implemented)
 - Trait bounds on generics (partial)
 
-### Methods
+### Policy System
 
-- **Inline Methods**: Methods defined inside struct body (implemented)
-- **Golang-Style Methods**: Methods defined outside struct with receiver syntax (implemented)
-- **Receiver Syntax**: `fn (self: &Type) method_name()` or `fn (r: &Type) method_name()`
-- **Struct Tags**: Go-style backtick tags for metadata (implemented)
+- **Metadata Annotations**: Struct-level policies for serialization, validation, etc.
+- **Policy Inheritance**: Parent policy composition with `extends` keyword
+- **Policy Application**: `with` clause for applying policies to structs
+- **Builtin Policies**: Debug, Serializable, Clone, etc.
+
+### Error Handling
+
+- **Result Type**: `Result<T, E>` for recoverable errors
+- **Option Type**: `Option<T>` for optional values
+- **Pattern Matching**: Exhaustive error handling with match expressions
+- **Error Propagation**: Early return with error values
+
+### Foreign Function Interface (FFI)
+
+- **Raw Pointers**: `*T` and `*T!` for unsafe memory access
+- **Extern Declarations**: `extern "C"` blocks for C function imports
+- **Type Mapping**: Automatic conversion between Vex and C types
+- **Memory Layout**: Compatible struct layouts for interop
+
+### Package Management
+
+- **vex-pm**: Full-featured package manager with dependency resolution
+- **MVS Algorithm**: Minimal Version Selection for conflict-free dependencies
+- **Platform Detection**: Automatic cross-platform binary selection
+- **Lock Files**: Deterministic builds with vex.lock
+- **Registry Support**: Package publishing and discovery
+
+### Tooling
+
+- **Language Server Protocol (LSP)**: Full IDE support with completion, diagnostics, goto definition
+- **Code Formatter (vex-formatter)**: Automatic code formatting with configurable rules
+- **Package Manager (vex-pm)**: Dependency management and project scaffolding
 
 ## Syntax Highlights (v0.9.1)
 
@@ -299,6 +332,11 @@ Source (.vx) → AST → Borrow Check → LLVM IR → Object File (.o) → Execu
 - ✅ Async runtime with goroutines and channels (partial)
 - ✅ Language Server Protocol (LSP) implementation
 - ✅ Comprehensive standard library builtins
+- ✅ Policy system with metadata annotations and inheritance
+- ✅ Package manager (vex-pm) with dependency resolution
+- ✅ Code formatter (vex-formatter) with configurable rules
+- ✅ Error handling with Result/Option types
+- ✅ Foreign Function Interface (FFI) with raw pointers
 
 ### In Progress
 
@@ -332,6 +370,9 @@ Source (.vx) → AST → Borrow Check → LLVM IR → Object File (.o) → Execu
 - Borrow Checker: Immutability, moves, borrows, closure capture
 - Async: Goroutines, channels, async/await (partial)
 - Builtins: Arrays, collections, I/O, time, testing framework
+- Policies: Metadata annotations, inheritance, struct application
+- FFI: Raw pointers, extern declarations, type mapping
+- Packages: Dependency resolution, platform detection, lock files
 
 ## Example Programs
 
@@ -415,6 +456,10 @@ This specification is organized into the following documents:
 14. **Concurrency** - Goroutines, async/await, channels
 15. **Modules and Imports** - Module system, imports, exports
 16. **Standard Library** - Core modules and APIs
+17. **Error Handling** - Result/Option types, error propagation
+18. **Raw Pointers and FFI** - Unsafe operations, foreign function interface
+19. **Package Manager** - vex-pm, dependency management, publishing
+20. **Policy System** - Metadata annotations, inheritance, composition
 
 ---
 
@@ -452,31 +497,31 @@ This section documents features available in Rust and Go but not yet implemented
 
 #### Standard Library & Ecosystem
 
-| Feature                    | Rust                           | Vex v0.9             | Notes                     |
-| -------------------------- | ------------------------------ | -------------------- | ------------------------- |
-| **Collections**            | ✅ Vec, HashMap, HashSet, etc. | ✅ Implemented       | Vec, Map, Set, Box        |
-| **Iterators**              | ✅ Full Iterator trait         | 🚧 Partial           | Basic iteration works     |
-| **Option Type**            | ✅ `Option<T>`                 | ✅ Partial           | Some/None constructors    |
-| **Result Type**            | ✅ `Result<T, E>`              | ✅ Partial           | Ok/Err constructors       |
-| **Error Handling**         | ✅ `?` operator                | ❌ Not implemented   | Syntactic sugar missing   |
-| **String Slicing**         | ✅ `&str[0..5]`                | ❌ Not implemented   | String operations limited |
-| **Format Macro**           | ✅ `format!()`                 | 🚧 F-strings only    | Limited interpolation     |
-| **Testing Framework**      | ✅ `#[test]`                   | ✅ Basic framework   | Builtin testing module    |
-| **Documentation Comments** | ✅ `///` and `//!`             | ❌ Not implemented   | No doc generation         |
-| **Attribute Macros**       | ✅ `#[derive(Debug)]`          | 🚧 `@intrinsic` only | Limited attributes        |
-| **Cargo Equivalent**       | ✅ Cargo package manager       | ❌ Not implemented   | No package manager        |
-| **Crates.io Equivalent**   | ✅ Package registry            | ❌ Not implemented   | No ecosystem yet          |
+| Feature                    | Rust                           | Vex v0.9             | Notes                      |
+| -------------------------- | ------------------------------ | -------------------- | -------------------------- |
+| **Collections**            | ✅ Vec, HashMap, HashSet, etc. | ✅ Implemented       | Vec, Map, Set, Box         |
+| **Iterators**              | ✅ Full Iterator trait         | 🚧 Partial           | Basic iteration works      |
+| **Option Type**            | ✅ `Option<T>`                 | ✅ Partial           | Some/None constructors     |
+| **Result Type**            | ✅ `Result<T, E>`              | ✅ Partial           | Ok/Err constructors        |
+| **Error Handling**         | ✅ `?` operator                | ❌ Not implemented   | Syntactic sugar missing    |
+| **String Slicing**         | ✅ `&str[0..5]`                | ❌ Not implemented   | String operations limited  |
+| **Format Macro**           | ✅ `format!()`                 | 🚧 F-strings only    | Limited interpolation      |
+| **Testing Framework**      | ✅ `#[test]`                   | ✅ Basic framework   | Builtin testing module     |
+| **Documentation Comments** | ✅ `///` and `//!`             | ❌ Not implemented   | No doc generation          |
+| **Attribute Macros**       | ✅ `#[derive(Debug)]`          | 🚧 `@intrinsic` only | Limited attributes         |
+| **Cargo Equivalent**       | ✅ Cargo package manager       | ✅ vex-pm            | Full dependency management |
+| **Crates.io Equivalent**   | ✅ Package registry            | ❌ Not implemented   | No ecosystem yet           |
 
 #### Tooling
 
-| Feature                     | Rust             | Vex v0.9           | Notes              |
-| --------------------------- | ---------------- | ------------------ | ------------------ |
-| **Language Server**         | ✅ rust-analyzer | ✅ vex-lsp         | Full LSP support   |
-| **Formatter**               | ✅ rustfmt       | ❌ Not implemented | Manual formatting  |
-| **Linter**                  | ✅ clippy        | ❌ Not implemented | No static analysis |
-| **Package Manager**         | ✅ cargo         | ❌ Not implemented | Manual builds only |
-| **Documentation Generator** | ✅ rustdoc       | ❌ Not implemented | No auto-docs       |
-| **Benchmark Framework**     | ✅ criterion     | ❌ Not implemented | No benchmarking    |
+| Feature                     | Rust             | Vex v0.9           | Notes                      |
+| --------------------------- | ---------------- | ------------------ | -------------------------- |
+| **Language Server**         | ✅ rust-analyzer | ✅ vex-lsp         | Full LSP support           |
+| **Formatter**               | ✅ rustfmt       | ❌ Not implemented | Manual formatting          |
+| **Linter**                  | ✅ clippy        | ❌ Not implemented | No static analysis         |
+| **Package Manager**         | ✅ cargo         | ✅ vex-pm          | Full dependency management |
+| **Documentation Generator** | ✅ rustdoc       | ❌ Not implemented | No auto-docs               |
+| **Benchmark Framework**     | ✅ criterion     | ❌ Not implemented | No benchmarking            |
 
 ### Features Go Has (Vex Doesn't Yet)
 
@@ -519,17 +564,17 @@ This section documents features available in Rust and Go but not yet implemented
 
 #### Tooling & Ecosystem
 
-| Feature               | Go                          | Vex v0.9           | Notes                    |
-| --------------------- | --------------------------- | ------------------ | ------------------------ |
-| **Go Modules**        | ✅ Built-in package manager | ❌ Not implemented | No dependency management |
-| **go fmt**            | ✅ Standard formatter       | ❌ Not implemented | Manual formatting        |
-| **go vet**            | ✅ Static analyzer          | ❌ Not implemented | No linting               |
-| **go test**           | ✅ Built-in testing         | ❌ Not implemented | No test runner           |
-| **go doc**            | ✅ Documentation viewer     | ❌ Not implemented | No doc generation        |
-| **pprof**             | ✅ Profiling tools          | ❌ Not implemented | No profiling             |
-| **race detector**     | ✅ `-race` flag             | ❌ Not implemented | No race detection        |
-| **Cross-compilation** | ✅ Easy GOOS/GOARCH         | 🚧 LLVM targets    | Platform support limited |
-| **Language Server**   | ✅ gopls                    | ❌ Not implemented | No IDE support           |
+| Feature               | Go                          | Vex v0.9           | Notes                      |
+| --------------------- | --------------------------- | ------------------ | -------------------------- |
+| **Go Modules**        | ✅ Built-in package manager | ✅ vex-pm          | Full dependency management |
+| **go fmt**            | ✅ Standard formatter       | ❌ Not implemented | Manual formatting          |
+| **go vet**            | ✅ Static analyzer          | ❌ Not implemented | No linting                 |
+| **go test**           | ✅ Built-in testing         | ❌ Not implemented | No test runner             |
+| **go doc**            | ✅ Documentation viewer     | ❌ Not implemented | No doc generation          |
+| **pprof**             | ✅ Profiling tools          | ❌ Not implemented | No profiling               |
+| **race detector**     | ✅ `-race` flag             | ❌ Not implemented | No race detection          |
+| **Cross-compilation** | ✅ Easy GOOS/GOARCH         | 🚧 LLVM targets    | Platform support limited   |
+| **Language Server**   | ✅ gopls                    | ❌ Not implemented | No IDE support             |
 
 ### What Vex Has That's Unique
 

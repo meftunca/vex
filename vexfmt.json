@@ -1,7 +1,0 @@
-{
-  "max_width": 100,
-  "indent_size": 4,
-  "brace_style": "same_line",
-  "trailing_comma": "multiline",
-  "quote_style": "double"
-}

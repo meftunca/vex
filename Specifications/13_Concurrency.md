@@ -1,7 +1,7 @@
 # Concurrency
 
-**Version:** 0.9.0  
-**Last Updated:** November 3, 2025
+**Version:** 0.9.2  
+**Last Updated:** November 2025
 
 This document defines concurrency features in the Vex programming language.
 
@@ -180,65 +180,64 @@ async fn process(): i32 {
 
 ## Channels
 
-### Concept (Not Implemented)
+### Concept (Fully Implemented ✅)
 
-Channels provide communication between concurrent tasks:
+Channels provide communication between concurrent tasks using CSP-style message passing:
 
 ```vex
 // Create channel
-let (tx, rx) = channel<i32>();
+let! ch = Channel.new<i32>();
 
 // Send value
-go  {
-    tx.send(42);
+go {
+    ch.send(42);
 };
 
 // Receive value
-let value = rx.recv();  // value = 42
-```
-
-### Channel Types (Future)
-
-**Unbuffered (Synchronous)**:
-
-```vex
-let (tx, rx) = channel<i32>();
-// Sender blocks until receiver ready
-```
-
-**Buffered (Asynchronous)**:
-
-```vex
-let (tx, rx) = channel<i32>(100);  // Buffer size 100
-// Sender blocks only when buffer full
-```
-
-### Select Statement (Future)
-
-Wait on multiple channels:
-
-```vex
-select {
-    case value = rx1.recv() => {
-        // Received from rx1
-    }
-    case value = rx2.recv() => {
-        // Received from rx2
-    }
-    case tx.send(data) => {
-        // Sent to tx
-    }
-    default => {
-        // No operation ready
-    }
+match ch.recv() {
+    Option.Some(value) => println("Received: {}", value),
+    Option.None => println("Channel empty"),
 }
+```
+
+### Channel Operations
+
+**Creation**:
+
+```vex
+let! ch = Channel.new<i32>();        // Unbuffered channel
+let! ch = Channel.new<i32>(100);     // Buffered channel (capacity 100)
+```
+
+**Sending**:
+
+```vex
+ch.send(42);        // Send value (blocks if buffer full)
+ch.try_send(42);    // Non-blocking send (returns bool)
+```
+
+**Receiving**:
+
+```vex
+let value = ch.recv();              // Blocking receive (returns Option<T>)
+let value = ch.try_recv();          // Non-blocking receive (returns Option<T>)
+```
+
+**Other Operations**:
+
+```vex
+ch.close();        // Close channel
+ch.is_closed();    // Check if closed
+ch.len();          // Current buffer length
+ch.capacity();     // Buffer capacity
 ```
 
 ### Current Status
 
-**Syntax**: ❌ Not defined  
-**Implementation**: ❌ Not implemented  
-**Runtime**: ❌ No channel support
+**Syntax**: ✅ Fully defined  
+**Implementation**: ✅ Complete (MPSC lock-free ring buffer)  
+**Runtime**: ✅ C runtime (`vex_channel.c`)  
+**Test Coverage**: ✅ 2 tests passing (`channel_simple.vx`, `channel_sync_test.vx`)
 
 ---
 
@@ -638,19 +637,19 @@ fn process_small_list(items: [i32; 10]): [i32; 10] {
 
 ## Concurrency Summary
 
-| Feature             | Syntax          | Status             | Notes           |
-| ------------------- | --------------- | ------------------ | --------------- |
-| **Goroutines**      | `go func()`     | 🚧 Parsed          | No runtime      |
-| **Async Functions** | `async fn`      | 🚧 Parsed          | No runtime      |
-| **Await**           | `await expr`    | 🚧 Parsed          | No runtime      |
-| **GPU Functions**   | `gpu fn`        | 🚧 Parsed          | No backend      |
-| **Channels**        | `channel<T>()`  | ❌ Not defined     | Planned         |
-| **Select**          | `select { }`    | ❌ Not defined     | Planned         |
-| **Mutex**           | `Mutex::new()`  | ❌ Not implemented | Layer 2 std lib |
-| **RwLock**          | `RwLock::new()` | ❌ Not implemented | Layer 2 std lib |
-| **Atomic**          | `Atomic::new()` | ❌ Not implemented | Layer 2 std lib |
-| **Send Trait**      | Auto-derived    | ❌ Not implemented | Thread safety   |
-| **Sync Trait**      | Auto-derived    | ❌ Not implemented | Thread safety   |
+| Feature             | Syntax          | Status               | Notes           |
+| ------------------- | --------------- | -------------------- | --------------- |
+| **Goroutines**      | `go func()`     | 🚧 Parsed            | No runtime      |
+| **Async Functions** | `async fn`      | 🚧 Parsed            | No runtime      |
+| **Await**           | `await expr`    | 🚧 Parsed            | No runtime      |
+| **GPU Functions**   | `gpu fn`        | 🚧 Parsed            | No backend      |
+| **Channels**        | `channel<T>()`  | ✅ Fully implemented |                 |
+| **Select**          | `select { }`    | ❌ Not defined       | Planned         |
+| **Mutex**           | `Mutex::new()`  | ❌ Not implemented   | Layer 2 std lib |
+| **RwLock**          | `RwLock::new()` | ❌ Not implemented   | Layer 2 std lib |
+| **Atomic**          | `Atomic::new()` | ❌ Not implemented   | Layer 2 std lib |
+| **Send Trait**      | Auto-derived    | ❌ Not implemented   | Thread safety   |
+| **Sync Trait**      | Auto-derived    | ❌ Not implemented   | Thread safety   |
 
 ### Implementation Status
 

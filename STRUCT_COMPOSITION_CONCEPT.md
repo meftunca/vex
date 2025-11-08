@@ -26,7 +26,7 @@ struct TypeName
     field: Type `json:"value"`,     // Field with inline metadata
 
     // Methods (from traits)
-    fn (&self)method() { ... }
+    fn method() { ... }
 }
 ```
 
@@ -214,9 +214,9 @@ struct Point impl Drawable, Serializable, Cloneable {
     y: i32,
 
     // Must implement ALL methods from ALL traits
-    fn (&self)draw() { ... }
-    fn (&self)serialize(): str { ... }
-    fn (&self)clone(): Point { ... }
+    fn draw() { ... }
+    fn serialize(): str { ... }
+    fn clone(): Point { ... }
 }
 ```
 
@@ -231,17 +231,17 @@ struct Point impl Drawable, Serializable, Cloneable {
 ```vex
 // Syntax 1: All in one block (compact)
 struct Point impl Drawable, Serializable {
-    fn (&self)draw() { ... }
-    fn (&self)serialize(): str { ... }
+    fn draw() { ... }
+    fn serialize(): str { ... }
 }
 
 // Syntax 2: Separate blocks (organized) - Rust-style
 struct Point impl Drawable {
-    fn (&self)draw() { ... }
+    fn draw() { ... }
 }
 
 struct Point impl Serializable {
-    fn (&self)serialize(): str { ... }
+    fn serialize(): str { ... }
 }
 ```
 
@@ -269,14 +269,14 @@ struct Point {
 
 // file: point_drawable.vx
 struct Point impl Drawable {
-    fn (&self)draw() {
+    fn draw() {
         println("Drawing point at ({}, {})", self.x, self.y);
     }
 }
 
 // file: point_serializable.vx
 struct Point impl Serializable {
-    fn (&self)serialize(): str {
+    fn serialize(): str {
         return format("Point({},{})", self.x, self.y);
     }
 }
@@ -371,9 +371,9 @@ struct User impl Identifiable {
 ```vex
 // ❌ COMPILE ERROR: Trait cannot have method bodies
 trait Logger {
-    fn (&self)log(msg: str);  // ✅ OK: Signature only
+    fn log(msg: str);  // ✅ OK: Signature only
 
-    fn (&self)info(msg: str) {   // ❌ ERROR: Body not allowed
+    fn info(msg: str) {   // ❌ ERROR: Body not allowed
         self.log(format("INFO: {}", msg));
     }
 }
@@ -390,7 +390,7 @@ trait Logger {
 
 ```vex
 trait Logger {
-    fn (&self)log(msg: str);
+    fn log(msg: str);
 }
 
 // Helper function instead of default method
@@ -399,7 +399,7 @@ fn log_info<T: Logger>(logger: &T, msg: str) {
 }
 
 struct ConsoleLogger impl Logger {
-    fn (&self)log(msg: str) {
+    fn log(msg: str) {
         println(msg);
     }
 }
@@ -626,7 +626,7 @@ trait Timestamped {
 }
 
 trait Serializable {
-    fn (&self)to_json(): str;
+    fn to_json(): str;
     fn from_json(json: str): Self;
 }
 
@@ -663,7 +663,7 @@ struct User
     bio: str `json:"biography"`,        // Inline metadata overrides policy
 
     // ===== Methods (from Serializable trait) =====
-    fn (&self)to_json(): str {
+    fn to_json(): str {
         // Uses APIModel policy metadata for field names
         format!(
             r#"{{"id":{},"name":"{}","email":"{}","createdAt":{}}}"#,
@@ -683,11 +683,11 @@ struct User
 
 // Additional trait in separate block
 trait Validatable {
-    fn (&self)validate(): Result<(), str>;
+    fn validate(): Result<(), str>;
 }
 
 struct User impl Validatable {
-    fn (&self)validate(): Result<(), str> {
+    fn validate(): Result<(), str> {
         // Uses ValidationRules policy metadata
         if self.age < 18 {
             return Err("Age must be at least 18");
@@ -861,7 +861,7 @@ fn main() {
 | **Policy Declaration**   | `policy Name { ... }`        | Reusable metadata    | `policy APIModel { ... }` | ❌ TODO  |
 | **Policy Application**   | `with Policy`                | Apply metadata       | `struct X with P`         | ❌ TODO  |
 | **Trait Fields**         | `trait T { field: type; }`   | Field contract       | `id: i32;`                | ❌ TODO  |
-| **Trait Methods**        | `fn (&self)method();`        | Method contract      | Already works             | ✅ Works |
+| **Trait Methods**        | `fn method();`               | Method contract      | Already works             | ✅ Works |
 | **Trait Implementation** | `impl Trait`                 | Fulfill contract     | `struct X impl T`         | ✅ Works |
 | **Separate Impl Blocks** | Multiple `impl`              | Code organization    | File-based impl           | ❌ TODO  |
 
@@ -974,7 +974,7 @@ struct User impl Serializable {
     id: i32 `json:"id"`,
     name: str `json:"name"`,
 
-    fn (&self)to_json(): str { ... }
+    fn to_json(): str { ... }
 }
 ```
 
@@ -991,7 +991,7 @@ struct User with APIModel impl Serializable {
     id: i32,
     name: str,
 
-    fn (&self)to_json(): str { ... }
+    fn to_json(): str { ... }
 }
 ```
 
@@ -1010,7 +1010,7 @@ struct User
     Metadata,           // Anonymous embedding
     email: str,
 
-    fn (&self)to_json(): str { ... }
+    fn to_json(): str { ... }
 }
 ```
 
@@ -1032,7 +1032,7 @@ struct TypeName
     field_name: Type `meta`,        // Field with inline metadata
 
     // Methods (from traits)
-    fn (&self)method() { ... }
+    fn method() { ... }
 }
 
 // ===== POLICY DEFINITION =====
@@ -1047,7 +1047,7 @@ policy ChildPolicy with ParentPolicy {
 // ===== TRAIT DEFINITION =====
 trait TraitName {
     field_name: Type;               // Field contract
-    fn (&self)method(): RetType;    // Method contract
+    fn method(): RetType;    // Method contract
 }
 
 trait ChildTrait with ParentTrait {
@@ -1058,22 +1058,22 @@ trait ChildTrait with ParentTrait {
 
 // Single block
 struct Type impl Trait {
-    fn (&self)method() { ... }
+    fn method() { ... }
 }
 
 // Multiple traits
 struct Type impl Trait1, Trait2 {
-    fn (&self)method1() { ... }
-    fn (&self)method2() { ... }
+    fn method1() { ... }
+    fn method2() { ... }
 }
 
 // Separate blocks
 struct Type impl Trait1 {
-    fn (&self)method1() { ... }
+    fn method1() { ... }
 }
 
 struct Type impl Trait2 {
-    fn (&self)method2() { ... }
+    fn method2() { ... }
 }
 ```
 

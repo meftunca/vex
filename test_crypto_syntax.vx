@@ -1,8 +1,0 @@
-extern "C" {
-    fn vex_hash(algo: *u8, msg: *u8, len: u64, out: *u8, out_len: *u64): i32;
-    fn vex_random_bytes(buf: *u8, len: u64): i32;
-}
-
-fn main(): i32 {
-    return 0;
-}

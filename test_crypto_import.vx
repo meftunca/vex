@@ -1,5 +1,0 @@
-import { hash, random_bytes } from "crypto";
-
-fn main(): i32 {
-    return 0;
-}

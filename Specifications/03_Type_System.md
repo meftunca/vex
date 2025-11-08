@@ -1,7 +1,7 @@
 # Type System
 
-**Version:** 0.9.0  
-**Last Updated:** November 3, 2025
+**Version:** 0.9.2  
+**Last Updated:** November 2025
 
 This document defines the complete type system of the Vex programming language.
 
@@ -17,6 +17,7 @@ This document defines the complete type system of the Vex programming language.
 6. [Type Inference](#type-inference)
 7. [Type Conversions](#type-conversions)
 8. [Type Compatibility](#type-compatibility)
+9. [Operator Overloading](#operator-overloading)
 
 ---
 
@@ -59,13 +60,13 @@ Vex provides fixed-size integer types with explicit signedness:
 
 #### Signed Integers
 
-| Type  | Size     | Range                                                   | Description                     |
-| ----- | -------- | ------------------------------------------------------- | ------------------------------- |
-| `i8`  | 8 bits   | -128 to 127                                             | 8-bit signed integer            |
-| `i16` | 16 bits  | -32,768 to 32,767                                       | 16-bit signed integer           |
-| `i32` | 32 bits  | -2,147,483,648 to 2,147,483,647                         | 32-bit signed integer (default) |
-| `i64` | 64 bits  | -9,223,372,036,854,775,808 to 9,223,372,036,854,775,807 | 64-bit signed integer           |
-| `i128`| 128 bits | -2^127 to 2^127-1                                        | 128-bit signed integer          |
+| Type   | Size     | Range                                                   | Description                     |
+| ------ | -------- | ------------------------------------------------------- | ------------------------------- |
+| `i8`   | 8 bits   | -128 to 127                                             | 8-bit signed integer            |
+| `i16`  | 16 bits  | -32,768 to 32,767                                       | 16-bit signed integer           |
+| `i32`  | 32 bits  | -2,147,483,648 to 2,147,483,647                         | 32-bit signed integer (default) |
+| `i64`  | 64 bits  | -9,223,372,036,854,775,808 to 9,223,372,036,854,775,807 | 64-bit signed integer           |
+| `i128` | 128 bits | -2^127 to 2^127-1                                       | 128-bit signed integer          |
 
 **Default**: Integer literals without type annotation default to `i32`.
 
@@ -80,13 +81,13 @@ let large: i64 = 9223372036854775807;
 
 #### Unsigned Integers
 
-| Type  | Size     | Range                           | Description             |
-| ----- | -------- | ------------------------------- | ----------------------- |
-| `u8`  | 8 bits   | 0 to 255                        | 8-bit unsigned integer  |
-| `u16` | 16 bits  | 0 to 65,535                     | 16-bit unsigned integer |
-| `u32` | 32 bits  | 0 to 4,294,967,295              | 32-bit unsigned integer |
-| `u64` | 64 bits  | 0 to 18,446,744,073,709,551,615 | 64-bit unsigned integer |
-| `u128`| 128 bits | 0 to 2^128-1                     | 128-bit unsigned integer |
+| Type   | Size     | Range                           | Description              |
+| ------ | -------- | ------------------------------- | ------------------------ |
+| `u8`   | 8 bits   | 0 to 255                        | 8-bit unsigned integer   |
+| `u16`  | 16 bits  | 0 to 65,535                     | 16-bit unsigned integer  |
+| `u32`  | 32 bits  | 0 to 4,294,967,295              | 32-bit unsigned integer  |
+| `u64`  | 64 bits  | 0 to 18,446,744,073,709,551,615 | 64-bit unsigned integer  |
+| `u128` | 128 bits | 0 to 2^128-1                    | 128-bit unsigned integer |
 
 **Examples**:
 
@@ -530,57 +531,16 @@ let value = *ref_x;             // Dereference to get value
 
 ### Collections
 
-#### Map Type
+Vex provides builtin collection types that are implemented in Rust and available without imports. These types provide efficient data structures for common programming patterns.
 
-Associative arrays with key-value pairs:
-
-**Syntax**: `Map<K, V>` (builtin type)
-
-```vex
-let ages: Map<string, i32> = Map::new();
-ages.insert("Alice", 30);
-ages.insert("Bob", 25);
-
-let alice_age = ages.get("Alice");  // Some(30)
-```
-
-**Properties**:
-
-- **Generic**: Parameterized by key and value types
-- **Hash-based**: Fast lookup O(1) average case
-- **Heap allocated**: Managed by runtime
-- **Keys**: Must implement hash and equality
-
-#### Set Type
-
-Collections of unique values:
-
-**Syntax**: `Set<T>` (builtin type)
-
-```vex
-let numbers: Set<i32> = Set::new();
-numbers.insert(1);
-numbers.insert(2);
-numbers.insert(1);  // Duplicate, ignored
-
-let has_one = numbers.contains(1);  // true
-```
-
-**Properties**:
-
-- **Generic**: Parameterized by element type
-- **Unique elements**: No duplicates allowed
-- **Hash-based**: Fast membership testing
-- **Heap allocated**: Managed by runtime
-
-### Vec Type
+#### Vec<T> Type
 
 Dynamic arrays with growable size:
 
 **Syntax**: `Vec<T>` (builtin type)
 
 ```vex
-let numbers: Vec<i32> = Vec::new();
+let numbers: Vec<i32> = Vec.new();
 numbers.push(1);
 numbers.push(2);
 numbers.push(3);
@@ -594,28 +554,134 @@ let length = numbers.len();  // 3
 - **Generic**: Parameterized by element type
 - **Dynamic size**: Grows automatically when needed
 - **Heap allocated**: Managed by runtime
-- **Contiguous**: Elements stored contiguously
+- **Contiguous**: Elements stored contiguously in memory
 - **Cache-friendly**: Better performance than linked lists
 
 **Operations**:
 
 ```vex
-let v = Vec::new<i32>();     // Create empty Vec
-v.push(42);                  // Add element
-let val = v.get(0);          // Get element
-let len = v.len();           // Get length
-v.free();                    // Free memory (manual for now)
+let v = Vec.new<i32>();     // Create empty Vec
+v.push(42);                 // Add element
+let val = v.get(0);         // Get element (returns Option<T>)
+let len = v.len();          // Get length
+v.pop();                    // Remove last element
+v.clear();                  // Remove all elements
 ```
 
-### Box Type
+**Implementation**: `vex-compiler/src/codegen_ast/builtins/builtin_types/collections.rs`
+
+#### Map<K, V> Type
+
+Associative arrays with key-value pairs:
+
+**Syntax**: `Map<K, V>` (builtin type)
+
+```vex
+let ages: Map<string, i32> = Map.new();
+ages.insert("Alice", 30);
+ages.insert("Bob", 25);
+
+let alice_age = ages.get("Alice");  // Some(30)
+let has_bob = ages.contains_key("Bob");  // true
+```
+
+**Properties**:
+
+- **Generic**: Parameterized by key and value types
+- **Hash-based**: Fast lookup O(1) average case
+- **Heap allocated**: Managed by runtime
+- **Keys**: Must implement hash and equality
+- **SwissTable**: Uses Google's SwissTable algorithm (34M ops/s)
+
+**Operations**:
+
+```vex
+let m = Map.new<string, i32>();  // Create empty Map
+m.insert("key", 42);             // Insert key-value pair
+let val = m.get("key");          // Get value (returns Option<V>)
+let has_key = m.contains_key("key"); // Check if key exists
+m.remove("key");                 // Remove key-value pair
+let size = m.len();              // Get number of entries
+```
+
+**Implementation**: `vex-compiler/src/codegen_ast/builtins/hashmap.rs`
+
+#### Set<T> Type
+
+Collections of unique values:
+
+**Syntax**: `Set<T>` (builtin type)
+
+```vex
+let numbers: Set<i32> = Set.new();
+numbers.insert(1);
+numbers.insert(2);
+numbers.insert(1);  // Duplicate, ignored
+
+let has_one = numbers.contains(1);  // true
+let size = numbers.len();           // 2
+```
+
+**Properties**:
+
+- **Generic**: Parameterized by element type
+- **Unique elements**: No duplicates allowed
+- **Hash-based**: Fast membership testing
+- **Heap allocated**: Managed by runtime
+- **SwissTable**: Same high-performance hash table as Map
+
+**Operations**:
+
+```vex
+let s = Set.new<i32>();    // Create empty Set
+s.insert(42);              // Add element
+let has_val = s.contains(42); // Check membership
+s.remove(42);              // Remove element
+let size = s.len();        // Get number of elements
+```
+
+**Implementation**: `vex-compiler/src/codegen_ast/builtins/builtin_types/collections.rs`
+
+#### Array<T, N> Type
+
+Fixed-size arrays with compile-time size:
+
+**Syntax**: `[T; N]` (builtin type)
+
+```vex
+let numbers: [i32; 5] = [1, 2, 3, 4, 5];
+let zeros: [i32; 10] = [0; 10];  // Repeat syntax
+let first = numbers[0];          // Access element
+```
+
+**Properties**:
+
+- **Fixed size**: Size known at compile time
+- **Stack allocated**: Stored on stack by default
+- **Contiguous**: Elements stored contiguously in memory
+- **Zero-indexed**: First element at index 0
+- **🚀 Auto-vectorized**: Operations automatically use SIMD/GPU
+
+**Operations**:
+
+```vex
+let arr: [i32; 3] = [1, 2, 3];
+let first = arr[0];        // Index access
+let len = arr.len();       // Get length (compile-time constant)
+let slice = &arr[1..3];    // Create slice (future)
+```
+
+**Implementation**: `vex-compiler/src/codegen_ast/builtins/array.rs`
+
+#### Box<T> Type
 
 Heap-allocated single values:
 
 **Syntax**: `Box<T>` (builtin type)
 
 ```vex
-let boxed = Box::new(42);     // Heap allocate i32
-let value = Box::unbox(boxed); // Extract value
+let boxed = Box.new(42);        // Heap allocate i32
+let value = Box.unbox(boxed);   // Extract value and free
 ```
 
 **Properties**:
@@ -624,6 +690,15 @@ let value = Box::unbox(boxed); // Extract value
 - **Ownership**: Moves ownership to heap
 - **Pointer**: Returns pointer to heap value
 - **Manual free**: Requires explicit deallocation
+
+**Operations**:
+
+```vex
+let b = Box.new<i32>(42);   // Allocate on heap
+let val = Box.unbox(b);     // Extract value and deallocate
+```
+
+**Implementation**: `vex-compiler/src/codegen_ast/builtins/builtin_types/collections.rs`
 
 ---
 
@@ -915,17 +990,17 @@ Vex provides runtime type information through builtin reflection functions. Thes
 fn main(): i32 {
     let x: i32 = 42;
     let y: f64 = 3.14;
-    
+
     // Get type name as string
     let type_name = typeof(x);  // Returns "i32"
-    
+
     // Get unique type identifier
     let id = type_id(x);  // Returns numeric ID for i32
-    
+
     // Get type size and alignment
     let size = type_size(x);   // Returns 4
     let align = type_align(x); // Returns 4
-    
+
     return 0;
 }
 ```
@@ -937,35 +1012,35 @@ fn main(): i32 {
     let x: i32 = 42;
     let y: f64 = 3.14;
     let ptr = &x;
-    
+
     // Check type categories
     if is_int_type(x) {
         println("x is an integer");  // This will print
     }
-    
+
     if is_float_type(y) {
         println("y is a float");  // This will print
     }
-    
+
     if is_pointer_type(ptr) {
         println("ptr is a pointer");  // This will print
     }
-    
+
     return 0;
 }
 ```
 
 ### Available Reflection Functions
 
-| Function                          | Return Type | Description                           |
-| --------------------------------- | ----------- | ------------------------------------- |
-| `typeof<T>(value: T)`             | `string`    | Get type name                         |
-| `type_id<T>(value: T)`            | `u64`       | Get unique numeric type identifier    |
-| `type_size<T>(value: T)`          | `u64`       | Get type size in bytes                |
-| `type_align<T>(value: T)`         | `u64`       | Get type alignment in bytes           |
-| `is_int_type<T>(value: T)`        | `bool`      | Check if value is integer type        |
-| `is_float_type<T>(value: T)`      | `bool`      | Check if value is floating-point type |
-| `is_pointer_type<T>(value: T)`    | `bool`      | Check if value is pointer type        |
+| Function                       | Return Type | Description                           |
+| ------------------------------ | ----------- | ------------------------------------- |
+| `typeof<T>(value: T)`          | `string`    | Get type name                         |
+| `type_id<T>(value: T)`         | `u64`       | Get unique numeric type identifier    |
+| `type_size<T>(value: T)`       | `u64`       | Get type size in bytes                |
+| `type_align<T>(value: T)`      | `u64`       | Get type alignment in bytes           |
+| `is_int_type<T>(value: T)`     | `bool`      | Check if value is integer type        |
+| `is_float_type<T>(value: T)`   | `bool`      | Check if value is floating-point type |
+| `is_pointer_type<T>(value: T)` | `bool`      | Check if value is pointer type        |
 
 **Properties**:
 
@@ -1096,21 +1171,141 @@ fn longest<'a>(x: &'a string, y: &'a string): &'a string {
 
 ---
 
+## Operator Overloading
+
+### Overview
+
+Vex supports **trait-based operator overloading**, allowing custom types to define behavior for built-in operators. This enables intuitive APIs for mathematical types, collections, and domain-specific types.
+
+### Supported Operators
+
+| Operator | Trait Method | Description      |
+| -------- | ------------ | ---------------- |
+| `+`      | `add`        | Addition         |
+| `-`      | `sub`        | Subtraction      |
+| `*`      | `mul`        | Multiplication   |
+| `/`      | `div`        | Division         |
+| `%`      | `rem`        | Remainder        |
+| `==`     | `eq`         | Equality         |
+| `!=`     | `ne`         | Inequality       |
+| `<`      | `lt`         | Less than        |
+| `<=`     | `le`         | Less or equal    |
+| `>`      | `gt`         | Greater than     |
+| `>=`     | `ge`         | Greater or equal |
+| `+=`     | `add_assign` | Add assign       |
+| `-=`     | `sub_assign` | Subtract assign  |
+| `*=`     | `mul_assign` | Multiply assign  |
+| `/=`     | `div_assign` | Divide assign    |
+| `%=`     | `rem_assign` | Remainder assign |
+
+### Defining Operator Overloads
+
+```vex
+trait Add<Rhs, Output> {
+    fn add(self: &Self, rhs: Rhs): Output;
+}
+
+trait AddAssign<Rhs> {
+    fn add_assign(self: &Self!, rhs: Rhs);
+}
+
+// Implementation for custom Point type
+struct Point {
+    x: i32,
+    y: i32,
+}
+
+impl Add<Point, Point> for Point {
+    fn add(self: &Point, rhs: Point): Point {
+        Point {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+        }
+    }
+}
+
+impl AddAssign<Point> for Point {
+    fn add_assign(self: &Point!, rhs: Point) {
+        self.x = self.x + rhs.x;
+        self.y = self.y + rhs.y;
+    }
+}
+```
+
+### Usage
+
+```vex
+let p1 = Point { x: 1, y: 2 };
+let p2 = Point { x: 3, y: 4 };
+
+let p3 = p1 + p2;        // Point { x: 4, y: 6 }
+let! p4 = Point { x: 1, y: 2 };
+p4 += p2;                // p4 = Point { x: 4, y: 6 }
+```
+
+### Built-in Operator Overloads
+
+**String Concatenation**:
+
+```vex
+let hello = "Hello";
+let world = "World";
+let message = hello + " " + world;  // "Hello World"
+```
+
+**Vector Operations**:
+
+```vex
+let! v1 = Vec.new<i32>();
+v1.push(1);
+v1.push(2);
+
+let! v2 = Vec.new<i32>();
+v2.push(3);
+v2.push(4);
+
+let v3 = v1 + v2;  // Vec with [1, 2, 3, 4]
+```
+
+### Operator Precedence
+
+Operators maintain standard mathematical precedence:
+
+1. `*`, `/`, `%` (highest)
+2. `+`, `-`
+3. `<`, `<=`, `>`, `>=`
+4. `==`, `!=` (lowest)
+
+### Type Safety
+
+- **Compile-time checked**: All operator overloads are resolved at compile time
+- **Type constraints**: Output types must be explicitly specified
+- **No implicit conversions**: Types must match trait bounds exactly
+- **Borrow checker integration**: Operator usage respects ownership rules
+
+### Current Status
+
+**Implementation**: ✅ Complete (trait-based system)  
+**Test Coverage**: ✅ 8 tests passing (builtin operators)  
+**Builtin Support**: ✅ String `+`, Vec `+`, Struct operators
+
+---
+
 ## Type System Summary
 
-| Category   | Examples                                       | Size               | Notes               |
-| ---------- | -------------------------------------- | ------------------ | ------------------- |
-| Integers   | i8, i16, i32, i64, i128, u8, u16, u32, u64, u128 | 1-16 bytes         | Fixed size          |
-| Floats     | f16, f32, f64                          | 2-8 bytes          | IEEE 754            |
-| Boolean    | bool                                 | 1 byte             | true/false          |
-| String     | string                               | 16 bytes (ptr+len) | UTF-8, heap         |
-| Arrays     | [T; N]                               | N \* sizeof(T)     | Stack, fixed        |
-| Tuples     | (T, U, ...)                          | Sum of sizes       | Stack               |
-| References | &T, &T!                              | 8 bytes (64-bit)   | Pointers            |
-| Collections| Map<K,V>, Set<T>, Vec<T>              | Variable (heap)    | Dynamic/Hash        |
-| Smart Ptrs | Box<T>, Channel<T>                   | 8 bytes (ptr)      | Heap-allocated      |
-| Structs    | User-defined                         | Sum + padding      | Nominal             |
-| Enums      | User-defined                         | Tag + data         | Discriminated union |
+| Category    | Examples                                         | Size               | Notes               |
+| ----------- | ------------------------------------------------ | ------------------ | ------------------- |
+| Integers    | i8, i16, i32, i64, i128, u8, u16, u32, u64, u128 | 1-16 bytes         | Fixed size          |
+| Floats      | f16, f32, f64                                    | 2-8 bytes          | IEEE 754            |
+| Boolean     | bool                                             | 1 byte             | true/false          |
+| String      | string                                           | 16 bytes (ptr+len) | UTF-8, heap         |
+| Arrays      | [T; N]                                           | N \* sizeof(T)     | Stack, fixed        |
+| Tuples      | (T, U, ...)                                      | Sum of sizes       | Stack               |
+| References  | &T, &T!                                          | 8 bytes (64-bit)   | Pointers            |
+| Collections | Map<K,V>, Set<T>, Vec<T>                         | Variable (heap)    | Dynamic/Hash        |
+| Smart Ptrs  | Box<T>, Channel<T>                               | 8 bytes (ptr)      | Heap-allocated      |
+| Structs     | User-defined                                     | Sum + padding      | Nominal             |
+| Enums       | User-defined                                     | Tag + data         | Discriminated union |
 
 ---
 
