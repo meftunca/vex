@@ -166,6 +166,7 @@ pub struct Struct {
     pub type_params: Vec<TypeParam>, // Generic type parameters with bounds: <T: Display>
     pub policies: Vec<String>,       // ⭐ NEW: Policies applied to this struct (with clause)
     pub impl_traits: Vec<String>,    // Traits this struct implements (inline declaration)
+    pub associated_type_bindings: Vec<(String, Type)>, // ⭐ NEW: Associated type bindings: type Item = i32;
     pub fields: Vec<Field>,
     pub methods: Vec<Function>, // Methods defined inline (including trait implementations)
 }

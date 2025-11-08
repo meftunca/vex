@@ -17,16 +17,18 @@ all: libvexfastenc.a tests bench
 
 libvexfastenc.a: $(OBJS)
 	@# Conditionally compile arch-specific files
-	@if echo | $(CC) -E -dM -xc - | grep -q "__x86_64__"; then \
-	  $(CC) $(CFLAGS) $(INCLUDES) -c -o src/x86/hex_avx2.o src/x86/hex_avx2.c -mavx2; \
-	  $(CC) $(CFLAGS) $(INCLUDES) -c -o src/x86/hex_avx512.o src/x86/hex_avx512.c -mavx512bw -mavx512f; \
-	  OBJS="$(OBJS) src/x86/hex_avx2.o src/x86/hex_avx512.o"; \
+	@ARCH_OBJS=""; \
+	if echo | $(CC) -E -dM -xc - | grep -q "__x86_64__"; then \
+	  echo "Building x86-64 SIMD (AVX2/AVX512)..."; \
+	  $(CC) $(CFLAGS) $(INCLUDES) -c -o src/x86/hex_avx2.o src/x86/hex_avx2.c -mavx2 || true; \
+	  $(CC) $(CFLAGS) $(INCLUDES) -c -o src/x86/hex_avx512.o src/x86/hex_avx512.c -mavx512bw -mavx512f || true; \
+	  ARCH_OBJS="src/x86/hex_avx2.o src/x86/hex_avx512.o"; \
+	elif echo | $(CC) -E -dM -xc - | grep -q "__aarch64__"; then \
+	  echo "Building ARM64 SIMD (NEON)..."; \
+	  $(CC) $(CFLAGS) $(INCLUDES) -c -o src/arm/hex_neon.o src/arm/hex_neon.c || true; \
+	  ARCH_OBJS="src/arm/hex_neon.o"; \
 	fi; \
-	if echo | $(CC) -E -dM -xc - | grep -q "__aarch64__"; then \
-	  $(CC) $(CFLAGS) $(INCLUDES) -c -o src/arm/hex_neon.o src/arm/hex_neon.c; \
-	  OBJS="$(OBJS) src/arm/hex_neon.o"; \
-	fi; true
-	ar rcs $@ $(OBJS)
+	ar rcs $@ $(OBJS) $$ARCH_OBJS
 
 tests: libvexfastenc.a tests/test_vectors.o
 	$(CC) $(CFLAGS) $(INCLUDES) -o tests/test_vectors tests/test_vectors.o libvexfastenc.a

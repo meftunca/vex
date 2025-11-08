@@ -1,16 +1,14 @@
-// Test: Associated Type Bindings in impl
+// Test: Associated Types in Traits
+// Full implementation with type bindings
 
 trait Container {
-    type Item;
+    type Item;  // ✅ Associated type declaration
     fn size(): i32;
 }
 
-struct IntBox {
+struct IntBox impl Container {
     value: i32,
-}
-
-impl Container for IntBox {
-    type Item = i32;  // Associated type binding
+    type Item = i32;  // ✅ Associated type binding
     
     fn size(): i32 {
         return 4;  // sizeof(i32)
@@ -18,7 +16,7 @@ impl Container for IntBox {
 }
 
 fn main(): i32 {
-    let box = IntBox { value: 42 };
-    println("✅ Associated type bindings work");
-    return 0;
+    let int_box = IntBox { value: 42 };
+    println("✅ Associated types parsed successfully!");
+    return int_box.size();
 }

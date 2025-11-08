@@ -477,7 +477,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
             type_params: vec![],
             policies: vec![], // No policies for generated closure structs
             impl_traits: vec![trait_name.to_string()],
-            fields: vec![], // Internal LLVM representation
+            associated_type_bindings: vec![], // No associated types for closures
+            fields: vec![],                   // Internal LLVM representation
             methods: vec![method],
         };
 

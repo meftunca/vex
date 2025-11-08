@@ -16,6 +16,8 @@ vex-parser = { path = "../vex-parser" }
 vex-lexer = { path = "../vex-lexer" }
 vex-ast = { path = "../vex-ast" }
 vex-runtime = { path = "../vex-runtime" }
+vex-pm = { path = "../vex-pm" }
+vex-formatter = { path = "../vex-formatter" }
 clap.workspace = true
 anyhow.workspace = true
 env_logger.workspace = true

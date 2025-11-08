@@ -50,17 +50,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
         }
         for param in &func.params {
             let param_llvm_type = self.ast_type_to_llvm(&param.ty);
-            let is_struct = match &param.ty {
-                Type::Named(type_name) => self.struct_defs.contains_key(type_name),
-                _ => false,
-            };
-            if is_struct {
-                // Struct parameters are passed by pointer for efficiency
-                let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
-                param_types.push(ptr_type.into());
-            } else {
-                param_types.push(param_llvm_type.into());
-            }
+            // ⭐ NEW: Struct parameters are now passed BY VALUE (as StructType)
+            // ast_type_to_llvm now returns StructType directly for structs
+            // This matches the new return-by-value semantics
+            param_types.push(param_llvm_type.into());
         }
 
         let ret_type = if let Some(ref ty) = func.return_type {

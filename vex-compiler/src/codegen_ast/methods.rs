@@ -145,23 +145,62 @@ impl<'ctx> ASTCodeGen<'ctx> {
             param_offset = 1;
         }
 
+        eprintln!("   Method has {} parameters", method.params.len());
         for (i, param) in method.params.iter().enumerate() {
+            eprintln!(
+                "   Processing param {}: {} (type: {:?})",
+                i, param.name, param.ty
+            );
             let param_val = fn_val
                 .get_nth_param((i + param_offset) as u32)
                 .ok_or_else(|| format!("Missing parameter {}", param.name))?;
 
-            let param_ty = self.ast_type_to_llvm(&param.ty);
-            let alloca = self
-                .builder
-                .build_alloca(param_ty, &param.name)
-                .map_err(|e| format!("Failed to create parameter alloca: {}", e))?;
+            // ⚠️ CRITICAL: Struct parameters are now passed BY VALUE (as StructValue)
+            // We need to allocate storage and store the value
+            let is_struct_param = match &param.ty {
+                Type::Named(type_name) => self.struct_defs.contains_key(type_name),
+                _ => false,
+            };
 
-            self.builder
-                .build_store(alloca, param_val)
-                .map_err(|e| format!("Failed to store parameter: {}", e))?;
+            eprintln!(
+                "      is_struct={}, is_struct_value={}",
+                is_struct_param,
+                param_val.is_struct_value()
+            );
 
-            self.variables.insert(param.name.clone(), alloca);
-            self.variable_types.insert(param.name.clone(), param_ty);
+            if is_struct_param && param_val.is_struct_value() {
+                // Struct parameter passed by value - allocate storage and store it
+                eprintln!("      → Allocating storage for struct value");
+                let struct_val = param_val.into_struct_value();
+                let alloca = self
+                    .builder
+                    .build_alloca(struct_val.get_type(), &param.name)
+                    .map_err(|e| format!("Failed to create struct param alloca: {}", e))?;
+
+                self.builder
+                    .build_store(alloca, struct_val)
+                    .map_err(|e| format!("Failed to store struct param: {}", e))?;
+
+                self.variables.insert(param.name.clone(), alloca);
+                self.variable_types
+                    .insert(param.name.clone(), struct_val.get_type().into());
+            } else {
+                // Non-struct parameter - allocate and store as usual
+                eprintln!("      → Standard alloca+store");
+                let param_ty = self.ast_type_to_llvm(&param.ty);
+                let alloca = self
+                    .builder
+                    .build_alloca(param_ty, &param.name)
+                    .map_err(|e| format!("Failed to create parameter alloca: {}", e))?;
+
+                self.builder
+                    .build_store(alloca, param_val)
+                    .map_err(|e| format!("Failed to store parameter: {}", e))?;
+
+                self.variables.insert(param.name.clone(), alloca);
+                self.variable_types.insert(param.name.clone(), param_ty);
+            }
+
             self.track_param_struct_name(&param.name, &param.ty);
         }
 

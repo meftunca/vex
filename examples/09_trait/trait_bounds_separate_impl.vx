@@ -1,4 +1,4 @@
-// Test: Multiple trait bounds - simplified
+// Test: Multiple trait bounds - struct impl syntax
 // Expected: Returns 100
 
 
@@ -13,18 +13,15 @@ trait Clone {
 
 struct Point impl Display, Clone {
     x: i32,
-    y: i32
-}
-
-// Separate impl blocks
-impl Display for Point {
-    fn (self: &Point)display(): string {
+    y: i32,
+    
+    // Display trait implementation
+    fn display(): string {
         return "Point";
     }
-}
-
-impl Clone for Point {
-    fn (self: &Point)clone(): Point {
+    
+    // Clone trait implementation
+    fn clone(): Point {
         let p = Point { x: 10, y: 20 };
         return p;
     }

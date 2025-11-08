@@ -1,5 +1,6 @@
 #include "vex_channel.h"
-#include <stdlib.h>
+#include "vex.h"
+#include <stdint.h>
 #include <string.h>
 
 // Helper to check if a number is a power of two
@@ -15,19 +16,16 @@ vex_channel_t *vex_channel_create(size_t capacity)
     return NULL; // Capacity must be a power of two for efficient masking
   }
 
-  vex_channel_t *chan = (vex_channel_t *)malloc(sizeof(vex_channel_t));
+  // Single allocation: channel header + slots inline (optimized!)
+  size_t total_size = sizeof(vex_channel_t) + (sizeof(vex_channel_slot_t) * capacity);
+  vex_channel_t *chan = (vex_channel_t *)vex_malloc(total_size);
   if (!chan)
   {
     return NULL;
   }
 
-  chan->buffer = (vex_channel_slot_t *)malloc(sizeof(vex_channel_slot_t) * capacity);
-  if (!chan->buffer)
-  {
-    free(chan);
-    return NULL;
-  }
-
+  // Slots are right after channel header
+  chan->buffer = (vex_channel_slot_t *)((uint8_t *)chan + sizeof(vex_channel_t));
   chan->capacity = capacity;
   chan->mask = capacity - 1;
 
@@ -48,8 +46,8 @@ void vex_channel_destroy(vex_channel_t *chan)
 {
   if (chan)
   {
-    free(chan->buffer);
-    free(chan);
+    // Single allocation: just free the channel (buffer is inline)
+    vex_free(chan);
   }
 }
 

@@ -278,16 +278,8 @@ char *vex_strcat_new(const char *s1, const char *s2)
     return result;
 }
 
-char *vex_strdup(const char *s)
-{
-    size_t len = vex_strlen(s) + 1; // +1 for null terminator
-    char *new_str = (char *)vex_malloc(len);
-    if (new_str)
-    {
-        vex_memcpy(new_str, s, len);
-    }
-    return new_str;
-}
+// vex_strdup removed - duplicate definition in vex_alloc.c
+
 
 // ============================================================================
 // UTF-8/UTF-16/UTF-32 OPERATIONS (SIMD-accelerated)

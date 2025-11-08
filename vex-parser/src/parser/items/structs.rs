@@ -44,13 +44,26 @@ impl<'a> Parser<'a> {
 
         let mut fields = Vec::new();
         let mut methods = Vec::new();
+        let mut associated_type_bindings = Vec::new(); // ⭐ NEW: Store associated types
 
         // Parse fields and methods
         while !self.check(&Token::RBrace) && !self.is_at_end() {
-            // Check if this is a method (fn keyword) or field
+            // Check if this is a method (fn keyword), associated type (type keyword), or field
             if self.check(&Token::Fn) {
                 // Parse method
                 methods.push(self.parse_struct_method()?);
+            } else if self.check(&Token::Type) {
+                // ⭐ NEW: Parse associated type binding: type Item = i32;
+                self.advance(); // consume 'type'
+                let type_name = self.consume_identifier()?;
+                self.consume(&Token::Eq, "Expected '=' after associated type name")?;
+                let bound_type = self.parse_type()?;
+                self.consume(
+                    &Token::Semicolon,
+                    "Expected ';' after associated type binding",
+                )?;
+
+                associated_type_bindings.push((type_name, bound_type));
             } else {
                 // Parse field
                 let field_name = self.consume_identifier()?;
@@ -91,6 +104,7 @@ impl<'a> Parser<'a> {
             type_params,
             policies,
             impl_traits,
+            associated_type_bindings, // ⭐ NEW: Include associated types
             fields,
             methods,
         }))

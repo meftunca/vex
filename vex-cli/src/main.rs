@@ -13,6 +13,51 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Create a new Vex project
+    New {
+        /// Project name
+        #[arg(value_name = "NAME")]
+        name: String,
+
+        /// Project path (default: ./<name>)
+        #[arg(short, long, value_name = "PATH")]
+        path: Option<PathBuf>,
+    },
+
+    /// Initialize vex.json in existing directory
+    Init {
+        /// Project path (default: current directory)
+        #[arg(value_name = "PATH")]
+        path: Option<PathBuf>,
+    },
+
+    /// Add a dependency
+    Add {
+        /// Package URL (e.g., github.com/user/repo@v1.0.0)
+        #[arg(value_name = "PACKAGE")]
+        package: String,
+
+        /// Version (if not in package URL)
+        #[arg(short, long, value_name = "VERSION")]
+        version: Option<String>,
+    },
+
+    /// Remove a dependency
+    Remove {
+        /// Package name
+        #[arg(value_name = "PACKAGE")]
+        package: String,
+    },
+
+    /// List all dependencies
+    List,
+
+    /// Update all dependencies to latest versions
+    Update,
+
+    /// Clean cache and build artifacts
+    Clean,
+
     /// Compile a Vex source file
     Compile {
         /// Input .vx file
@@ -38,6 +83,10 @@ enum Commands {
         /// Emit LLVM IR
         #[arg(long)]
         emit_llvm: bool,
+
+        /// Use lock file (CI mode - fails if lock file is invalid)
+        #[arg(long)]
+        locked: bool,
 
         /// Emit SPIR-V (for GPU functions)
         #[arg(long)]
@@ -92,6 +141,41 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
+        Commands::New { name, path } => {
+            vex_pm::create_new_project(&name, path)?;
+            Ok(())
+        }
+
+        Commands::Init { path } => {
+            vex_pm::init_project(path)?;
+            Ok(())
+        }
+
+        Commands::Add { package, version } => {
+            vex_pm::add_dependency(&package, version.as_deref())?;
+            Ok(())
+        }
+
+        Commands::Remove { package } => {
+            vex_pm::remove_dependency(&package)?;
+            Ok(())
+        }
+
+        Commands::List => {
+            vex_pm::list_dependencies()?;
+            Ok(())
+        }
+
+        Commands::Update => {
+            vex_pm::update_dependencies()?;
+            Ok(())
+        }
+
+        Commands::Clean => {
+            vex_pm::clean_cache()?;
+            Ok(())
+        }
+
         Commands::Compile {
             input,
             output,
@@ -99,9 +183,16 @@ fn main() -> Result<()> {
             gpu,
             opt_level,
             emit_llvm,
+            locked,
             emit_spirv: _,
             json,
         } => {
+            // Resolve dependencies before compilation
+            if let Err(e) = vex_pm::resolve_dependencies_for_build(locked) {
+                eprintln!("❌ Dependency resolution failed: {}", e);
+                std::process::exit(1);
+            }
+
             use inkwell::targets::{FileType, Target};
             use std::process::Command;
 
@@ -572,9 +663,30 @@ fn main() -> Result<()> {
             }
         }
         Commands::Format { input, in_place } => {
-            // TODO: Implement formatter
-            println!("✨ Formatting: {:?}, in_place: {}", input, in_place);
-            anyhow::bail!("Format command not yet implemented");
+            println!("✨ Formatting: {:?}", input);
+
+            // Load configuration
+            let config = if let Ok(cfg) = vex_formatter::Config::from_dir(
+                &input.parent().unwrap_or(std::path::Path::new(".")),
+            ) {
+                cfg
+            } else {
+                vex_formatter::Config::default()
+            };
+
+            // Format the file
+            let formatted = vex_formatter::format_file(&input, &config)?;
+
+            if in_place {
+                // Write back to original file
+                std::fs::write(&input, &formatted)?;
+                println!("✅ Formatted {} in place", input.display());
+            } else {
+                // Print to stdout
+                println!("{}", formatted);
+            }
+
+            Ok(())
         }
     }
 }

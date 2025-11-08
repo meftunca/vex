@@ -2,7 +2,7 @@
 #include "vex_fastenc.h"
 #include <string.h>
 static uint32_t rol(uint32_t x, int s){ return (x<<s)|(x>>(32-s)); }
-static void md5_core(const uint8_t* d, size_t n, uint32_t h[4]){
+static void md5_core(const uint8_t* data, size_t n, uint32_t h[4]){
   static const uint32_t K[64]={
     0xd76aa478,0xe8c7b756,0x242070db,0xc1bdceee,0xf57c0faf,0x4787c62a,0xa8304613,0xfd469501,
     0x698098d8,0x8b44f7af,0xffff5bb1,0x895cd7be,0x6b901122,0xfd987193,0xa679438e,0x49b40821,
@@ -16,7 +16,7 @@ static void md5_core(const uint8_t* d, size_t n, uint32_t h[4]){
   for (size_t i=0;i<n;i+=64){
     uint32_t a=h[0],b=h[1],c=h[2],d=h[3];
     uint32_t X[16]; for (int j=0;j<16;j++){
-      X[j] = (uint32_t)d[i+4*j] | ((uint32_t)d[i+4*j+1]<<8) | ((uint32_t)d[i+4*j+2]<<16) | ((uint32_t)d[i+4*j+3]<<24);
+      X[j] = (uint32_t)data[i+4*j] | ((uint32_t)data[i+4*j+1]<<8) | ((uint32_t)data[i+4*j+2]<<16) | ((uint32_t)data[i+4*j+3]<<24);
     }
     for (int t=0;t<64;t++){
       uint32_t F,g;

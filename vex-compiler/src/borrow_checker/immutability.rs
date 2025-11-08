@@ -19,6 +19,9 @@ pub struct ImmutabilityChecker {
 
     /// Current function being checked (for error location tracking)
     current_function: Option<String>,
+
+    /// ⭐ NEW: Track if we're in a mutable method (fn method()!)
+    in_mutable_method: bool,
 }
 
 impl ImmutabilityChecker {
@@ -28,6 +31,7 @@ impl ImmutabilityChecker {
             mutable_vars: HashSet::new(),
             builtin_registry: super::builtin_metadata::BuiltinBorrowRegistry::new(),
             current_function: None,
+            in_mutable_method: false,
         }
     }
 
@@ -47,6 +51,9 @@ impl ImmutabilityChecker {
             Item::Function(func) => {
                 // Track current function name for error messages
                 self.current_function = Some(func.name.clone());
+
+                // ⭐ NEW: Track if this is a mutable method
+                self.in_mutable_method = func.is_mutable && func.receiver.is_some();
 
                 // Create new scope for function
                 let saved_immutable = self.immutable_vars.clone();
@@ -77,12 +84,17 @@ impl ImmutabilityChecker {
                 self.immutable_vars = saved_immutable;
                 self.mutable_vars = saved_mutable;
                 self.current_function = None;
+                self.in_mutable_method = false; // ⭐ NEW: Reset flag
 
                 Ok(())
             }
             Item::Struct(strukt) => {
                 // ⭐ NEW: Check struct methods
                 for method in &strukt.methods {
+                    // Track method mutability
+                    self.in_mutable_method = method.is_mutable;
+                    self.current_function = Some(format!("{}.{}", strukt.name, method.name));
+
                     // Create new scope for method
                     let saved_immutable = self.immutable_vars.clone();
                     let saved_mutable = self.mutable_vars.clone();
@@ -110,8 +122,9 @@ impl ImmutabilityChecker {
                     // Restore scope
                     self.immutable_vars = saved_immutable;
                     self.mutable_vars = saved_mutable;
+                    self.current_function = None;
+                    self.in_mutable_method = false; // ⭐ NEW: Reset flag
                 }
-
                 Ok(())
             }
             Item::Enum(_)

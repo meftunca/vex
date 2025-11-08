@@ -23,29 +23,61 @@
 #include <time.h>
 #include <errno.h>
 
-#if defined(__linux__)
-#define VEX_LINUX 1
+// Use vex_macros.h if available (Vex runtime integration)
+#if __has_include("vex_macros.h")
+  #include "vex_macros.h"
+  // vex_macros.h provides:
+  // - VEX_OS_LINUX, VEX_OS_MACOS, VEX_OS_WINDOWS
+  // - VEX_ARCH_X86, VEX_ARCH_ARM
+  // - VEX_SIMD_X86, VEX_SIMD_NEON
+  // - VEX_PREFETCH, VEX_BARRIER
+  
+  // Compatibility aliases for vex_testing.c
+  #define VEX_LINUX VEX_OS_LINUX
+  #define VEX_X86 VEX_SIMD_X86
 #else
-#define VEX_LINUX 0
-#endif
+  // Standalone mode: Define macros locally
+  #if defined(__linux__)
+    #define VEX_LINUX 1
+  #else
+    #define VEX_LINUX 0
+  #endif
 
-#if defined(__has_include)
-#if __has_include(<x86intrin.h>)
-#include <x86intrin.h>
-#define VEX_X86 1
-#elif __has_include(<immintrin.h>)
-#include <immintrin.h>
-#define VEX_X86 1
-#else
-#define VEX_X86 0
-#endif
-#else
-#if defined(__x86_64__) || defined(__i386__)
-#include <x86intrin.h>
-#define VEX_X86 1
-#else
-#define VEX_X86 0
-#endif
+  #if defined(__has_include)
+    #if __has_include(<x86intrin.h>)
+      #include <x86intrin.h>
+      #define VEX_X86 1
+    #elif __has_include(<immintrin.h>)
+      #include <immintrin.h>
+      #define VEX_X86 1
+    #else
+      #define VEX_X86 0
+    #endif
+  #else
+    #if defined(__x86_64__) || defined(__i386__)
+      #include <x86intrin.h>
+      #define VEX_X86 1
+    #else
+      #define VEX_X86 0
+    #endif
+  #endif
+  
+  // Prefetch/Barrier macros (if not provided by vex_macros.h)
+  #if !defined(__has_builtin)
+    #define __has_builtin(x) 0
+  #endif
+
+  #if __has_builtin(__builtin_prefetch) || defined(__GNUC__)
+    #define VEX_PREFETCH(p, rw, loc) __builtin_prefetch((p), (rw), (loc))
+  #else
+    #define VEX_PREFETCH(p, rw, loc) ((void)0)
+  #endif
+
+  #if defined(_MSC_VER)
+    #define VEX_BARRIER() _ReadWriteBarrier()
+  #else
+    #define VEX_BARRIER() asm volatile("" ::: "memory")
+  #endif
 #endif
 
 #if VEX_LINUX
@@ -87,24 +119,8 @@
 #define VEX_TEST_LOGBUF_SZ 8192
 #endif
 
-/* =========================
- * Small portability helpers
- * ========================= */
-#if !defined(__has_builtin)
-#define __has_builtin(x) 0
-#endif
-
-#if __has_builtin(__builtin_prefetch) || defined(__GNUC__)
-#define VEX_PREFETCH(p, rw, loc) __builtin_prefetch((p), (rw), (loc))
-#else
-#define VEX_PREFETCH(p, rw, loc) ((void)0)
-#endif
-
-#if defined(_MSC_VER)
-#define VEX_BARRIER() _ReadWriteBarrier()
-#else
-#define VEX_BARRIER() asm volatile("" ::: "memory")
-#endif
+// Note: VEX_PREFETCH and VEX_BARRIER are now provided by vex_macros.h
+// or defined above in standalone mode
 
 /* =========================
  * Low-level time utilities

@@ -22,7 +22,7 @@
  */
 vex_vec_t *vex_vec_new(size_t elem_size)
 {
-  vex_vec_t *vec = malloc(sizeof(vex_vec_t));
+  vex_vec_t *vec = vex_malloc(sizeof(vex_vec_t));
   if (!vec)
   {
     fprintf(stderr, "Vec allocation failed\n");
@@ -42,7 +42,7 @@ vex_vec_t *vex_vec_new(size_t elem_size)
 static void vex_vec_grow(vex_vec_t *vec)
 {
   size_t new_cap = vec->capacity == 0 ? 8 : vec->capacity * 2;
-  void *new_data = realloc(vec->data, new_cap * vec->elem_size);
+  void *new_data = vex_realloc(vec->data, new_cap * vec->elem_size);
   if (!new_data)
   {
     fprintf(stderr, "Vec allocation failed\n");
@@ -119,7 +119,7 @@ void vex_vec_reserve(vex_vec_t *vec, size_t additional)
   {
     new_cap *= 2;
   }
-  void *new_data = realloc(vec->data, new_cap * vec->elem_size);
+  void *new_data = vex_realloc(vec->data, new_cap * vec->elem_size);
   if (!new_data)
   {
     fprintf(stderr, "Vec reserve failed\n");
@@ -180,10 +180,10 @@ void vex_vec_free(vex_vec_t *vec)
   }
   if (vec->data)
   {
-    free(vec->data);
+    vex_free(vec->data);
     vec->data = NULL;
   }
-  free(vec);
+  vex_free(vec);
 }
 
 /**

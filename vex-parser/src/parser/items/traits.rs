@@ -70,60 +70,31 @@ impl<'a> Parser<'a> {
     }
 
     pub(crate) fn parse_trait_impl(&mut self) -> Result<Item, ParseError> {
-        // impl TraitName for TypeName { ... }
-        // impl<T> TraitName<T> for Vec<T> { ... }
+        // ❌ DEPRECATED SYNTAX: impl TraitName for TypeName { ... }
+        // ✅ USE INSTEAD: struct TypeName impl TraitName { ... }
         self.consume(&Token::Impl, "Expected 'impl'")?;
 
-        // Parse generic type parameters with bounds: impl<T: Display>
-        let type_params = self.parse_type_params()?;
+        // Parse generic type parameters (if any)
+        let _type_params = self.parse_type_params()?;
 
         // Parse trait name
         let trait_name = self.consume_identifier()?;
 
-        // Optionally parse trait generic arguments: impl Display<i32> for Point
-        // For now, we'll skip this and just store the trait name
-
-        // Consume 'for' keyword (Token::For)
-        self.consume(&Token::For, "Expected 'for' after trait name")?;
-
-        // Parse the type being implemented for
-        let for_type = self.parse_type()?;
-
-        self.consume(&Token::LBrace, "Expected '{'")?;
-
-        // Parse associated type bindings and method implementations
-        let mut associated_type_bindings = Vec::new();
-        let mut methods = Vec::new();
-
-        while !self.check(&Token::RBrace) && !self.is_at_end() {
-            if self.check(&Token::Fn) {
-                self.advance(); // consume 'fn'
-                methods.push(self.parse_function()?);
-            } else if self.check(&Token::Type) {
-                // Parse associated type binding: type Item = i32;
-                self.advance(); // consume 'type'
-                let type_name = self.consume_identifier()?;
-                self.consume(&Token::Eq, "Expected '=' after associated type name")?;
-                let bound_type = self.parse_type()?;
-                self.consume(
-                    &Token::Semicolon,
-                    "Expected ';' after associated type binding",
-                )?;
-                associated_type_bindings.push((type_name, bound_type));
-            } else {
-                return Err(self.error("Expected method or associated type binding in impl block"));
-            }
+        // Check if this is the deprecated 'impl Trait for Type' syntax
+        if self.check(&Token::For) {
+            // ❌ REJECT: External trait implementations are not allowed in Vex v0.9+
+            return Err(self.error(&format!(
+                "External trait implementations are not allowed. Use 'struct <Type> impl {} {{ ... }}' instead of 'impl {} for <Type>'.\n\
+                Vex requires trait methods to be defined inside the struct body for clarity.",
+                trait_name, trait_name
+            )));
         }
 
-        self.consume(&Token::RBrace, "Expected '}'")?;
-
-        Ok(Item::TraitImpl(TraitImpl {
-            trait_name,
-            type_params,
-            for_type,
-            associated_type_bindings,
-            methods,
-        }))
+        // If we get here without 'for', this is an error (malformed impl)
+        return Err(self.error(&format!(
+            "Invalid impl syntax. Use 'struct <Type> impl {} {{ ... }}' to implement trait methods.",
+            trait_name
+        )));
     }
 
     pub(crate) fn parse_trait_method_signature(&mut self) -> Result<TraitMethod, ParseError> {

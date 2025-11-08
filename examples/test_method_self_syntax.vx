@@ -1,0 +1,44 @@
+// Test: Method mutability - current behavior
+// fn method()! allows self.field mutations
+
+struct Counter {
+    value: i32,
+    
+    // Immutable method
+    fn get(): i32 {
+        return self.value;
+    }
+    
+    // Mutable method - can mutate fields
+    fn increment()! {
+        self.value += 1;  // ← Should this require self!.value?
+        return;
+    }
+    
+    // Mutable method - reset
+    fn reset()! {
+        self.value = 0;
+        return;
+    }
+}
+
+fn main(): i32 {
+    let! c = Counter { value: 10 };
+    
+    // Call immutable method
+    let val = c.get();
+    println("Initial value:", val);
+    
+    // Call mutable methods
+    c.increment()!;
+    c.increment()!;
+    
+    let val2 = c.get();
+    println("After increment:", val2);
+    
+    c.reset()!;
+    let val3 = c.get();
+    println("After reset:", val3);
+    
+    return val3;  // Should return 0
+}

@@ -265,8 +265,46 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Compile other arguments
         let mut arg_vals: Vec<BasicMetadataValueEnum> = vec![receiver_val.into()];
-        for arg in args {
+        for (arg_idx, arg) in args.iter().enumerate() {
             let val = self.compile_expression(arg)?;
+
+            // ⚠️ NEW: Struct arguments are now passed BY VALUE
+            // If we have a pointer (from variable), we need to LOAD the value
+            // If we already have a struct value (from function return), use it directly
+            if let Some(func_def) = self.function_defs.get(&final_method_name) {
+                // Account for receiver as first param
+                if arg_idx < func_def.params.len() {
+                    let param_ty = &func_def.params[arg_idx].ty;
+                    let is_struct_param = match param_ty {
+                        Type::Named(type_name) => self.struct_defs.contains_key(type_name),
+                        _ => false,
+                    };
+
+                    if is_struct_param {
+                        eprintln!(
+                            "🔧 Method arg {}: is_struct=true, val.is_pointer={}, val.is_struct={}",
+                            arg_idx,
+                            val.is_pointer_value(),
+                            val.is_struct_value()
+                        );
+
+                        if val.is_pointer_value() {
+                            // We have a POINTER but need a VALUE - load it
+                            eprintln!("   ⚠️ Loading struct value from pointer for method arg");
+                            let ptr_val = val.into_pointer_value();
+                            let struct_llvm_type = self.ast_type_to_llvm(param_ty);
+                            let loaded_val = self
+                                .builder
+                                .build_load(struct_llvm_type, ptr_val, "arg_load")
+                                .map_err(|e| format!("Failed to load struct arg: {}", e))?;
+                            arg_vals.push(loaded_val.into());
+                            continue;
+                        }
+                        // else: already a struct value, fall through
+                    }
+                }
+            }
+
             arg_vals.push(val.into());
         }
 

@@ -1,0 +1,16 @@
+[package]
+name = "vex-formatter"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+vex-ast = { path = "../vex-ast" }
+vex-parser = { path = "../vex-parser" }
+vex-lexer = { path = "../vex-lexer" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+anyhow = "1.0"
+thiserror = "1.0"

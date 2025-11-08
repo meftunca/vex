@@ -39,7 +39,6 @@ SOURCES=(
     "swisstable/vex_swisstable.c"
     "vex_file.c"
     "vex_mmap.c"
-    "vex_time.c"
     "vex_path.c"
     "vex_strconv.c"
     "vex_url.c"

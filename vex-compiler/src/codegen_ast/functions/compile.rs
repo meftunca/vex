@@ -113,12 +113,38 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     ));
                 }
             } else {
-                let alloca = self.create_entry_block_alloca(&param.name, &param.ty, true)?;
-                self.builder
-                    .build_store(alloca, param_val)
-                    .map_err(|e| format!("Failed to store parameter: {}", e))?;
-                self.variables.insert(param.name.clone(), alloca);
-                self.variable_types.insert(param.name.clone(), param_type);
+                // ⚠️ CRITICAL: Struct parameters are passed as POINTERS (not values)
+                // So if the parameter type is a struct, param_val is already a pointer.
+                // We should NOT allocate+store, just use the pointer directly!
+                let is_struct_param = match &param.ty {
+                    Type::Named(type_name) => self.struct_defs.contains_key(type_name),
+                    _ => false,
+                };
+
+                eprintln!(
+                    "📌 Parameter '{}': type={:?}, is_struct={}, is_pointer={}",
+                    param.name,
+                    param.ty,
+                    is_struct_param,
+                    param_val.is_pointer_value()
+                );
+
+                if is_struct_param && param_val.is_pointer_value() {
+                    // Struct parameter - use the pointer directly, don't allocate
+                    eprintln!("   → Using pointer directly (no alloca)");
+                    let ptr_val = param_val.into_pointer_value();
+                    self.variables.insert(param.name.clone(), ptr_val);
+                    self.variable_types.insert(param.name.clone(), param_type);
+                } else {
+                    // Non-struct parameter - allocate and store as usual
+                    eprintln!("   → Allocating and storing");
+                    let alloca = self.create_entry_block_alloca(&param.name, &param.ty, true)?;
+                    self.builder
+                        .build_store(alloca, param_val)
+                        .map_err(|e| format!("Failed to store parameter: {}", e))?;
+                    self.variables.insert(param.name.clone(), alloca);
+                    self.variable_types.insert(param.name.clone(), param_type);
+                }
 
                 let extract_struct_name = |ty: &Type| -> Option<String> {
                     match ty {

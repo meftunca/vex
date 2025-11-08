@@ -5,8 +5,12 @@ members = [
     "vex-ast",
     "vex-compiler",
     "vex-runtime",
-    "vex-cli"
-, "vex-lsp", "vex-diagnostics"]
+    "vex-cli",
+    "vex-lsp",
+    "vex-diagnostics",
+    "vex-pm",
+    "vex-formatter",
+]
 resolver = "2"
 
 [workspace.package]

@@ -5,6 +5,7 @@
   "patterns": [
     { "include": "#comments" },
     { "include": "#strings" },
+    { "include": "#metadata" },
     { "include": "#characters" },
     { "include": "#numbers" },
     { "include": "#keywords" },
@@ -60,6 +61,21 @@
         }
       ]
     },
+    "metadata": {
+      "patterns": [
+        {
+          "name": "string.quoted.backtick.vex",
+          "begin": "`",
+          "end": "`",
+          "patterns": [
+            {
+              "name": "meta.tag.metadata.vex",
+              "match": "([a-z_][a-z0-9_]*)\\s*:\\s*\"([^\"]*)\""
+            }
+          ]
+        }
+      ]
+    },
     "characters": {
       "name": "string.quoted.single.vex",
       "match": "'([^'\\\\]|\\\\.)'",
@@ -99,7 +115,7 @@
         },
         {
           "name": "keyword.declaration.vex",
-          "match": "\\b(fn|struct|enum|trait|impl|type|const|let)\\b"
+          "match": "\\b(fn|struct|enum|trait|impl|type|const|let|policy|with)\\b"
         },
         {
           "name": "storage.modifier.vex",

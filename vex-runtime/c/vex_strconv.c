@@ -31,30 +31,40 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+// Use vex_macros.h if available (Vex runtime integration)
+#if __has_include("vex_macros.h")
+  #include "vex_macros.h"
+  // vex_macros.h provides VEX_SIMD_X86 and VEX_SIMD_NEON with intrinsics
+  // Use compatibility aliases for vex_strconv.c
+  #define VX_SIMD_X86 VEX_SIMD_X86
+  #define VX_SIMD_NEON VEX_SIMD_NEON
+#else
+  // Standalone mode: Define SIMD detection locally
+  #if !defined(VX_STRCONV_SIMD)
+    #define VX_STRCONV_SIMD 1
+  #endif
+
+  #if VX_STRCONV_SIMD
+    #if defined(__x86_64__) || defined(_M_X64) || defined(__i386__)
+      #include <immintrin.h>
+      #define VX_SIMD_X86 1
+    #else
+      #define VX_SIMD_X86 0
+    #endif
+    #if defined(__ARM_NEON) || defined(__ARM_NEON__) || defined(__aarch64__)
+      #include <arm_neon.h>
+      #define VX_SIMD_NEON 1
+    #else
+      #define VX_SIMD_NEON 0
+    #endif
+  #else
+    #define VX_SIMD_X86 0
+    #define VX_SIMD_NEON 0
+  #endif
+#endif
+
 #ifndef VX_STRCONV_USE_STRTOD_FALLBACK
 #define VX_STRCONV_USE_STRTOD_FALLBACK 1
-#endif
-
-#if !defined(VX_STRCONV_SIMD)
-#define VX_STRCONV_SIMD 1
-#endif
-
-#if VX_STRCONV_SIMD
-#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__)
-#include <immintrin.h>
-#define VX_SIMD_X86 1
-#else
-#define VX_SIMD_X86 0
-#endif
-#if defined(__ARM_NEON) || defined(__ARM_NEON__) || defined(__aarch64__)
-#include <arm_neon.h>
-#define VX_SIMD_NEON 1
-#else
-#define VX_SIMD_NEON 0
-#endif
-#else
-#define VX_SIMD_X86 0
-#define VX_SIMD_NEON 0
 #endif
 
 typedef enum

@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <sys/types.h>  /* for ssize_t */
 
 #ifdef __cplusplus
 extern "C" {

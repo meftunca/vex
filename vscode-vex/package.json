@@ -22,6 +22,9 @@
     "url": "https://github.com/meftunca/vex"
   },
   "main": "./out/extension.js",
+  "activationEvents": [
+    "onLanguage:vex"
+  ],
   "contributes": {
     "languages": [
       {
@@ -65,7 +68,57 @@
         "command": "vex.restartServer",
         "title": "Vex: Restart Language Server"
       }
-    ]
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "Vex Language Configuration",
+      "properties": {
+        "vex.format.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable/disable Vex formatter"
+        },
+        "vex.format.maxWidth": {
+          "type": "number",
+          "default": 100,
+          "description": "Maximum line width before wrapping"
+        },
+        "vex.format.indentSize": {
+          "type": "number",
+          "default": 4,
+          "description": "Number of spaces per indentation level"
+        },
+        "vex.format.braceStyle": {
+          "type": "string",
+          "enum": [
+            "same_line",
+            "next_line"
+          ],
+          "default": "same_line",
+          "description": "Brace placement style"
+        },
+        "vex.format.trailingComma": {
+          "type": "string",
+          "enum": [
+            "always",
+            "never",
+            "multiline"
+          ],
+          "default": "multiline",
+          "description": "Trailing comma policy"
+        },
+        "vex.format.quoteStyle": {
+          "type": "string",
+          "enum": [
+            "double",
+            "single",
+            "preserve"
+          ],
+          "default": "double",
+          "description": "String quote style"
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "cd client && npm run compile",

@@ -133,6 +133,33 @@ vex_lang/
 │           ├── lifetimes.rs (692)       # Phase 4: Lifetime analysis
 │           └── closure_traits.rs (357)  # Closure trait inference
 ├── vex-cli/                             # Command-line interface
+├── vex-pm/                              # Package manager (Phase 0.1-0.4 COMPLETE!)
+│   ├── Cargo.toml
+│   └── src/
+│       ├── lib.rs (26)                  # Public API
+│       ├── manifest.rs (250)            # vex.json parser + validation
+│       ├── platform.rs (244)            # Platform detection + file selector
+│       ├── cli.rs (210)                 # CLI commands (new, init)
+│       ├── git.rs (200)                 # Git integration (clone, checkout)
+│       ├── lockfile.rs (210)            # Lock file generator + validator
+│       ├── cache.rs (180)               # Global cache (~/.vex/cache/)
+│       ├── resolver.rs (209)            # MVS dependency resolver
+│       ├── commands.rs (358)            # Package commands (add, remove, list, update, clean)
+│       └── build.rs (215)               # Build integration (resolve deps, link packages)
+├── vex-formatter/                       # Code formatter (COMPLETE!)
+│   ├── Cargo.toml
+│   ├── README.md                        # Formatter documentation
+│   └── src/
+│       ├── lib.rs (30)                  # Public API (format_file, format_source)
+│       ├── config.rs (180)              # JSON config parser (vexfmt.json)
+│       ├── formatter.rs (40)            # Main formatting logic
+│       ├── visitor.rs (520)             # AST visitor (traversal + output)
+│       └── rules/                       # Formatting rules
+│           ├── mod.rs                   # Rules module exports
+│           ├── indentation.rs           # Indentation calculation
+│           ├── spacing.rs               # Spacing rules (operators, types)
+│           ├── imports.rs               # Import sorting/grouping
+│           └── expressions.rs           # Expression formatting
 ├── vex-runtime/                         # Runtime (async, SIMD, C ABI)
 │   ├── src/                             # Rust FFI bindings
 │   ├── c/                               # ⚠️ C ABI RUNTIME (CRITICAL)
@@ -168,7 +195,8 @@ vex_lang/
 │   ├── 06_patterns/                     # Pattern matching
 │   ├── 07_strings/                      # String operations
 │   ├── 08_algorithms/                   # Fibonacci, factorial
-│   └── 09_trait/                        # Trait system
+│   ├── 09_trait/                        # Trait system
+│   └── test_format.vx                   # Formatter test file
 ├── docs/                                # Documentation
 │   ├── CLOSURE_IMPLEMENTATION_COMPLETE.md
 │   ├── VARIABLE_SYSTEM_V09.md
@@ -177,6 +205,7 @@ vex_lang/
 ├── README.md                            # Project overview
 ├── Specification.md                     # Language spec (Turkish)
 ├── SYNTAX.md                            # Syntax reference
+├── vexfmt.json                          # Formatter config (example)
 └── test_all.sh                          # Run all tests
 
 Binary location: ~/.cargo/target/debug/vex (NOT ./target/)
@@ -224,12 +253,25 @@ cargo build
 # Compile to binary
 ~/.cargo/target/debug/vex compile examples/08_algorithms/fibonacci.vx
 
+# Compile with dependencies (CI mode)
+~/.cargo/target/debug/vex compile --locked examples/main.vx
+
 # Run all tests
 ./test_all.sh
 
 # Emit LLVM IR
 ~/.cargo/target/debug/vex compile examples/test.vx --emit-llvm
 cat vex-builds/test.ll
+
+# Format code
+~/.cargo/target/debug/vex format examples/test.vx              # Display output
+~/.cargo/target/debug/vex format examples/test.vx --in-place   # Format in place
+
+# Package manager commands
+~/.cargo/target/debug/vex new my_project      # Create new project
+~/.cargo/target/debug/vex init                # Initialize vex.json
+~/.cargo/target/debug/vex add pkg@v1.0.0      # Add dependency
+~/.cargo/target/debug/vex build --locked      # CI build mode
 ```
 
 ## 🔑 Key Syntax Rules (v0.9)

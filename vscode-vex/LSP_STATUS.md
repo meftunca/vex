@@ -104,6 +104,15 @@ Cmd+Shift+P → "Vex: Restart Language Server"
 - Client-server connection established
 - Document synchronization working
 - Output panel shows logs
+- **Hover type information** ✅
+- **Auto-completion** ✅
+- **Go to definition** ✅
+- **Find references** ✅
+- **Document symbols** ✅
+- **Signature help** ✅
+- **Rename refactoring** ✅
+- **Code formatting (textDocument/formatting)** ✅ NEW!
+- **Range formatting (textDocument/rangeFormatting)** ✅ NEW!
 
 ### ⚠️ Partial
 
@@ -113,11 +122,10 @@ Cmd+Shift+P → "Vex: Restart Language Server"
 
 ### ❌ Not Yet Implemented
 
-- Hover type information (shows "Hover not yet implemented")
-- Auto-completion (shows "Completion not yet implemented")
-- Go to definition
-- Find references
-- Code formatting
+- Policy language feature integration
+- Workspace symbols
+- Code actions (quick fixes)
+- Semantic highlighting
 
 ## 🎯 Next Steps
 
