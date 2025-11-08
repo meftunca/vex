@@ -5,6 +5,7 @@ This directory contains archived documentation files that have been moved from t
 ## 📁 Archived Files
 
 ### Implementation Notes (Completed Features)
+
 - `ASYNC_RUNTIME_FIX_NOV8_2025.md` - Async runtime fixes (Nov 8, 2025)
 - `ASYNC_RUNTIME_INTEGRATION_COMPLETE.md` - Async runtime integration completion
 - `BUILTINS_FEATURES.md` - Built-in features documentation
@@ -23,6 +24,7 @@ This directory contains archived documentation files that have been moved from t
 - `TEST_STATUS_NOV8_2025.md` - Test status (Nov 8, 2025)
 
 ### Specifications (Superseded)
+
 - `PACKAGE_MANAGER_QUICKSTART.md` - Package manager quickstart (superseded by Specifications/)
 - `PACKAGE_MANAGER_SPEC_v1.md` - Package manager spec v1 (superseded by Specifications/)
 - `SYNTAX.md` - Syntax documentation (superseded by Specifications/ and docs/REFERENCE.md)
@@ -40,6 +42,7 @@ For current documentation, see:
 ## 🗂️ Archive Policy
 
 Files are moved to archive when:
+
 - Implementation is complete and documented elsewhere
 - Specifications are superseded by formal docs
 - Notes become obsolete due to refactoring

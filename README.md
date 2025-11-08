@@ -167,6 +167,7 @@ vex_lang/
 ```
 
 **Compilation Pipeline:**
+
 ```
 Source (.vx) → Lexer → Parser → AST → Borrow Check → LLVM IR → Binary
 ```
@@ -175,14 +176,14 @@ Source (.vx) → Lexer → Parser → AST → Borrow Check → LLVM IR → Binar
 
 ## 📚 Documentation
 
-| Document | Description |
-|----------|-------------|
+| Document                                                 | Description                         |
+| -------------------------------------------------------- | ----------------------------------- |
 | **[docs/PROJECT_PROGRESS.md](docs/PROJECT_PROGRESS.md)** | Complete feature overview & roadmap |
-| **[docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md)** | Current implementation status |
-| **[docs/REFERENCE.md](docs/REFERENCE.md)** | Technical reference manual |
-| **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** | Implementation architecture |
-| **[Specifications/](Specifications/)** | Formal language specifications |
-| **[docs/archive/](docs/archive/)** | Archived documentation |
+| **[docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md)**     | Current implementation status       |
+| **[docs/REFERENCE.md](docs/REFERENCE.md)**               | Technical reference manual          |
+| **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**         | Implementation architecture         |
+| **[Specifications/](Specifications/)**                   | Formal language specifications      |
+| **[docs/archive/](docs/archive/)**                       | Archived documentation              |
 
 ---
 
@@ -194,6 +195,7 @@ Source (.vx) → Lexer → Parser → AST → Borrow Check → LLVM IR → Binar
 - **Test Types**: Unit, integration, end-to-end
 
 ### Test Categories
+
 - **Parser Tests**: Syntax validation (50+ tests)
 - **Type Checker**: Type inference and validation (30+ tests)
 - **Borrow Checker**: Memory safety (14 tests - 100% coverage)
@@ -208,6 +210,7 @@ Source (.vx) → Lexer → Parser → AST → Borrow Check → LLVM IR → Binar
 ## 🎯 Development Status
 
 ### ✅ IMPLEMENTED FEATURES (100%)
+
 - Memory Safety & Ownership System
 - Concurrency (Goroutines + Channels)
 - Advanced Type System (Generics, Traits, Pattern Matching)
@@ -215,10 +218,12 @@ Source (.vx) → Lexer → Parser → AST → Borrow Check → LLVM IR → Binar
 - Complete Tooling Ecosystem
 
 ### 🚧 IN PROGRESS (60% → 100%)
+
 - **LSP Features**: Code actions, refactoring, advanced navigation
 - **IDE Integration**: Enhanced diagnostics and completion
 
 ### 📋 PLANNED FEATURES (Phase 1.0+)
+
 - Advanced type system extensions
 - Metaprogramming capabilities
 - Enterprise features (JIT, AOT, GC mode)
@@ -274,4 +279,4 @@ MIT License
 
 ---
 
-*This README is automatically updated by `scripts/update_docs.sh`*
+_This README is automatically updated by `scripts/update_docs.sh`_

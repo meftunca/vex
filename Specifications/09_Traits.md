@@ -81,32 +81,42 @@ trait Comparable {
 
 ## Trait Implementation
 
-### Inline Implementation (v1.3)
+### Method Mutability in Traits
 
-Implement traits directly in struct definition:
+Trait signatures specify mutability contracts:
 
 ```vex
 trait Logger {
-    fn (self: &Self!) log(msg: string);
+    fn log(msg: string);        // Immutable contract
+    fn clear()!;                // Mutable contract
 }
+```
 
+### Inline Implementation
+
+```vex
 struct ConsoleLogger impl Logger {
     prefix: string,
 
-    fn (self: &ConsoleLogger!) log(msg: string) {
-        // Implementation
+    // Trait methods MUST be in struct body
+    fn log(msg: string) {
+        print(self.prefix, ": ", msg);
+    }
+
+    fn clear()! {
+        // Clear implementation
     }
 }
 ```
 
-**Syntax**: `struct Name impl Trait { ... }`
+**Critical Rule**: Trait methods MUST be implemented in struct body, not external.
 
-**Properties**:
-
-- `impl Trait` after struct name
-- Methods defined in struct body
-- Can implement multiple traits (future)
-- Compile-time checking
+```vex
+// ❌ COMPILE ERROR: Trait method cannot be external
+fn (logger: &ConsoleLogger) log(msg: string) {
+    print(msg);
+}
+```
 
 ### Multiple Traits (Future)
 
@@ -114,11 +124,16 @@ struct ConsoleLogger impl Logger {
 struct FileLogger impl Logger, Closeable {
     path: string,
 
-    fn (self: &FileLogger!) log(msg: string) {
+    // All trait methods must be in struct body
+    fn log(msg: string) {
         // Logger implementation
     }
 
-    fn (self: &FileLogger!) close() {
+    fn clear()! {
+        // Logger implementation
+    }
+
+    fn close()! {
         // Closeable implementation
     }
 }
@@ -157,7 +172,7 @@ trait Shape {
 struct Circle impl Shape {
     radius: f64,
 
-    fn (self: &Circle!) area(): f64 {
+    fn area(): f64 {
         return 3.14159 * self.radius * self.radius;
     }
     // Missing perimeter()!
@@ -174,15 +189,14 @@ Traits can provide default implementations:
 
 ```vex
 trait Logger {
-    fn (self: &Self!) log(msg: string);  // Required
+    fn log(msg: string);        // Required (immutable)
+    fn clear()!;                // Required (mutable)
 
-    fn (self: &Self!) info(msg: string) {
-        // Default implementation
+    fn info(msg: string) {      // Default (immutable)
         self.log(msg);
     }
 
-    fn (self: &Self!) debug(msg: string) {
-        // Default implementation
+    fn debug(msg: string) {     // Default (immutable)
         self.log(msg);
     }
 }
@@ -201,8 +215,12 @@ Structs automatically get default methods:
 
 ```vex
 struct ConsoleLogger impl Logger {
-    fn (self: &ConsoleLogger!) log(msg: string) {
+    fn log(msg: string) {
         // Only implement required method
+    }
+
+    fn clear()! {
+        // Required mutable method
     }
 
     // info() and debug() inherited automatically!
@@ -213,6 +231,7 @@ fn main(): i32 {
     logger.log("Required method");
     logger.info("Default method");    // Works!
     logger.debug("Default method");   // Works!
+    logger.clear()!;                  // Required !
     return 0;
 }
 ```
@@ -223,11 +242,15 @@ Implementing types can override default methods:
 
 ```vex
 struct CustomLogger impl Logger {
-    fn (self: &CustomLogger!) log(msg: string) {
+    fn log(msg: string) {
         // Required method
     }
 
-    fn (self: &CustomLogger!) info(msg: string) {
+    fn clear()! {
+        // Required method
+    }
+
+    fn info(msg: string) {
         // Override default implementation
         self.log("[INFO] " + msg);
     }
