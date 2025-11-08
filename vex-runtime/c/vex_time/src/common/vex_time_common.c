@@ -36,23 +36,147 @@ int vt_parse_duration(const char* s, VexDuration* out_ns){
   return 0;
 }
 
+/* Fast integer-to-string (no snprintf overhead) */
+static inline char* fast_itoa(char* p, long long val) {
+  if (val == 0) { *p++ = '0'; return p; }
+  char* start = p;
+  int neg = (val < 0);
+  if (neg) {
+    *p++ = '-';
+    val = -val;
+    start = p;
+  }
+  
+  /* Write digits in reverse */
+  char* end = p;
+  do {
+    *end++ = '0' + (val % 10);
+    val /= 10;
+  } while (val > 0);
+  *end = '\0';
+  
+  /* Reverse string */
+  char* rev_end = end - 1;
+  while (start < rev_end) {
+    char tmp = *start;
+    *start = *rev_end;
+    *rev_end = tmp;
+    start++;
+    rev_end--;
+  }
+  
+  return end;
+}
+
+/* Fast integer-to-string with zero-padding */
+static inline char* fast_itoa_pad(char* p, long long val, int width) {
+  char* start = p;
+  if (val == 0) {
+    for (int i = 0; i < width; i++) *p++ = '0';
+    return p;
+  }
+  
+  char* end = p;
+  do {
+    *end++ = '0' + (val % 10);
+    val /= 10;
+  } while (val > 0);
+  
+  /* Pad with zeros */
+  while (end - start < width) *end++ = '0';
+  *end = '\0';
+  
+  /* Reverse */
+  char* rev_end = end - 1;
+  while (start < rev_end) {
+    char tmp = *start;
+    *start = *rev_end;
+    *rev_end = tmp;
+    start++;
+    rev_end--;
+  }
+  
+  return end;
+}
+
 int vt_format_duration(VexDuration ns, char* buf, size_t buflen){
   if (!buf || buflen<2) return -1;
-  if (ns==0){ snprintf(buf, buflen, "0s"); return 0; }
-  char sign = (ns<0)?'-':'+'; if (ns<0) ns = -ns;
-  long long hours = (long long)(ns / 1000000000LL / 3600LL);
-  long long rem = (long long)(ns - hours*3600LL*1000000000LL);
-  long long mins = rem / 1000000000LL / 60LL; rem -= mins*60LL*1000000000LL;
-  long long secs = rem / 1000000000LL; rem -= secs*1000000000LL;
-  long long ms = rem / 1000000LL; rem -= ms*1000000LL;
-  long long us = rem / 1000LL; rem -= us*1000LL;
-  long long nss = rem;
-  if (hours>0) snprintf(buf, buflen, "%c%lldh%lldm%llds", sign, hours, mins, secs);
-  else if (mins>0) snprintf(buf, buflen, "%c%lldm%lld.%03llds", sign, mins, secs, ms);
-  else if (secs>0) snprintf(buf, buflen, "%c%lld.%03llds", sign, secs, ms);
-  else if (ms>0)   snprintf(buf, buflen, "%c%lldms", sign, ms);
-  else if (us>0)   snprintf(buf, buflen, "%c%lldus", sign, us);
-  else             snprintf(buf, buflen, "%c%lldns", sign, (long long)nss);
+  if (ns==0){ buf[0]='0'; buf[1]='s'; buf[2]='\0'; return 0; }
+  
+  char* p = buf;
+  size_t remain = buflen;
+  
+  char sign = (ns<0)?'-':'+'; 
+  if (ns<0) ns = -ns;
+  
+  /* Calculate components (optimized: avoid repeated divisions) */
+  const int64_t NS_PER_SEC = 1000000000LL;
+  const int64_t NS_PER_MIN = 60LL * NS_PER_SEC;
+  const int64_t NS_PER_HOUR = 3600LL * NS_PER_SEC;
+  
+  int64_t hours = (int64_t)(ns / NS_PER_HOUR);
+  int64_t rem = (int64_t)(ns - hours * NS_PER_HOUR);
+  int64_t mins = rem / NS_PER_MIN;
+  rem -= mins * NS_PER_MIN;
+  int64_t secs = rem / NS_PER_SEC;
+  rem -= secs * NS_PER_SEC;
+  int64_t ms = rem / 1000000LL;
+  rem -= ms * 1000000LL;
+  int64_t us = rem / 1000LL;
+  int64_t nss = rem - us * 1000LL;
+  
+  /* Format based on largest component (manual formatting, no snprintf) */
+  if (hours > 0) {
+    if (remain < 20) return -1;
+    if (sign == '-') *p++ = '-';
+    p = fast_itoa(p, hours);
+    *p++ = 'h';
+    p = fast_itoa(p, mins);
+    *p++ = 'm';
+    p = fast_itoa(p, secs);
+    *p++ = 's';
+    *p = '\0';
+  } else if (mins > 0) {
+    if (remain < 25) return -1;
+    if (sign == '-') *p++ = '-';
+    p = fast_itoa(p, mins);
+    *p++ = 'm';
+    p = fast_itoa(p, secs);
+    *p++ = '.';
+    p = fast_itoa_pad(p, ms, 3);
+    *p++ = 's';
+    *p = '\0';
+  } else if (secs > 0) {
+    if (remain < 20) return -1;
+    if (sign == '-') *p++ = '-';
+    p = fast_itoa(p, secs);
+    *p++ = '.';
+    p = fast_itoa_pad(p, ms, 3);
+    *p++ = 's';
+    *p = '\0';
+  } else if (ms > 0) {
+    if (remain < 15) return -1;
+    if (sign == '-') *p++ = '-';
+    p = fast_itoa(p, ms);
+    *p++ = 'm';
+    *p++ = 's';
+    *p = '\0';
+  } else if (us > 0) {
+    if (remain < 15) return -1;
+    if (sign == '-') *p++ = '-';
+    p = fast_itoa(p, us);
+    *p++ = 'u';
+    *p++ = 's';
+    *p = '\0';
+  } else {
+    if (remain < 15) return -1;
+    if (sign == '-') *p++ = '-';
+    p = fast_itoa(p, (long long)nss);
+    *p++ = 'n';
+    *p++ = 's';
+    *p = '\0';
+  }
+  
   return 0;
 }
 

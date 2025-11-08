@@ -87,12 +87,14 @@ struct User {
 **Syntax**: Backtick-enclosed string literals after field declarations
 
 **Use Cases**:
+
 - JSON serialization/deserialization
 - Database mapping
 - Validation rules
 - API documentation
 
 **Properties**:
+
 - Ignored by compiler (metadata only)
 - Available at runtime via reflection
 - Multiple tags separated by spaces

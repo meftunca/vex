@@ -5,6 +5,7 @@
  */
 
 #include "../../include/vex_time_layout.h"
+#include "../fast_parse.h"  /* For fast_epoch_from_date */
 #include <string.h>
 #include <ctype.h>
 #include <stdio.h>
@@ -384,25 +385,10 @@ int vt_parse_layout(const char* value, const char* layout, VexTz* tz, VexTime* o
     /* Create VexInstant first */
     VexInstant instant;
     
-    /* Convert to Unix timestamp */
-    struct tm tm;
-    memset(&tm, 0, sizeof(tm));
-    tm.tm_year = year - 1900;
-    tm.tm_mon = month - 1;
-    tm.tm_mday = day;
-    tm.tm_hour = hour;
-    tm.tm_min = minute;
-    tm.tm_sec = second;
+    /* Convert to Unix timestamp using fast epoch calculation (no timegm overhead) */
+    int64_t unix_time = fast_epoch_from_date(year, month, day, hour, minute, second);
     
-#ifdef _WIN32
-    time_t unix_time = _mkgmtime(&tm);
-#else
-    time_t unix_time = timegm(&tm);
-#endif
-    
-    if (unix_time == (time_t)-1) return -1;
-    
-    instant.unix_sec = (int64_t)unix_time - tz_offset;
+    instant.unix_sec = unix_time - tz_offset;
     instant.nsec = (int32_t)nsec;
     instant._pad = 0;
     

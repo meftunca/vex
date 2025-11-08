@@ -30,9 +30,45 @@ static const char* weekday_abbr[] = {
     "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"
 };
 
-/* Helper: append string */
-static int append_str(char** buf, size_t* remain, const char* s) {
-    size_t len = strlen(s);
+/* Fast integer-to-string with width and padding (no snprintf) */
+static inline char* fast_itoa_width(char* p, int val, int width, char pad) {
+    char* start = p;
+    if (val == 0) {
+        for (int i = 0; i < width; i++) *p++ = pad == ' ' ? ' ' : '0';
+        return p;
+    }
+    
+    /* Write digits in reverse */
+    char* end = p;
+    int digits = 0;
+    do {
+        *end++ = '0' + (val % 10);
+        val /= 10;
+        digits++;
+    } while (val > 0);
+    
+    /* Pad with pad character */
+    while (digits < width) {
+        *end++ = pad;
+        digits++;
+    }
+    *end = '\0';
+    
+    /* Reverse */
+    char* rev_end = end - 1;
+    while (start < rev_end) {
+        char tmp = *start;
+        *start = *rev_end;
+        *rev_end = tmp;
+        start++;
+        rev_end--;
+    }
+    
+    return end;
+}
+
+/* Helper: append string (optimized: use known lengths) */
+static inline int append_str_fast(char** buf, size_t* remain, const char* s, size_t len) {
     if (*remain < len + 1) return -1;
     memcpy(*buf, s, len);
     *buf += len;
@@ -40,22 +76,24 @@ static int append_str(char** buf, size_t* remain, const char* s) {
     return 0;
 }
 
-/* Helper: append formatted integer */
+/* Helper: append string (with strlen fallback for unknown lengths) */
+static int append_str(char** buf, size_t* remain, const char* s) {
+    /* Optimize common cases */
+    if (s == month_names[0]) return append_str_fast(buf, remain, s, 7);  /* January */
+    if (s == month_abbr[0]) return append_str_fast(buf, remain, s, 3);  /* Jan */
+    if (s == weekday_names[0]) return append_str_fast(buf, remain, s, 6);  /* Sunday */
+    if (s == weekday_abbr[0]) return append_str_fast(buf, remain, s, 3);  /* Sun */
+    
+    size_t len = strlen(s);
+    return append_str_fast(buf, remain, s, len);
+}
+
+/* Helper: append formatted integer (optimized: no snprintf) */
 static int append_int(char** buf, size_t* remain, int val, int width, char pad) {
-    char tmp[32];
-    int len = snprintf(tmp, sizeof(tmp), "%0*d", width, val);
-    if (len < 0 || len >= (int)sizeof(tmp)) return -1;
-    
-    /* Replace '0' with pad character if needed */
-    if (pad == ' ') {
-        for (int i = 0; i < len && tmp[i] == '0'; i++) {
-            tmp[i] = ' ';
-        }
-    }
-    
-    if (*remain < (size_t)len + 1) return -1;
-    memcpy(*buf, tmp, len);
-    *buf += len;
+    if (*remain < 32) return -1;  /* Safety check */
+    char* new_buf = fast_itoa_width(*buf, val, width, pad);
+    size_t len = new_buf - *buf;
+    *buf = new_buf;
     *remain -= len;
     return 0;
 }
@@ -206,54 +244,48 @@ int vt_format_layout(VexTime t, const char* layout, char* buf, size_t buflen) {
             /* Fractional seconds: 9 digits (trailing zeros omitted) */
             l += 10;
             if (nsec > 0) {
+                if (append_char(&buf, &remain, '.') != 0) return -1;
                 int tmp_nsec = nsec;
                 int digits = 9;
                 while (digits > 0 && tmp_nsec % 10 == 0) {
                     tmp_nsec /= 10;
                     digits--;
                 }
-                char frac[16];
-                snprintf(frac, sizeof(frac), ".%0*d", digits, tmp_nsec);
-                if (append_str(&buf, &remain, frac) != 0) return -1;
+                if (append_int(&buf, &remain, tmp_nsec, digits, '0') != 0) return -1;
             }
         } else if (strncmp(l, ".000000000", 10) == 0) {
             /* Fractional seconds: 9 digits (trailing zeros included) */
             l += 10;
-            char frac[16];
-            snprintf(frac, sizeof(frac), ".%09d", nsec);
-            if (append_str(&buf, &remain, frac) != 0) return -1;
+            if (append_char(&buf, &remain, '.') != 0) return -1;
+            if (append_int(&buf, &remain, nsec, 9, '0') != 0) return -1;
         } else if (strncmp(l, ".000000", 7) == 0) {
             /* Fractional seconds: 6 digits (microseconds) */
             l += 7;
-            char frac[16];
-            snprintf(frac, sizeof(frac), ".%06d", nsec / 1000);
-            if (append_str(&buf, &remain, frac) != 0) return -1;
+            if (append_char(&buf, &remain, '.') != 0) return -1;
+            if (append_int(&buf, &remain, nsec / 1000, 6, '0') != 0) return -1;
         } else if (strncmp(l, ".000", 4) == 0) {
             /* Fractional seconds: 3 digits (milliseconds) */
             l += 4;
-            char frac[16];
-            snprintf(frac, sizeof(frac), ".%03d", nsec / 1000000);
-            if (append_str(&buf, &remain, frac) != 0) return -1;
+            if (append_char(&buf, &remain, '.') != 0) return -1;
+            if (append_int(&buf, &remain, nsec / 1000000, 3, '0') != 0) return -1;
         } else if (strncmp(l, ".9", 2) == 0) {
             /* Fractional seconds: variable digits (trailing zeros omitted) */
             l += 2;
             if (nsec > 0) {
+                if (append_char(&buf, &remain, '.') != 0) return -1;
                 int tmp_nsec = nsec;
                 int digits = 9;
                 while (digits > 0 && tmp_nsec % 10 == 0) {
                     tmp_nsec /= 10;
                     digits--;
                 }
-                char frac[16];
-                snprintf(frac, sizeof(frac), ".%0*d", digits, tmp_nsec);
-                if (append_str(&buf, &remain, frac) != 0) return -1;
+                if (append_int(&buf, &remain, tmp_nsec, digits, '0') != 0) return -1;
             }
         } else if (strncmp(l, ".0", 2) == 0) {
             /* Fractional seconds: 1 digit */
             l += 2;
-            char frac[16];
-            snprintf(frac, sizeof(frac), ".%01d", nsec / 100000000);
-            if (append_str(&buf, &remain, frac) != 0) return -1;
+            if (append_char(&buf, &remain, '.') != 0) return -1;
+            if (append_int(&buf, &remain, nsec / 100000000, 1, '0') != 0) return -1;
         } else if (strncmp(l, "PM", 2) == 0) {
             /* AM/PM (uppercase) */
             if (append_str(&buf, &remain, hour >= 12 ? "PM" : "AM") != 0) return -1;

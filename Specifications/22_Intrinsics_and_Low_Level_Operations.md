@@ -67,309 +67,139 @@ let reversed = bitreverse(x); // Returns 0b11001011 (0xCB)
 
 **Supported Types**: `u8`, `u16`, `u32`, `u64`, `u128`
 
-### Usage Examples
+#### Bit Swap: `bswap(x)`
+
+Swaps the bytes in an integer (endianness conversion).
 
 ```vex
-fn is_power_of_two(x: u32): bool {
-    return popcnt(x) == 1;
-}
+let x: u32 = 0x12345678;
+let swapped = bswap(x); // Returns 0x78563412
+```
 
-fn highest_set_bit(x: u32): u32 {
-    return 31 - clz(x);
-}
+**Supported Types**: `u16`, `u32`, `u64`, `u128`
 
-fn lowest_set_bit(x: u32): u32 {
-    return cttz(x);
+#### Overflow Checks
+
+**Signed Addition Overflow**: `sadd_overflow(a, b)` → `(result, overflow)`
+
+```vex
+let (result, overflow) = sadd_overflow(i32::MAX, 1);
+if overflow {
+    // Handle overflow
 }
 ```
 
----
+**Signed Subtraction Overflow**: `ssub_overflow(a, b)` → `(result, overflow)`
 
-## CPU Feature Detection
+**Signed Multiplication Overflow**: `smul_overflow(a, b)` → `(result, overflow)`
 
-Vex provides runtime CPU feature detection for SIMD and other processor capabilities.
-
-### Architecture Support
-
-#### x86/x64 Features
-
-```vex
-// Check for SIMD support
-if cpu_has_sse() {
-    // SSE instructions available
-}
-
-if cpu_has_avx2() {
-    // AVX2 instructions available
-}
-
-if cpu_has_avx512f() {
-    // AVX-512 foundation available
-}
-```
-
-**Available Checks**:
-- `cpu_has_sse()`, `cpu_has_sse2()`, `cpu_has_sse3()`
-- `cpu_has_ssse3()`, `cpu_has_sse4_1()`, `cpu_has_sse4_2()`
-- `cpu_has_avx()`, `cpu_has_avx2()`
-- `cpu_has_avx512f()`, `cpu_has_avx512bw()`, `cpu_has_avx512vl()`
-- `cpu_has_fma()`, `cpu_has_bmi1()`, `cpu_has_bmi2()`
-- `cpu_has_popcnt()`, `cpu_has_aes()`
-
-#### ARM/NEON Features
-
-```vex
-if cpu_has_neon() {
-    // ARM NEON SIMD available
-}
-```
-
-### Usage in Code
-
-```vex
-fn optimized_sum(a: [f32; 8], b: [f32; 8]): [f32; 8] {
-    if cpu_has_avx() {
-        // Use AVX-optimized path
-        return a + b; // Compiler generates AVX instructions
-    } else {
-        // Fallback to scalar operations
-        let mut result: [f32; 8] = [0.0; 8];
-        for i in 0..8 {
-            result[i] = a[i] + b[i];
-        }
-        return result;
-    }
-}
-```
-
----
-
-## Memory Intrinsics
-
-Low-level memory operations with guaranteed semantics.
-
-### Memory Copy: `memcpy(dst, src, count)`
-
-Copies `count` bytes from `src` to `dst`.
-
-```vex
-unsafe {
-    let src: *u8 = get_source_ptr();
-    let dst: *u8 = get_dest_ptr();
-    memcpy(dst, src, 1024); // Copy 1KB
-}
-```
-
-### Memory Set: `memset(ptr, value, count)`
-
-Sets `count` bytes starting at `ptr` to `value`.
-
-```vex
-unsafe {
-    let buffer: *u8 = alloc_buffer(1024);
-    memset(buffer, 0, 1024); // Zero 1KB buffer
-}
-```
-
-### Memory Compare: `memcmp(a, b, count)`
-
-Compares `count` bytes at `a` and `b`.
-
-```vex
-unsafe {
-    let result = memcmp(ptr1, ptr2, 64);
-    if result == 0 {
-        // Memory regions are identical
-    }
-}
-```
-
----
-
-## SIMD Intrinsics
-
-Direct access to SIMD operations when automatic vectorization is insufficient.
-
-### Vector Types
-
-```vex
-// 128-bit vectors (4 x f32 or 16 x u8)
-type vec4f32 = [f32; 4];
-type vec16u8 = [u8; 16];
-
-// 256-bit vectors (8 x f32 or 32 x u8)
-type vec8f32 = [f32; 8];
-type vec32u8 = [u8; 32];
-
-// 512-bit vectors (16 x f32 or 64 x u8)
-type vec16f32 = [f32; 16];
-type vec64u8 = [u8; 64];
-```
-
-### SIMD Operations
-
-```vex
-fn manual_simd_add(a: vec8f32, b: vec8f32): vec8f32 {
-    unsafe {
-        // Direct SIMD addition
-        return simd_add_f32x8(a, b);
-    }
-}
-
-fn manual_simd_shuffle(v: vec8f32): vec8f32 {
-    unsafe {
-        // Shuffle elements: [0,2,4,6,1,3,5,7]
-        return simd_shuffle_f32x8(v, [0,2,4,6,1,3,5,7]);
-    }
-}
-```
-
-### Available SIMD Intrinsics
-
-**Arithmetic**: `simd_add_*`, `simd_sub_*`, `simd_mul_*`, `simd_div_*`
-**Comparison**: `simd_eq_*`, `simd_lt_*`, `simd_gt_*`
-**Shuffle**: `simd_shuffle_*`
-**Load/Store**: `simd_load_*`, `simd_store_*`
-
----
-
-## Platform-Specific Features
-
-### Compiler Target Detection
-
-```vex
-// Compile-time target detection
-#[cfg(target_arch = "x86_64")]
-fn x86_optimized() { /* ... */ }
-
-#[cfg(target_arch = "aarch64")]
-fn arm_optimized() { /* ... */ }
-```
-
-### Endianness
-
-```vex
-if is_little_endian() {
-    // Little-endian system
-} else {
-    // Big-endian system
-}
-```
-
-### Atomic Operations
-
-```vex
-// Atomic load/store
-let value = atomic_load(ptr);
-atomic_store(ptr, new_value);
-
-// Atomic arithmetic
-let old = atomic_add(ptr, 1);
-let old = atomic_sub(ptr, 1);
-```
-
----
-
-## Implementation Status
-
-| Feature | Status | Location |
-|---------|--------|----------|
-| Bit Manipulation | ✅ Complete | `vex-compiler/src/codegen_ast/builtins/intrinsics.rs` |
-| CPU Detection | ✅ Complete | `vex-runtime/c/vex_cpu.c` |
-| Memory Intrinsics | ✅ Complete | `vex-runtime/c/vex_memory.c` |
-| SIMD Intrinsics | 🚧 Partial | `vex-runtime/c/` (basic support) |
-| Atomic Operations | ✅ Complete | `vex-runtime/c/vex_sync.c` |
-
----
-
-## Examples
-
-### Bit Manipulation
-
-```vex
-fn bit_operations_demo(): i32 {
-    let x: u32 = 0b11010110_00000000_00000000_00000000;
-
-    let leading = ctlz(x);      // Count leading zeros
-    let trailing = cttz(x);     // Count trailing zeros
-    let population = popcnt(x); // Count set bits
-    let reversed = bitreverse(x); // Reverse bits
-
-    return leading + trailing + population;
-}
-```
-
-### CPU Feature Detection
-
-```vex
-fn vectorize_if_possible(data: [f32; 1000]): [f32; 1000] {
-    if cpu_has_avx2() {
-        // Use AVX2 SIMD operations
-        return data * 2.0; // Compiler generates AVX2
-    } else if cpu_has_sse() {
-        // Fallback to SSE
-        return data * 2.0; // Compiler generates SSE
-    } else {
-        // Scalar fallback
-        let mut result: [f32; 1000] = [0.0; 1000];
-        for i in 0..1000 {
-            result[i] = data[i] * 2.0;
-        }
-        return result;
-    }
-}
-```
+**Supported Types**: `i8`, `i16`, `i32`, `i64`, `i128`
 
 ### Memory Operations
 
-```vex
-unsafe fn buffer_operations() {
-    // Allocate buffer
-    let buffer: *u8 = malloc(1024);
+#### Memory Allocation: `alloc(size)` → `*u8`
 
-    // Zero it
-    memset(buffer, 0, 1024);
-
-    // Copy data
-    let source: *u8 = get_source_data();
-    memcpy(buffer, source, 512);
-
-    // Compare regions
-    if memcmp(buffer, source, 512) == 0 {
-        print("Copy successful");
-    }
-
-    free(buffer);
-}
-```
-
----
-
-## Safety Considerations
-
-All intrinsics and low-level operations must be used within `unsafe` blocks:
+Allocates `size` bytes of memory.
 
 ```vex
-// ❌ Compile error - intrinsics require unsafe
-let zeros = ctlz(x);
-
-// ✅ OK - in unsafe block
 unsafe {
-    let zeros = ctlz(x);
+    let ptr: *u8 = alloc(1024); // Allocate 1KB
+    // Use ptr...
+    free(ptr);
 }
 ```
 
-**Rationale**: These operations bypass normal safety guarantees and require careful usage.
+#### Memory Free: `free(ptr)`
 
----
+Frees previously allocated memory.
 
-## Performance Notes
+#### Memory Realloc: `realloc(ptr, new_size)` → `*u8`
 
-- **Intrinsics**: Direct LLVM intrinsic calls - zero overhead
-- **CPU Detection**: Cached at startup - negligible runtime cost
-- **SIMD**: Automatic vectorization preferred over manual SIMD
-- **Memory**: Use high-level operations when possible
+Resizes allocated memory block.
 
----
+#### Memory Move: `memmove(dst, src, count)`
 
-*This document covers low-level operations available in Vex. Use with caution and only when necessary.*
+Copies `count` bytes from `src` to `dst`, handling overlapping regions.
+
+```vex
+unsafe {
+    let buffer: *u8 = alloc(1024);
+    // Move overlapping regions
+    memmove(buffer.add(10), buffer, 100);
+}
+```
+
+### Type Information
+
+#### Size Of: `sizeof<T>()` → `usize`
+
+Returns the size in bytes of type `T`.
+
+```vex
+let size = sizeof<i32>();     // Returns 4
+let arr_size = sizeof<[i32; 10]>(); // Returns 40
+```
+
+#### Align Of: `alignof<T>()` → `usize`
+
+Returns the alignment in bytes of type `T`.
+
+```vex
+let align = alignof<i64>();   // Returns 8
+```
+
+### Array Operations
+
+#### Array Length: `array_len(arr)` → `usize`
+
+Returns the length of an array.
+
+```vex
+let arr: [i32; 5] = [1, 2, 3, 4, 5];
+let len = array_len(arr); // Returns 5
+```
+
+### UTF-8 Operations
+
+#### UTF-8 Validation: `utf8_valid(str)` → `bool`
+
+Checks if a string contains valid UTF-8.
+
+```vex
+let valid = utf8_valid("Hello, 世界!"); // Returns true
+let invalid = utf8_valid(&[0xFF, 0xFF]); // Returns false
+```
+
+#### UTF-8 Character Count: `utf8_char_count(str)` → `usize`
+
+Returns the number of Unicode characters in a UTF-8 string.
+
+```vex
+let count = utf8_char_count("Hello, 世界!"); // Returns 9 (not byte count)
+```
+
+#### UTF-8 Character At: `utf8_char_at(str, index)` → `u32`
+
+Returns the Unicode codepoint at the specified character index.
+
+```vex
+let codepoint = utf8_char_at("Hello, 世界!", 7); // Returns '世' (19990)
+```
+
+### Launch Expression (Future)
+
+**Syntax**: `launch func[grid_dims](args)`
+
+Launches a function on parallel compute units (GPU, HPC clusters).
+
+```vex
+// Launch kernel on GPU
+launch vector_add[1024, 1](a, b, result);
+
+// Multi-dimensional grid
+launch matrix_mul[32, 32](matrix_a, matrix_b, output);
+```
+
+**Status**: AST support exists, implementation pending.
+
+**Note**: This is a planned feature for high-performance computing integration.
