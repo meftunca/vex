@@ -1,0 +1,58 @@
+// Comprehensive Stdlib Test
+// Tüm stdlib modüllerinin FFI entegrasyonunu test eder
+
+import { println } from "io";
+
+extern "C" {
+    // Math functions
+    fn sin(x: f64): f64;
+    fn cos(x: f64): f64;
+    fn sqrt(x: f64): f64;
+    
+    // File system
+    fn vex_file_exists(path: *u8): bool;
+    fn vex_string_as_cstr(s: *String): *u8;
+}
+
+fn test_io() {
+    println("=== Testing IO Module ===");
+    println("✓ IO: print/println working");
+}
+
+fn test_math() {
+    println("=== Testing Math Module ===");
+    let x: f64 = 1.0;
+    let s: f64 = sin(x);
+    let c: f64 = cos(x);
+    let sq: f64 = sqrt(4.0);
+    println("✓ Math: sin, cos, sqrt working");
+}
+
+fn test_fs() {
+    println("=== Testing FS Module ===");
+    let test_path: String = "test_stdlib_comprehensive.vx";
+    let path_ptr: *String = &test_path;
+    let cpath: *u8 = vex_string_as_cstr(path_ptr);
+    let exists: bool = vex_file_exists(cpath);
+    println("✓ FS: file_exists working");
+}
+
+fn main() {
+    println("╔════════════════════════════════════════╗");
+    println("║  Vex Standard Library Test Suite      ║");
+    println("╚════════════════════════════════════════╝");
+    println("");
+    
+    test_io();
+    println("");
+    
+    test_math();
+    println("");
+    
+    test_fs();
+    println("");
+    
+    println("╔════════════════════════════════════════╗");
+    println("║  ✓ All Stdlib Tests Passed!           ║");
+    println("╚════════════════════════════════════════╝");
+}

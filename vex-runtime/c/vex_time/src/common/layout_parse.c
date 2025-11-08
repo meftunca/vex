@@ -5,7 +5,7 @@
  */
 
 #include "../../include/vex_time_layout.h"
-#include "../fast_parse.h"  /* For fast_epoch_from_date */
+#include "fast_parse.h"  /* For fast_epoch_from_date */
 #include <string.h>
 #include <ctype.h>
 #include <stdio.h>
@@ -55,33 +55,89 @@ static int parse_int_n(const char** s, int n, int* out) {
     return 0;
 }
 
-/* Helper: parse month name */
+/* Fast month name comparison (optimized: avoid strlen) */
+static inline int fast_cmp_3(const char* a, const char* b) {
+    return (a[0] == b[0] && a[1] == b[1] && a[2] == b[2]) ? 0 : -1;
+}
+
+/* Helper: parse month name (optimized: direct comparison) */
 static int parse_month_name(const char** s, int* month, int full) {
-    const char** names = full ? month_names : month_abbr;
-    int len = full ? 0 : 3;
-    
-    for (int i = 0; i < 12; i++) {
-        int name_len = full ? (int)strlen(names[i]) : len;
-        if (strncmp(*s, names[i], name_len) == 0) {
-            *month = i + 1;
-            *s += name_len;
-            return 0;
+    if (full) {
+        /* Full month names - check first 3 chars for quick match */
+        const char* p = *s;
+        if (p[0] == 'J' && p[1] == 'a' && p[2] == 'n') {
+            if (strncmp(p, "January", 7) == 0) { *month = 1; *s += 7; return 0; }
+        } else if (p[0] == 'F' && p[1] == 'e' && p[2] == 'b') {
+            if (strncmp(p, "February", 8) == 0) { *month = 2; *s += 8; return 0; }
+        } else if (p[0] == 'M' && p[1] == 'a' && p[2] == 'r') {
+            if (strncmp(p, "March", 5) == 0) { *month = 3; *s += 5; return 0; }
+        } else if (p[0] == 'A' && p[1] == 'p' && p[2] == 'r') {
+            if (strncmp(p, "April", 5) == 0) { *month = 4; *s += 5; return 0; }
+        } else if (p[0] == 'M' && p[1] == 'a' && p[2] == 'y') {
+            if (strncmp(p, "May", 3) == 0) { *month = 5; *s += 3; return 0; }
+        } else if (p[0] == 'J' && p[1] == 'u' && p[2] == 'n') {
+            if (strncmp(p, "June", 4) == 0) { *month = 6; *s += 4; return 0; }
+        } else if (p[0] == 'J' && p[1] == 'u' && p[2] == 'l') {
+            if (strncmp(p, "July", 4) == 0) { *month = 7; *s += 4; return 0; }
+        } else if (p[0] == 'A' && p[1] == 'u' && p[2] == 'g') {
+            if (strncmp(p, "August", 6) == 0) { *month = 8; *s += 6; return 0; }
+        } else if (p[0] == 'S' && p[1] == 'e' && p[2] == 'p') {
+            if (strncmp(p, "September", 9) == 0) { *month = 9; *s += 9; return 0; }
+        } else if (p[0] == 'O' && p[1] == 'c' && p[2] == 't') {
+            if (strncmp(p, "October", 7) == 0) { *month = 10; *s += 7; return 0; }
+        } else if (p[0] == 'N' && p[1] == 'o' && p[2] == 'v') {
+            if (strncmp(p, "November", 8) == 0) { *month = 11; *s += 8; return 0; }
+        } else if (p[0] == 'D' && p[1] == 'e' && p[2] == 'c') {
+            if (strncmp(p, "December", 8) == 0) { *month = 12; *s += 8; return 0; }
         }
+    } else {
+        /* Abbreviated - direct 3-char comparison */
+        const char* p = *s;
+        if (fast_cmp_3(p, "Jan") == 0) { *month = 1; *s += 3; return 0; }
+        if (fast_cmp_3(p, "Feb") == 0) { *month = 2; *s += 3; return 0; }
+        if (fast_cmp_3(p, "Mar") == 0) { *month = 3; *s += 3; return 0; }
+        if (fast_cmp_3(p, "Apr") == 0) { *month = 4; *s += 3; return 0; }
+        if (fast_cmp_3(p, "May") == 0) { *month = 5; *s += 3; return 0; }
+        if (fast_cmp_3(p, "Jun") == 0) { *month = 6; *s += 3; return 0; }
+        if (fast_cmp_3(p, "Jul") == 0) { *month = 7; *s += 3; return 0; }
+        if (fast_cmp_3(p, "Aug") == 0) { *month = 8; *s += 3; return 0; }
+        if (fast_cmp_3(p, "Sep") == 0) { *month = 9; *s += 3; return 0; }
+        if (fast_cmp_3(p, "Oct") == 0) { *month = 10; *s += 3; return 0; }
+        if (fast_cmp_3(p, "Nov") == 0) { *month = 11; *s += 3; return 0; }
+        if (fast_cmp_3(p, "Dec") == 0) { *month = 12; *s += 3; return 0; }
     }
     return -1;
 }
 
-/* Helper: parse weekday name */
+/* Helper: parse weekday name (optimized: direct comparison) */
 static int parse_weekday_name(const char** s, int full) {
-    const char** names = full ? weekday_names : weekday_abbr;
-    int len = full ? 0 : 3;
-    
-    for (int i = 0; i < 7; i++) {
-        int name_len = full ? (int)strlen(names[i]) : len;
-        if (strncmp(*s, names[i], name_len) == 0) {
-            *s += name_len;
-            return 0; /* We don't validate weekday */
+    const char* p = *s;
+    if (full) {
+        /* Full weekday names - check first 2-3 chars for quick match */
+        if (p[0] == 'S' && p[1] == 'u' && p[2] == 'n') {
+            if (strncmp(p, "Sunday", 6) == 0) { *s += 6; return 0; }
+        } else if (p[0] == 'M' && p[1] == 'o' && p[2] == 'n') {
+            if (strncmp(p, "Monday", 6) == 0) { *s += 6; return 0; }
+        } else if (p[0] == 'T' && p[1] == 'u' && p[2] == 'e') {
+            if (strncmp(p, "Tuesday", 7) == 0) { *s += 7; return 0; }
+        } else if (p[0] == 'W' && p[1] == 'e' && p[2] == 'd') {
+            if (strncmp(p, "Wednesday", 9) == 0) { *s += 9; return 0; }
+        } else if (p[0] == 'T' && p[1] == 'h' && p[2] == 'u') {
+            if (strncmp(p, "Thursday", 8) == 0) { *s += 8; return 0; }
+        } else if (p[0] == 'F' && p[1] == 'r' && p[2] == 'i') {
+            if (strncmp(p, "Friday", 6) == 0) { *s += 6; return 0; }
+        } else if (p[0] == 'S' && p[1] == 'a' && p[2] == 't') {
+            if (strncmp(p, "Saturday", 8) == 0) { *s += 8; return 0; }
         }
+    } else {
+        /* Abbreviated - direct 3-char comparison */
+        if (fast_cmp_3(p, "Sun") == 0) { *s += 3; return 0; }
+        if (fast_cmp_3(p, "Mon") == 0) { *s += 3; return 0; }
+        if (fast_cmp_3(p, "Tue") == 0) { *s += 3; return 0; }
+        if (fast_cmp_3(p, "Wed") == 0) { *s += 3; return 0; }
+        if (fast_cmp_3(p, "Thu") == 0) { *s += 3; return 0; }
+        if (fast_cmp_3(p, "Fri") == 0) { *s += 3; return 0; }
+        if (fast_cmp_3(p, "Sat") == 0) { *s += 3; return 0; }
     }
     return -1;
 }
@@ -123,7 +179,6 @@ int vt_parse_layout(const char* value, const char* layout, VexTz* tz, VexTime* o
     int hour = 0, minute = 0, second = 0, nsec = 0;
     int tz_offset = 0;
     int has_year = 0, has_month = 0, has_day = 0;
-    int has_time = 0;
     int is_pm = 0, is_12h = 0;
     
     while (*l) {
@@ -177,18 +232,15 @@ int vt_parse_layout(const char* value, const char* layout, VexTz* tz, VexTime* o
         } else if (strncmp(l, "15", 2) == 0) {
             /* 24-hour (MUST come before single digit checks!) */
             if (parse_int_n(&v, 2, &hour) != 0) return -1;
-            has_time = 1;
             l += 2;
         } else if (strncmp(l, "03", 2) == 0) {
             /* 12-hour (padded) */
             if (parse_int_n(&v, 2, &hour) != 0) return -1;
-            has_time = 1;
             is_12h = 1;
             l += 2;
         } else if (*l == '3') {
             /* 12-hour (1 or 2 digit) */
             if (parse_int_1or2(&v, &hour) != 0) return -1;
-            has_time = 1;
             is_12h = 1;
             l++;
         } else if (*l == '2' && !has_day) {

@@ -132,7 +132,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 BasicTypeEnum::FloatType(ft) => ft.size_of(),
                 _ => return Err("Unsupported type for memset".to_string()),
             };
-            let total_size = elem_size.const_mul(size_type.const_int(count_u32 as u64, false));
+            let count_val = size_type.const_int(count_u32 as u64, false);
+            let total_size = self.builder
+                .build_int_mul(elem_size, count_val, "total_size")
+                .map_err(|e| format!("Failed to calculate total size: {}", e))?;
 
             // Call memset(ptr, 0, size)
             let memset_fn = self.get_or_declare_memset();

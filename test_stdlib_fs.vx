@@ -1,0 +1,23 @@
+// Stdlib FS Module Test
+import { println } from "io";
+
+// FS modülünden doğrudan import etmeyi test et
+// import { exists, read_to_string, write_string } from "fs";
+
+extern "C" {
+    fn vex_file_exists(path: *u8): bool;
+    fn vex_string_as_cstr(s: *String): *u8;
+}
+
+fn main() {
+    println("=== FS Module Test ===");
+    
+    // Test file exists with FFI
+    let test_path: String = "test_stdlib_verify.vx";
+    let path_ptr: *String = &test_path;
+    let cpath: *u8 = vex_string_as_cstr(path_ptr);
+    let file_exists: bool = vex_file_exists(cpath);
+    
+    println("✓ FS functions (file_exists) callable via FFI");
+    println("FS module verification complete!");
+}

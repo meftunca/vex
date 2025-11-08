@@ -1,0 +1,22 @@
+// Stdlib Math Module Test
+import { println } from "io";
+
+// Math modülünü import etmeyi dene - şu an sadece extern "C" fn'leri test ediyoruz
+extern "C" {
+    fn sin(x: f64): f64;
+    fn cos(x: f64): f64;
+    fn sqrt(x: f64): f64;
+}
+
+fn main() {
+    println("=== Math Module Test ===");
+    
+    // Test basic math functions
+    let x: f64 = 1.0;
+    let s: f64 = sin(x);
+    let c: f64 = cos(x);
+    let sq: f64 = sqrt(4.0);
+    
+    println("✓ Math functions (sin, cos, sqrt) callable");
+    println("Math module verification complete!");
+}

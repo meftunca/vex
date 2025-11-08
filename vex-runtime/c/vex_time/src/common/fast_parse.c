@@ -21,7 +21,7 @@ static inline void gmtime_compat(const time_t* tt, struct tm* out) { gmtime_r(tt
  * Reference: http://howardhinnant.github.io/date_algorithms.html
  * Avoids timegm() bottleneck for significant speedup
  */
-static inline int64_t fast_epoch_from_date(int year, int month, int day, int hour, int min, int sec) {
+int64_t fast_epoch_from_date(int year, int month, int day, int hour, int min, int sec) {
     /* Convert to March-based year (March 1 = day 0 of year)
      * This simplifies leap year handling */
     year -= (month <= 2);

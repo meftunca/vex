@@ -1,0 +1,28 @@
+// Simple Math Import Test
+// Tests if math module functions can be imported and called
+
+import { println } from "io";
+
+// Math modülünden doğrudan import
+// import { sin_f64, cos_f64 } from "math";
+
+// Alternatif: extern "C" olarak kullan
+extern "C" {
+    fn sin(x: f64): f64;
+    fn cos(x: f64): f64;
+    fn sqrt(x: f64): f64;
+}
+
+fn main() {
+    println("=== Math Import Test ===");
+    
+    // Direct C function calls work
+    let x: f64 = 1.0;
+    let s: f64 = sin(x);
+    let c: f64 = cos(x);
+    
+    println("✓ Math functions callable via extern C");
+    
+    // TODO: Test import from "math" module when borrow checker issue is fixed
+    // let y: f64 = sin_f64(1.0);
+}

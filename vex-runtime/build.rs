@@ -27,6 +27,7 @@ fn main() {
         c_dir.join("vex_set.c"),    // Set<T> operations
         c_dir.join("vex_string.c"), // String operations
         c_dir.join("vex_string_type.c"), // String type implementation
+        c_dir.join("vex_file.c"),   // File system operations
     ];
 
     // Detect platform and add appropriate poller
