@@ -1,0 +1,36 @@
+// Path Module
+// Path operations - join, normalize, exists
+//
+// Usage:
+//   import { join, normalize, exists } from "path";
+
+// External C functions from vex-runtime/c/vex_path.c
+extern "C" {
+    fn vex_path_join(path1: *const u8, path2: *const u8): *const u8;
+    fn vex_path_normalize(path: *const u8): *const u8;
+    fn vex_path_exists(path: *const u8): bool;
+    fn vex_path_is_absolute(path: *const u8): bool;
+    fn vex_path_dirname(path: *const u8): *const u8;
+    fn vex_path_basename(path: *const u8): *const u8;
+}
+
+export fn join(path1: string, path2: string): string {
+    unsafe {
+        let result = vex_path_join(path1.as_ptr(), path2.as_ptr());
+        return string.from_raw(result);
+    }
+}
+
+export fn exists(path: string): bool {
+    unsafe {
+        vex_path_exists(path.as_ptr())
+    }
+}
+
+export fn normalize(path: string): string {
+    unsafe {
+        let result = vex_path_normalize(path.as_ptr());
+        return string.from_raw(result);
+    }
+}
+

@@ -1,0 +1,17 @@
+// Test export enum support
+
+export enum Color {
+    Red,
+    Green,
+    Blue
+}
+
+export enum Result<T, E> {
+    Ok(T),
+    Err(E)
+}
+
+fn main(): i32 {
+    let color: Color = Color.Red;
+    return 0;
+}

@@ -1,0 +1,9 @@
+{
+  "name": "core",
+  "version": "0.9.1",
+  "description": "Core types - Box, Vec, Option, Result",
+  "authors": ["Vex Language Team"],
+  "license": "MIT",
+  "main": "src/lib.vx"
+}
+

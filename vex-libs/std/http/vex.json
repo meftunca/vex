@@ -1,0 +1,9 @@
+{
+  "name": "http",
+  "version": "0.9.1",
+  "description": "HTTP client and server (placeholder)",
+  "authors": ["Vex Language Team"],
+  "license": "MIT",
+  "main": "src/lib.vx"
+}
+

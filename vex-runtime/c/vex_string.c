@@ -22,46 +22,48 @@
 size_t vex_strlen(const char *s)
 {
     const char *start = s;
-    
+
 #if VEX_SIMD_X86
     // x86 SSE2 version (16 bytes at a time)
     while (((uintptr_t)s & 15) != 0) // Align to 16-byte boundary
     {
-        if (*s == '\0') return s - start;
+        if (*s == '\0')
+            return s - start;
         s++;
     }
 
     __m128i zero = _mm_setzero_si128();
-    
+
     while (1)
     {
         __m128i chunk = _mm_load_si128((const __m128i *)s);
         __m128i cmp = _mm_cmpeq_epi8(chunk, zero);
         int mask = _mm_movemask_epi8(cmp);
-        
+
         if (mask != 0)
         {
             // Found null byte
             return s - start + __builtin_ctz(mask);
         }
-        
+
         s += 16;
     }
 #elif VEX_SIMD_NEON
     // ARM NEON version (16 bytes at a time)
     while (((uintptr_t)s & 15) != 0) // Align to 16-byte boundary
     {
-        if (*s == '\0') return s - start;
+        if (*s == '\0')
+            return s - start;
         s++;
     }
-    
+
     uint8x16_t zero = vdupq_n_u8(0);
-    
+
     while (1)
     {
         uint8x16_t chunk = vld1q_u8((const uint8_t *)s);
         uint8x16_t cmp = vceqq_u8(chunk, zero);
-        
+
         // Check if any byte matched
         uint8x8_t narrow = vorr_u8(vget_low_u8(cmp), vget_high_u8(cmp));
         if (vget_lane_u64((uint64x1_t)narrow, 0) != 0)
@@ -69,20 +71,25 @@ size_t vex_strlen(const char *s)
             // Found null byte in this chunk - scan byte by byte
             for (int i = 0; i < 16; i++)
             {
-                if (s[i] == '\0') return s - start + i;
+                if (s[i] == '\0')
+                    return s - start + i;
             }
         }
-        
+
         s += 16;
     }
 #else
     // Scalar fallback - but optimized (unrolled)
     while (1)
     {
-        if (s[0] == '\0') return s - start;
-        if (s[1] == '\0') return s - start + 1;
-        if (s[2] == '\0') return s - start + 2;
-        if (s[3] == '\0') return s - start + 3;
+        if (s[0] == '\0')
+            return s - start;
+        if (s[1] == '\0')
+            return s - start + 1;
+        if (s[2] == '\0')
+            return s - start + 2;
+        if (s[3] == '\0')
+            return s - start + 3;
         s += 4;
     }
 #endif
@@ -103,22 +110,22 @@ int vex_strcmp(const char *s1, const char *s2)
         s1++;
         s2++;
     }
-    
+
     __m128i zero = _mm_setzero_si128();
-    
+
     while (1)
     {
         __m128i v1 = _mm_load_si128((const __m128i *)s1);
         __m128i v2 = _mm_load_si128((const __m128i *)s2);
-        
+
         // Check for null bytes
         __m128i null_check = _mm_cmpeq_epi8(v1, zero);
         int null_mask = _mm_movemask_epi8(null_check);
-        
+
         // Compare bytes
         __m128i cmp = _mm_cmpeq_epi8(v1, v2);
         int cmp_mask = _mm_movemask_epi8(cmp);
-        
+
         if (null_mask != 0 || cmp_mask != 0xFFFF)
         {
             // Found difference or null - scan byte by byte
@@ -128,7 +135,7 @@ int vex_strcmp(const char *s1, const char *s2)
                     return (unsigned char)s1[i] - (unsigned char)s2[i];
             }
         }
-        
+
         s1 += 16;
         s2 += 16;
     }
@@ -141,21 +148,21 @@ int vex_strcmp(const char *s1, const char *s2)
         s1++;
         s2++;
     }
-    
+
     uint8x16_t zero = vdupq_n_u8(0);
-    
+
     while (1)
     {
         uint8x16_t v1 = vld1q_u8((const uint8_t *)s1);
         uint8x16_t v2 = vld1q_u8((const uint8_t *)s2);
-        
+
         // Check for null or difference
         uint8x16_t null_check = vceqq_u8(v1, zero);
         uint8x16_t cmp = vceqq_u8(v1, v2);
-        
+
         uint8x16_t any_diff = vbicq_u8(vdupq_n_u8(0xFF), cmp);
         uint8x16_t combined = vorrq_u8(null_check, any_diff);
-        
+
         uint8x8_t narrow = vorr_u8(vget_low_u8(combined), vget_high_u8(combined));
         if (vget_lane_u64((uint64x1_t)narrow, 0) != 0)
         {
@@ -166,7 +173,7 @@ int vex_strcmp(const char *s1, const char *s2)
                     return (unsigned char)s1[i] - (unsigned char)s2[i];
             }
         }
-        
+
         s1 += 16;
         s2 += 16;
     }
@@ -174,14 +181,22 @@ int vex_strcmp(const char *s1, const char *s2)
     // Optimized scalar with 4-byte unrolling
     while (1)
     {
-        if (*s1 != *s2 || *s1 == '\0') return *(unsigned char *)s1 - *(unsigned char *)s2;
-        s1++; s2++;
-        if (*s1 != *s2 || *s1 == '\0') return *(unsigned char *)s1 - *(unsigned char *)s2;
-        s1++; s2++;
-        if (*s1 != *s2 || *s1 == '\0') return *(unsigned char *)s1 - *(unsigned char *)s2;
-        s1++; s2++;
-        if (*s1 != *s2 || *s1 == '\0') return *(unsigned char *)s1 - *(unsigned char *)s2;
-        s1++; s2++;
+        if (*s1 != *s2 || *s1 == '\0')
+            return *(unsigned char *)s1 - *(unsigned char *)s2;
+        s1++;
+        s2++;
+        if (*s1 != *s2 || *s1 == '\0')
+            return *(unsigned char *)s1 - *(unsigned char *)s2;
+        s1++;
+        s2++;
+        if (*s1 != *s2 || *s1 == '\0')
+            return *(unsigned char *)s1 - *(unsigned char *)s2;
+        s1++;
+        s2++;
+        if (*s1 != *s2 || *s1 == '\0')
+            return *(unsigned char *)s1 - *(unsigned char *)s2;
+        s1++;
+        s2++;
     }
 #endif
 }
@@ -191,8 +206,9 @@ int vex_strcmp(const char *s1, const char *s2)
  */
 int vex_strncmp(const char *s1, const char *s2, size_t n)
 {
-    if (n == 0) return 0;
-    
+    if (n == 0)
+        return 0;
+
 #if VEX_SIMD_X86
     // Process 16 bytes at a time if n is large enough
     while (n >= 16)
@@ -201,7 +217,7 @@ int vex_strncmp(const char *s1, const char *s2, size_t n)
         __m128i v2 = _mm_loadu_si128((const __m128i *)s2);
         __m128i cmp = _mm_cmpeq_epi8(v1, v2);
         int mask = _mm_movemask_epi8(cmp);
-        
+
         if (mask != 0xFFFF)
         {
             // Found difference - locate it
@@ -211,19 +227,19 @@ int vex_strncmp(const char *s1, const char *s2, size_t n)
                     return (unsigned char)s1[i] - (unsigned char)s2[i];
             }
         }
-        
+
         // Check for null terminator
         __m128i zero = _mm_setzero_si128();
         __m128i null_check = _mm_cmpeq_epi8(v1, zero);
         if (_mm_movemask_epi8(null_check) != 0)
             return 0; // Strings are equal up to null
-        
+
         s1 += 16;
         s2 += 16;
         n -= 16;
     }
 #endif
-    
+
     // Scalar for remaining bytes
     for (size_t i = 0; i < n; i++)
     {
@@ -280,7 +296,6 @@ char *vex_strcat_new(const char *s1, const char *s2)
 
 // vex_strdup removed - duplicate definition in vex_alloc.c
 
-
 // ============================================================================
 // UTF-8/UTF-16/UTF-32 OPERATIONS (SIMD-accelerated)
 // ============================================================================
@@ -292,38 +307,51 @@ char *vex_strcat_new(const char *s1, const char *s2)
 /**
  * UTF-16 validation
  */
-static inline bool utf16_validate_scalar(const uint16_t *s, size_t len) {
+static inline bool utf16_validate_scalar(const uint16_t *s, size_t len)
+{
     size_t i = 0;
-    while (i < len) {
+    while (i < len)
+    {
         uint16_t w1 = s[i++];
-        if (w1 >= 0xD800 && w1 <= 0xDBFF) { // high surrogate
-            if (i >= len) return false;
+        if (w1 >= 0xD800 && w1 <= 0xDBFF)
+        { // high surrogate
+            if (i >= len)
+                return false;
             uint16_t w2 = s[i++];
-            if (!(w2 >= 0xDC00 && w2 <= 0xDFFF)) return false;
-        } else if (w1 >= 0xDC00 && w1 <= 0xDFFF) {
+            if (!(w2 >= 0xDC00 && w2 <= 0xDFFF))
+                return false;
+        }
+        else if (w1 >= 0xDC00 && w1 <= 0xDFFF)
+        {
             return false; // lone low surrogate
         }
     }
     return true;
 }
 
-bool vex_utf16_validate(const uint16_t *s, size_t len) {
+bool vex_utf16_validate(const uint16_t *s, size_t len)
+{
     return utf16_validate_scalar(s, len);
 }
 
 /**
  * UTF-32 validation
  */
-static inline bool utf32_validate_scalar(const uint32_t *s, size_t len) {
-    for (size_t i = 0; i < len; ++i) {
+static inline bool utf32_validate_scalar(const uint32_t *s, size_t len)
+{
+    for (size_t i = 0; i < len; ++i)
+    {
         uint32_t cp = s[i];
-        if (cp > 0x10FFFF) return false;
-        if (cp >= 0xD800 && cp <= 0xDFFF) return false;
+        if (cp > 0x10FFFF)
+            return false;
+        if (cp >= 0xD800 && cp <= 0xDFFF)
+            return false;
     }
     return true;
 }
 
-bool vex_utf32_validate(const uint32_t *s, size_t len) {
+bool vex_utf32_validate(const uint32_t *s, size_t len)
+{
     return utf32_validate_scalar(s, len);
 }
 
@@ -331,42 +359,65 @@ bool vex_utf32_validate(const uint32_t *s, size_t len) {
  * UTF-8 -> UTF-16 conversion
  * Returns number of UTF-16 units written, or (size_t)-1 on error
  */
-size_t vex_utf8_to_utf16(const uint8_t *src, size_t len, uint16_t *dst) {
+size_t vex_utf8_to_utf16(const uint8_t *src, size_t len, uint16_t *dst)
+{
     size_t i = 0, j = 0;
-    while (i < len) {
+    while (i < len)
+    {
         uint8_t c = src[i];
-        if (c < 0x80) {
+        if (c < 0x80)
+        {
             dst[j++] = c;
             i++;
-        } else if ((c >> 5) == 0x6) { // 2-byte
-            if (i+1 >= len) return (size_t)-1;
-            uint8_t c2 = src[i+1];
-            if ((c2 & 0xC0) != 0x80 || c < 0xC2) return (size_t)-1;
+        }
+        else if ((c >> 5) == 0x6)
+        { // 2-byte
+            if (i + 1 >= len)
+                return (size_t)-1;
+            uint8_t c2 = src[i + 1];
+            if ((c2 & 0xC0) != 0x80 || c < 0xC2)
+                return (size_t)-1;
             dst[j++] = ((c & 0x1F) << 6) | (c2 & 0x3F);
             i += 2;
-        } else if ((c >> 4) == 0xE) { // 3-byte
-            if (i+2 >= len) return (size_t)-1;
-            uint8_t c2 = src[i+1], c3 = src[i+2];
-            if ((c2 & 0xC0) != 0x80 || (c3 & 0xC0) != 0x80) return (size_t)-1;
+        }
+        else if ((c >> 4) == 0xE)
+        { // 3-byte
+            if (i + 2 >= len)
+                return (size_t)-1;
+            uint8_t c2 = src[i + 1], c3 = src[i + 2];
+            if ((c2 & 0xC0) != 0x80 || (c3 & 0xC0) != 0x80)
+                return (size_t)-1;
             uint32_t cp = ((c & 0x0F) << 12) | ((c2 & 0x3F) << 6) | (c3 & 0x3F);
-            if (cp >= 0xD800 && cp <= 0xDFFF) return (size_t)-1;
-            if (c == 0xE0 && c2 < 0xA0) return (size_t)-1;
-            if (c == 0xED && c2 > 0x9F) return (size_t)-1;
+            if (cp >= 0xD800 && cp <= 0xDFFF)
+                return (size_t)-1;
+            if (c == 0xE0 && c2 < 0xA0)
+                return (size_t)-1;
+            if (c == 0xED && c2 > 0x9F)
+                return (size_t)-1;
             dst[j++] = (uint16_t)cp;
             i += 3;
-        } else if ((c >> 3) == 0x1E) { // 4-byte
-            if (i+3 >= len) return (size_t)-1;
-            uint8_t c2 = src[i+1], c3 = src[i+2], c4 = src[i+3];
-            if ((c2 & 0xC0) != 0x80 || (c3 & 0xC0) != 0x80 || (c4 & 0xC0) != 0x80) return (size_t)-1;
+        }
+        else if ((c >> 3) == 0x1E)
+        { // 4-byte
+            if (i + 3 >= len)
+                return (size_t)-1;
+            uint8_t c2 = src[i + 1], c3 = src[i + 2], c4 = src[i + 3];
+            if ((c2 & 0xC0) != 0x80 || (c3 & 0xC0) != 0x80 || (c4 & 0xC0) != 0x80)
+                return (size_t)-1;
             uint32_t cp = ((c & 0x07) << 18) | ((c2 & 0x3F) << 12) | ((c3 & 0x3F) << 6) | (c4 & 0x3F);
-            if (cp > 0x10FFFF) return (size_t)-1;
-            if (c == 0xF0 && c2 < 0x90) return (size_t)-1;
-            if (c == 0xF4 && c2 > 0x8F) return (size_t)-1;
+            if (cp > 0x10FFFF)
+                return (size_t)-1;
+            if (c == 0xF0 && c2 < 0x90)
+                return (size_t)-1;
+            if (c == 0xF4 && c2 > 0x8F)
+                return (size_t)-1;
             cp -= 0x10000;
             dst[j++] = (uint16_t)(0xD800 | (cp >> 10));
             dst[j++] = (uint16_t)(0xDC00 | (cp & 0x3FF));
             i += 4;
-        } else {
+        }
+        else
+        {
             return (size_t)-1;
         }
     }
@@ -377,40 +428,63 @@ size_t vex_utf8_to_utf16(const uint8_t *src, size_t len, uint16_t *dst) {
  * UTF-8 -> UTF-32 conversion
  * Returns number of UTF-32 units written, or (size_t)-1 on error
  */
-size_t vex_utf8_to_utf32(const uint8_t *src, size_t len, uint32_t *dst) {
+size_t vex_utf8_to_utf32(const uint8_t *src, size_t len, uint32_t *dst)
+{
     size_t i = 0, j = 0;
-    while (i < len) {
+    while (i < len)
+    {
         uint8_t c = src[i];
-        if (c < 0x80) {
+        if (c < 0x80)
+        {
             dst[j++] = c;
             i++;
-        } else if ((c >> 5) == 0x6) { // 2-byte
-            if (i+1 >= len) return (size_t)-1;
-            uint8_t c2 = src[i+1];
-            if ((c2 & 0xC0) != 0x80 || c < 0xC2) return (size_t)-1;
+        }
+        else if ((c >> 5) == 0x6)
+        { // 2-byte
+            if (i + 1 >= len)
+                return (size_t)-1;
+            uint8_t c2 = src[i + 1];
+            if ((c2 & 0xC0) != 0x80 || c < 0xC2)
+                return (size_t)-1;
             dst[j++] = ((c & 0x1F) << 6) | (c2 & 0x3F);
             i += 2;
-        } else if ((c >> 4) == 0xE) { // 3-byte
-            if (i+2 >= len) return (size_t)-1;
-            uint8_t c2 = src[i+1], c3 = src[i+2];
-            if ((c2 & 0xC0) != 0x80 || (c3 & 0xC0) != 0x80) return (size_t)-1;
+        }
+        else if ((c >> 4) == 0xE)
+        { // 3-byte
+            if (i + 2 >= len)
+                return (size_t)-1;
+            uint8_t c2 = src[i + 1], c3 = src[i + 2];
+            if ((c2 & 0xC0) != 0x80 || (c3 & 0xC0) != 0x80)
+                return (size_t)-1;
             uint32_t cp = ((c & 0x0F) << 12) | ((c2 & 0x3F) << 6) | (c3 & 0x3F);
-            if (cp >= 0xD800 && cp <= 0xDFFF) return (size_t)-1;
-            if (c == 0xE0 && c2 < 0xA0) return (size_t)-1;
-            if (c == 0xED && c2 > 0x9F) return (size_t)-1;
+            if (cp >= 0xD800 && cp <= 0xDFFF)
+                return (size_t)-1;
+            if (c == 0xE0 && c2 < 0xA0)
+                return (size_t)-1;
+            if (c == 0xED && c2 > 0x9F)
+                return (size_t)-1;
             dst[j++] = cp;
             i += 3;
-        } else if ((c >> 3) == 0x1E) { // 4-byte
-            if (i+3 >= len) return (size_t)-1;
-            uint8_t c2 = src[i+1], c3 = src[i+2], c4 = src[i+3];
-            if ((c2 & 0xC0) != 0x80 || (c3 & 0xC0) != 0x80 || (c4 & 0xC0) != 0x80) return (size_t)-1;
+        }
+        else if ((c >> 3) == 0x1E)
+        { // 4-byte
+            if (i + 3 >= len)
+                return (size_t)-1;
+            uint8_t c2 = src[i + 1], c3 = src[i + 2], c4 = src[i + 3];
+            if ((c2 & 0xC0) != 0x80 || (c3 & 0xC0) != 0x80 || (c4 & 0xC0) != 0x80)
+                return (size_t)-1;
             uint32_t cp = ((c & 0x07) << 18) | ((c2 & 0x3F) << 12) | ((c3 & 0x3F) << 6) | (c4 & 0x3F);
-            if (cp > 0x10FFFF) return (size_t)-1;
-            if (c == 0xF0 && c2 < 0x90) return (size_t)-1;
-            if (c == 0xF4 && c2 > 0x8F) return (size_t)-1;
+            if (cp > 0x10FFFF)
+                return (size_t)-1;
+            if (c == 0xF0 && c2 < 0x90)
+                return (size_t)-1;
+            if (c == 0xF4 && c2 > 0x8F)
+                return (size_t)-1;
             dst[j++] = cp;
             i += 4;
-        } else {
+        }
+        else
+        {
             return (size_t)-1;
         }
     }
@@ -540,7 +614,7 @@ bool vex_utf8_valid(const char *s, size_t byte_len)
     size_t i = 0;
 
 #if VEX_SIMD_X86
-    #if defined(__AVX2__)
+#if defined(__AVX2__)
     // AVX2: 32 bytes at a time
     while (i + 32 <= byte_len)
     {
@@ -557,7 +631,7 @@ bool vex_utf8_valid(const char *s, size_t byte_len)
         }
         i += 32;
     }
-    #endif
+#endif
 
     // SSE2: 16 bytes at a time
     while (i + 16 <= byte_len)

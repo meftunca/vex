@@ -171,3 +171,62 @@ pub fn builtin_strdup<'ctx>(
         .left()
         .ok_or("strdup didn't return a value".to_string())
 }
+
+/// vex_string_as_cstr(s: *String): *u8 - Get raw C string pointer from String
+pub fn builtin_string_as_cstr<'ctx>(
+    codegen: &mut ASTCodeGen<'ctx>,
+    args: &[BasicValueEnum<'ctx>],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if args.len() != 1 {
+        return Err("vex_string_as_cstr() takes exactly one argument".to_string());
+    }
+
+    let str_ptr = match args[0] {
+        BasicValueEnum::PointerValue(ptr) => ptr,
+        _ => return Err("vex_string_as_cstr() argument must be a String pointer".to_string()),
+    };
+
+    let ptr_type = codegen.context.ptr_type(AddressSpace::default());
+    let vex_string_as_cstr =
+        codegen.declare_runtime_fn("vex_string_as_cstr", &[ptr_type.into()], ptr_type.into());
+
+    let result = codegen
+        .builder
+        .build_call(vex_string_as_cstr, &[str_ptr.into()], "string_as_cstr")
+        .map_err(|e| format!("Failed to call vex_string_as_cstr: {}", e))?;
+
+    result
+        .try_as_basic_value()
+        .left()
+        .ok_or("vex_string_as_cstr didn't return a value".to_string())
+}
+
+/// vex_string_len(s: *String): u64 - Get length of String in bytes
+pub fn builtin_string_len<'ctx>(
+    codegen: &mut ASTCodeGen<'ctx>,
+    args: &[BasicValueEnum<'ctx>],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if args.len() != 1 {
+        return Err("vex_string_len() takes exactly one argument".to_string());
+    }
+
+    let str_ptr = match args[0] {
+        BasicValueEnum::PointerValue(ptr) => ptr,
+        _ => return Err("vex_string_len() argument must be a String pointer".to_string()),
+    };
+
+    let ptr_type = codegen.context.ptr_type(AddressSpace::default());
+    let i64_type = codegen.context.i64_type();
+    let vex_string_len =
+        codegen.declare_runtime_fn("vex_string_len", &[ptr_type.into()], i64_type.into());
+
+    let result = codegen
+        .builder
+        .build_call(vex_string_len, &[str_ptr.into()], "string_len")
+        .map_err(|e| format!("Failed to call vex_string_len: {}", e))?;
+
+    result
+        .try_as_basic_value()
+        .left()
+        .ok_or("vex_string_len didn't return a value".to_string())
+}

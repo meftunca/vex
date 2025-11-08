@@ -1,0 +1,11 @@
+// Fmt Module
+// Formatting utilities (placeholder)
+//
+// Usage:
+//   import { format } from "fmt";
+
+export fn format(template: string): string {
+    // TODO: Implement formatting
+    return template;
+}
+

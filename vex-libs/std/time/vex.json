@@ -1,0 +1,9 @@
+{
+  "name": "time",
+  "version": "0.9.1",
+  "description": "Time operations and duration types",
+  "authors": ["Vex Language Team"],
+  "license": "MIT",
+  "main": "src/lib.vx"
+}
+

@@ -1,0 +1,208 @@
+// File System Module - Dosya ve dizin işlemleri
+// Vex FS API - Production-ready file I/O
+
+// ============================================================================
+// External C Functions (vex_file runtime)
+// ============================================================================
+
+extern "C" {
+    // File operations
+    fn vex_file_open(path: *u8, mode: *u8): *u8;  // Returns VexFile*
+    fn vex_file_close(file: *u8);
+    fn vex_file_read(file: *u8, buffer: *u8, size: u64): u64;
+    fn vex_file_write(file: *u8, buffer: *u8, size: u64): u64;
+    fn vex_file_seek(file: *u8, offset: i64, whence: i32): bool;
+    fn vex_file_tell(file: *u8): i64;
+    fn vex_file_size(file: *u8): i64;
+    fn vex_file_flush(file: *u8): bool;
+    
+    // High-level file operations
+    fn vex_file_read_all(path: *u8, out_size: *u64): *u8;
+    fn vex_file_write_all(path: *u8, data: *u8, size: u64): bool;
+    fn vex_file_exists(path: *u8): bool;
+    fn vex_file_remove(path: *u8): bool;
+    fn vex_file_rename(old_path: *u8, new_path: *u8): bool;
+    fn vex_file_copy(src: *u8, dst: *u8): bool;
+    fn vex_file_move(src: *u8, dst: *u8): bool;
+    
+    // Directory operations  
+    fn vex_dir_create(path: *u8): bool;
+    fn vex_dir_remove(path: *u8): bool;
+    fn vex_dir_exists(path: *u8): bool;
+    
+    // String helpers
+    fn vex_string_as_cstr(s: *String): *u8;
+    fn vex_string_len(s: *String): u64;
+    fn vex_string_from_cstr(ptr: *u8, len: u64): String;
+    fn vex_free(ptr: *u8);
+}
+
+// ============================================================================
+// File Type
+// ============================================================================
+
+/// File handle for reading/writing
+struct File {
+    handle: *u8,
+    path: String,
+    is_open: bool
+}
+
+// ============================================================================
+// File Operations
+// ============================================================================
+
+/// Open file for reading
+export fn open(path: String): File {
+    let path_ptr: *String = &path;
+    let cpath: *u8 = vex_string_as_cstr(path_ptr);
+    let mode: String = "r";
+    let mode_ptr: *String = &mode;
+    let cmode: *u8 = vex_string_as_cstr(mode_ptr);
+    
+    let handle: *u8 = vex_file_open(cpath, cmode);
+    
+    return File {
+        handle: handle,
+        path: path,
+        is_open: handle != 0 as *u8
+    };
+}
+
+/// Create file for writing (truncates if exists)
+export fn create(path: String): File {
+    let path_ptr: *String = &path;
+    let cpath: *u8 = vex_string_as_cstr(path_ptr);
+    let mode: String = "w";
+    let mode_ptr: *String = &mode;
+    let cmode: *u8 = vex_string_as_cstr(mode_ptr);
+    
+    let handle: *u8 = vex_file_open(cpath, cmode);
+    
+    return File {
+        handle: handle,
+        path: path,
+        is_open: handle != 0 as *u8
+    };
+}
+
+/// Open file for appending
+export fn append(path: String): File {
+    let path_ptr: *String = &path;
+    let cpath: *u8 = vex_string_as_cstr(path_ptr);
+    let mode: String = "a";
+    let mode_ptr: *String = &mode;
+    let cmode: *u8 = vex_string_as_cstr(mode_ptr);
+    
+    let handle: *u8 = vex_file_open(cpath, cmode);
+    
+    return File {
+        handle: handle,
+        path: path,
+        is_open: handle != 0 as *u8
+    };
+}
+
+/// Close file
+export fn close(f: File!) {
+    if f.is_open {
+        vex_file_close(f.handle);
+        f.is_open = false;
+    }
+}
+
+/// Read entire file to string
+export fn read_to_string(path: String): String {
+    let path_ptr: *String = &path;
+    let cpath: *u8 = vex_string_as_cstr(path_ptr);
+    let! size: u64 = 0;
+    let size_ptr: *u64 = &size;
+    
+    let data: *u8 = vex_file_read_all(cpath, size_ptr);
+    
+    if data == 0 as *u8 {
+        return "";
+    }
+    
+    let result: String = vex_string_from_cstr(data, size);
+    vex_free(data);
+    return result;
+}
+
+/// Write string to file
+export fn write_string(path: String, content: String): bool {
+    let path_ptr: *String = &path;
+    let cpath: *u8 = vex_string_as_cstr(path_ptr);
+    
+    let content_ptr: *String = &content;
+    let cdata: *u8 = vex_string_as_cstr(content_ptr);
+    let len: u64 = vex_string_len(content_ptr);
+    
+    return vex_file_write_all(cpath, cdata, len);
+}
+
+/// Check if file exists
+export fn exists(path: String): bool {
+    let path_ptr: *String = &path;
+    let cpath: *u8 = vex_string_as_cstr(path_ptr);
+    return vex_file_exists(cpath);
+}
+
+/// Remove/delete file
+export fn remove(path: String): bool {
+    let path_ptr: *String = &path;
+    let cpath: *u8 = vex_string_as_cstr(path_ptr);
+    return vex_file_remove(cpath);
+}
+
+/// Rename/move file
+export fn rename(old_path: String, new_path: String): bool {
+    let old_ptr: *String = &old_path;
+    let new_ptr: *String = &new_path;
+    let cold: *u8 = vex_string_as_cstr(old_ptr);
+    let cnew: *u8 = vex_string_as_cstr(new_ptr);
+    return vex_file_rename(cold, cnew);
+}
+
+/// Copy file
+export fn copy(src: String, dst: String): bool {
+    let src_ptr: *String = &src;
+    let dst_ptr: *String = &dst;
+    let csrc: *u8 = vex_string_as_cstr(src_ptr);
+    let cdst: *u8 = vex_string_as_cstr(dst_ptr);
+    return vex_file_copy(csrc, cdst);
+}
+
+/// Move file (more efficient than copy+remove)
+export fn move_file(src: String, dst: String): bool {
+    let src_ptr: *String = &src;
+    let dst_ptr: *String = &dst;
+    let csrc: *u8 = vex_string_as_cstr(src_ptr);
+    let cdst: *u8 = vex_string_as_cstr(dst_ptr);
+    return vex_file_move(csrc, cdst);
+}
+
+// ============================================================================
+// Directory Operations
+// ============================================================================
+
+/// Create directory
+export fn create_dir(path: String): bool {
+    let path_ptr: *String = &path;
+    let cpath: *u8 = vex_string_as_cstr(path_ptr);
+    return vex_dir_create(cpath);
+}
+
+/// Remove directory
+export fn remove_dir(path: String): bool {
+    let path_ptr: *String = &path;
+    let cpath: *u8 = vex_string_as_cstr(path_ptr);
+    return vex_dir_remove(cpath);
+}
+
+/// Check if directory exists
+export fn dir_exists(path: String): bool {
+    let path_ptr: *String = &path;
+    let cpath: *u8 = vex_string_as_cstr(path_ptr);
+    return vex_dir_exists(cpath);
+}

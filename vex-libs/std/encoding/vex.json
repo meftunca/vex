@@ -1,0 +1,9 @@
+{
+  "name": "encoding",
+  "version": "0.9.1",
+  "description": "Encoding utilities - Base64, Base32, Hex, UUID",
+  "authors": ["Vex Language Team"],
+  "license": "MIT",
+  "main": "src/lib.vx"
+}
+

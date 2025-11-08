@@ -22,11 +22,13 @@ use vex_ast::*;
 pub mod builtins; // Now a directory module
 mod expressions;
 mod ffi;
+mod ffi_bridge;
 // mod functions;
 pub mod analysis;
 pub mod enums;
 mod functions;
 pub mod generics;
+mod inline_optimizer;
 pub mod metadata;
 pub mod methods;
 pub mod program;
@@ -36,6 +38,7 @@ pub mod traits;
 mod types; // functions/{declare,compile,asynchronous}.rs
 
 pub use builtins::BuiltinRegistry;
+pub use inline_optimizer::{InlineOptimizer, OptimizationStats};
 
 /// Struct definition metadata
 #[derive(Debug, Clone)]
@@ -205,6 +208,16 @@ impl<'ctx> ASTCodeGen<'ctx> {
     /// Check if there are any errors
     pub fn has_errors(&self) -> bool {
         self.diagnostics.has_errors()
+    }
+
+    /// Create FFI bridge for extern declarations
+    pub fn create_ffi_bridge(&'ctx self) -> ffi_bridge::FFIBridge<'ctx> {
+        ffi_bridge::FFIBridge::new(self.context, &self.module)
+    }
+
+    /// Create inline optimizer for zero-cost abstractions
+    pub fn create_inline_optimizer(&'ctx self) -> inline_optimizer::InlineOptimizer<'ctx> {
+        inline_optimizer::InlineOptimizer::new(&self.module)
     }
 
     /// Execute deferred statements in LIFO order

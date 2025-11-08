@@ -13,4 +13,5 @@ thiserror = "1.0"
 regex = "1.10"
 sha2 = "0.10"
 dirs = "5.0"
+which = "6.0"
 chrono = { version = "0.4", features = ["serde"] }

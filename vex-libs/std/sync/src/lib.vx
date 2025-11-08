@@ -1,0 +1,20 @@
+// Sync Module
+// Concurrency primitives - Channel (MPSC)
+//
+// Usage:
+//   import { Channel } from "sync";
+
+// External C functions from vex-runtime/c/vex_channel.c
+extern "C" {
+    fn vex_channel_create(capacity: u64): *const u8;
+    fn vex_channel_send(chan: *const u8, data: *const u8): bool;
+    fn vex_channel_recv(chan: *const u8, out: *const u8): bool;
+    fn vex_channel_close(chan: *const u8);
+    fn vex_channel_destroy(chan: *const u8);
+}
+
+// Channel<T> - Multi-Producer Single-Consumer channel
+export struct Channel<T> {
+    ptr: *const u8,
+}
+

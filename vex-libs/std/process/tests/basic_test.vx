@@ -1,0 +1,73 @@
+// Process Module Tests
+// Tests for process control operations
+
+import { pid, exit_success, exit_failure, command } from "process";
+
+fn test_pid(): i32 {
+    let process_id: i32 = pid();
+    
+    // PID should be positive
+    if process_id <= 0 {
+        return 1; // Invalid PID
+    }
+    
+    println("Current PID: ");
+    // TODO: Print int when available
+    
+    return 0;
+}
+
+fn test_command_execution(): i32 {
+    // Test simple command (echo)
+    let result: i32 = command("echo 'Hello from Vex process test'");
+    
+    // Command should succeed (exit code 0)
+    if result != 0 {
+        return 1; // Command failed
+    }
+    
+    return 0;
+}
+
+fn test_command_failure(): i32 {
+    // Test command that should fail
+    let result: i32 = command("false");
+    
+    // Command should fail (exit code non-zero)
+    if result == 0 {
+        return 1; // Command should have failed
+    }
+    
+    return 0;
+}
+
+fn main(): i32 {
+    println("Running process module tests...");
+    
+    // Test 1: Get PID
+    let result1: i32 = test_pid();
+    if result1 != 0 {
+        println("FAIL: test_pid");
+        return result1;
+    }
+    println("PASS: test_pid");
+    
+    // Test 2: Command execution
+    let result2: i32 = test_command_execution();
+    if result2 != 0 {
+        println("FAIL: test_command_execution");
+        return result2;
+    }
+    println("PASS: test_command_execution");
+    
+    // Test 3: Command failure
+    let result3: i32 = test_command_failure();
+    if result3 != 0 {
+        println("FAIL: test_command_failure");
+        return result3;
+    }
+    println("PASS: test_command_failure");
+    
+    println("All process tests passed!");
+    return 0;
+}

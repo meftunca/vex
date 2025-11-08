@@ -100,6 +100,8 @@ impl<'ctx> BuiltinRegistry<'ctx> {
         registry.register("strcpy", string::builtin_strcpy);
         registry.register("strcat", string::builtin_strcat);
         registry.register("strdup", string::builtin_strdup);
+        registry.register("vex_string_as_cstr", string::builtin_string_as_cstr);
+        registry.register("vex_string_len", string::builtin_string_len);
 
         // Register runtime memory operations
         registry.register("memcpy", memory_ops::builtin_memcpy);
@@ -373,6 +375,34 @@ impl<'ctx> ASTCodeGen<'ctx> {
             return func;
         }
 
+        let fn_type = self.context.void_type().fn_type(param_types, false);
+        self.module.add_function(name, fn_type, None)
+    }
+
+    /// Declare LLVM memset intrinsic: llvm.memset.p0.i64
+    /// Signature: void @llvm.memset.p0.i64(i8* ptr, i8 val, i64 len, i1 volatile)
+    pub(crate) fn get_or_declare_memset(&mut self) -> FunctionValue<'ctx> {
+        let name = "llvm.memset.p0.i64";
+
+        // Check if already declared
+        if let Some(func) = self.module.get_function(name) {
+            return func;
+        }
+
+        // Parameter types: (i8*, i8, i64, i1)
+        let i8_type = self.context.i8_type();
+        let i8_ptr_type = i8_type.ptr_type(inkwell::AddressSpace::default());
+        let i64_type = self.context.i64_type();
+        let bool_type = self.context.bool_type();
+
+        let param_types = &[
+            i8_ptr_type.into(), // ptr
+            i8_type.into(),     // val
+            i64_type.into(),    // len
+            bool_type.into(),   // volatile
+        ];
+
+        // Return type: void
         let fn_type = self.context.void_type().fn_type(param_types, false);
         self.module.add_function(name, fn_type, None)
     }

@@ -335,7 +335,13 @@ impl SymbolResolver {
                 self.format_type(err)
             ),
             Type::Channel(inner) => format!("Channel<{}>", self.format_type(inner)),
-            Type::RawPtr(inner) => format!("*{}", self.format_type(inner)),
+            Type::RawPtr { inner, is_const } => {
+                if *is_const {
+                    format!("*const {}", self.format_type(inner))
+                } else {
+                    format!("*{}", self.format_type(inner))
+                }
+            }
             Type::Union(types) => {
                 let type_strs: Vec<String> = types.iter().map(|t| self.format_type(t)).collect();
                 format!("({})", type_strs.join(" | "))

@@ -191,7 +191,13 @@ impl TraitBoundsChecker {
             Type::Nil => "nil".to_string(),
             Type::Unit => "unit".to_string(),
             Type::Never => "!".to_string(),
-            Type::RawPtr(inner) => format!("*{}", self.extract_type_name(inner)),
+            Type::RawPtr { inner, is_const } => {
+                if *is_const {
+                    format!("*const {}", self.extract_type_name(inner))
+                } else {
+                    format!("*{}", self.extract_type_name(inner))
+                }
+            }
             Type::Channel(inner) => format!("Channel<{}>", self.extract_type_name(inner)),
         }
     }

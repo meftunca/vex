@@ -1,0 +1,151 @@
+// Time Module
+// Complete time operations - duration, instant, timezone, formatting
+//
+// Usage:
+//   import { now, sleep, Duration, Instant, parse_duration, format_rfc3339 } from "time";
+
+// External C functions from vex-runtime/c/vex_time/
+extern "C" {
+    // Core types (opaque in Vex, defined in C)
+    type VexTime;
+    type VexInstant;
+    type VexDuration = i64;
+    type VexTz;
+    type VexTimeSched;
+    type VexTimer;
+    type VexTicker;
+    
+    // Now & conversion
+    fn vt_now(out: *VexTime);
+    fn vt_monotonic_now_ns(): u64;
+    fn vt_instant_from_unix(sec: i64, nsec: i32): VexInstant;
+    fn vt_instant_to_unix(t: VexInstant, sec: *i64, nsec: *i32);
+    
+    // Duration parsing/formatting
+    fn vt_parse_duration(s: *const u8, out_ns: *i64): i32;
+    fn vt_format_duration(ns: i64, buf: *u8!, buflen: u64): i32;
+    
+    // Arithmetic
+    fn vt_add(t: VexTime, d: i64): VexTime;
+    fn vt_sub(t: VexTime, u: VexTime): i64;
+    fn vt_since(t: VexTime): i64;
+    fn vt_until(t: VexTime): i64;
+    
+    // Sleep
+    fn vt_sleep_ns(ns: i64): i32;
+    
+    // RFC3339
+    fn vt_format_rfc3339_utc(t: VexInstant, buf: *u8!, buflen: u64): i32;
+    fn vt_parse_rfc3339(s: *const u8, out: *VexInstant): i32;
+    
+    // Timezone
+    fn vt_tz_utc(): *const VexTz;
+    fn vt_tz_local(): *const VexTz;
+    fn vt_tz_load(name: *const u8): *const VexTz;
+    fn vt_tz_release(tz: *const VexTz);
+    fn vt_tz_offset_at(tz: *const VexTz, utc: VexInstant, offset_sec: *i32, abbr: *const *const u8): i32;
+    
+    // Go layout format/parse
+    fn vt_format_go(utc: VexInstant, tz: *const VexTz, layout: *const u8, out: *u8!, outlen: u64): i32;
+    fn vt_parse_go(layout: *const u8, value: *const u8, tz: *const VexTz, out: *VexInstant): i32;
+    
+    // Scheduler (timers/tickers)
+    fn vt_sched_create(): *const VexTimeSched;
+    fn vt_sched_destroy(s: *const VexTimeSched);
+    fn vt_timer_create(s: *const VexTimeSched, cb: fn(*const u8, VexTime), user: *const u8): *const VexTimer;
+    fn vt_timer_start(t: *const VexTimer, after_ns: i64): i32;
+    fn vt_timer_stop(t: *const VexTimer): i32;
+    fn vt_timer_destroy(t: *const VexTimer);
+}
+
+// Duration in nanoseconds
+export type Duration = i64;
+
+// Instant represents a point in time (UTC)
+export struct Instant {
+    inner: VexInstant,
+}
+
+// Time with both wall and monotonic clock
+export struct Time {
+    inner: VexTime,
+}
+
+// Timezone
+export struct Timezone {
+    ptr: *const VexTz,
+}
+
+// Get current time
+export fn now(): Time {
+    let! t: VexTime;
+    unsafe {
+        vt_now(&t);
+    }
+    return Time { inner: t };
+}
+
+// Get monotonic time in nanoseconds
+export fn monotonic_ns(): u64 {
+    unsafe {
+        vt_monotonic_now_ns()
+    }
+}
+
+// Sleep for duration
+export fn sleep(dur: Duration): i32 {
+    unsafe {
+        vt_sleep_ns(dur)
+    }
+}
+
+// Parse duration string (e.g., "1h30m", "500ms")
+export fn parse_duration(s: string): Duration {
+    let! ns: i64 = 0;
+    unsafe {
+        vt_parse_duration(s.as_ptr(), &ns);
+    }
+    return ns;
+}
+
+// Format duration
+export fn format_duration(dur: Duration): string {
+    let! buf: [u8; 64];
+    unsafe {
+        vt_format_duration(dur, buf.as_mut_ptr(), 64);
+        return string.from_utf8_unchecked(&buf);
+    }
+}
+
+// Parse RFC3339 timestamp
+export fn parse_rfc3339(s: string): Instant {
+    let! inst: VexInstant;
+    unsafe {
+        vt_parse_rfc3339(s.as_ptr(), &inst);
+    }
+    return Instant { inner: inst };
+}
+
+// Format as RFC3339
+export fn format_rfc3339(t: Instant): string {
+    let! buf: [u8; 64];
+    unsafe {
+        vt_format_rfc3339_utc(t.inner, buf.as_mut_ptr(), 64);
+        return string.from_utf8_unchecked(&buf);
+    }
+}
+
+// Get UTC timezone
+export fn utc(): Timezone {
+    unsafe {
+        Timezone { ptr: vt_tz_utc() }
+    }
+}
+
+// Get local timezone
+export fn local(): Timezone {
+    unsafe {
+        Timezone { ptr: vt_tz_local() }
+    }
+}
+

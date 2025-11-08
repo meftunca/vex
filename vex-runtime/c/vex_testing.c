@@ -86,6 +86,16 @@
 #include <sys/mman.h>
 #include <sys/time.h>
 #include <sys/resource.h>
+#include <pthread.h>
+#elif defined(__APPLE__) || defined(__unix__) || defined(__unix)
+#include <unistd.h>
+#include <pthread.h>
+#endif
+
+// Windows threading
+#ifdef _WIN32
+#include <windows.h>
+#include <process.h>
 #endif
 
 /* =========================
@@ -321,32 +331,36 @@ static void vex_log_appendf(const char *level, const char *fmt, va_list ap)
 }
 
 #include <stdarg.h>
-#define VEX_TLOG(fmt, ...)           \
-  do                                 \
-  {                                  \
-    va_list ap;                      \
-    va_start(ap, fmt);               \
-    vex_log_appendf("LOG", fmt, ap); \
-    va_end(ap);                      \
+
+// Logging macros
+#define VEX_TLOG(fmt, ...)                       \
+  do                                             \
+  {                                              \
+    vex_log_raw("LOG", fmt, ##__VA_ARGS__);      \
   } while (0)
-#define VEX_TERROR(fmt, ...)           \
-  do                                   \
-  {                                    \
-    g_tstate.errors++;                 \
-    va_list ap;                        \
-    va_start(ap, fmt);                 \
-    vex_log_appendf("ERROR", fmt, ap); \
-    va_end(ap);                        \
+
+#define VEX_TERROR(fmt, ...)                     \
+  do                                             \
+  {                                              \
+    g_tstate.errors++;                           \
+    vex_log_raw("ERROR", fmt, ##__VA_ARGS__);    \
   } while (0)
-#define VEX_TFAILNOW(fmt, ...)        \
-  do                                  \
-  {                                   \
-    va_list ap;                       \
-    va_start(ap, fmt);                \
-    vex_log_appendf("FAIL", fmt, ap); \
-    va_end(ap);                       \
-    vex_trap();                       \
+
+#define VEX_TFAILNOW(fmt, ...)                   \
+  do                                             \
+  {                                              \
+    vex_log_raw("FAIL", fmt, ##__VA_ARGS__);     \
+    vex_trap();                                  \
   } while (0)
+
+// Helper for logging with varargs
+static void vex_log_raw(const char *level, const char *fmt, ...)
+{
+  va_list ap;
+  va_start(ap, fmt);
+  vex_log_appendf(level, fmt, ap);
+  va_end(ap);
+}
 #define VEX_ASSERT(cond)                           \
   do                                               \
   {                                                \
@@ -1091,6 +1105,509 @@ static inline vex_fixture vex_fixture_full(void (*setup_all)(void), void (*teard
 {
   vex_fixture f = {setup_all, teardown_all, setup_each, teardown_each};
   return f;
+}
+
+/* =========================
+ * Parallel Test Runner
+ * ========================= */
+
+// Platform-agnostic thread wrapper
+#if defined(_WIN32)
+typedef HANDLE vex_thread_t;
+typedef DWORD vex_thread_result_t;
+#define VEX_THREAD_CALL __stdcall
+#else
+typedef pthread_t vex_thread_t;
+typedef void* vex_thread_result_t;
+#define VEX_THREAD_CALL
+#endif
+
+// Mutex wrapper
+#if defined(_WIN32)
+typedef CRITICAL_SECTION vex_mutex_t;
+static inline void vex_mutex_init(vex_mutex_t *m) { InitializeCriticalSection(m); }
+static inline void vex_mutex_lock(vex_mutex_t *m) { EnterCriticalSection(m); }
+static inline void vex_mutex_unlock(vex_mutex_t *m) { LeaveCriticalSection(m); }
+static inline void vex_mutex_destroy(vex_mutex_t *m) { DeleteCriticalSection(m); }
+#else
+typedef pthread_mutex_t vex_mutex_t;
+static inline void vex_mutex_init(vex_mutex_t *m) { pthread_mutex_init(m, NULL); }
+static inline void vex_mutex_lock(vex_mutex_t *m) { pthread_mutex_lock(m); }
+static inline void vex_mutex_unlock(vex_mutex_t *m) { pthread_mutex_unlock(m); }
+static inline void vex_mutex_destroy(vex_mutex_t *m) { pthread_mutex_destroy(m); }
+#endif
+
+// Parallel test context
+typedef struct {
+  const vex_test_case *tests;
+  size_t n_tests;
+  const vex_fixture *fx;
+  vex_reporter_kind reporter;
+  
+  // Shared state (protected by mutex)
+  vex_mutex_t mutex;
+  size_t next_test_idx;
+  int total_failed;
+  vex_test_result *results;
+  
+  // Thread-local results
+  int thread_id;
+} vex_parallel_ctx;
+
+// Thread worker function
+static VEX_THREAD_CALL vex_thread_result_t vex_test_worker(void *arg) {
+  vex_parallel_ctx *ctx = (vex_parallel_ctx *)arg;
+  
+  while (1) {
+    // Get next test index (thread-safe)
+    vex_mutex_lock(&ctx->mutex);
+    size_t idx = ctx->next_test_idx++;
+    vex_mutex_unlock(&ctx->mutex);
+    
+    if (idx >= ctx->n_tests) {
+      break; // No more tests
+    }
+    
+    const vex_test_case *tc = &ctx->tests[idx];
+    
+    // Run setup_each (if exists)
+    if (ctx->fx && ctx->fx->setup_each) {
+      ctx->fx->setup_each();
+    }
+    
+    // Initialize thread-local test state
+    g_tstate.current = tc->name;
+    g_tstate.errors = 0;
+    g_tstate.logbuf = (char *)malloc(VEX_TEST_LOGBUF_SZ);
+    g_tstate.logcap = VEX_TEST_LOGBUF_SZ;
+    g_tstate.loglen = 0;
+    if (g_tstate.logbuf) {
+      g_tstate.logbuf[0] = '\0';
+    }
+    
+    // Run the test
+    tc->fn();
+    
+    // Store result (thread-safe)
+    vex_mutex_lock(&ctx->mutex);
+    vex_test_result *r = &ctx->results[idx];
+    r->name = tc->name;
+    r->errors = g_tstate.errors;
+    r->skipped = false; // TODO: detect skip
+    r->log = g_tstate.logbuf;
+    if (r->errors > 0) {
+      ctx->total_failed++;
+    }
+    vex_mutex_unlock(&ctx->mutex);
+    
+    // Reset thread-local state
+    g_tstate.logbuf = NULL;
+    g_tstate.logcap = 0;
+    g_tstate.loglen = 0;
+    
+    // Run teardown_each (if exists)
+    if (ctx->fx && ctx->fx->teardown_each) {
+      ctx->fx->teardown_each();
+    }
+  }
+  
+#if defined(_WIN32)
+  return 0;
+#else
+  return NULL;
+#endif
+}
+
+// Create thread
+static inline bool vex_thread_create(vex_thread_t *t, VEX_THREAD_CALL vex_thread_result_t (*fn)(void*), void *arg) {
+#if defined(_WIN32)
+  *t = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)fn, arg, 0, NULL);
+  return *t != NULL;
+#else
+  return pthread_create(t, NULL, fn, arg) == 0;
+#endif
+}
+
+// Join thread
+static inline void vex_thread_join(vex_thread_t *t) {
+#if defined(_WIN32)
+  WaitForSingleObject(*t, INFINITE);
+  CloseHandle(*t);
+#else
+  pthread_join(*t, NULL);
+#endif
+}
+
+// Main parallel runner
+static int vex_run_tests_parallel(const char *suite_name,
+                                   const vex_test_case *tests,
+                                   size_t n_tests,
+                                   const vex_fixture *fx,
+                                   int n_threads) {
+  if (n_threads <= 0) {
+    // Auto-detect CPU count
+#if defined(_WIN32)
+    SYSTEM_INFO sysinfo;
+    GetSystemInfo(&sysinfo);
+    n_threads = (int)sysinfo.dwNumberOfProcessors;
+#elif defined(_SC_NPROCESSORS_ONLN)
+    n_threads = (int)sysconf(_SC_NPROCESSORS_ONLN);
+#else
+    n_threads = 4; // Fallback
+#endif
+  }
+  
+  // Clamp to reasonable range
+  if (n_threads > 64) n_threads = 64;
+  if (n_threads < 1) n_threads = 1;
+  
+  vex_reporter_kind reporter = vex_pick_reporter();
+  
+  // Allocate results array
+  vex_test_result *results = (vex_test_result *)calloc(n_tests, sizeof(vex_test_result));
+  if (!results) {
+    fprintf(stderr, "Failed to allocate results array\n");
+    return -1;
+  }
+  
+  // Initialize context
+  vex_parallel_ctx ctx = {
+    .tests = tests,
+    .n_tests = n_tests,
+    .fx = fx,
+    .reporter = reporter,
+    .next_test_idx = 0,
+    .total_failed = 0,
+    .results = results,
+  };
+  vex_mutex_init(&ctx.mutex);
+  
+  // Run setup_all (if exists)
+  if (fx && fx->setup_all) {
+    fx->setup_all();
+  }
+  
+  // Print header
+  switch (reporter) {
+    case VEX_REP_TAP:
+      printf("TAP version 13\n1..%zu\n", n_tests);
+      break;
+    case VEX_REP_JUNIT:
+      printf("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
+      printf("<testsuites name=\"%s\">\n", suite_name);
+      printf("  <testsuite name=\"%s\" tests=\"%zu\">\n", suite_name, n_tests);
+      break;
+    default:
+      printf("[PARALLEL] Running %zu tests with %d threads...\n", n_tests, n_threads);
+      break;
+  }
+  
+  // Create threads
+  vex_thread_t *threads = (vex_thread_t *)malloc(sizeof(vex_thread_t) * (size_t)n_threads);
+  if (!threads) {
+    fprintf(stderr, "Failed to allocate threads\n");
+    free(results);
+    vex_mutex_destroy(&ctx.mutex);
+    return -1;
+  }
+  
+  for (int i = 0; i < n_threads; i++) {
+    if (!vex_thread_create(&threads[i], vex_test_worker, &ctx)) {
+      fprintf(stderr, "Failed to create thread %d\n", i);
+      // Join already created threads
+      for (int j = 0; j < i; j++) {
+        vex_thread_join(&threads[j]);
+      }
+      free(threads);
+      free(results);
+      vex_mutex_destroy(&ctx.mutex);
+      return -1;
+    }
+  }
+  
+  // Wait for all threads
+  for (int i = 0; i < n_threads; i++) {
+    vex_thread_join(&threads[i]);
+  }
+  
+  // Print results
+  for (size_t i = 0; i < n_tests; i++) {
+    const vex_test_result *r = &results[i];
+    switch (reporter) {
+      case VEX_REP_TAP:
+        if (r->skipped) {
+          printf("ok %zu %s # SKIP\n", i + 1, r->name);
+        } else if (r->errors == 0) {
+          printf("ok %zu %s\n", i + 1, r->name);
+        } else {
+          printf("not ok %zu %s\n", i + 1, r->name);
+          if (r->log && *r->log) {
+            printf("# %s\n", r->log);
+          }
+        }
+        break;
+      case VEX_REP_JUNIT:
+        printf("    <testcase name=\"%s\">\n", r->name);
+        if (r->errors > 0) {
+          printf("      <failure message=\"%d error(s)\">", r->errors);
+          if (r->log && *r->log) {
+            printf("%s", r->log);
+          }
+          printf("</failure>\n");
+        } else if (r->skipped) {
+          printf("      <skipped/>\n");
+        }
+        printf("    </testcase>\n");
+        break;
+      default:
+        if (r->skipped) {
+          printf("[TEST] %s ... SKIP\n", r->name);
+        } else if (r->errors == 0) {
+          printf("[TEST] %s ... OK\n", r->name);
+        } else {
+          printf("[TEST] %s ... FAIL (%d error(s))\n", r->name, r->errors);
+        }
+        break;
+    }
+    
+    // Free log buffer
+    if (r->log) {
+      free(r->log);
+    }
+  }
+  
+  // Print footer
+  switch (reporter) {
+    case VEX_REP_JUNIT:
+      printf("  </testsuite>\n</testsuites>\n");
+      break;
+    default:
+      printf("[PARALLEL] Finished: %d/%zu failed\n", ctx.total_failed, n_tests);
+      break;
+  }
+  
+  // Run teardown_all (if exists)
+  if (fx && fx->teardown_all) {
+    fx->teardown_all();
+  }
+  
+  // Cleanup
+  free(threads);
+  free(results);
+  vex_mutex_destroy(&ctx.mutex);
+  
+  return ctx.total_failed;
+}
+
+/* =========================
+ * Property-Based Testing (QuickCheck-style)
+ * ========================= */
+
+// RNG for property tests (xoroshiro128+)
+typedef struct {
+  uint64_t s[2];
+} vex_prng_t;
+
+static inline uint64_t vex_prng_rotl(uint64_t x, int k) {
+  return (x << k) | (x >> (64 - k));
+}
+
+static inline uint64_t vex_prng_next(vex_prng_t *rng) {
+  uint64_t s0 = rng->s[0];
+  uint64_t s1 = rng->s[1];
+  uint64_t result = s0 + s1;
+  s1 ^= s0;
+  rng->s[0] = vex_prng_rotl(s0, 24) ^ s1 ^ (s1 << 16);
+  rng->s[1] = vex_prng_rotl(s1, 37);
+  return result;
+}
+
+static inline void vex_prng_seed(vex_prng_t *rng, uint64_t seed) {
+  // SplitMix64 for seeding
+  uint64_t z = (seed + 0x9e3779b97f4a7c15ULL);
+  z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9ULL;
+  z = (z ^ (z >> 27)) * 0x94d049bb133111ebULL;
+  rng->s[0] = z ^ (z >> 31);
+  
+  z = (rng->s[0] + 0x9e3779b97f4a7c15ULL);
+  z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9ULL;
+  z = (z ^ (z >> 27)) * 0x94d049bb133111ebULL;
+  rng->s[1] = z ^ (z >> 31);
+}
+
+// Property test context
+typedef struct {
+  vex_prng_t rng;
+  size_t test_count;
+  size_t max_tests;
+  size_t shrink_count;
+  bool failed;
+  char fail_msg[256];
+} vex_property_ctx;
+
+// Initialize property context
+static inline vex_property_ctx vex_property_init(uint64_t seed, size_t max_tests) {
+  vex_property_ctx ctx;
+  vex_prng_seed(&ctx.rng, seed);
+  ctx.test_count = 0;
+  ctx.max_tests = max_tests;
+  ctx.shrink_count = 0;
+  ctx.failed = false;
+  ctx.fail_msg[0] = '\0';
+  return ctx;
+}
+
+// Random generators
+static inline int64_t vex_gen_i64(vex_property_ctx *ctx, int64_t min, int64_t max) {
+  uint64_t range = (uint64_t)(max - min + 1);
+  uint64_t val = vex_prng_next(&ctx->rng) % range;
+  return min + (int64_t)val;
+}
+
+static inline double vex_gen_f64(vex_property_ctx *ctx, double min, double max) {
+  double t = (double)vex_prng_next(&ctx->rng) / (double)UINT64_MAX;
+  return min + t * (max - min);
+}
+
+static inline bool vex_gen_bool(vex_property_ctx *ctx) {
+  return (vex_prng_next(&ctx->rng) & 1) != 0;
+}
+
+// Dynamic array for property testing
+typedef struct {
+  void *data;
+  size_t elem_size;
+  size_t len;
+  size_t cap;
+} vex_vec_t;
+
+static inline vex_vec_t vex_vec_new(size_t elem_size, size_t cap) {
+  vex_vec_t v;
+  v.elem_size = elem_size;
+  v.len = 0;
+  v.cap = cap;
+  v.data = malloc(elem_size * cap);
+  return v;
+}
+
+static inline void vex_vec_free(vex_vec_t *v) {
+  if (v->data) {
+    free(v->data);
+    v->data = NULL;
+  }
+  v->len = 0;
+  v->cap = 0;
+}
+
+static inline void vex_vec_push(vex_vec_t *v, const void *elem) {
+  if (v->len >= v->cap) {
+    v->cap = v->cap * 2 + 8;
+    v->data = realloc(v->data, v->elem_size * v->cap);
+  }
+  memcpy((char*)v->data + v->len * v->elem_size, elem, v->elem_size);
+  v->len++;
+}
+
+static inline void* vex_vec_get(vex_vec_t *v, size_t idx) {
+  if (idx >= v->len) return NULL;
+  return (char*)v->data + idx * v->elem_size;
+}
+
+// Generate random vector of i64
+static inline vex_vec_t vex_gen_vec_i64(vex_property_ctx *ctx, size_t min_len, size_t max_len, int64_t min_val, int64_t max_val) {
+  size_t len = (size_t)vex_gen_i64(ctx, (int64_t)min_len, (int64_t)max_len);
+  vex_vec_t v = vex_vec_new(sizeof(int64_t), len);
+  for (size_t i = 0; i < len; i++) {
+    int64_t val = vex_gen_i64(ctx, min_val, max_val);
+    vex_vec_push(&v, &val);
+  }
+  return v;
+}
+
+// Property test macro
+#define VEX_PROPERTY(name, iterations, CODE) \
+  VEX_TEST(name) { \
+    vex_property_ctx prop_ctx = vex_property_init((uint64_t)time(NULL), iterations); \
+    for (size_t _i = 0; _i < iterations; _i++) { \
+      prop_ctx.test_count = _i; \
+      CODE \
+      if (prop_ctx.failed) { \
+        VEX_TFAILNOW("Property failed at iteration %zu: %s", _i, prop_ctx.fail_msg); \
+      } \
+    } \
+  }
+
+// Property assertion
+#define VEX_PROP_ASSERT(ctx, cond, ...) \
+  do { \
+    if (!(cond)) { \
+      (ctx)->failed = true; \
+      snprintf((ctx)->fail_msg, sizeof((ctx)->fail_msg), __VA_ARGS__); \
+      return; \
+    } \
+  } while (0)
+
+/* =========================
+ * Fuzzing Hooks (libFuzzer/AFL)
+ * ========================= */
+
+// Fuzzer entry point (for libFuzzer)
+#ifdef VEX_FUZZ_TARGET
+
+#include <stdint.h>
+#include <stddef.h>
+
+// User-defined fuzzer target (must be implemented by user)
+extern int vex_fuzz_test(const uint8_t *data, size_t size);
+
+// libFuzzer entry point
+int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
+  return vex_fuzz_test(data, size);
+}
+
+// AFL++ entry point (stdin-based)
+#ifdef __AFL_COMPILER
+__AFL_FUZZ_INIT();
+#endif
+
+#endif // VEX_FUZZ_TARGET
+
+// Fuzzer helper: Extract integer from buffer
+static inline int64_t vex_fuzz_consume_i64(const uint8_t **data, size_t *size) {
+  if (*size < sizeof(int64_t)) {
+    return 0;
+  }
+  int64_t val;
+  memcpy(&val, *data, sizeof(int64_t));
+  *data += sizeof(int64_t);
+  *size -= sizeof(int64_t);
+  return val;
+}
+
+// Fuzzer helper: Extract bytes
+static inline const uint8_t* vex_fuzz_consume_bytes(const uint8_t **data, size_t *size, size_t n) {
+  if (*size < n) {
+    return NULL;
+  }
+  const uint8_t *result = *data;
+  *data += n;
+  *size -= n;
+  return result;
+}
+
+// Fuzzer helper: Extract string (null-terminated)
+static inline const char* vex_fuzz_consume_str(const uint8_t **data, size_t *size, size_t max_len) {
+  size_t len = 0;
+  while (len < *size && len < max_len && (*data)[len] != '\0') {
+    len++;
+  }
+  if (len == 0 || len >= *size) {
+    return NULL;
+  }
+  const char *str = (const char*)*data;
+  *data += len + 1;
+  *size -= len + 1;
+  return str;
 }
 
 /* =========================

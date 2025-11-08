@@ -1,0 +1,153 @@
+// FS Module Test Suite
+// Tests for file system operations
+
+import { 
+    read_to_string, 
+    write_string, 
+    exists, 
+    copy, 
+    remove,
+    create_dir,
+    dir_exists,
+    remove_dir 
+} from "fs";
+
+fn test_write_and_read(): i32 {
+    let test_path: String = "/tmp/vex_fs_test.txt";
+    let test_content: String = "Hello from Vex FS!";
+    
+    // Write file
+    let write_ok: bool = write_string(test_path, test_content);
+    if !write_ok {
+        return 1; // Write failed
+    }
+    
+    // Check exists
+    if !exists(test_path) {
+        return 2; // File should exist
+    }
+    
+    // Read back
+    let content: String = read_to_string(test_path);
+    if content != test_content {
+        return 3; // Content mismatch
+    }
+    
+    // Cleanup
+    remove(test_path);
+    
+    return 0; // Success
+}
+
+fn test_copy_file(): i32 {
+    let src_path: String = "/tmp/vex_fs_copy_src.txt";
+    let dst_path: String = "/tmp/vex_fs_copy_dst.txt";
+    let content: String = "Copy test content";
+    
+    // Create source file
+    write_string(src_path, content);
+    
+    // Copy
+    let copy_ok: bool = copy(src_path, dst_path);
+    if !copy_ok {
+        return 1; // Copy failed
+    }
+    
+    // Verify destination
+    if !exists(dst_path) {
+        return 2; // Destination should exist
+    }
+    
+    let dst_content: String = read_to_string(dst_path);
+    if dst_content != content {
+        return 3; // Content mismatch
+    }
+    
+    // Cleanup
+    remove(src_path);
+    remove(dst_path);
+    
+    return 0;
+}
+
+fn test_directory_operations(): i32 {
+    let test_dir: String = "/tmp/vex_fs_test_dir";
+    
+    // Create directory
+    let create_ok: bool = create_dir(test_dir);
+    if !create_ok {
+        return 1; // Create failed
+    }
+    
+    // Check exists
+    if !dir_exists(test_dir) {
+        return 2; // Directory should exist
+    }
+    
+    // Remove directory
+    let remove_ok: bool = remove_dir(test_dir);
+    if !remove_ok {
+        return 3; // Remove failed
+    }
+    
+    // Verify removed
+    if dir_exists(test_dir) {
+        return 4; // Directory should not exist
+    }
+    
+    return 0;
+}
+
+fn test_nonexistent_file(): i32 {
+    let fake_path: String = "/tmp/vex_nonexistent_file_12345.txt";
+    
+    // Should not exist
+    if exists(fake_path) {
+        return 1; // File should not exist
+    }
+    
+    // Try to read (should fail gracefully)
+    let content: String = read_to_string(fake_path);
+    // Implementation should return empty string or handle error
+    
+    return 0;
+}
+
+fn main(): i32 {
+    println("Running FS module tests...");
+    
+    // Test 1: Write and Read
+    let result1: i32 = test_write_and_read();
+    if result1 != 0 {
+        println("FAIL: test_write_and_read");
+        return result1;
+    }
+    println("PASS: test_write_and_read");
+    
+    // Test 2: Copy file
+    let result2: i32 = test_copy_file();
+    if result2 != 0 {
+        println("FAIL: test_copy_file");
+        return result2;
+    }
+    println("PASS: test_copy_file");
+    
+    // Test 3: Directory operations
+    let result3: i32 = test_directory_operations();
+    if result3 != 0 {
+        println("FAIL: test_directory_operations");
+        return result3;
+    }
+    println("PASS: test_directory_operations");
+    
+    // Test 4: Nonexistent file
+    let result4: i32 = test_nonexistent_file();
+    if result4 != 0 {
+        println("FAIL: test_nonexistent_file");
+        return result4;
+    }
+    println("PASS: test_nonexistent_file");
+    
+    println("All FS tests passed!");
+    return 0;
+}

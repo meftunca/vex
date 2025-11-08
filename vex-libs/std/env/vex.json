@@ -1,0 +1,20 @@
+{
+  "name": "env",
+  "version": "0.2.0",
+  "description": "Environment variable operations for Vex",
+  "authors": ["Vex Team"],
+  "license": "MIT",
+
+  "dependencies": {},
+
+  "native": {
+    "sources": [],
+    "libraries": [],
+    "cflags": ["-O3"],
+    "include_dirs": ["../../../vex-runtime/c"]
+  },
+
+  "exports": {
+    "main": "src/lib.vx"
+  }
+}

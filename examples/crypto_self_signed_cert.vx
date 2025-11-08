@@ -1,0 +1,65 @@
+// Test: OpenSSL Self-Signed Certificate Generation
+import "crypto";
+import "io";
+
+fn main(): i32 {
+    // Subject for certificate: CN=Test Server
+    let subject = "CN=Test Server,O=Vex Lang,C=US";
+    let days_valid: i32 = 365;
+    
+    // Output buffers for cert and key (8KB each should be enough)
+    let! cert_buf: [u8; 8192] = [0; 8192];
+    let! key_buf: [u8; 8192] = [0; 8192];
+    let! cert_len: u64 = 8192;
+    let! key_len: u64 = 8192;
+    
+    println("🔐 Generating self-signed certificate...");
+    println(f"Subject: {subject}");
+    println(f"Valid for: {days_valid} days");
+    
+    // Call OpenSSL to generate certificate
+    let result = vex_x509_generate_self_signed(
+        subject.as_ptr(),
+        days_valid,
+        &cert_buf[0],
+        &cert_len,
+        &key_buf[0],
+        &key_len
+    );
+    
+    if result != 0 {
+        println("❌ Failed to generate certificate!");
+        let err_msg = vex_crypto_last_error();
+        if err_msg != null() {
+            // Print error message (simplified - would need proper string conversion)
+            println("Error details available (pointer-based)");
+        }
+        return 1;
+    }
+    
+    println("✅ Certificate generated successfully!");
+    println(f"Certificate size: {cert_len} bytes");
+    println(f"Private key size: {key_len} bytes");
+    
+    // Show first few bytes of cert (PEM should start with "-----BEGIN")
+    println("\n📄 Certificate preview (first 50 bytes):");
+    println("(Would display PEM header here)");
+    
+    // Parse the certificate to get info
+    let! cert_info: VexX509Info = VexX509Info {
+        subject: [0; 256],
+        issuer: [0; 256],
+        serial: [0; 64],
+        not_before: 0,
+        not_after: 0,
+        is_ca: 0,
+        key_usage: 0,
+    };
+    
+    // Note: vex_x509_parse expects DER format, but we have PEM
+    // Would need PEM to DER conversion first
+    println("\n📋 Certificate info:");
+    println("(Parsing would require PEM→DER conversion)");
+    
+    return 0;
+}

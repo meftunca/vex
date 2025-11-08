@@ -1,0 +1,4 @@
+fn main(): i32 {
+    let arr: [u8; 200] = [0; 200];
+    return 0;
+}

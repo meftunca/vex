@@ -103,25 +103,75 @@ impl<'ctx> ASTCodeGen<'ctx> {
             .build_alloca(array_type, "arrayrepeat")
             .map_err(|e| format!("Failed to allocate array: {}", e))?;
 
-        // Store the value in each element
-        let zero = self.context.i32_type().const_int(0, false);
-        for i in 0..count_u32 {
-            let index = self.context.i32_type().const_int(i as u64, false);
+        // OPTIMIZATION: Use memset for large arrays filled with zeros
+        // For [0; N] where N > 100, use memset instead of loop
+        let is_zero_fill = if let BasicValueEnum::IntValue(int_val) = value_val {
+            int_val.is_null()
+        } else if let BasicValueEnum::FloatValue(_float_val) = value_val {
+            // Check if float is 0.0 - conservative, keep loop for floats
+            false
+        } else {
+            false
+        };
 
-            unsafe {
-                let elem_ptr = self
-                    .builder
-                    .build_in_bounds_gep(
-                        array_type,
-                        array_ptr,
-                        &[zero, index],
-                        &format!("elem{}", i),
-                    )
-                    .map_err(|e| format!("Failed to build GEP: {}", e))?;
+        if is_zero_fill && count_u32 > 100 {
+            // Use memset for efficient zero-initialization
+            let i8_type = self.context.i8_type();
+            let i8_ptr_type = i8_type.ptr_type(inkwell::AddressSpace::default());
+            let size_type = self.context.i64_type();
 
-                self.builder
-                    .build_store(elem_ptr, value_val)
-                    .map_err(|e| format!("Failed to store element: {}", e))?;
+            // Cast array pointer to i8*
+            let array_i8_ptr = self
+                .builder
+                .build_pointer_cast(array_ptr, i8_ptr_type, "array_i8_ptr")
+                .map_err(|e| format!("Failed to cast pointer: {}", e))?;
+
+            // Calculate total size in bytes
+            let elem_size = match elem_type {
+                BasicTypeEnum::IntType(it) => it.size_of(),
+                BasicTypeEnum::FloatType(ft) => ft.size_of(),
+                _ => return Err("Unsupported type for memset".to_string()),
+            };
+            let total_size = elem_size.const_mul(size_type.const_int(count_u32 as u64, false));
+
+            // Call memset(ptr, 0, size)
+            let memset_fn = self.get_or_declare_memset();
+            let zero_byte = i8_type.const_int(0, false);
+            let is_volatile = self.context.bool_type().const_int(0, false);
+
+            self.builder
+                .build_call(
+                    memset_fn,
+                    &[
+                        array_i8_ptr.into(),
+                        zero_byte.into(),
+                        total_size.into(),
+                        is_volatile.into(),
+                    ],
+                    "memset_array",
+                )
+                .map_err(|e| format!("Failed to call memset: {}", e))?;
+        } else {
+            // Original loop for small arrays or non-zero values
+            let zero = self.context.i32_type().const_int(0, false);
+            for i in 0..count_u32 {
+                let index = self.context.i32_type().const_int(i as u64, false);
+
+                unsafe {
+                    let elem_ptr = self
+                        .builder
+                        .build_in_bounds_gep(
+                            array_type,
+                            array_ptr,
+                            &[zero, index],
+                            &format!("elem{}", i),
+                        )
+                        .map_err(|e| format!("Failed to build GEP: {}", e))?;
+
+                    self.builder
+                        .build_store(elem_ptr, value_val)
+                        .map_err(|e| format!("Failed to store element: {}", e))?;
+                }
             }
         }
 

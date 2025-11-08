@@ -1,0 +1,52 @@
+// String Module
+// String operations and UTF-8 validation
+//
+// Usage:
+//   import { len, compare, is_valid_utf8 } from "string";
+
+// External C functions from vex-runtime/c/vex_string.c
+extern "C" {
+    fn vex_strlen(s: *const u8): u64;
+    fn vex_strcmp(s1: *const u8, s2: *const u8): i32;
+    fn vex_strncmp(s1: *const u8, s2: *const u8, n: u64): i32;
+    fn vex_utf8_valid(s: *const u8, len: u64): bool;
+    fn vex_utf8_char_count(s: *const u8, len: u64): u64;
+    fn vex_strdup(s: *const u8): *const u8;
+    fn vex_strcat(dest: *const u8, src: *const u8): *const u8;
+    fn vex_strcpy(dest: *const u8, src: *const u8): *const u8;
+    
+    // UTF-16/32 operations
+    fn vex_utf16_validate(s: *const u16, len: u64): bool;
+    fn vex_utf32_validate(s: *const u32, len: u64): bool;
+    fn vex_utf8_to_utf16(utf8: *const u8, utf8_len: u64, out: *const u16, out_cap: u64): u64;
+    fn vex_utf8_to_utf32(utf8: *const u8, utf8_len: u64, out: *const u32, out_cap: u64): u64;
+}
+
+
+export fn len(s: string): u64 {
+    unsafe {
+        vex_strlen(s.as_ptr())
+    }
+}
+
+
+export fn compare(s1: string, s2: string): i32 {
+    unsafe {
+        vex_strcmp(s1.as_ptr(), s2.as_ptr())
+    }
+}
+
+
+export fn is_valid_utf8(s: string): bool {
+    unsafe {
+        vex_utf8_valid(s.as_ptr(), s.len())
+    }
+}
+
+
+export fn char_count(s: string): u64 {
+    unsafe {
+        vex_utf8_char_count(s.as_ptr(), s.len())
+    }
+}
+

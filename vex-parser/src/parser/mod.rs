@@ -6,6 +6,7 @@ use vex_ast::*;
 use vex_lexer::{Lexer, Token, TokenSpan};
 
 // Sub-modules for different parsing responsibilities
+mod error_recovery;
 mod expressions;
 mod items;
 mod operators;

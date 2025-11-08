@@ -1,0 +1,9 @@
+{
+  "name": "string",
+  "version": "0.9.1",
+  "description": "String operations and UTF-8 utilities",
+  "authors": ["Vex Language Team"],
+  "license": "MIT",
+  "main": "src/lib.vx"
+}
+

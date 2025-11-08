@@ -1,0 +1,300 @@
+/**
+ * Standard Library Resolver
+ * Resolves import statements to stdlib file paths with platform-specific selection
+ */
+use super::platform::{Arch, Platform, Target};
+use std::path::{Path, PathBuf};
+
+/// Standard library modules (built-in)
+const STDLIB_MODULES: &[&str] = &[
+    "io",
+    "core",
+    "collections",
+    "string",
+    "memory",
+    "sync",
+    "time",
+    "net",
+    "encoding",
+    "crypto",
+    "db",
+    "strconv",
+    "path",
+    "http",
+    "json",
+    "fmt",
+    "testing",
+];
+
+/// Errors that can occur during module resolution
+#[derive(Debug, Clone)]
+pub enum ResolveError {
+    ModuleNotFound(String),
+    InvalidPath(String),
+    AmbiguousModule(String),
+}
+
+impl std::fmt::Display for ResolveError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ResolveError::ModuleNotFound(name) => {
+                write!(f, "Module '{}' not found", name)
+            }
+            ResolveError::InvalidPath(path) => {
+                write!(f, "Invalid module path: {}", path)
+            }
+            ResolveError::AmbiguousModule(name) => {
+                write!(f, "Ambiguous module reference: {}", name)
+            }
+        }
+    }
+}
+
+impl std::error::Error for ResolveError {}
+
+/// Standard library resolver
+pub struct StdlibResolver {
+    stdlib_root: PathBuf,
+    target: Target,
+}
+
+impl StdlibResolver {
+    /// Create a new stdlib resolver
+    ///
+    /// # Arguments
+    /// * `stdlib_root` - Root directory of the standard library (e.g., "vex-libs/std")
+    pub fn new<P: AsRef<Path>>(stdlib_root: P) -> Self {
+        Self {
+            stdlib_root: stdlib_root.as_ref().to_path_buf(),
+            target: Target::current(),
+        }
+    }
+
+    /// Create a resolver with a custom target (for cross-compilation)
+    pub fn with_target<P: AsRef<Path>>(stdlib_root: P, target: Target) -> Self {
+        Self {
+            stdlib_root: stdlib_root.as_ref().to_path_buf(),
+            target,
+        }
+    }
+
+    /// Check if a module name is a stdlib module
+    ///
+    /// # Example
+    /// ```
+    /// # use vex_compiler::resolver::stdlib_resolver::StdlibResolver;
+    /// let resolver = StdlibResolver::new("vex-libs/std");
+    /// assert!(resolver.is_stdlib_module("io"));
+    /// assert!(!resolver.is_stdlib_module("my_custom_lib"));
+    /// ```
+    pub fn is_stdlib_module(&self, module_name: &str) -> bool {
+        STDLIB_MODULES.contains(&module_name)
+    }
+
+    /// Get all stdlib module names
+    pub fn all_modules() -> &'static [&'static str] {
+        STDLIB_MODULES
+    }
+
+    /// Resolve a module name to a file path
+    ///
+    /// Priority chain (first match wins):
+    /// 1. `lib.{os}.{arch}.vx` - Platform + architecture specific
+    /// 2. `lib.{arch}.vx` - Architecture specific
+    /// 3. `lib.{os}.vx` - Platform specific
+    /// 4. `lib.vx` - Generic fallback
+    ///
+    /// # Example
+    /// On Linux x64:
+    /// - First tries: `io/src/lib.linux.x64.vx`
+    /// - Then tries: `io/src/lib.x64.vx`
+    /// - Then tries: `io/src/lib.linux.vx`
+    /// - Finally: `io/src/lib.vx`
+    ///
+    /// # Errors
+    /// Returns `ResolveError::ModuleNotFound` if no suitable file exists
+    pub fn resolve_module(&self, module_name: &str) -> Result<PathBuf, ResolveError> {
+        if !self.is_stdlib_module(module_name) {
+            return Err(ResolveError::ModuleNotFound(module_name.to_string()));
+        }
+
+        let module_dir = self.stdlib_root.join(module_name);
+        if !module_dir.exists() {
+            return Err(ResolveError::ModuleNotFound(module_name.to_string()));
+        }
+
+        let src_dir = module_dir.join("src");
+        if !src_dir.exists() {
+            return Err(ResolveError::InvalidPath(format!(
+                "Module '{}' has no src/ directory",
+                module_name
+            )));
+        }
+
+        // Priority chain: platform.arch > arch > platform > generic
+        let candidates = vec![
+            format!(
+                "lib.{}.{}.vx",
+                self.target.platform.as_str(),
+                self.target.arch.as_str()
+            ),
+            format!("lib.{}.vx", self.target.arch.as_str()),
+            format!("lib.{}.vx", self.target.platform.as_str()),
+            "lib.vx".to_string(),
+        ];
+
+        for candidate in candidates {
+            let candidate_path = src_dir.join(&candidate);
+            if candidate_path.exists() {
+                return Ok(candidate_path);
+            }
+        }
+
+        Err(ResolveError::ModuleNotFound(format!(
+            "No suitable file found for module '{}'",
+            module_name
+        )))
+    }
+
+    /// Resolve multiple modules at once
+    /// Returns a map of module names to file paths
+    pub fn resolve_modules(
+        &self,
+        module_names: &[&str],
+    ) -> Result<Vec<(String, PathBuf)>, ResolveError> {
+        let mut results = Vec::new();
+        for &name in module_names {
+            let path = self.resolve_module(name)?;
+            results.push((name.to_string(), path));
+        }
+        Ok(results)
+    }
+
+    /// Get the current target
+    pub fn target(&self) -> Target {
+        self.target
+    }
+
+    /// Get the stdlib root directory
+    pub fn stdlib_root(&self) -> &Path {
+        &self.stdlib_root
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_is_stdlib_module() {
+        let resolver = StdlibResolver::new("vex-libs/std");
+        assert!(resolver.is_stdlib_module("io"));
+        assert!(resolver.is_stdlib_module("collections"));
+        assert!(resolver.is_stdlib_module("string"));
+        assert!(!resolver.is_stdlib_module("my_custom_lib"));
+        assert!(!resolver.is_stdlib_module("nonexistent"));
+    }
+
+    #[test]
+    fn test_all_modules() {
+        let modules = StdlibResolver::all_modules();
+        assert_eq!(modules.len(), 17);
+        assert!(modules.contains(&"io"));
+        assert!(modules.contains(&"collections"));
+        assert!(modules.contains(&"testing"));
+    }
+
+    #[test]
+    fn test_resolve_generic() {
+        // Use absolute path from project root
+        let project_root = std::env::current_dir().unwrap();
+        let stdlib_path = project_root.join("vex-libs/std");
+
+        if !stdlib_path.exists() {
+            // Skip test if not in project root
+            return;
+        }
+
+        let resolver = StdlibResolver::new(&stdlib_path);
+
+        // Test io module (has platform-specific files)
+        let io_path = resolver.resolve_module("io").unwrap();
+        assert!(io_path.exists());
+        assert!(io_path.to_str().unwrap().contains("io/src/lib"));
+        assert!(io_path.to_str().unwrap().ends_with(".vx"));
+    }
+
+    #[test]
+    fn test_resolve_nonexistent() {
+        let resolver = StdlibResolver::new("vex-libs/std");
+        let result = resolver.resolve_module("nonexistent");
+        assert!(matches!(result, Err(ResolveError::ModuleNotFound(_))));
+    }
+
+    #[test]
+    fn test_resolve_multiple() {
+        let project_root = std::env::current_dir().unwrap();
+        let stdlib_path = project_root.join("vex-libs/std");
+
+        if !stdlib_path.exists() {
+            return;
+        }
+
+        let resolver = StdlibResolver::new(&stdlib_path);
+        let modules = vec!["io", "collections", "string"];
+        let results = resolver.resolve_modules(&modules).unwrap();
+
+        assert_eq!(results.len(), 3);
+        for (name, path) in results {
+            assert!(modules.contains(&name.as_str()));
+            assert!(path.exists());
+        }
+    }
+
+    #[test]
+    fn test_target() {
+        let resolver = StdlibResolver::new("vex-libs/std");
+        let target = resolver.target();
+        assert_eq!(target.platform, Platform::current());
+        assert_eq!(target.arch, Arch::current());
+    }
+
+    #[test]
+    fn test_custom_target() {
+        let target = Target::new(Platform::Linux, Arch::Arm64);
+        let resolver = StdlibResolver::with_target("vex-libs/std", target);
+        assert_eq!(resolver.target().platform, Platform::Linux);
+        assert_eq!(resolver.target().arch, Arch::Arm64);
+    }
+
+    #[test]
+    fn test_stdlib_root() {
+        let resolver = StdlibResolver::new("vex-libs/std");
+        assert_eq!(resolver.stdlib_root(), Path::new("vex-libs/std"));
+    }
+
+    #[test]
+    fn test_priority_chain() {
+        let project_root = std::env::current_dir().unwrap();
+        let stdlib_path = project_root.join("vex-libs/std");
+
+        if !stdlib_path.exists() {
+            return;
+        }
+
+        // This test verifies the priority chain logic
+        let resolver = StdlibResolver::new(&stdlib_path);
+
+        // io module has platform-specific variants
+        let io_path = resolver.resolve_module("io").unwrap();
+        let path_str = io_path.to_str().unwrap();
+
+        // Should select platform-specific or generic file
+        assert!(
+            path_str.contains("lib.linux.vx")
+                || path_str.contains("lib.macos.vx")
+                || path_str.contains("lib.windows.vx")
+                || path_str.contains("lib.vx")
+        );
+    }
+}

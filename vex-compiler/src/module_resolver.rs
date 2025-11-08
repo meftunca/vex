@@ -1,6 +1,7 @@
 // Module resolution system for Vex compiler
 // Loads and resolves imports from vex-libs/std/
 
+use crate::resolver::{ResolveError, StdlibResolver};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -14,13 +15,18 @@ pub struct ModuleResolver {
 
     /// Cached parsed modules (module_path -> Program)
     module_cache: HashMap<String, Program>,
+
+    /// Stdlib resolver for platform-specific file selection
+    stdlib_resolver: StdlibResolver,
 }
 
 impl ModuleResolver {
     pub fn new(std_lib_path: impl AsRef<Path>) -> Self {
+        let path = std_lib_path.as_ref().to_path_buf();
         Self {
-            std_lib_path: std_lib_path.as_ref().to_path_buf(),
+            std_lib_path: path.clone(),
             module_cache: HashMap::new(),
+            stdlib_resolver: StdlibResolver::new(path),
         }
     }
 
@@ -39,10 +45,15 @@ impl ModuleResolver {
             return Ok(self.module_cache.get(module_path).unwrap());
         }
 
-        // Convert module path to file path
-        // "std" -> vex-libs/std/mod.vx
-        // "std::io" -> vex-libs/std/io/mod.vx
-        let file_path = self.module_path_to_file_path(module_path)?;
+        // Use StdlibResolver if it's a stdlib module
+        let file_path = if self.stdlib_resolver.is_stdlib_module(module_path) {
+            self.stdlib_resolver
+                .resolve_module(module_path)
+                .map_err(|e| format!("Failed to resolve stdlib module {}: {}", module_path, e))?
+        } else {
+            // Fallback to old resolution for non-stdlib modules
+            self.module_path_to_file_path(module_path)?
+        };
 
         // Read source file
         let source = fs::read_to_string(&file_path)

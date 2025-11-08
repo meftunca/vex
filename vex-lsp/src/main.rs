@@ -1,14 +1,11 @@
 // Vex Language Server (LSP)
 // Provides IDE features: diagnostics, completion, hover, etc.
 
-use dashmap::DashMap;
-use std::sync::Arc;
-use tower_lsp::jsonrpc::Result;
-use tower_lsp::lsp_types::*;
-use tower_lsp::{Client, LanguageServer, LspService, Server};
+use tower_lsp::{LspService, Server};
 
 mod backend;
 mod diagnostics;
+mod document_cache;
 mod symbol_resolver;
 
 pub use backend::VexBackend;

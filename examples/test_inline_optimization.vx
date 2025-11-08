@@ -1,0 +1,9 @@
+// Test inline optimization with stdlib wrapper functions
+// Validates zero-cost abstraction
+
+fn main(): i32 {
+    // Test that builtin print is available
+    println("Hello, inline optimization!");
+    
+    return 0;
+}

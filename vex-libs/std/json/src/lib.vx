@@ -1,0 +1,16 @@
+// JSON Module
+// JSON parsing and stringify (placeholder)
+//
+// Usage:
+//   import { parse, stringify } from "json";
+
+export fn parse(json_str: string): i32 {
+    // TODO: Implement JSON parser
+    return 0;
+}
+
+export fn stringify(value: i32): string {
+    // TODO: Implement JSON stringify
+    return "";
+}
+

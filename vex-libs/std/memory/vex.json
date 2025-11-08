@@ -1,0 +1,9 @@
+{
+  "name": "memory",
+  "version": "0.9.1",
+  "description": "Memory operations - alloc, free, memcpy, memset",
+  "authors": ["Vex Language Team"],
+  "license": "MIT",
+  "main": "src/lib.vx"
+}
+

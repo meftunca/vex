@@ -1,7 +1,8 @@
 # Vex Language Syntax Reference
 
 **Version:** 0.2.0 (Syntax v0.9)  
-**Test Coverage:** 110/112 (98.2%)
+**Test Coverage:** 243/243 (100%) ✅  
+**Last Updated:** November 8, 2025
 
 ## Variables
 
@@ -287,6 +288,92 @@ struct Box<T> impl Display {
 }
 ```
 
+## Policy System (Metadata Annotations)
+
+### Policy Declarations
+
+```vex
+// Basic policy
+policy APIModel {
+    id `json:"id" db:"user_id"`,
+    name `json:"name" db:"username"`,
+}
+
+// Policy composition (inheritance)
+policy ExtendedAPIModel with APIModel {
+    email `json:"email" validate:"email"`,
+}
+
+// Complex metadata
+policy ValidationRules {
+    id `validate:"required,numeric"`,
+    email `validate:"required,email"`,
+}
+```
+
+### Applying Policies to Structs
+
+```vex
+// Single policy
+struct User with APIModel {
+    id: i32,
+    name: str,
+}
+
+// Multiple policies (left-to-right merge)
+struct User with APIModel, ValidationRules {
+    id: i32,
+    name: str,
+    email: str,
+}
+
+// Policy + Trait (order matters: with before impl)
+struct User
+    with APIModel           // Metadata FIRST
+    impl Drawable {         // Behavior SECOND
+
+    id: i32,
+    name: str,
+
+    fn draw(&self) {
+        println("Drawing user: {}", self.name);
+    }
+}
+```
+
+### Inline Metadata (Overrides Policy)
+
+```vex
+struct User with APIModel {
+    id: i32 `json:"userId"`,  // Overrides policy's json:"id"
+    name: str,                 // Uses policy's json:"name"
+}
+```
+
+### Policy vs Trait Syntax
+
+```vex
+// ✅ CORRECT: Clear separation
+policy SerializationFormat {     // Metadata
+    id `json:"id"`,
+}
+
+trait Serializable {              // Behavior
+    fn serialize(&self): str;
+}
+
+struct User
+    with SerializationFormat     // Apply metadata
+    impl Serializable {          // Implement behavior
+
+    id: i32,
+    fn serialize(&self): str { ... }
+}
+
+// ❌ ERROR: Order violation
+struct User impl Trait with Policy { }  // Policy must come before trait
+```
+
 ## Operators
 
 ### Arithmetic
@@ -344,6 +431,38 @@ x /= y   // Divide assign
 ```vex
 x++      // Post-increment (mutable variables only)
 x--      // Post-decrement (mutable variables only)
+```
+
+### Operator Overloading
+
+```vex
+// Define operator trait
+trait Add {
+    fn add(&self, other: &Self): Self;
+}
+
+// Implement for custom type
+struct Point impl Add {
+    fn add(&self, other: &Point): Point {
+        return Point {
+            x: self.x + other.x,
+            y: self.y + other.y,
+        };
+    }
+}
+
+// Use overloaded operator
+let p1 = Point { x: 10, y: 20 };
+let p2 = Point { x: 5, y: 15 };
+let p3 = p1 + p2;  // Calls p1.add(p2)
+
+// Builtin operator traits
+trait Add { fn add(&self, other: &Self): Self; }
+trait Sub { fn sub(&self, other: &Self): Self; }
+trait Mul { fn mul(&self, other: &Self): Self; }
+trait Div { fn div(&self, other: &Self): Self; }
+trait Eq { fn eq(&self, other: &Self): bool; }
+trait Ord { fn cmp(&self, other: &Self): i32; }
 ```
 
 ## Array Operations
@@ -422,6 +541,57 @@ defer cleanup_a();
 defer cleanup_b();  // Executes first
 ```
 
+## Concurrency
+
+### Go Statement (Goroutine-style)
+
+```vex
+// Spawn concurrent task
+go task();
+
+// With closure
+go |x: i32| {
+    println("Running in background: {}", x);
+};
+```
+
+### Channel<T> (CSP-style)
+
+```vex
+// Create channel
+let! ch = Channel.new<i32>();
+
+// Send value
+ch.send(42);
+
+// Receive value
+let value = ch.recv();
+
+// Try receive (non-blocking)
+match ch.try_recv() {
+    Option.Some(v) => println("Got: {}", v),
+    Option.None => println("Channel empty"),
+}
+```
+
+### Async/Await
+
+```vex
+// Async function
+async fn fetch_data(url: str): str {
+    let response = await http_get(url);
+    return response.body;
+}
+
+// Async runtime
+fn main(): i32 {
+    let! runtime = runtime_create(4);  // 4 workers
+    runtime_run(runtime);
+    runtime_destroy(runtime);
+    return 0;
+}
+```
+
 ## Built-in Functions
 
 ### Memory
@@ -487,6 +657,85 @@ let map = HashMap.new();
 println("Hello");
 ```
 
+## Package Manager
+
+### Project Structure
+
+```bash
+my_project/
+├── vex.json          # Package manifest
+├── vex.lock          # Lock file (auto-generated)
+├── src/
+│   └── lib.vx        # Main library file
+└── tests/
+    └── test_main.vx  # Test files
+```
+
+### Commands
+
+```bash
+vex new my_project              # Create new project
+vex init                        # Initialize vex.json
+vex add pkg@v1.0.0              # Add dependency
+vex remove pkg                  # Remove dependency
+vex list                        # List dependencies
+vex update                      # Update all to latest
+vex build                       # Build project
+vex build --locked              # CI mode (requires valid lock)
+vex clean                       # Clean cache
+```
+
+### Platform-Specific Files
+
+```vex
+// Instruction set variants
+server.x64.vx
+server.arm64.vx
+server.wasm.vx
+
+// OS + instruction variants
+utils.linux.x64.vx
+utils.macos.arm64.vx
+
+// OS-only variants
+platform.linux.vx
+platform.windows.vx
+
+// Testing variant (highest priority)
+mock.testing.vx
+
+// Fallback (lowest priority)
+default.vx
+```
+
+### vex.json Manifest
+
+```json
+{
+  "name": "my_project",
+  "version": "0.1.0",
+  "description": "My Vex project",
+  "authors": ["Your Name"],
+  "license": "MIT",
+  "dependencies": {
+    "github.com/user/repo": "v1.0.0"
+  },
+  "targets": {
+    "linux": ["x64", "arm64"],
+    "macos": ["arm64"],
+    "wasm": ["wasm32"]
+  },
+  "profiles": {
+    "dev": {
+      "optimization": "none"
+    },
+    "release": {
+      "optimization": "aggressive"
+    }
+  }
+}
+```
+
 ## Deprecated Syntax (Will Error)
 
 ```vex
@@ -496,23 +745,30 @@ println("Hello");
 ❌ x := 42;              // Use: let x = 42;
 ❌ &mut T                // Use: &T!
 ❌ impl Trait for Type   // Use: struct Type impl Trait
+❌ struct Type with Trait // Use: struct Type impl Trait (for behavior)
+                          // Use: struct Type with Policy (for metadata)
 ```
 
 ## Grammar Summary
 
 ```
 Program       := Item*
-Item          := Function | Struct | Enum | Trait | Impl | Const
+Item          := Function | Struct | Enum | Trait | Impl | Const | Policy
 Function      := 'fn' Ident TypeParams? '(' Params ')' (':' Type)? Block
-Struct        := 'struct' Ident TypeParams? '{' Fields '}'
+Struct        := 'struct' Ident TypeParams? ('with' PolicyList)? ('impl' TraitList)? '{' Fields '}'
 Enum          := 'enum' Ident TypeParams? '{' Variants '}'
 Trait         := 'trait' Ident '{' TraitItems '}'
 Impl          := 'struct' Ident TypeParams? 'impl' Trait '{' ImplItems '}'
+Policy        := 'policy' Ident ('with' PolicyList)? '{' PolicyFields '}'
 
-Statement     := Let | Assign | If | While | For | Loop | Return | Defer | Expression
+PolicyList    := Ident (',' Ident)*
+PolicyField   := Ident '`' MetadataString '`'
+
+Statement     := Let | Assign | If | While | For | Loop | Return | Defer | Go | Expression
 Let           := 'let' '!'? Ident (':' Type)? '=' Expression
 Assign        := Expression '=' Expression
 Defer         := 'defer' Expression
+Go            := 'go' Expression
 
 Expression    := Match | If | Block | Binary | Unary | Call | Index | Field | Literal
 Match         := 'match' Expression '{' MatchArms '}'
@@ -534,4 +790,20 @@ FnType        := 'fn' '(' TypeList ')' ':' Type
 - **Generics:** Fully supported with depth limit of 64
 - **Borrow checker:** 4-phase analysis (immutability, moves, borrows, lifetimes)
 - **Closure capture:** Automatic environment detection and binding
-- **Test status:** 110/112 passing (98.2%)
+- **Policy system:** Metadata annotations with `policy` and `with` keywords
+- **Operator overloading:** Trait-based operator overloading for custom types
+- **Concurrency:** `go` statements, `Channel<T>`, async/await runtime
+- **Package manager:** Git-based dependencies, platform-specific files, lock file
+- **Test status:** 243/243 passing (100%) ✅
+
+## Recent Additions (v0.2.0)
+
+- ✅ **Policy System** - Metadata annotations for structs/fields
+- ✅ **Operator Overloading** - Trait-based custom operators
+- ✅ **Async/Await** - Async runtime with `runtime_create`, `runtime_run`, `runtime_destroy`
+- ✅ **Go Statement** - Goroutine-style concurrency
+- ✅ **Channel<T>** - CSP-style message passing
+- ✅ **Package Manager** - Full dependency management (vex.json, vex.lock)
+- ✅ **Platform-Specific Files** - OS/architecture variant selection
+- ✅ **Code Formatter** - `vex format` command with LSP integration
+- ✅ **Diagnostic System** - Error codes, spans, fuzzy suggestions

@@ -356,11 +356,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 BasicTypeEnum::IntType(self.context.i8_type())
             }
 
-            Type::RawPtr(inner_ty) => {
-                // Raw pointer: *T
+            Type::RawPtr { inner, is_const: _ } => {
+                // Raw pointer: *T or *const T
                 // Unsafe pointer for FFI/C interop
                 // In LLVM, all pointers are opaque (LLVM 15+)
-                let _inner_llvm = self.ast_type_to_llvm(inner_ty);
+                // We ignore is_const flag as LLVM doesn't have const pointers
+                let _inner_llvm = self.ast_type_to_llvm(inner);
                 BasicTypeEnum::PointerType(self.context.ptr_type(inkwell::AddressSpace::default()))
             }
 

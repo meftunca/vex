@@ -14,27 +14,28 @@ pub fn declare_logger_functions<'ctx>(codegen: &mut ASTCodeGen<'ctx>) {
     let void_type = codegen.context.void_type();
     let i8_ptr_type = codegen.context.i8_type().ptr_type(AddressSpace::default());
     let i32_type = codegen.context.i32_type();
+    let i64_type = codegen.context.i64_type();
 
-    // vex_print(s: &str)
-    let print_fn_type = void_type.fn_type(&[i8_ptr_type.into()], false);
+    // vex_print(ptr: *const u8, len: u64)
+    let print_fn_type = void_type.fn_type(&[i8_ptr_type.into(), i64_type.into()], false);
     codegen
         .module
         .add_function("vex_print", print_fn_type, None);
 
-    // vex_println(s: &str)
-    let println_fn_type = void_type.fn_type(&[i8_ptr_type.into()], false);
+    // vex_println(ptr: *const u8, len: u64)
+    let println_fn_type = void_type.fn_type(&[i8_ptr_type.into(), i64_type.into()], false);
     codegen
         .module
         .add_function("vex_println", println_fn_type, None);
 
-    // vex_eprint(s: &str)
-    let eprint_fn_type = void_type.fn_type(&[i8_ptr_type.into()], false);
+    // vex_eprint(ptr: *const u8, len: u64)
+    let eprint_fn_type = void_type.fn_type(&[i8_ptr_type.into(), i64_type.into()], false);
     codegen
         .module
         .add_function("vex_eprint", eprint_fn_type, None);
 
-    // vex_eprintln(s: &str)
-    let eprintln_fn_type = void_type.fn_type(&[i8_ptr_type.into()], false);
+    // vex_eprintln(ptr: *const u8, len: u64)
+    let eprintln_fn_type = void_type.fn_type(&[i8_ptr_type.into(), i64_type.into()], false);
     codegen
         .module
         .add_function("vex_eprintln", eprintln_fn_type, None);

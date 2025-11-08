@@ -1,0 +1,8 @@
+// Crypto random test
+import "crypto";
+import "io";
+
+fn main(): i32 {
+    println("Testing crypto random...");
+    return 0;
+}

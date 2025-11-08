@@ -1,0 +1,33 @@
+{
+  "name": "fs",
+  "version": "0.2.0",
+  "description": "File system operations for Vex - high-performance, safe I/O",
+  "authors": ["Vex Team"],
+  "license": "MIT",
+  "repository": "https://github.com/meftunca/vex",
+
+  "dependencies": {},
+
+  "native": {
+    "sources": [],
+    "libraries": [],
+    "search_paths": [],
+    "static_libs": [],
+    "cflags": ["-O3", "-Wall"],
+    "include_dirs": ["../../../vex-runtime/c"]
+  },
+
+  "exports": {
+    "main": "src/lib.vx",
+    "platforms": {
+      "macos": "src/lib.macos.vx",
+      "linux": "src/lib.linux.vx",
+      "windows": "src/lib.windows.vx"
+    }
+  },
+
+  "features": {
+    "async": false,
+    "simd": false
+  }
+}

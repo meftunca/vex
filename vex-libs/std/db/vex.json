@@ -1,0 +1,9 @@
+{
+  "name": "db",
+  "version": "0.9.1",
+  "description": "Database drivers - PostgreSQL, MySQL, SQLite, MongoDB, Redis",
+  "authors": ["Vex Language Team"],
+  "license": "MIT",
+  "main": "src/lib.vx"
+}
+

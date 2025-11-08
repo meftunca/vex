@@ -6,13 +6,16 @@ use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer};
 
+use crate::document_cache::DocumentCache;
 use vex_compiler::borrow_checker::BorrowChecker;
 
 pub struct VexBackend {
     client: Client,
-    /// Document cache: URI -> source code
+    /// Document cache with incremental parsing
+    document_cache: Arc<DocumentCache>,
+    /// Legacy: Document text cache (kept for compatibility)
     documents: Arc<DashMap<String, String>>,
-    /// Parsed AST cache: URI -> AST
+    /// Legacy: Parsed AST cache (migrating to DocumentCache)
     ast_cache: Arc<DashMap<String, vex_ast::Program>>,
 }
 
@@ -20,100 +23,41 @@ impl VexBackend {
     pub fn new(client: Client) -> Self {
         Self {
             client,
+            document_cache: Arc::new(DocumentCache::new()),
             documents: Arc::new(DashMap::new()),
             ast_cache: Arc::new(DashMap::new()),
         }
     }
 
-    /// Parse document and return diagnostics
-    async fn parse_and_diagnose(&self, uri: &str, text: &str) -> Vec<Diagnostic> {
+    /// Parse document and return diagnostics (ENHANCED with document cache)
+    async fn parse_and_diagnose(&self, uri: &str, text: &str, version: i32) -> Vec<Diagnostic> {
         let mut diagnostics = Vec::new();
 
-        // Extract filename from URI
-        let filename = uri.split('/').last().unwrap_or("unknown.vx");
+        // Use document cache for incremental parsing
+        let cached_doc = self.document_cache.update(uri, text.to_string(), version);
 
-        // Create parser with filename for better error reporting
-        let parser = match vex_parser::Parser::new_with_file(filename, text) {
-            Ok(p) => p,
-            Err(e) => {
-                // Convert parser creation error to diagnostic
-                diagnostics.push(self.parse_error_to_diagnostic(&e, text));
-                return diagnostics;
+        // Convert parse errors (now Diagnostic objects) to LSP Diagnostics
+        if !cached_doc.parse_errors.is_empty() {
+            for vex_diag in &cached_doc.parse_errors {
+                // Convert vex_diagnostics::Diagnostic to LSP Diagnostic
+                let lsp_diag = crate::diagnostics::vex_to_lsp_diagnostic(vex_diag);
+                diagnostics.push(lsp_diag);
             }
-        };
+            return diagnostics;
+        }
 
-        // Parse the document
-        let mut parser = parser;
-        match parser.parse_file() {
-            Ok(mut program) => {
-                // Run borrow checker for semantic errors
-                let mut borrow_checker = BorrowChecker::new();
-                if let Err(error) = borrow_checker.check_program(&mut program) {
-                    // Convert borrow checker error to diagnostic (pass source text for better positioning)
-                    diagnostics.push(self.borrow_error_to_diagnostic(&error, text));
-                }
+        // If we have AST, run borrow checker
+        if let Some(mut program) = cached_doc.ast {
+            let mut borrow_checker = BorrowChecker::new();
+            if let Err(error) = borrow_checker.check_program(&mut program) {
+                diagnostics.push(self.borrow_error_to_diagnostic(&error, text));
+            }
 
-                // Store parsed AST (after borrow checking)
-                self.ast_cache.insert(uri.to_string(), program);
-            }
-            Err(parse_error) => {
-                // Convert parse error to LSP diagnostic with accurate span
-                diagnostics.push(self.parse_error_to_diagnostic(&parse_error, text));
-            }
+            // Store in legacy cache for compatibility
+            self.ast_cache.insert(uri.to_string(), program);
         }
 
         diagnostics
-    }
-    /// Convert Vex ParseError to LSP Diagnostic with accurate position
-    fn parse_error_to_diagnostic(
-        &self,
-        error: &vex_parser::ParseError,
-        _source: &str,
-    ) -> Diagnostic {
-        use vex_parser::ParseError;
-
-        match error {
-            ParseError::Diagnostic(diag) => {
-                // ParseError now contains vex_diagnostics::Diagnostic
-                // Convert to LSP Diagnostic
-                let range = Range {
-                    start: Position {
-                        line: (diag.span.line.saturating_sub(1)) as u32,
-                        character: (diag.span.column.saturating_sub(1)) as u32,
-                    },
-                    end: Position {
-                        line: (diag.span.line.saturating_sub(1)) as u32,
-                        character: (diag.span.column + diag.span.length).saturating_sub(1) as u32,
-                    },
-                };
-
-                Diagnostic {
-                    range,
-                    severity: Some(DiagnosticSeverity::ERROR),
-                    code: Some(NumberOrString::String(diag.code.clone())),
-                    source: Some("vex".to_string()),
-                    message: diag.message.clone(),
-                    ..Default::default()
-                }
-            }
-            ParseError::LexerError(msg) => Diagnostic {
-                range: Range {
-                    start: Position {
-                        line: 0,
-                        character: 0,
-                    },
-                    end: Position {
-                        line: 0,
-                        character: 1,
-                    },
-                },
-                severity: Some(DiagnosticSeverity::ERROR),
-                code: Some(NumberOrString::String("E0001".to_string())),
-                source: Some("vex".to_string()),
-                message: format!("Lexer error: {}", msg),
-                ..Default::default()
-            },
-        }
     }
 
     /// Convert Vex BorrowError to LSP Diagnostic
@@ -804,31 +748,33 @@ impl LanguageServer for VexBackend {
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
         let uri = params.text_document.uri.to_string();
         let text = params.text_document.text.clone();
+        let version = params.text_document.version;
 
         tracing::info!("Document opened: {}", uri);
 
-        // Store document
+        // Store document (legacy)
         self.documents.insert(uri.clone(), text.clone());
 
-        // Parse and send diagnostics
-        let diagnostics = self.parse_and_diagnose(&uri, &text).await;
+        // Parse and send diagnostics (with version tracking)
+        let diagnostics = self.parse_and_diagnose(&uri, &text, version).await;
         self.publish_diagnostics(params.text_document.uri, diagnostics)
             .await;
     }
 
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
         let uri = params.text_document.uri.to_string();
+        let version = params.text_document.version;
 
         if let Some(change) = params.content_changes.first() {
             let text = change.text.clone();
 
-            tracing::info!("Document changed: {}", uri);
+            tracing::info!("Document changed: {} (version {})", uri, version);
 
-            // Update document
+            // Update document (legacy)
             self.documents.insert(uri.clone(), text.clone());
 
-            // Re-parse and send diagnostics
-            let diagnostics = self.parse_and_diagnose(&uri, &text).await;
+            // Re-parse and send diagnostics (with version tracking)
+            let diagnostics = self.parse_and_diagnose(&uri, &text, version).await;
             self.publish_diagnostics(params.text_document.uri, diagnostics)
                 .await;
         }
@@ -838,9 +784,10 @@ impl LanguageServer for VexBackend {
         let uri = params.text_document.uri.to_string();
         tracing::info!("Document closed: {}", uri);
 
-        // Remove from cache
+        // Remove from all caches
         self.documents.remove(&uri);
         self.ast_cache.remove(&uri);
+        self.document_cache.remove(&uri);
     }
 
     async fn hover(&self, params: HoverParams) -> Result<Option<Hover>> {

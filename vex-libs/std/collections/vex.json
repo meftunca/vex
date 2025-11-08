@@ -1,0 +1,9 @@
+{
+  "name": "collections",
+  "version": "0.9.1",
+  "description": "Collections - HashMap, Set",
+  "authors": ["Vex Language Team"],
+  "license": "MIT",
+  "main": "src/lib.vx"
+}
+

@@ -1,0 +1,21 @@
+=== Simple Ping Stream Test (10 pings) ===
+
+✅ Streaming output in real-time:
+
+PING 8.8.8.8 (8.8.8.8): 56 data bytes
+64 bytes from 8.8.8.8: icmp_seq=0 ttl=118 time=25.670 ms
+64 bytes from 8.8.8.8: icmp_seq=1 ttl=118 time=26.948 ms
+64 bytes from 8.8.8.8: icmp_seq=2 ttl=118 time=27.442 ms
+64 bytes from 8.8.8.8: icmp_seq=3 ttl=118 time=27.355 ms
+64 bytes from 8.8.8.8: icmp_seq=4 ttl=118 time=24.296 ms
+64 bytes from 8.8.8.8: icmp_seq=5 ttl=118 time=26.124 ms
+64 bytes from 8.8.8.8: icmp_seq=6 ttl=118 time=28.429 ms
+64 bytes from 8.8.8.8: icmp_seq=7 ttl=118 time=24.081 ms
+64 bytes from 8.8.8.8: icmp_seq=8 ttl=118 time=22.983 ms
+64 bytes from 8.8.8.8: icmp_seq=9 ttl=118 time=23.009 ms
+
+--- 8.8.8.8 ping statistics ---
+10 packets transmitted, 10 packets received, 0.0% packet loss
+round-trip min/avg/max/stddev = 22.983/25.634/28.429/1.847 ms
+
+✅ Streaming test passed!

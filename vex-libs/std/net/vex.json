@@ -1,0 +1,9 @@
+{
+  "name": "net",
+  "version": "0.9.1",
+  "description": "Network operations - TCP, UDP",
+  "authors": ["Vex Language Team"],
+  "license": "MIT",
+  "main": "src/lib.vx"
+}
+

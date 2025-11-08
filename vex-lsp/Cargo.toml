@@ -16,6 +16,7 @@ vex-lexer = { path = "../vex-lexer" }
 vex-parser = { path = "../vex-parser" }
 vex-compiler = { path = "../vex-compiler" }
 vex-formatter = { path = "../vex-formatter" }
+vex-diagnostics = { path = "../vex-diagnostics" }
 
 # LSP Protocol
 tower-lsp = "0.20"

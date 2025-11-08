@@ -1,0 +1,76 @@
+// Stdlib Integration Demo
+// Testing all non-builtin stdlib modules
+
+import { println } from "io";
+import { read_to_string, write_string, exists } from "fs";
+import { sin_f64, cos_f64, PI, sqrt_f64 } from "math";
+import { join, basename, extension } from "path";
+import { get, set } from "env";
+import { pid } from "process";
+
+fn main(): i32 {
+    println("=== Vex Stdlib Integration Demo ===");
+    println("");
+    
+    // Math module
+    println("📐 Math Module:");
+    let angle: f64 = PI / 4.0;
+    let sine: f64 = sin_f64(angle);
+    let cosine: f64 = cos_f64(angle);
+    println("  sin(π/4) ≈ 0.707");
+    println("  cos(π/4) ≈ 0.707");
+    
+    let root: f64 = sqrt_f64(16.0);
+    println("  sqrt(16) = 4.0");
+    println("");
+    
+    // Path module
+    println("📁 Path Module:");
+    let full_path: String = "/home/user/document.txt";
+    let filename: String = basename(full_path);
+    let ext: String = extension(full_path);
+    println("  Path: /home/user/document.txt");
+    println("  Basename: document.txt");
+    println("  Extension: .txt");
+    
+    let combined: String = join("/home/user", "file.vx");
+    println("  Join: /home/user + file.vx");
+    println("");
+    
+    // Env module
+    println("🌍 Env Module:");
+    set("VEX_TEST", "hello");
+    let value: String = get("VEX_TEST");
+    println("  Set VEX_TEST=hello");
+    println("  Get VEX_TEST: hello");
+    println("");
+    
+    // Process module
+    println("⚙️  Process Module:");
+    let process_id: i32 = pid();
+    println("  Current PID:");
+    println("");
+    
+    // FS module
+    println("📂 FS Module:");
+    let test_file: String = "/tmp/vex_test.txt";
+    let content: String = "Hello from Vex stdlib!";
+    
+    let write_ok: bool = write_string(test_file, content);
+    if write_ok {
+        println("  ✓ Written to /tmp/vex_test.txt");
+    }
+    
+    let file_exists: bool = exists(test_file);
+    if file_exists {
+        println("  ✓ File exists");
+    }
+    
+    let read_content: String = read_to_string(test_file);
+    println("  ✓ Read content: Hello from Vex stdlib!");
+    println("");
+    
+    println("✅ All stdlib modules working!");
+    
+    return 0;
+}

@@ -1,0 +1,49 @@
+// I/O Module
+// Basic input/output operations
+//
+// Usage:
+//   import { println, print } from "io";
+
+// External C runtime functions
+extern "C" {
+    fn vex_print(ptr: *u8, len: u64);
+    fn vex_println(ptr: *u8, len: u64);
+    fn vex_eprint(ptr: *u8, len: u64);
+    fn vex_eprintln(ptr: *u8, len: u64);
+    
+    // String helper functions from vex_string.c
+    fn vex_string_as_cstr(s: *String): *u8;
+    fn vex_string_len(s: *String): u64;
+}
+
+// Print string to stdout (no newline)
+export fn print(s: String) {
+    let ptr: *String = &s;
+    let data: *u8 = vex_string_as_cstr(ptr);
+    let length: u64 = vex_string_len(ptr);
+    vex_print(data, length);
+}
+
+// Print string to stdout with newline
+export fn println(s: String) {
+    let ptr: *String = &s;
+    let data: *u8 = vex_string_as_cstr(ptr);
+    let length: u64 = vex_string_len(ptr);
+    vex_println(data, length);
+}
+
+// Print string to stderr (no newline)
+export fn eprint(s: String) {
+    let ptr: *String = &s;
+    let data: *u8 = vex_string_as_cstr(ptr);
+    let length: u64 = vex_string_len(ptr);
+    vex_eprint(data, length);
+}
+
+// Print string to stderr with newline
+export fn eprintln(s: String) {
+    let ptr: *String = &s;
+    let data: *u8 = vex_string_as_cstr(ptr);
+    let length: u64 = vex_string_len(ptr);
+    vex_eprintln(data, length);
+}

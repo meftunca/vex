@@ -38,6 +38,37 @@ pub struct Manifest {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bin: Option<HashMap<String, String>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub native: Option<NativeConfig>,
+}
+
+/// Native C/C++ library configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NativeConfig {
+    /// Dynamic libraries to link (e.g., ["ssl", "crypto"])
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub libraries: Vec<String>,
+
+    /// Library search paths (e.g., ["/usr/local/lib", "/opt/homebrew/lib"])
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub search_paths: Vec<String>,
+
+    /// Static library files (e.g., ["./libs/libmylib.a"])
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub static_libs: Vec<String>,
+
+    /// C/C++ source files to compile (e.g., ["./native/helper.c"])
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sources: Vec<String>,
+
+    /// Compiler flags for C/C++ compilation
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub cflags: Vec<String>,
+
+    /// Include directories for C/C++ headers
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub include_dirs: Vec<String>,
 }
 
 /// Dependency can be a simple version string or detailed config
@@ -160,6 +191,11 @@ impl Manifest {
             .map(|t| t.default.clone())
             .unwrap_or_else(|| "x64".to_string())
     }
+
+    /// Get native configuration
+    pub fn get_native(&self) -> Option<&NativeConfig> {
+        self.native.as_ref()
+    }
 }
 
 /// Check if version is valid semver
@@ -223,6 +259,7 @@ impl Default for Manifest {
             }),
             main: None,
             bin: None,
+            native: None,
         }
     }
 }

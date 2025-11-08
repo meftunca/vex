@@ -1,0 +1,9 @@
+{
+  "name": "json",
+  "version": "0.9.1",
+  "description": "JSON parsing and stringify",
+  "authors": ["Vex Language Team"],
+  "license": "MIT",
+  "main": "src/lib.vx"
+}
+

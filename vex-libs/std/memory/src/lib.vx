@@ -1,0 +1,56 @@
+// Memory Module
+// Memory allocation and manipulation
+//
+// Usage:
+//   import { alloc, free, memcpy } from "memory";
+
+// External C functions from vex-runtime/c/vex_alloc.c and vex_memory.c
+extern "C" {
+    // Allocation
+    fn vex_malloc(size: u64): *const u8;
+    fn vex_calloc(nmemb: u64, size: u64): *const u8;
+    fn vex_realloc(ptr: *const u8, size: u64): *const u8;
+    fn vex_free(ptr: *const u8);
+    
+    // Memory operations
+    fn vex_memcpy(dest: *const u8, src: *const u8, n: u64): *const u8;
+    fn vex_memmove(dest: *const u8, src: *const u8, n: u64): *const u8;
+    fn vex_memset(s: *const u8, c: i32, n: u64): *const u8;
+    fn vex_memcmp(s1: *const u8, s2: *const u8, n: u64): i32;
+}
+
+
+export fn alloc(size: u64): *const u8 {
+    unsafe {
+        vex_malloc(size)
+    }
+}
+
+
+export fn free(ptr: *const u8) {
+    unsafe {
+        vex_free(ptr);
+    }
+}
+
+
+export fn memcpy(dest: *const u8, src: *const u8, n: u64): *const u8 {
+    unsafe {
+        vex_memcpy(dest, src, n)
+    }
+}
+
+
+export fn memset(s: *const u8, c: i32, n: u64): *const u8 {
+    unsafe {
+        vex_memset(s, c, n)
+    }
+}
+
+
+export fn memcmp(s1: *const u8, s2: *const u8, n: u64): i32 {
+    unsafe {
+        vex_memcmp(s1, s2, n)
+    }
+}
+

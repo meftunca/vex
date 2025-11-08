@@ -1,0 +1,165 @@
+// DB Module
+// Universal database access - PostgreSQL, MySQL, SQLite, MongoDB, Redis
+//
+// Usage:
+//   import { Connection, execute_query, fetch_next } from "db";
+//   import { DRIVER_POSTGRES, DRIVER_MYSQL } from "db";
+
+// Status codes
+let VEX_DB_OK: i32 = 0;
+let VEX_DB_ERROR_CONNECT: i32 = 1;
+let VEX_DB_ERROR_EXECUTION: i32 = 2;
+let VEX_DB_ERROR_NOT_FOUND: i32 = 3;
+
+// Types
+let VEX_T_NULL: i32 = 0;
+let VEX_T_BOOL: i32 = 1;
+let VEX_T_I64: i32 = 2;
+let VEX_T_F64: i32 = 3;
+let VEX_T_TEXT: i32 = 4;
+let VEX_T_BIN: i32 = 5;
+let VEX_T_JSON: i32 = 6;
+
+// Capabilities
+let VEX_CAP_SQL: u32 = 1;
+let VEX_CAP_ASYNC: u32 = 4;
+let VEX_CAP_BINARY_PARAMS: u32 = 8;
+let VEX_CAP_TXN: u32 = 16;
+let VEX_CAP_PUBSUB: u32 = 32;
+let VEX_CAP_STREAMING: u32 = 64;
+
+// External C functions from vex-runtime/c/vex_db/
+extern "C" {
+    // Opaque types
+    type VexConnection;
+    type VexResultSet;
+    type VexDbDriver;
+    type VexDbValue;
+    type VexDbPayload;
+    
+    // Connection
+    fn vex_db_connect(driver: *const VexDbDriver, conninfo: *const u8): *VexConnection;
+    fn vex_db_disconnect(conn: *VexConnection);
+    
+    // Query execution
+    fn vex_db_execute_query(
+        conn: *VexConnection, 
+        query: *const u8, 
+        nParams: i32, 
+        params: *const VexDbValue
+    ): *VexResultSet;
+    
+    fn vex_db_fetch_next(res: *VexResultSet): VexDbPayload;
+    fn vex_db_clear_result(res: *VexResultSet);
+    
+    // Transactions
+    fn vex_db_begin_transaction(conn: *VexConnection): i32;
+    fn vex_db_commit_transaction(conn: *VexConnection): i32;
+    fn vex_db_rollback_transaction(conn: *VexConnection): i32;
+    
+    // Pub/Sub (PostgreSQL LISTEN/NOTIFY, Redis Pub/Sub)
+    fn vex_db_subscribe(conn: *VexConnection, channel: *const u8): i32;
+    fn vex_db_unsubscribe(conn: *VexConnection, channel: *const u8): i32;
+    fn vex_db_publish(conn: *VexConnection, channel: *const u8, message: *const u8, message_len: u64): i32;
+    fn vex_db_poll_notifications(conn: *VexConnection): i32;
+    fn vex_db_get_notification(conn: *VexConnection): VexDbPayload;
+    
+    // Drivers (extern globals)
+    static VEX_DRIVER_POSTGRES: VexDbDriver;
+    static VEX_DRIVER_MYSQL: VexDbDriver;
+    static VEX_DRIVER_SQLITE: VexDbDriver;
+    static VEX_DRIVER_MONGO: VexDbDriver;
+    static VEX_DRIVER_REDIS: VexDbDriver;
+}
+
+// Connection wrapper
+export struct Connection {
+    ptr: *VexConnection,
+    driver: *const VexDbDriver,
+}
+
+// Result set wrapper
+export struct ResultSet {
+    ptr: *VexResultSet,
+}
+
+// Row data
+export struct Row {
+    data: *const u8,
+    length: u64,
+    is_null: bool,
+}
+
+// Database drivers
+export const DRIVER_POSTGRES: *const VexDbDriver = unsafe { &VEX_DRIVER_POSTGRES };
+export const DRIVER_MYSQL: *const VexDbDriver = unsafe { &VEX_DRIVER_MYSQL };
+export const DRIVER_SQLITE: *const VexDbDriver = unsafe { &VEX_DRIVER_SQLITE };
+export const DRIVER_MONGO: *const VexDbDriver = unsafe { &VEX_DRIVER_MONGO };
+export const DRIVER_REDIS: *const VexDbDriver = unsafe { &VEX_DRIVER_REDIS };
+
+// Connect to database
+export fn connect(driver: *const VexDbDriver, conninfo: string): Connection {
+    unsafe {
+        let ptr = vex_db_connect(driver, conninfo.as_ptr());
+        return Connection { ptr, driver };
+    }
+}
+
+// Disconnect
+export fn disconnect(conn: Connection) {
+    unsafe {
+        vex_db_disconnect(conn.ptr);
+    }
+}
+
+// Execute query (simple, no params)
+export fn execute_query(conn: &Connection, query: string): ResultSet {
+    unsafe {
+        let res = vex_db_execute_query(conn.ptr, query.as_ptr(), 0, null);
+        return ResultSet { ptr: res };
+    }
+}
+
+// Fetch next row
+export fn fetch_next(res: &ResultSet): Option<Row> {
+    unsafe {
+        let payload = vex_db_fetch_next(res.ptr);
+        if payload.is_null {
+            return None;
+        }
+        return Some(Row {
+            data: payload.data,
+            length: payload.length,
+            is_null: false,
+        });
+    }
+}
+
+// Clear result set
+export fn clear_result(res: ResultSet) {
+    unsafe {
+        vex_db_clear_result(res.ptr);
+    }
+}
+
+// Begin transaction
+export fn begin_transaction(conn: &Connection): i32 {
+    unsafe {
+        vex_db_begin_transaction(conn.ptr)
+    }
+}
+
+// Commit transaction
+export fn commit_transaction(conn: &Connection): i32 {
+    unsafe {
+        vex_db_commit_transaction(conn.ptr)
+    }
+}
+
+// Rollback transaction
+export fn rollback_transaction(conn: &Connection): i32 {
+    unsafe {
+        vex_db_rollback_transaction(conn.ptr)
+    }
+}
+

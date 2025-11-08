@@ -13,11 +13,23 @@ impl<'a> Parser<'a> {
             return Ok(Type::Never);
         }
 
-        // Raw pointer type: *T
+        // Raw pointer type: *T or *const T
         if self.check(&Token::Star) {
             self.advance();
+
+            // Check for 'const' keyword
+            let is_const = if self.check(&Token::Const) {
+                self.advance();
+                true
+            } else {
+                false
+            };
+
             let inner_ty = self.parse_type()?;
-            return Ok(Type::RawPtr(Box::new(inner_ty)));
+            return Ok(Type::RawPtr {
+                inner: Box::new(inner_ty),
+                is_const,
+            });
         }
 
         // Function type: fn(T1, T2): R (Vex uses : not ->)
@@ -280,11 +292,22 @@ impl<'a> Parser<'a> {
                 Type::Never
             }
             Token::Star => {
-                // Raw pointer: *T
+                // Raw pointer: *T or *const T
                 eprintln!("🔵 Token::Star in match statement");
                 self.advance();
+
+                let is_const = if self.check(&Token::Const) {
+                    self.advance();
+                    true
+                } else {
+                    false
+                };
+
                 let inner_ty = self.parse_type()?;
-                Type::RawPtr(Box::new(inner_ty))
+                Type::RawPtr {
+                    inner: Box::new(inner_ty),
+                    is_const,
+                }
             }
             _ => {
                 eprintln!(
@@ -369,12 +392,23 @@ impl<'a> Parser<'a> {
             return Ok(Type::Never);
         }
 
-        // Raw pointer type: *T
+        // Raw pointer type: *T or *const T
         if self.check(&Token::Star) {
             eprintln!("🔵 parse_type_primary: Detected Token::Star, parsing RawPtr type");
             self.advance();
+
+            let is_const = if self.check(&Token::Const) {
+                self.advance();
+                true
+            } else {
+                false
+            };
+
             let inner_ty = self.parse_type_primary()?;
-            return Ok(Type::RawPtr(Box::new(inner_ty)));
+            return Ok(Type::RawPtr {
+                inner: Box::new(inner_ty),
+                is_const,
+            });
         }
 
         // Infer type: infer E (used in conditional types)

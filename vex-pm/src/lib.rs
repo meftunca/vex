@@ -8,6 +8,7 @@ pub mod commands;
 pub mod git;
 pub mod lockfile;
 pub mod manifest;
+pub mod native_linker;
 pub mod platform;
 pub mod resolver;
 
@@ -21,7 +22,8 @@ pub use commands::{
 };
 pub use git::{checkout_tag, clone_repository, package_url_to_git_url};
 pub use lockfile::{LockFile, LockedPackage};
-pub use manifest::{Dependency, Manifest, Profile, TargetConfig};
+pub use manifest::{Dependency, Manifest, NativeConfig, Profile, TargetConfig};
+pub use native_linker::NativeLinker;
 pub use platform::{select_platform_file, select_platform_file_for_test, Platform};
 pub use resolver::{DependencyGraph, PackageVersion, ResolvedPackage};
 

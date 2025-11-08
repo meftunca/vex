@@ -335,6 +335,32 @@ fn main() -> Result<()> {
                 command.arg(arg);
             }
 
+            // Add native library linker arguments from vex.json
+            if let Ok(manifest_path) = std::env::current_dir().map(|d| d.join("vex.json")) {
+                if manifest_path.exists() {
+                    if let Ok(manifest) = vex_pm::Manifest::from_file(&manifest_path) {
+                        if let Some(native_config) = manifest.get_native() {
+                            let linker = vex_pm::NativeLinker::new(std::env::current_dir()?);
+                            match linker.process(native_config) {
+                                Ok(native_args) if !native_args.is_empty() => {
+                                    println!("   🔗 Adding native libraries: {}", native_args);
+                                    for arg in native_args.split_whitespace() {
+                                        command.arg(arg);
+                                    }
+                                }
+                                Err(e) => {
+                                    eprintln!(
+                                        "⚠️  Warning: Failed to process native config: {}",
+                                        e
+                                    );
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                }
+            }
+
             let output = command.output().map_err(|e| anyhow::anyhow!(e))?;
 
             if !output.status.success() {
@@ -467,6 +493,7 @@ fn main() -> Result<()> {
 
                 for import in &ast.imports {
                     let module_path = &import.module;
+                    eprintln!("🔄 Resolving import: '{}'", module_path);
 
                     match resolver.load_module(module_path) {
                         Ok(module_ast) => {
@@ -487,11 +514,26 @@ fn main() -> Result<()> {
                                                         struct_def.clone(),
                                                     ));
                                                 }
+                                                vex_ast::Item::ExternBlock(extern_block) => {
+                                                    // Import extern declarations (for FFI)
+                                                    ast.items.push(vex_ast::Item::ExternBlock(
+                                                        extern_block.clone(),
+                                                    ));
+                                                }
                                                 _ => {}
                                             }
                                         }
                                     } else {
                                         // Import only specific items
+                                        // BUT: always import extern blocks (for FFI dependencies)
+                                        for item in &module_ast.items {
+                                            if let vex_ast::Item::ExternBlock(extern_block) = item {
+                                                ast.items.push(vex_ast::Item::ExternBlock(
+                                                    extern_block.clone(),
+                                                ));
+                                            }
+                                        }
+
                                         for requested in &import.items {
                                             for item in &module_ast.items {
                                                 match item {
@@ -534,6 +576,12 @@ fn main() -> Result<()> {
                                                     struct_def.clone(),
                                                 ));
                                             }
+                                            vex_ast::Item::ExternBlock(extern_block) => {
+                                                // Import extern declarations
+                                                ast.items.push(vex_ast::Item::ExternBlock(
+                                                    extern_block.clone(),
+                                                ));
+                                            }
                                             _ => {}
                                         }
                                     }
@@ -556,6 +604,12 @@ fn main() -> Result<()> {
                                             vex_ast::Item::Struct(struct_def) => {
                                                 ast.items.push(vex_ast::Item::Struct(
                                                     struct_def.clone(),
+                                                ));
+                                            }
+                                            vex_ast::Item::ExternBlock(extern_block) => {
+                                                // Import extern declarations
+                                                ast.items.push(vex_ast::Item::ExternBlock(
+                                                    extern_block.clone(),
                                                 ));
                                             }
                                             _ => {}
@@ -613,6 +667,32 @@ fn main() -> Result<()> {
             println!("  🔗 Linking with args: '{}'", linker_args);
             for arg in linker_args.split_whitespace() {
                 command.arg(arg);
+            }
+
+            // Add native library linker arguments from vex.json
+            if let Ok(manifest_path) = std::env::current_dir().map(|d| d.join("vex.json")) {
+                if manifest_path.exists() {
+                    if let Ok(manifest) = vex_pm::Manifest::from_file(&manifest_path) {
+                        if let Some(native_config) = manifest.get_native() {
+                            let linker = vex_pm::NativeLinker::new(std::env::current_dir()?);
+                            match linker.process(native_config) {
+                                Ok(native_args) if !native_args.is_empty() => {
+                                    println!("  🔗 Adding native libraries: {}", native_args);
+                                    for arg in native_args.split_whitespace() {
+                                        command.arg(arg);
+                                    }
+                                }
+                                Err(e) => {
+                                    eprintln!(
+                                        "⚠️  Warning: Failed to process native config: {}",
+                                        e
+                                    );
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                }
             }
 
             let link_result = command.output()?;

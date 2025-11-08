@@ -13,27 +13,26 @@
 // STYLE 1: C-STYLE I/O (Legacy, Fastest)
 // ============================================================================
 
-void vex_print(const char *s)
+void vex_print(const char *ptr, uint64_t len)
 {
-    fputs(s, stdout); // Use buffered I/O for consistency with vex_printf
+    fwrite(ptr, 1, len, stdout);
 }
 
-void vex_println(const char *s)
+void vex_println(const char *ptr, uint64_t len)
 {
-    fputs(s, stdout);
+    fwrite(ptr, 1, len, stdout);
     fputc('\n', stdout);
     fflush(stdout); // Ensure newline is printed immediately
 }
 
-void vex_eprint(const char *s)
+void vex_eprint(const char *ptr, uint64_t len)
 {
-    size_t len = vex_strlen(s);
-    write(STDERR_FILENO, s, len);
+    write(STDERR_FILENO, ptr, len);
 }
 
-void vex_eprintln(const char *s)
+void vex_eprintln(const char *ptr, uint64_t len)
 {
-    vex_eprint(s);
+    write(STDERR_FILENO, ptr, len);
     write(STDERR_FILENO, "\n", 1);
 }
 
@@ -81,10 +80,10 @@ void vex_print_value(const VexValue *val)
         vex_printf("%g", val->as_f64);
         break;
     case VEX_VALUE_BOOL:
-        vex_print(val->as_bool ? "true" : "false");
+        vex_print(val->as_bool ? "true" : "false", val->as_bool ? 4 : 5);
         break;
     case VEX_VALUE_STRING:
-        vex_print(val->as_string);
+        vex_print(val->as_string, vex_strlen(val->as_string));
         break;
     case VEX_VALUE_PTR:
         vex_printf("%p", val->as_ptr);
@@ -103,7 +102,7 @@ void vex_print_args(int count, VexValue *args)
         vex_print_value(&args[i]);
         if (i < count - 1)
         {
-            vex_print(" ");
+            vex_print(" ", 1);
         }
     }
 }
@@ -115,7 +114,7 @@ void vex_print_args(int count, VexValue *args)
 void vex_println_args(int count, VexValue *args)
 {
     vex_print_args(count, args);
-    vex_print("\n");
+    vex_print("\n", 1);
 }
 
 // ============================================================================
@@ -236,7 +235,7 @@ static void vex_print_value_fmt(const VexValue *val, char fmt_type, int precisio
         }
         else
         {
-            vex_print(val->as_bool ? "true" : "false");
+            vex_print(val->as_bool ? "true" : "false", val->as_bool ? 4 : 5);
         }
         break;
 
@@ -247,7 +246,7 @@ static void vex_print_value_fmt(const VexValue *val, char fmt_type, int precisio
         }
         else
         {
-            vex_print(val->as_string);
+            vex_print(val->as_string, vex_strlen(val->as_string));
         }
         break;
 
@@ -312,5 +311,5 @@ void vex_print_fmt(const char *fmt, int count, VexValue *args)
 void vex_println_fmt(const char *fmt, int count, VexValue *args)
 {
     vex_print_fmt(fmt, count, args);
-    vex_print("\n");
+    vex_print("\n", 1);
 }

@@ -577,7 +577,7 @@ impl MoveChecker {
             Type::Never => false,
 
             // Raw pointers are Copy (just addresses)
-            Type::RawPtr(_) => false,
+            Type::RawPtr { .. } => false,
         }
     }
 }

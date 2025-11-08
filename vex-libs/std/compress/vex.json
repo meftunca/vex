@@ -1,0 +1,20 @@
+{
+  "name": "compress",
+  "version": "0.2.0",
+  "description": "Compression and decompression utilities (gzip, zlib, brotli)",
+  "authors": ["Vex Team"],
+  "license": "MIT",
+
+  "dependencies": {},
+
+  "native": {
+    "sources": [],
+    "libraries": ["z"],
+    "cflags": ["-O3"],
+    "include_dirs": ["../../../vex-runtime/c"]
+  },
+
+  "exports": {
+    "main": "src/lib.vx"
+  }
+}

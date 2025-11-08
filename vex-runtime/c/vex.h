@@ -324,28 +324,32 @@ extern "C"
   // --- Style 1: C-style (Legacy, fastest) ---
 
   /**
-   * Print string to stdout
-   * @param s String to print
+   * Print string to stdout (Vex fat pointer)
+   * @param ptr Pointer to string data
+   * @param len Length of string in bytes
    */
-  void vex_print(const char *s);
+  void vex_print(const char *ptr, uint64_t len);
 
   /**
-   * Print string to stdout with newline
-   * @param s String to print
+   * Print string to stdout with newline (Vex fat pointer)
+   * @param ptr Pointer to string data
+   * @param len Length of string in bytes
    */
-  void vex_println(const char *s);
+  void vex_println(const char *ptr, uint64_t len);
 
   /**
-   * Print string to stderr
-   * @param s String to print
+   * Print string to stderr (Vex fat pointer)
+   * @param ptr Pointer to string data
+   * @param len Length of string in bytes
    */
-  void vex_eprint(const char *s);
+  void vex_eprint(const char *ptr, uint64_t len);
 
   /**
-   * Print string to stderr with newline
-   * @param s String to print
+   * Print string to stderr with newline (Vex fat pointer)
+   * @param ptr Pointer to string data
+   * @param len Length of string in bytes
    */
-  void vex_eprintln(const char *s);
+  void vex_eprintln(const char *ptr, uint64_t len);
 
   /**
    * Formatted print to stdout (supports %d, %s, %f, %ld, %lf)
@@ -758,7 +762,6 @@ extern "C"
    * @return true on success
    */
   bool vex_mmap_protect(void *addr, size_t size, int prot);
-
 
   // ============================================================================
   // HASH MAP (SwissTable)

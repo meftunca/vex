@@ -375,8 +375,11 @@ pub enum Type {
     /// Never type (!) - for diverging functions (panic, exit, infinite loop)
     Never,
 
-    /// Raw pointer: *T (unsafe, for FFI/C interop)
-    RawPtr(Box<Type>),
+    /// Raw pointer: *T or *const T (unsafe, for FFI/C interop)
+    RawPtr {
+        inner: Box<Type>,
+        is_const: bool,
+    },
 
     // ============================================================
     // Builtin Types - Phase 0 (No imports needed, zero-overhead)

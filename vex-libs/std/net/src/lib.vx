@@ -1,0 +1,145 @@
+// Net Module
+// Network operations - TCP, UDP, event loop, dialer
+//
+// Usage:
+//   import { Loop, socket_tcp, bind, listen, accept, dial_tcp } from "net";
+
+// Event flags
+let VEX_EVT_READ: u32 = 1;
+let VEX_EVT_WRITE: u32 = 2;
+let VEX_EVT_HUP: u32 = 4;
+let VEX_EVT_ERR: u32 = 8;
+
+// External C functions from vex-runtime/c/vex_net/
+extern "C" {
+    // Types
+    type VexNetLoop;
+    type VexEvent;
+    type VexDialer;
+    
+    // Loop operations
+    fn vex_net_loop_create(loop_ptr: *VexNetLoop): i32;
+    fn vex_net_loop_close(loop_ptr: *VexNetLoop): i32;
+    fn vex_net_register(loop_ptr: *VexNetLoop, fd: i32, events: u32, userdata: u64): i32;
+    fn vex_net_modify(loop_ptr: *VexNetLoop, fd: i32, events: u32, userdata: u64): i32;
+    fn vex_net_unregister(loop_ptr: *VexNetLoop, fd: i32): i32;
+    fn vex_net_tick(loop_ptr: *VexNetLoop, out: *VexEvent, capacity: i32, timeout_ms: i32): i32;
+    fn vex_net_timer_after(loop_ptr: *VexNetLoop, ms: u64, userdata: u64): i32;
+    
+    // Socket operations
+    fn vex_net_socket_tcp(ipv6: i32): i32;
+    fn vex_net_socket_udp(ipv6: i32): i32;
+    fn vex_net_bind(fd: i32, ip: *const u8, port: u16, reuseaddr: i32, reuseport: i32, ipv6only: i32): i32;
+    fn vex_net_listen(fd: i32, backlog: i32): i32;
+    fn vex_net_accept(fd: i32, ip_buf: *u8!, ip_buflen: u64, port: *u16): i32;
+    fn vex_net_connect(fd: i32, ip: *const u8, port: u16): i32;
+    fn vex_net_close(fd: i32): i32;
+    
+    // Socket options
+    fn vex_net_set_nodelay(fd: i32, on: i32): i32;
+    fn vex_net_set_keepalive(fd: i32, on: i32, idle_s: i32, intvl_s: i32, cnt: i32): i32;
+    fn vex_net_set_recvbuf(fd: i32, bytes: i32): i32;
+    fn vex_net_set_sendbuf(fd: i32, bytes: i32): i32;
+    
+    // I/O
+    fn vex_net_read(fd: i32, buf: *u8!, len: u64): i64;
+    fn vex_net_write(fd: i32, buf: *const u8, len: u64): i64;
+    
+    // Dialer (DNS + Happy Eyeballs v2)
+    fn vex_net_dial_tcp(loop_ptr: *VexNetLoop, dialer: *const VexDialer): i32;
+}
+
+// Network event loop
+export struct Loop {
+    inner: VexNetLoop,
+}
+
+// TCP listener
+export struct TcpListener {
+    fd: i32,
+}
+
+// TCP stream
+export struct TcpStream {
+    fd: i32,
+}
+
+// UDP socket
+export struct UdpSocket {
+    fd: i32,
+}
+
+// Create event loop
+export fn create_loop(): Loop {
+    let! loop_val: VexNetLoop;
+    unsafe {
+        vex_net_loop_create(&loop_val);
+    }
+    return Loop { inner: loop_val };
+}
+
+// Create TCP socket
+export fn socket_tcp(ipv6: bool): i32 {
+    unsafe {
+        vex_net_socket_tcp(if ipv6 { 1 } else { 0 })
+    }
+}
+
+// Create UDP socket
+export fn socket_udp(ipv6: bool): i32 {
+    unsafe {
+        vex_net_socket_udp(if ipv6 { 1 } else { 0 })
+    }
+}
+
+// Bind socket to address
+export fn bind(fd: i32, ip: string, port: u16): i32 {
+    unsafe {
+        vex_net_bind(fd, ip.as_ptr(), port, 1, 0, 0)
+    }
+}
+
+// Listen for connections
+export fn listen(fd: i32, backlog: i32): i32 {
+    unsafe {
+        vex_net_listen(fd, backlog)
+    }
+}
+
+// Accept connection
+export fn accept(fd: i32): i32 {
+    let! ip_buf: [u8; 64];
+    let! port: u16 = 0;
+    unsafe {
+        vex_net_accept(fd, ip_buf.as_mut_ptr(), 64, &port)
+    }
+}
+
+// Connect to address
+export fn connect(fd: i32, ip: string, port: u16): i32 {
+    unsafe {
+        vex_net_connect(fd, ip.as_ptr(), port)
+    }
+}
+
+// Close socket
+export fn close(fd: i32): i32 {
+    unsafe {
+        vex_net_close(fd)
+    }
+}
+
+// Read from socket
+export fn read(fd: i32, buf: &[u8]): i64 {
+    unsafe {
+        vex_net_read(fd, buf.as_mut_ptr(), buf.len())
+    }
+}
+
+// Write to socket
+export fn write(fd: i32, buf: &[u8]): i64 {
+    unsafe {
+        vex_net_write(fd, buf.as_ptr(), buf.len())
+    }
+}
+

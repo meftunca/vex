@@ -1,0 +1,9 @@
+{
+  "name": "sync",
+  "version": "0.9.1",
+  "description": "Concurrency primitives - Channel, Mutex",
+  "authors": ["Vex Language Team"],
+  "license": "MIT",
+  "main": "src/lib.vx"
+}
+

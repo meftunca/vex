@@ -1,0 +1,11 @@
+{
+  "name": "native-demo",
+  "version": "1.0.0",
+  "description": "Demo of native C library integration",
+  "main": "src/main.vx",
+  "native": {
+    "sources": ["native/helper.c"],
+    "include_dirs": ["native"],
+    "cflags": ["-O2", "-Wall"]
+  }
+}
