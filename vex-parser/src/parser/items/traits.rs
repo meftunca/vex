@@ -35,12 +35,20 @@ impl<'a> Parser<'a> {
         if is_trait {
             // Parse trait methods (required or default implementations)
             let mut trait_methods = Vec::new();
+            let mut associated_types = Vec::new();
+
             while !self.check(&Token::RBrace) && !self.is_at_end() {
                 if self.check(&Token::Fn) {
                     self.advance(); // consume 'fn'
                     trait_methods.push(self.parse_trait_method_signature()?);
+                } else if self.check(&Token::Type) {
+                    // Parse associated type: type Item;
+                    self.advance(); // consume 'type'
+                    let type_name = self.consume_identifier()?;
+                    self.consume(&Token::Semicolon, "Expected ';' after associated type")?;
+                    associated_types.push(type_name);
                 } else {
-                    return Err(self.error("Expected method in trait"));
+                    return Err(self.error("Expected method or associated type in trait"));
                 }
             }
 
@@ -50,6 +58,7 @@ impl<'a> Parser<'a> {
                 name,
                 type_params,
                 super_traits,
+                associated_types,
                 methods: trait_methods,
             }))
         } else {
@@ -82,14 +91,27 @@ impl<'a> Parser<'a> {
 
         self.consume(&Token::LBrace, "Expected '{'")?;
 
-        // Parse method implementations
+        // Parse associated type bindings and method implementations
+        let mut associated_type_bindings = Vec::new();
         let mut methods = Vec::new();
+
         while !self.check(&Token::RBrace) && !self.is_at_end() {
             if self.check(&Token::Fn) {
                 self.advance(); // consume 'fn'
                 methods.push(self.parse_function()?);
+            } else if self.check(&Token::Type) {
+                // Parse associated type binding: type Item = i32;
+                self.advance(); // consume 'type'
+                let type_name = self.consume_identifier()?;
+                self.consume(&Token::Eq, "Expected '=' after associated type name")?;
+                let bound_type = self.parse_type()?;
+                self.consume(
+                    &Token::Semicolon,
+                    "Expected ';' after associated type binding",
+                )?;
+                associated_type_bindings.push((type_name, bound_type));
             } else {
-                return Err(self.error("Expected method implementation in impl block"));
+                return Err(self.error("Expected method or associated type binding in impl block"));
             }
         }
 
@@ -99,6 +121,7 @@ impl<'a> Parser<'a> {
             trait_name,
             type_params,
             for_type,
+            associated_type_bindings,
             methods,
         }))
     }

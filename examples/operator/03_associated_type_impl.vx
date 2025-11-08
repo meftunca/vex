@@ -1,0 +1,24 @@
+// Test: Associated Type Bindings in impl
+
+trait Container {
+    type Item;
+    fn size(): i32;
+}
+
+struct IntBox {
+    value: i32,
+}
+
+impl Container for IntBox {
+    type Item = i32;  // Associated type binding
+    
+    fn size(): i32 {
+        return 4;  // sizeof(i32)
+    }
+}
+
+fn main(): i32 {
+    let box = IntBox { value: 42 };
+    println("✅ Associated type bindings work");
+    return 0;
+}

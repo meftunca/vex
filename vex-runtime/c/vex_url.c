@@ -5,19 +5,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__)
-#include <immintrin.h>
-#define VEX_SIMD_X86 1
-#else
-#define VEX_SIMD_X86 0
-#endif
-
-#if defined(__ARM_NEON) || defined(__ARM_NEON__) || defined(__aarch64__)
-#include <arm_neon.h>
-#define VEX_SIMD_NEON 1
-#else
-#define VEX_SIMD_NEON 0
-#endif
+// vex.h already includes vex_macros.h with VEX_SIMD_X86 and VEX_SIMD_NEON
 
 // ============================================================================
 // URL ENCODING

@@ -28,6 +28,11 @@ impl<'a> Parser<'a> {
 
         self.consume(&Token::RBrace, "Expected '}' after extern functions")?;
 
+        eprintln!(
+            "🔧 Parser: Parsed extern block with {} functions",
+            functions.len()
+        );
+
         Ok(Item::ExternBlock(ExternBlock {
             attributes: Vec::new(), // TODO: Parse attributes
             abi,
@@ -77,8 +82,10 @@ impl<'a> Parser<'a> {
 
         self.consume(&Token::RParen, "Expected ')' after parameters")?;
 
-        // Optional return type: -> Type
-        let return_type = if self.match_token(&Token::Arrow) {
+        // Optional return type: : Type or -> Type (both allowed)
+        let return_type = if self.match_token(&Token::Colon) {
+            Some(self.parse_type()?)
+        } else if self.match_token(&Token::Arrow) {
             Some(self.parse_type()?)
         } else {
             None

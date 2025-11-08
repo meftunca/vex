@@ -12,6 +12,20 @@ impl<'a> Parser<'a> {
         // Optional generic type parameters with bounds: struct Vec<T: Display>
         let type_params = self.parse_type_params()?;
 
+        // Optional policy application: struct User with APIModel, ValidationRules
+        let policies = if self.match_token(&Token::With) {
+            let mut policies_list = Vec::new();
+            loop {
+                policies_list.push(self.consume_identifier()?);
+                if !self.match_token(&Token::Comma) {
+                    break;
+                }
+            }
+            policies_list
+        } else {
+            Vec::new()
+        };
+
         // Optional trait implementation declaration: struct File impl Reader, Writer
         let impl_traits = if self.match_token(&Token::Impl) {
             let mut traits = Vec::new();
@@ -43,10 +57,22 @@ impl<'a> Parser<'a> {
                 self.consume(&Token::Colon, "Expected ':' after field name")?;
                 let field_type = self.parse_type()?;
 
+                // Check for inline metadata (backtick)
+                let metadata = if matches!(self.peek(), Token::Tag(_)) {
+                    if let Token::Tag(tag_str) = self.advance() {
+                        Some(tag_str.clone())
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
+
                 fields.push(Field {
                     name: field_name,
                     ty: field_type,
                     tag: None,
+                    metadata, // Inline backtick metadata
                 });
 
                 if !self.match_token(&Token::Comma) {
@@ -63,6 +89,7 @@ impl<'a> Parser<'a> {
         Ok(Item::Struct(Struct {
             name,
             type_params,
+            policies,
             impl_traits,
             fields,
             methods,

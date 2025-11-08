@@ -396,13 +396,18 @@ void worker_await_ioh(WorkerContext* ctx, IoHandle h, EventType type) {
 #endif
 }
 
-// Timers: naive implementation piggybacks on poller wait timeout via a global queue.
-// For simplicity we enqueue a NULL kick and rely on the scheduler loop to re-run the task on next tick.
+// Timers: use vex_net timer via poller
 void worker_await_deadline(WorkerContext* ctx, uint64_t deadline_ns) {
-    (void)deadline_ns;
-    // Minimal: immediate yield by enqueueing a no-op; a real impl should store (task, deadline)
-    // and only re-enqueue when the deadline expires.
-    (void)lfq_enqueue(ctx->owner->rt->global_ready, NULL);
+    uint64_t now = rt_now_ns();
+    uint64_t millis = (deadline_ns > now) ? (deadline_ns - now) / 1000000ull : 0;
+    
+    // Set timer via poller, passing current task as user_data
+    Runtime* rt = ctx->owner->rt;
+    InternalTask* task = ctx->current_task;
+    
+    if (rt->poller && task) {
+        poller_set_timer(rt->poller, millis, task);
+    }
 }
 
 void worker_await_after(WorkerContext* ctx, uint64_t millis) {

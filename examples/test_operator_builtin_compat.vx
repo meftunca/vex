@@ -1,0 +1,29 @@
+// Test: Operator Overloading doesn't break builtin operations
+
+trait Add { fn add(other: Self): Self; }
+
+struct MyInt impl Add {
+    value: i32,
+
+    fn add(other: MyInt): MyInt {
+        return MyInt { value: self.value + other.value };
+    }
+}
+
+fn main(): i32 {
+    // Builtin int operations (should still work)
+    let a = 10;
+    let b = 20;
+    let c = a + b;  // Builtin int add
+    
+    // Custom type operations
+    let x = MyInt { value: 5 };
+    let y = MyInt { value: 7 };
+    let z = x + y;  // Operator overloading
+    
+    if c == 30 {
+        return 42;  // Success
+    }
+    
+    return 1;  // Fail
+}

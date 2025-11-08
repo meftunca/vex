@@ -1,0 +1,33 @@
+# Windows Test Environment for vex_net
+# NOTE: Requires Windows host with Windows containers enabled
+# Cannot run on macOS/Linux Docker
+
+# Use servercore (not nanoserver - needs build tools)
+FROM mcr.microsoft.com/windows/servercore:ltsc2022
+
+# Install chocolatey
+RUN powershell -Command \
+    Set-ExecutionPolicy Bypass -Scope Process -Force; \
+    [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; \
+    iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
+
+# Install Visual Studio Build Tools
+RUN choco install -y visualstudio2022buildtools --package-parameters "--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --includeOptional --passive"
+
+# Install additional tools
+RUN choco install -y cmake git
+
+WORKDIR C:\\vex_net
+
+# Copy source
+COPY . C:\\vex_net\\
+
+# Build
+RUN powershell -Command \
+    cd C:\\vex_net; \
+    $env:PATH += ';C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Auxiliary\\Build'; \
+    cmd /c 'vcvarsall.bat x64 && nmake /f Makefile.win'
+
+# Default command
+CMD ["powershell", "-File", ".\\test_windows.ps1"]
+

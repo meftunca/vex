@@ -118,6 +118,7 @@ impl ImmutabilityChecker {
             | Item::Trait(_)
             | Item::TraitImpl(_)
             | Item::TypeAlias(_)
+            | Item::Policy(_)
             | Item::ExternBlock(_)
             | Item::Export(_)
             | Item::Const(_) => {
@@ -219,7 +220,8 @@ impl ImmutabilityChecker {
                 Ok(())
             }
 
-            Statement::If { span_id: _, 
+            Statement::If {
+                span_id: _,
                 condition,
                 then_block,
                 elif_branches,
@@ -250,7 +252,11 @@ impl ImmutabilityChecker {
                 Ok(())
             }
 
-            Statement::While { span_id: _,  condition, body } => {
+            Statement::While {
+                span_id: _,
+                condition,
+                body,
+            } => {
                 // Check condition
                 self.check_expression(condition)?;
 
@@ -262,7 +268,8 @@ impl ImmutabilityChecker {
                 Ok(())
             }
 
-            Statement::For { span_id: _, 
+            Statement::For {
+                span_id: _,
                 init,
                 condition,
                 post,
@@ -322,18 +329,29 @@ impl ImmutabilityChecker {
     /// Check an expression (may contain nested assignments)
     fn check_expression(&mut self, expr: &Expression) -> BorrowResult<()> {
         match expr {
-            Expression::Binary { span_id: _,  left, right, .. } => {
+            Expression::Binary {
+                span_id: _,
+                left,
+                right,
+                ..
+            } => {
                 self.check_expression(left)?;
                 self.check_expression(right)?;
                 Ok(())
             }
 
-            Expression::Unary { span_id: _,  expr, .. } => {
+            Expression::Unary {
+                span_id: _, expr, ..
+            } => {
                 self.check_expression(expr)?;
                 Ok(())
             }
 
-            Expression::Call { span_id: _,  func, args } => {
+            Expression::Call {
+                span_id: _,
+                func,
+                args,
+            } => {
                 // Skip checking builtin function names as variables
                 if let Expression::Ident(func_name) = func.as_ref() {
                     if !self.builtin_registry.is_builtin(func_name) {

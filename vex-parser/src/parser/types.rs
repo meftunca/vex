@@ -177,7 +177,7 @@ impl<'a> Parser<'a> {
                     let _key_type = self.parse_type()?;
                     self.consume(&Token::Comma, "Expected ',' in Map type")?;
                     let _value_type = self.parse_type()?;
-                    self.consume(&Token::Gt, "Expected '>' after Map type arguments")?;
+                    self.consume_generic_close("Expected '>' after Map type arguments")?;
                 }
                 Type::Named("Map".to_string())
             }
@@ -187,7 +187,7 @@ impl<'a> Parser<'a> {
                 if self.check(&Token::Lt) {
                     self.consume(&Token::Lt, "Expected '<' after 'Set'")?;
                     let _elem_type = self.parse_type()?;
-                    self.consume(&Token::Gt, "Expected '>' after Set type argument")?;
+                    self.consume_generic_close("Expected '>' after Set type argument")?;
                 }
                 Type::Named("Set".to_string())
             }
@@ -201,7 +201,7 @@ impl<'a> Parser<'a> {
                         // Option<T>
                         self.consume(&Token::Lt, "Expected '<' after 'Option'")?;
                         let inner_type = Box::new(self.parse_type()?);
-                        self.consume(&Token::Gt, "Expected '>' after Option type argument")?;
+                        self.consume_generic_close("Expected '>' after Option type argument")?;
                         Type::Option(inner_type)
                     }
                     "Result" => {
@@ -210,28 +210,28 @@ impl<'a> Parser<'a> {
                         let ok_type = Box::new(self.parse_type()?);
                         self.consume(&Token::Comma, "Expected ',' in Result type")?;
                         let err_type = Box::new(self.parse_type()?);
-                        self.consume(&Token::Gt, "Expected '>' after Result type arguments")?;
+                        self.consume_generic_close("Expected '>' after Result type arguments")?;
                         Type::Result(ok_type, err_type)
                     }
                     "Vec" => {
                         // Vec<T>
                         self.consume(&Token::Lt, "Expected '<' after 'Vec'")?;
                         let elem_type = Box::new(self.parse_type()?);
-                        self.consume(&Token::Gt, "Expected '>' after Vec type argument")?;
+                        self.consume_generic_close("Expected '>' after Vec type argument")?;
                         Type::Vec(elem_type)
                     }
                     "Box" => {
                         // Box<T>
                         self.consume(&Token::Lt, "Expected '<' after 'Box'")?;
                         let inner_type = Box::new(self.parse_type()?);
-                        self.consume(&Token::Gt, "Expected '>' after Box type argument")?;
+                        self.consume_generic_close("Expected '>' after Box type argument")?;
                         Type::Box(inner_type)
                     }
                     "Channel" => {
                         // Channel<T>
                         self.consume(&Token::Lt, "Expected '<' after 'Channel'")?;
                         let inner_type = Box::new(self.parse_type()?);
-                        self.consume(&Token::Gt, "Expected '>' after Channel type argument")?;
+                        self.consume_generic_close("Expected '>' after Channel type argument")?;
                         Type::Channel(inner_type)
                     }
                     "Map" => {
@@ -242,7 +242,7 @@ impl<'a> Parser<'a> {
                             let _key_type = self.parse_type()?;
                             self.consume(&Token::Comma, "Expected ',' in Map type")?;
                             let _value_type = self.parse_type()?;
-                            self.consume(&Token::Gt, "Expected '>' after Map type arguments")?;
+                            self.consume_generic_close("Expected '>' after Map type arguments")?;
                         }
                         Type::Named("Map".to_string())
                     }
@@ -256,7 +256,7 @@ impl<'a> Parser<'a> {
                                     break;
                                 }
                             }
-                            self.consume(&Token::Gt, "Expected '>' after type arguments")?;
+                            self.consume_generic_close("Expected '>' after type arguments")?;
                             Type::Generic { name, type_args }
                         } else {
                             Type::Named(name)
@@ -516,7 +516,7 @@ impl<'a> Parser<'a> {
                             break;
                         }
                     }
-                    self.consume(&Token::Gt, "Expected '>' after type arguments")?;
+                    self.consume_generic_close("Expected '>' after type arguments")?;
 
                     Type::Generic { name, type_args }
                 } else {

@@ -177,7 +177,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
     /// Compile while loop: while condition { body }
     pub(crate) fn compile_while_loop(
         &mut self,
-        _span_id: &Option<String>,
+        span_id: &Option<String>,
         condition: &Expression,
         body: &Block,
     ) -> Result<(), String> {
@@ -201,6 +201,24 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 .build_int_compare(IntPredicate::NE, iv, zero, "whilecond")
                 .map_err(|e| format!("Failed to compare: {}", e))?
         } else {
+            // ⭐ Use span_id for better error location
+            let span = span_id
+                .as_ref()
+                .and_then(|id| self.span_map.get(id))
+                .cloned()
+                .unwrap_or_else(Span::unknown);
+
+            self.diagnostics.emit(Diagnostic {
+                level: ErrorLevel::Error,
+                code: error_codes::TYPE_MISMATCH.to_string(),
+                message: "While condition must be an integer or boolean value".to_string(),
+                span,
+                notes: vec![format!("Got non-integer type in while condition")],
+                help: Some(
+                    "Ensure the condition evaluates to a boolean (i1) or integer type".to_string(),
+                ),
+                suggestion: None,
+            });
             return Err("While condition must be integer".to_string());
         };
         self.builder

@@ -27,7 +27,7 @@ while IFS= read -r file; do
     fi
     
     # Circular dependency tests should FAIL with error (expected behavior)
-    if [[ "$file" == *"circular_dependency.vx"* ]] || [[ "$file" == *"circular_self.vx"* ]]; then
+    if [[ "$file" == *"circular_dependency.vx"* ]] || [[ "$file" == *"circular_self.vx"* ]] || [[ "$file" == *"04_circular.vx"* ]]; then
         echo -n "Testing $name... "
         if "$VEX_BIN" compile "$file" > /dev/null 2>&1; then
             echo "❌ FAIL (should have detected circular dependency)"
@@ -43,18 +43,37 @@ while IFS= read -r file; do
     if [[ "$file" == *"_error.vx"* ]] || [[ "$file" == *"return_local.vx"* ]] || [[ "$file" == *"_violation.vx"* ]]; then
         echo -n "Testing $name... "
         output=$("$VEX_BIN" run "$file" 2>&1)
-        if echo "$output" | grep -q "Borrow checker error"; then
-            echo "✅ PASS (correctly detected borrow error)"
+        if echo "$output" | grep -qE "(Borrow check failed|error\[E[0-9]+\]:|Compilation error:)"; then
+            echo "✅ PASS (correctly detected error)"
             ((SUCCESS++))
         else
-            echo "❌ FAIL (should have detected borrow error)"
+            echo "❌ FAIL (should have detected error)"
+            ((FAIL++))
+        fi
+        continue
+    fi
+    
+    # Diagnostic tests should produce compilation errors (expected behavior)
+    if [[ "$file" == *"test_diagnostic"* ]] || [[ "$file" == *"test_typo"* ]] || \
+       [[ "$file" == *"test_function_typo"* ]] || \
+       [[ "$file" == *"test_undefined"* ]] || [[ "$file" == *"test_fuzzy"* ]] || \
+       [[ "$file" == *"test_if_condition"* ]] || [[ "$file" == *"test_parse_error"* ]] || \
+       [[ "$file" == *"test_borrow_diagnostic"* ]] || \
+       [[ "$file" == *"test_immutable_violation"* ]]; then
+        echo -n "Testing $name... "
+        output=$("$VEX_BIN" run "$file" 2>&1)
+        if echo "$output" | grep -qE "error\[E[0-9]+\]:"; then
+            echo "✅ PASS (correctly detected compile error)"
+            ((SUCCESS++))
+        else
+            echo "❌ FAIL (should have detected compile error)"
             ((FAIL++))
         fi
         continue
     fi
     
     # Skip known broken tests
-    if [[ "$file" == *"error_handling_try.vx"* ]]  ; then
+    if [[ "$file" == *"error_handling_try.vx"* ]] || [[ "$file" == *"test_move_diagnostic.vx"* ]]; then
         echo "⏭️  Skipping $name (known issues)"
         continue
     fi

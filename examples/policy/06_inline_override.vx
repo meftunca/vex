@@ -1,0 +1,19 @@
+// Test: Inline Metadata Override
+// Expected: Inline metadata overrides policy metadata
+
+policy APIModel {
+    id `json:"id" db:"user_id"`
+    name `json:"name" validate:"required"`
+}
+
+struct User with APIModel {
+    id: i32 `json:"userId"`,  // Overrides json:"id" → json:"userId"
+    name: str `validate:"minlength:3"`,  // Overrides validate:"required"
+}
+
+fn main(): i32 {
+    let user = User { id: 1, name: "Alice" };
+    print("User ID: ");
+    println(user.id);
+    return 0;
+}

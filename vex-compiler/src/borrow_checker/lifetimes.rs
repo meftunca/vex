@@ -20,6 +20,9 @@ pub struct LifetimeChecker {
     /// Tracks which variables are currently in scope (for fast lookup)
     in_scope: HashSet<String>,
 
+    /// Global variables (extern functions, constants) - never go out of scope
+    pub(super) global_vars: HashSet<String>,
+
     /// Builtin function registry for identifying builtin functions
     builtin_registry: super::builtin_metadata::BuiltinBorrowRegistry,
 
@@ -34,6 +37,7 @@ impl LifetimeChecker {
             current_scope: 0,
             references: HashMap::new(),
             in_scope: HashSet::new(),
+            global_vars: HashSet::new(),
             builtin_registry: super::builtin_metadata::BuiltinBorrowRegistry::new(),
             current_function: None,
         };
@@ -296,7 +300,8 @@ impl LifetimeChecker {
                 Ok(())
             }
 
-            Statement::If { span_id: _, 
+            Statement::If {
+                span_id: _,
                 condition,
                 then_block,
                 elif_branches,
@@ -325,7 +330,11 @@ impl LifetimeChecker {
                 Ok(())
             }
 
-            Statement::While { span_id: _,  condition, body } => {
+            Statement::While {
+                span_id: _,
+                condition,
+                body,
+            } => {
                 self.check_expression(condition)?;
                 self.enter_scope();
                 self.check_block(body)?;
@@ -333,7 +342,8 @@ impl LifetimeChecker {
                 Ok(())
             }
 
-            Statement::For { span_id: _, 
+            Statement::For {
+                span_id: _,
                 init,
                 condition,
                 post,
@@ -436,6 +446,11 @@ impl LifetimeChecker {
                     return Ok(());
                 }
 
+                // Global variables (extern functions) are always in scope
+                if self.global_vars.contains(name) {
+                    return Ok(());
+                }
+
                 // Verify variable is in scope
                 if !self.in_scope.contains(name) {
                     // Collect available names for fuzzy matching
@@ -453,14 +468,25 @@ impl LifetimeChecker {
 
             Expression::Deref(expr) => self.check_expression(expr),
 
-            Expression::Binary { span_id: _,  left, right, .. } => {
+            Expression::Binary {
+                span_id: _,
+                left,
+                right,
+                ..
+            } => {
                 self.check_expression(left)?;
                 self.check_expression(right)
             }
 
-            Expression::Unary { span_id: _,  expr, .. } => self.check_expression(expr),
+            Expression::Unary {
+                span_id: _, expr, ..
+            } => self.check_expression(expr),
 
-            Expression::Call { span_id: _,  func, args } => {
+            Expression::Call {
+                span_id: _,
+                func,
+                args,
+            } => {
                 // Skip checking builtin function names as variables
                 if let Expression::Ident(func_name) = func.as_ref() {
                     if !self.builtin_registry.is_builtin(func_name) {

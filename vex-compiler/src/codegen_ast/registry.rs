@@ -148,4 +148,204 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         Ok(())
     }
+
+    /// Check if a type implements an operator trait
+    /// Returns the method name if trait is implemented
+    pub(crate) fn has_operator_trait(&self, type_name: &str, trait_name: &str) -> Option<String> {
+        let key = (trait_name.to_string(), type_name.to_string());
+        self.trait_impls.get(&key).and_then(|methods| {
+            // Operator traits have a single method with standard name
+            methods.first().map(|m| m.name.clone())
+        })
+    }
+
+    /// Get operator trait method name from binary op
+    pub(crate) fn binary_op_to_trait(&self, op: &BinaryOp) -> (&'static str, &'static str) {
+        match op {
+            BinaryOp::Add => ("Add", "add"),
+            BinaryOp::Sub => ("Sub", "sub"),
+            BinaryOp::Mul => ("Mul", "mul"),
+            BinaryOp::Div => ("Div", "div"),
+            BinaryOp::Mod => ("Rem", "rem"),
+            BinaryOp::Eq => ("Eq", "eq"),
+            BinaryOp::NotEq => ("Ne", "ne"),
+            BinaryOp::Lt => ("Lt", "lt"),
+            BinaryOp::LtEq => ("Le", "le"),
+            BinaryOp::Gt => ("Gt", "gt"),
+            BinaryOp::GtEq => ("Ge", "ge"),
+            BinaryOp::BitAnd => ("BitAnd", "bitand"),
+            BinaryOp::BitOr => ("BitOr", "bitor"),
+            BinaryOp::BitXor => ("BitXor", "bitxor"),
+            BinaryOp::Shl => ("Shl", "shl"),
+            BinaryOp::Shr => ("Shr", "shr"),
+            _ => ("", ""), // Logical ops don't have traits
+        }
+    }
+
+    /// Register a policy definition
+    pub(crate) fn register_policy(&mut self, policy: &vex_ast::Policy) -> Result<(), String> {
+        // Check for policy-trait name collision
+        if self.trait_defs.contains_key(&policy.name) {
+            return Err(format!(
+                "Policy '{}' conflicts with existing trait of the same name",
+                policy.name
+            ));
+        }
+
+        // Check for duplicate policy
+        if self.policy_defs.contains_key(&policy.name) {
+            return Err(format!("Policy '{}' is already defined", policy.name));
+        }
+
+        eprintln!("📋 Registering policy: {}", policy.name);
+        self.policy_defs.insert(policy.name.clone(), policy.clone());
+        Ok(())
+    }
+
+    /// Check for trait-policy name collision when registering trait
+    pub(crate) fn check_trait_policy_collision(&self, trait_name: &str) -> Result<(), String> {
+        if self.policy_defs.contains_key(trait_name) {
+            return Err(format!(
+                "Trait '{}' conflicts with existing policy of the same name",
+                trait_name
+            ));
+        }
+        Ok(())
+    }
+
+    /// Apply policies to struct fields, merging metadata
+    pub fn apply_policies_to_struct(&mut self, struct_def: &vex_ast::Struct) -> Result<(), String> {
+        use crate::codegen_ast::metadata::{
+            apply_policy_hierarchy_to_fields, merge_metadata, parse_metadata,
+        };
+
+        if struct_def.policies.is_empty() && !struct_def.fields.iter().any(|f| f.metadata.is_some())
+        {
+            return Ok(()); // No policies and no inline metadata
+        }
+
+        eprintln!("  📋 Processing metadata for struct '{}'", struct_def.name);
+
+        // Get struct field names
+        let field_names: Vec<String> = struct_def.fields.iter().map(|f| f.name.clone()).collect();
+
+        // Collect metadata from all policies (with parent resolution)
+        let mut merged_metadata: std::collections::HashMap<
+            String,
+            std::collections::HashMap<String, String>,
+        > = std::collections::HashMap::new();
+
+        // Step 1: Apply policies (if any)
+        if !struct_def.policies.is_empty() {
+            eprintln!("    ├─ Applying {} policies", struct_def.policies.len());
+
+            for policy_name in &struct_def.policies {
+                eprintln!("       ├─ Policy '{}'", policy_name);
+
+                // Apply policy with full hierarchy (parents + current)
+                let field_results =
+                    apply_policy_hierarchy_to_fields(policy_name, &self.policy_defs, &field_names)?;
+
+                // Merge into accumulated metadata
+                for (field_name, field_meta, warnings) in field_results {
+                    // Print warnings
+                    for warning in warnings {
+                        eprintln!("       ⚠️  {}", warning);
+                    }
+
+                    // Merge metadata from this policy into overall struct metadata
+                    let existing = merged_metadata
+                        .get(&field_name)
+                        .map(|m| m as &std::collections::HashMap<String, String>);
+
+                    let (new_merged, conflicts) = if let Some(existing_meta) = existing {
+                        merge_metadata(existing_meta, &field_meta)
+                    } else {
+                        (field_meta.clone(), vec![])
+                    };
+
+                    if !conflicts.is_empty() {
+                        eprintln!(
+                            "       ⚠️  Conflicts in '{}' (policy '{}' overrides): {:?}",
+                            field_name, policy_name, conflicts
+                        );
+                    }
+
+                    if !new_merged.is_empty() {
+                        merged_metadata.insert(field_name, new_merged);
+                    }
+                }
+            }
+        }
+
+        // Step 2: Apply inline metadata (overrides policy metadata)
+        let has_inline = struct_def.fields.iter().any(|f| f.metadata.is_some());
+        if has_inline {
+            eprintln!("    ├─ Applying inline metadata (overrides policies)");
+
+            for field in &struct_def.fields {
+                if let Some(inline_metadata_str) = &field.metadata {
+                    eprintln!(
+                        "       ├─ Field '{}': `{}`",
+                        field.name, inline_metadata_str
+                    );
+
+                    // Parse inline metadata
+                    match parse_metadata(inline_metadata_str) {
+                        Ok(inline_meta) => {
+                            // Merge with existing policy metadata (inline overrides)
+                            let existing = merged_metadata
+                                .get(&field.name)
+                                .map(|m| m as &std::collections::HashMap<String, String>);
+
+                            let (new_merged, conflicts) = if let Some(existing_meta) = existing {
+                                merge_metadata(existing_meta, &inline_meta)
+                            } else {
+                                (inline_meta.clone(), vec![])
+                            };
+
+                            if !conflicts.is_empty() {
+                                eprintln!("       ⚠️  Inline overrides: {:?}", conflicts);
+                            }
+
+                            merged_metadata.insert(field.name.clone(), new_merged);
+                        }
+                        Err(e) => {
+                            eprintln!(
+                                "       ❌ Failed to parse inline metadata for '{}': {}",
+                                field.name, e
+                            );
+                        }
+                    }
+                }
+            }
+        }
+
+        eprintln!(
+            "    └─ ✅ Final metadata for {} fields",
+            merged_metadata.len()
+        );
+
+        // Store merged_metadata in struct registry for runtime access
+        if !merged_metadata.is_empty() {
+            self.struct_metadata
+                .insert(struct_def.name.clone(), merged_metadata.clone());
+
+            eprintln!(
+                "       💾 Stored metadata for struct '{}' ({} fields):",
+                struct_def.name,
+                merged_metadata.len()
+            );
+
+            for (field_name, field_meta) in &merged_metadata {
+                let meta_str: Vec<String> = field_meta
+                    .iter()
+                    .map(|(k, v)| format!("{}:\"{}\"", k, v))
+                    .collect();
+                eprintln!("          • {} → {{ {} }}", field_name, meta_str.join(", "));
+            }
+        }
+
+        Ok(())
+    }
 }

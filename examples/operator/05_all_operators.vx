@@ -1,0 +1,179 @@
+// Comprehensive operator overloading test
+
+// Arithmetic operators
+trait Add {
+    fn add(other: Self): Self;
+}
+
+trait Sub {
+    fn sub(other: Self): Self;
+}
+
+trait Mul {
+    fn mul(other: Self): Self;
+}
+
+trait Div {
+    fn div(other: Self): Self;
+}
+
+trait Rem {
+    fn rem(other: Self): Self;
+}
+
+// Comparison operators
+trait Eq {
+    fn eq(other: Self): bool;
+}
+
+trait Ord {
+    fn lt(other: Self): bool;
+    fn le(other: Self): bool;
+    fn gt(other: Self): bool;
+    fn ge(other: Self): bool;
+}
+
+// Bitwise operators
+trait BitAnd {
+    fn bitand(other: Self): Self;
+}
+
+trait BitOr {
+    fn bitor(other: Self): Self;
+}
+
+trait BitXor {
+    fn bitxor(other: Self): Self;
+}
+
+trait Shl {
+    fn shl(amount: i32): Self;
+}
+
+trait Shr {
+    fn shr(amount: i32): Self;
+}
+
+// Unary operators
+trait Neg {
+    fn neg(): Self;
+}
+
+trait Not {
+    fn not(): bool;
+}
+
+struct Point impl Add, Sub, Mul, Eq {
+    x: i32,
+    y: i32,
+
+    fn add(other: Point): Point {
+        return Point { x: self.x + other.x, y: self.y + other.y };
+    }
+
+    fn sub(other: Point): Point {
+        return Point { x: self.x - other.x, y: self.y - other.y };
+    }
+
+    fn mul(other: Point): Point {
+        return Point { x: self.x * other.x, y: self.y * other.y };
+    }
+
+    fn eq(other: Point): bool {
+        return self.x == other.x && self.y == other.y;
+    }
+}
+
+fn test_arithmetic(): i32 {
+    let p1 = Point { x: 10, y: 20 };
+    let p2 = Point { x: 5, y: 3 };
+    
+    let p_add = p1 + p2;
+    println("Add: ({}, {})", p_add.x, p_add.y);
+    
+    let p_sub = p1 - p2;
+    println("Sub: ({}, {})", p_sub.x, p_sub.y);
+    
+    let p_mul = p1 * p2;
+    println("Mul: ({}, {})", p_mul.x, p_mul.y);
+    
+    return 0;
+}
+
+fn test_comparison(): i32 {
+    let p1 = Point { x: 10, y: 20 };
+    let p2 = Point { x: 10, y: 20 };
+    let p3 = Point { x: 5, y: 3 };
+    
+    if p1 == p2 {
+        println("✅ p1 == p2");
+    }
+    
+    if !(p1 == p3) {
+        println("✅ p1 != p3");
+    }
+    
+    return 0;
+}
+
+fn test_builtin_ops(): i32 {
+    // String concat
+    let s1 = "Hello";
+    let s2 = " World";
+    let s3 = s1 + s2;
+    println("String: {}", s3);
+    
+    // Vec concat
+    let v1: Vec<i32> = [1, 2, 3];
+    let v2: Vec<i32> = [4, 5, 6];
+    let v3 = v1 + v2;
+    println("Vec concat done");
+    
+    return 0;
+}
+
+fn test_numeric_ops(): i32 {
+    let a = 42;
+    let b = 10;
+    
+    println("Add: {}", a + b);
+    println("Sub: {}", a - b);
+    println("Mul: {}", a * b);
+    println("Div: {}", a / b);
+    println("Rem: {}", a % b);
+    
+    println("Eq: {}", a == b);
+    println("Ne: {}", a != b);
+    println("Lt: {}", a < b);
+    println("Gt: {}", a > b);
+    println("Le: {}", a <= b);
+    println("Ge: {}", a >= b);
+    
+    println("BitAnd: {}", a & b);
+    println("BitOr: {}", a | b);
+    println("BitXor: {}", a ^ b);
+    println("Shl: {}", a << 2);
+    println("Shr: {}", a >> 2);
+    
+    println("Neg: {}", -a);
+    println("Not: {}", !false);
+    
+    return 0;
+}
+
+fn main(): i32 {
+    println("=== Testing Arithmetic Operators ===");
+    test_arithmetic();
+    
+    println("=== Testing Comparison Operators ===");
+    test_comparison();
+    
+    println("=== Testing Builtin Operators ===");
+    test_builtin_ops();
+    
+    println("=== Testing Numeric Operators ===");
+    test_numeric_ops();
+    
+    println("✅ ALL OPERATOR TESTS PASSED");
+    return 0;
+}

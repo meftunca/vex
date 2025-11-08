@@ -1,0 +1,40 @@
+// Test: Multi-Level Policy Composition
+// Expected: 3-level hierarchy, deepest child overrides all
+
+policy BaseEntity {
+    id `db:"id" indexed:"true"`
+    created_at `db:"created_at"`
+    updated_at `db:"updated_at"`
+}
+
+policy Timestamped with BaseEntity {
+    created_at `format:"iso8601"`  // Overrides db:"created_at"
+    updated_at `format:"iso8601"`
+}
+
+policy UserModel with Timestamped {
+    id `json:"userId"`  // Overrides db:"id"
+    name `json:"name" validate:"required"`
+    email `json:"email" validate:"email"`
+}
+
+struct User with UserModel {
+    id: i32,
+    name: str,
+    email: str,
+    created_at: i64,
+    updated_at: i64,
+}
+
+fn main(): i32 {
+    let user = User { 
+        id: 1, 
+        name: "Alice", 
+        email: "alice@example.com",
+        created_at: 1699000000,
+        updated_at: 1699100000
+    };
+    print("User: ");
+    println(user.name);
+    return 0;
+}

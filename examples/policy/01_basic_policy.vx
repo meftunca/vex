@@ -1,0 +1,24 @@
+// Test 1: Basic policy declaration and application
+// Expected: Should compile successfully
+
+policy APIModel {
+    id `json:"id"`,
+    name `json:"name"`
+}
+
+struct User with APIModel {
+    id: i32,
+    name: str,
+}
+
+fn main(): i32 {
+    let user = User {
+        id: 1,
+        name: "Alice",
+    };
+    
+    println("User ID: {}", user.id);
+    println("User Name: {}", user.name);
+    
+    return 0;
+}

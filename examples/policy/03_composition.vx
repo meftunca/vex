@@ -1,0 +1,25 @@
+// Test: Policy Composition with Parent Inheritance
+// Expected: Child inherits parent metadata, child overrides parent for same keys
+
+policy BaseModel {
+    id `db:"id" indexed:"true"`
+    created_at `db:"created_at"`
+}
+
+policy APIModel with BaseModel {
+    id `json:"id"`  // Overrides db:"id" with json:"id"
+    name `json:"name"`
+}
+
+struct User with APIModel {
+    id: i32,
+    name: str,
+    created_at: i64,
+}
+
+fn main(): i32 {
+    let user = User { id: 1, name: "Alice", created_at: 1699000000 };
+    print("User ID: ");
+    println(user.id);
+    return 0;
+}

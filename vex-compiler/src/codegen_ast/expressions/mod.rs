@@ -132,11 +132,24 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 Err(format!("Variable or function {} not found", name))
             }
 
-            Expression::Binary { span_id: _,  left, op, right } => self.compile_binary_op(left, op, right),
+            Expression::Binary {
+                span_id: _,
+                left,
+                op,
+                right,
+            } => self.compile_binary_op(left, op, right),
 
-            Expression::Unary { span_id: _,  op, expr } => self.compile_unary_op(op, expr),
+            Expression::Unary {
+                span_id: _,
+                op,
+                expr,
+            } => self.compile_unary_op(op, expr),
 
-            Expression::Call { span_id: _,  func, args } => self.compile_call(func, args),
+            Expression::Call {
+                span_id: _,
+                func,
+                args,
+            } => self.compile_call(func, args),
 
             Expression::MethodCall {
                 receiver,

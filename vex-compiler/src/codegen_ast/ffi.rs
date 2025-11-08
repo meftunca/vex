@@ -7,12 +7,11 @@ use vex_ast::{ExternBlock, ExternFunction};
 impl<'ctx> ASTCodeGen<'ctx> {
     /// Compile all extern functions in a block
     pub fn compile_extern_block(&mut self, block: &ExternBlock) -> Result<(), String> {
-        // TODO: Check attributes for #[link(name = "...")] and #[cfg(...)]
-
         for func in &block.functions {
-            self.declare_extern_function(&block.abi, func)?;
+            let fn_val = self.declare_extern_function(&block.abi, func)?;
+            // Add to function registry (even if already in LLVM module)
+            self.functions.insert(func.name.clone(), fn_val);
         }
-
         Ok(())
     }
 
@@ -22,7 +21,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         _abi: &str, // ABI is mostly for documentation; LLVM handles calling conventions
         func: &ExternFunction,
     ) -> Result<FunctionValue<'ctx>, String> {
-        // Check if already declared
+        // Check if already declared in LLVM module
         if let Some(existing) = self.module.get_function(&func.name) {
             return Ok(existing);
         }
@@ -38,7 +37,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let ret_type = if let Some(ref ty) = func.return_type {
             self.ast_type_to_llvm(ty)
         } else {
-            // void return defaults to i32 in Vex
+            // No return type = void in LLVM
             BasicTypeEnum::IntType(self.context.i32_type())
         };
 
@@ -55,9 +54,14 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Add function to module with external linkage
         let fn_val = self.module.add_function(&func.name, fn_type, None);
+        eprintln!("      → Added to LLVM module");
 
         // Store in symbol table so Vex code can call it
         self.functions.insert(func.name.clone(), fn_val);
+        eprintln!(
+            "      → Added to self.functions HashMap (count: {})",
+            self.functions.len()
+        );
 
         Ok(fn_val)
     }

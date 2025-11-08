@@ -79,8 +79,13 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 }
             }
             Type::Named(name) => {
+                // Special case: "void" type (for FFI/C interop)
+                if name == "void" {
+                    // void is represented as i8 in LLVM (opaque type)
+                    return BasicTypeEnum::IntType(self.context.i8_type());
+                }
+
                 // Handle custom struct types
-                // IMPORTANT: Structs are always passed by pointer for zero-copy semantics
 
                 // Check if this struct is registered
                 if let Some(struct_def) = self.struct_defs.get(name) {
@@ -93,8 +98,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
                     let struct_ty = self.context.struct_type(&field_types, false);
 
-                    // Return pointer to struct (zero-copy!)
-                    BasicTypeEnum::PointerType(struct_ty.ptr_type(inkwell::AddressSpace::default()))
+                    // ⚠️ CRITICAL FIX: Return the struct TYPE, not a pointer!
+                    // Functions that return struct types will return by value.
+                    // Variables that store structs will have pointer type (handled in Let statement).
+                    // This allows proper struct return semantics while still using pointers for variables.
+                    BasicTypeEnum::StructType(struct_ty)
                 } else if let Some(enum_def) = self.enum_ast_defs.get(name) {
                     // Handle enum types
                     // Enums with data are represented as structs: {i32 tag, T data}
@@ -452,16 +460,59 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
     /// Infer expression type for type inference
     pub(crate) fn infer_expression_type(&self, expr: &Expression) -> Result<Type, String> {
-        match expr {
+        let result = match expr {
             Expression::IntLiteral(_) => Ok(Type::I32),
             Expression::FloatLiteral(_) => Ok(Type::F64),
             Expression::StringLiteral(_) => Ok(Type::String),
             Expression::FStringLiteral(_) => Ok(Type::String),
             Expression::BoolLiteral(_) => Ok(Type::Bool),
             Expression::MapLiteral(_) => Ok(Type::Named("Map".to_string())),
+            Expression::Array(elements) => {
+                // Array literal [1, 2, 3] is a Vec<T>
+                if elements.is_empty() {
+                    return Ok(Type::Generic {
+                        name: "Vec".to_string(),
+                        type_args: vec![Type::I32], // Default to Vec<i32>
+                    });
+                }
+                // Infer element type from first element
+                let elem_type = self.infer_expression_type(&elements[0])?;
+                Ok(Type::Generic {
+                    name: "Vec".to_string(),
+                    type_args: vec![elem_type],
+                })
+            }
             Expression::Ident(name) => {
                 // Check if this is a struct variable
                 if let Some(struct_name) = self.variable_struct_names.get(name) {
+                    // Handle mangled generic types (e.g., "Vec_i32" -> Vec<i32>)
+                    if struct_name.starts_with("Vec_") {
+                        let elem_type_str = &struct_name["Vec_".len()..];
+                        let elem_type = match elem_type_str {
+                            "i32" => Type::I32,
+                            "i64" => Type::I64,
+                            "f32" => Type::F32,
+                            "f64" => Type::F64,
+                            _ => Type::I32, // Fallback
+                        };
+                        return Ok(Type::Generic {
+                            name: "Vec".to_string(),
+                            type_args: vec![elem_type],
+                        });
+                    }
+                    // Handle other generic types similarly
+                    if struct_name.starts_with("Box_") {
+                        let inner_type_str = &struct_name["Box_".len()..];
+                        let inner_type = match inner_type_str {
+                            "i32" => Type::I32,
+                            "i64" => Type::I64,
+                            _ => Type::I32,
+                        };
+                        return Ok(Type::Generic {
+                            name: "Box".to_string(),
+                            type_args: vec![inner_type],
+                        });
+                    }
                     return Ok(Type::Named(struct_name.clone()));
                 }
 
@@ -478,7 +529,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 }
             }
             _ => Ok(Type::I32), // Default for complex expressions
-        }
+        };
+        result
     }
 
     /// Convert Type to string for mangling

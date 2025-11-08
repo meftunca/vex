@@ -241,4 +241,93 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let fn_type = bool_type.fn_type(&[ptr_type.into()], false);
         self.module.add_function(fn_name, fn_type, None)
     }
+
+    /// Get or declare vex_vec_concat from runtime
+    pub fn get_vex_vec_concat(&mut self) -> FunctionValue<'ctx> {
+        let fn_name = "vex_vec_concat";
+
+        if let Some(func) = self.module.get_function(fn_name) {
+            return func;
+        }
+
+        // Declare: vex_vec_t* vex_vec_concat(vex_vec_t *v1, vex_vec_t *v2)
+        let vec_type = self.context.opaque_struct_type("vex_vec_s");
+        let vec_ptr_type = vec_type.ptr_type(AddressSpace::default());
+
+        let fn_type = vec_ptr_type.fn_type(&[vec_ptr_type.into(), vec_ptr_type.into()], false);
+        self.module.add_function(fn_name, fn_type, None)
+    }
+
+    /// Create Vec from array literal elements
+    pub fn compile_vec_from_array_literal(
+        &mut self,
+        elements: &[vex_ast::Expression],
+        elem_type: &vex_ast::Type,
+    ) -> Result<BasicValueEnum<'ctx>, String> {
+        if elements.is_empty() {
+            return Err("Empty array literals not supported for Vec".to_string());
+        }
+
+        // Get element size from type
+        let elem_llvm_type = self.ast_type_to_llvm(elem_type);
+        let elem_size = match elem_llvm_type {
+            inkwell::types::BasicTypeEnum::IntType(it) => it.get_bit_width() / 8,
+            inkwell::types::BasicTypeEnum::FloatType(_) => 8, // f64
+            inkwell::types::BasicTypeEnum::PointerType(_) => 8, // 64-bit pointer
+            _ => return Err("Unsupported element type for Vec".to_string()),
+        };
+
+        eprintln!("  → Vec elem_size for {:?}: {} bytes", elem_type, elem_size);
+
+        // Create new Vec: vex_vec_new(elem_size)
+        let vec_new_fn = self.get_vex_vec_new();
+        let elem_size_val = self.context.i64_type().const_int(elem_size as u64, false);
+
+        eprintln!("  → Calling vex_vec_new with elem_size={}", elem_size);
+
+        let vec_result = self
+            .builder
+            .build_call(vec_new_fn, &[elem_size_val.into()], "vec_new")
+            .map_err(|e| format!("Failed to call vex_vec_new: {}", e))?;
+
+        let vec_ptr = vec_result
+            .try_as_basic_value()
+            .left()
+            .ok_or("vex_vec_new didn't return a value")?;
+
+        // Push each element: vex_vec_push(vec, &elem)
+        let vec_push_fn = self.get_vex_vec_push();
+        let i8_ptr_type = self.context.ptr_type(AddressSpace::default());
+
+        for (i, elem_expr) in elements.iter().enumerate() {
+            let elem_val = self.compile_expression(elem_expr)?;
+
+            // Allocate temp space for element
+            let elem_ptr = self
+                .builder
+                .build_alloca(elem_val.get_type(), &format!("elem_temp_{}", i))
+                .map_err(|e| format!("Failed to allocate element: {}", e))?;
+
+            self.builder
+                .build_store(elem_ptr, elem_val)
+                .map_err(|e| format!("Failed to store element: {}", e))?;
+
+            // Cast to i8* (opaque pointer)
+            let elem_i8_ptr = self
+                .builder
+                .build_pointer_cast(elem_ptr, i8_ptr_type, &format!("elem_cast_{}", i))
+                .map_err(|e| format!("Failed to cast element pointer: {}", e))?;
+
+            // Push
+            self.builder
+                .build_call(
+                    vec_push_fn,
+                    &[vec_ptr.into(), elem_i8_ptr.into()],
+                    "vec_push",
+                )
+                .map_err(|e| format!("Failed to call vex_vec_push: {}", e))?;
+        }
+
+        Ok(vec_ptr)
+    }
 }

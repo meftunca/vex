@@ -472,36 +472,23 @@ static inline uint64_t vex_bitreverse64(uint64_t x)
 #define VEX_BIT_CLEAR(x, n) ((x) &= ~VEX_BIT(n))
 #define VEX_BIT_TOGGLE(x, n) ((x) ^= VEX_BIT(n))
 
-// Alignment helpers
-#define VEX_ALIGN_UP(x, align) (((x) + (align) - 1) & ~((align) - 1))
-#define VEX_ALIGN_DOWN(x, align) ((x) & ~((align) - 1))
+// Alignment helpers (IS_ALIGNED is intrinsics-specific, others in vex_macros.h)
+#ifndef VEX_IS_ALIGNED
 #define VEX_IS_ALIGNED(x, align) ((((uintptr_t)(x)) & ((align) - 1)) == 0)
+#endif
 
-// Min/Max for integers
-#define VEX_MIN(a, b) ((a) < (b) ? (a) : (b))
-#define VEX_MAX(a, b) ((a) > (b) ? (a) : (b))
-#define VEX_CLAMP(x, lo, hi) VEX_MAX((lo), VEX_MIN((x), (hi)))
-
-// Swap
-#define VEX_SWAP(a, b)        \
-  do                          \
-  {                           \
-    __typeof__(a) _tmp = (a); \
-    (a) = (b);                \
-    (b) = _tmp;               \
-  } while (0)
+// Min/Max/Clamp/Swap are defined in vex_macros.h
 
 /* ============================================================================
  * 8. COMPILE-TIME ASSERTIONS
  * ============================================================================
  */
 
-// Static assertion (compile-time check)
-#define VEX_STATIC_ASSERT(expr, msg) _Static_assert(expr, msg)
+// VEX_STATIC_ASSERT is defined in vex_macros.h
 
-  // Check sizes at compile time
-  VEX_STATIC_ASSERT(sizeof(uint8_t) == 1, "uint8_t must be 1 byte");
-  VEX_STATIC_ASSERT(sizeof(uint16_t) == 2, "uint16_t must be 2 bytes");
+// Check sizes at compile time
+VEX_STATIC_ASSERT(sizeof(uint8_t) == 1, "uint8_t must be 1 byte");
+VEX_STATIC_ASSERT(sizeof(uint16_t) == 2, "uint16_t must be 2 bytes");
   VEX_STATIC_ASSERT(sizeof(uint32_t) == 4, "uint32_t must be 4 bytes");
   VEX_STATIC_ASSERT(sizeof(uint64_t) == 8, "uint64_t must be 8 bytes");
 

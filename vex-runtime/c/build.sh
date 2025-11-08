@@ -36,7 +36,7 @@ SOURCES=(
     "vex_io.c"
     "vex_array.c"
     "vex_error.c"
-    "vex_swisstable.c"
+    "swisstable/vex_swisstable.c"
     "vex_file.c"
     "vex_mmap.c"
     "vex_time.c"
@@ -75,11 +75,13 @@ fi
 # Step 1: Compile each C file to LLVM IR (.ll)
 echo -e "${GREEN}[1/5] Compiling C to LLVM IR (.ll)...${NC}"
 for src in "${SOURCES[@]}"; do
-    echo "  - $src → ${src%.c}.ll"
+    # Extract just the filename without path and extension
+    base_name=$(basename "${src%.c}")
+    echo "  - $src → ${base_name}.ll"
     clang -S $OPTIMIZATION $CLANG_FLAGS $SIMD_FLAGS \
           -I"$SRC_DIR" \
           "$SRC_DIR/$src" \
-          -o "$LLVM_IR_DIR/${src%.c}.ll"
+          -o "$LLVM_IR_DIR/${base_name}.ll"
 done
 
 # Step 2: Link all LLVM IR files into one bitcode file

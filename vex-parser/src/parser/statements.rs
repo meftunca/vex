@@ -143,26 +143,28 @@ impl<'a> Parser<'a> {
         // While statement
         if self.match_token(&Token::While) {
             let while_start = self.current - 1;
+            let cond_start = self.current; // Before condition
+
             let condition = self.parse_expression()?;
+            let cond_end = self.current - 1; // After condition
+
             let body = self.parse_block()?;
 
-            let span_id = self.span_map.generate_id();
-            let while_end = self.current - 1;
-            let while_span = crate::Span::from_file_and_span(
+            // Record condition span for error reporting
+            let cond_span_id = self.span_map.generate_id();
+            let cond_span = crate::Span::from_file_and_span(
                 &self.file_name,
                 self.source,
-                self.tokens[while_start].span.start..self.tokens[while_end].span.end,
+                self.tokens[cond_start].span.start..self.tokens[cond_end].span.end,
             );
-            self.span_map.record(span_id.clone(), while_span);
+            self.span_map.record(cond_span_id.clone(), cond_span);
 
             return Ok(Statement::While {
-                span_id: Some(span_id),
+                span_id: Some(cond_span_id), // Use condition span
                 condition,
                 body,
             });
-        }
-
-        // Switch statement
+        } // Switch statement
         if self.match_token(&Token::Switch) {
             // Parse value expression (or none for type switch)
             let value = if !self.check(&Token::LBrace) {

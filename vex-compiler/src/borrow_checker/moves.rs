@@ -29,7 +29,10 @@ pub struct MoveChecker {
     moved_vars: HashSet<String>,
 
     /// Variables that are currently valid
-    valid_vars: HashSet<String>,
+    pub(super) valid_vars: HashSet<String>,
+
+    /// Global variables (extern functions, constants) - never go out of scope
+    pub(super) global_vars: HashSet<String>,
 
     /// Type information for variables (to determine Copy vs Move)
     var_types: HashMap<String, Type>,
@@ -47,6 +50,7 @@ impl MoveChecker {
         Self {
             moved_vars: HashSet::new(),
             valid_vars: HashSet::new(),
+            global_vars: HashSet::new(),
             var_types: HashMap::new(),
             builtin_registry: super::builtin_metadata::BuiltinBorrowRegistry::new(),
             current_function: None,
@@ -68,10 +72,16 @@ impl MoveChecker {
                 // Track current function name for error messages
                 self.current_function = Some(func.name.clone());
 
-                // Create new scope for function
+                // Create new scope for function (save only non-global vars)
                 let saved_moved = self.moved_vars.clone();
-                let saved_valid = self.valid_vars.clone();
                 let saved_types = self.var_types.clone();
+
+                // Save function-local vars only (filter out globals before saving)
+                let saved_local_valid: HashSet<String> = self
+                    .valid_vars
+                    .difference(&self.global_vars)
+                    .cloned()
+                    .collect();
 
                 // Function parameters are valid at start
                 for param in &func.params {
@@ -84,12 +94,22 @@ impl MoveChecker {
                     self.check_statement(stmt)?;
                 }
 
-                // Restore scope
+                // Restore local scope (preserve globals)
                 self.moved_vars = saved_moved;
-                self.valid_vars = saved_valid;
+                // Restore only local variables - keep global_vars intact
+                self.valid_vars = saved_local_valid;
+                // Re-add global variables back to valid_vars
+                for global in &self.global_vars {
+                    self.valid_vars.insert(global.clone());
+                }
                 self.var_types = saved_types;
                 self.current_function = None;
 
+                Ok(())
+            }
+            Item::ExternBlock(_) => {
+                // Extern functions already registered in Phase 0 by BorrowChecker
+                // No need to re-register here
                 Ok(())
             }
             _ => Ok(()), // No move semantics in type definitions
@@ -172,7 +192,8 @@ impl MoveChecker {
                 Ok(())
             }
 
-            Statement::If { span_id: _, 
+            Statement::If {
+                span_id: _,
                 condition,
                 then_block,
                 elif_branches,
@@ -203,7 +224,11 @@ impl MoveChecker {
                 Ok(())
             }
 
-            Statement::While { span_id: _,  condition, body } => {
+            Statement::While {
+                span_id: _,
+                condition,
+                body,
+            } => {
                 self.check_expression(condition)?;
 
                 for stmt in &body.statements {
@@ -213,7 +238,8 @@ impl MoveChecker {
                 Ok(())
             }
 
-            Statement::For { span_id: _, 
+            Statement::For {
+                span_id: _,
                 init,
                 condition,
                 post,
@@ -292,6 +318,11 @@ impl MoveChecker {
                     return Ok(());
                 }
 
+                // Global variables (extern functions) are always valid
+                if self.global_vars.contains(name) {
+                    return Ok(());
+                }
+
                 // Check if this variable has been moved
                 if self.moved_vars.contains(name) {
                     let used_at = self
@@ -315,18 +346,29 @@ impl MoveChecker {
                 Ok(())
             }
 
-            Expression::Binary { span_id: _,  left, right, .. } => {
+            Expression::Binary {
+                span_id: _,
+                left,
+                right,
+                ..
+            } => {
                 self.check_expression(left)?;
                 self.check_expression(right)?;
                 Ok(())
             }
 
-            Expression::Unary { span_id: _,  expr, .. } => {
+            Expression::Unary {
+                span_id: _, expr, ..
+            } => {
                 self.check_expression(expr)?;
                 Ok(())
             }
 
-            Expression::Call { span_id: _,  func, args } => {
+            Expression::Call {
+                span_id: _,
+                func,
+                args,
+            } => {
                 // Skip builtin function check if func is an identifier
                 if let Expression::Ident(func_name) = func.as_ref() {
                     if !self.builtin_registry.is_builtin(func_name) {
@@ -570,7 +612,8 @@ mod tests {
         checker.var_types.insert("s".to_string(), Type::String);
 
         // foo(s);  (moves s into function)
-        let call = Expression::Call { span_id: _, 
+        let call = Expression::Call {
+            span_id: None,
             func: Box::new(Expression::Ident("foo".to_string())),
             args: vec![Expression::Ident("s".to_string())],
         };

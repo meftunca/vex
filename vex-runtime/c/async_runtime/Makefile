@@ -5,32 +5,47 @@ KERNEL_R := $(shell uname -r)
 KERNEL_MAJ := $(word 1, $(subst ., ,$(KERNEL_R)))
 KERNEL_MIN := $(word 2, $(subst ., ,$(KERNEL_R)))
 
-# default poller per-OS
-ifeq ($(UNAME_S),Linux)
-    # decide io_uring vs epoll
-    # if kernel >= 5.11 -> io_uring, else epoll
-    CMP_GE_5_11 := $(shell [ $(KERNEL_MAJ) -gt 5 -o \( $(KERNEL_MAJ) -eq 5 -a $(KERNEL_MIN) -ge 11 \) ] && echo yes || echo no)
-    ifeq ($(CMP_GE_5_11),yes)
-        POLLER ?= io_uring
-    else
-        POLLER ?= epoll
+# vex_net integration
+VEXNET_DIR = ../vex_net
+VEXNET_LIB = $(VEXNET_DIR)/libvexnet.a
+VEXNET_INC = -I$(VEXNET_DIR)/include
+
+# Use vex_net if USE_VEXNET=1
+ifdef USE_VEXNET
+    POLLER = vexnet
+else
+    # default poller per-OS
+    ifeq ($(UNAME_S),Linux)
+        # decide io_uring vs epoll
+        # if kernel >= 5.11 -> io_uring, else epoll
+        CMP_GE_5_11 := $(shell [ $(KERNEL_MAJ) -gt 5 -o \( $(KERNEL_MAJ) -eq 5 -a $(KERNEL_MIN) -ge 11 \) ] && echo yes || echo no)
+        ifeq ($(CMP_GE_5_11),yes)
+            POLLER ?= io_uring
+        else
+            POLLER ?= epoll
+        endif
     endif
-endif
 
-ifeq ($(UNAME_S),Darwin)
-    POLLER ?= kqueue
-endif
+    ifeq ($(UNAME_S),Darwin)
+        POLLER ?= kqueue
+    endif
 
-ifeq ($(UNAME_S),FreeBSD)
-    POLLER ?= kqueue
-endif
+    ifeq ($(UNAME_S),FreeBSD)
+        POLLER ?= kqueue
+    endif
 
-ifeq ($(OS),Windows_NT)
-    POLLER ?= iocp
+    ifeq ($(OS),Windows_NT)
+        POLLER ?= iocp
+    endif
 endif
 
 SRC_COMMON = src/runtime.c src/worker_context.c src/lockfree_queue.c src/common.c
 
+ifeq ($(POLLER),vexnet)
+    SRC_POLL = src/poller_vexnet.c
+    CFLAGS += $(VEXNET_INC)
+    LIBS = $(VEXNET_LIB)
+endif
 ifeq ($(POLLER),io_uring)
     SRC_POLL = src/poller_io_uring.c
     LIBS = -luring
@@ -52,8 +67,17 @@ TARGET = async_runtime_demo
 
 all: $(TARGET)
 
-$(TARGET): $(OBJ) tests/example_async_demo.o
-	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
+# Build vex_net if using vexnet poller
+ifeq ($(POLLER),vexnet)
+$(VEXNET_LIB):
+	$(MAKE) -C $(VEXNET_DIR)
+else
+$(VEXNET_LIB):
+	@echo "vex_net not needed for $(POLLER)"
+endif
+
+$(TARGET): $(VEXNET_LIB) $(OBJ) tests/example_async_demo.o
+	$(CC) $(CFLAGS) -o $@ $(OBJ) tests/example_async_demo.o $(LIBS)
 
 tests/example_async_demo.o: tests/example_async_demo.c include/runtime.h include/poller.h
 	$(CC) $(CFLAGS) $(INC) -c -o $@ $<
@@ -61,12 +85,45 @@ tests/example_async_demo.o: tests/example_async_demo.c include/runtime.h include
 %.o: %.c
 	$(CC) $(CFLAGS) $(INC) -c -o $@ $<
 
+# Test vex_net integration
+test_vexnet_integration: $(VEXNET_LIB) $(OBJ) test_vexnet_integration.o
+	$(CC) $(CFLAGS) -o $@ $(OBJ) test_vexnet_integration.o $(LIBS)
+
+test_vexnet_integration.o: test_vexnet_integration.c
+	$(CC) $(CFLAGS) $(INC) -c -o $@ $<
+
+# Simple test without timers
+test_simple_vexnet: $(VEXNET_LIB) $(OBJ) test_simple_vexnet.o
+	$(CC) $(CFLAGS) -o $@ $(OBJ) test_simple_vexnet.o $(LIBS)
+
+test_simple_vexnet.o: test_simple_vexnet.c
+	$(CC) $(CFLAGS) $(INC) -c -o $@ $<
+
+# Demo without timer dependency
+demo_notimer: $(VEXNET_LIB) $(OBJ) demo_notimer.o
+	$(CC) $(CFLAGS) -o $@ $(OBJ) demo_notimer.o $(LIBS)
+
+demo_notimer.o: demo_notimer.c
+	$(CC) $(CFLAGS) $(INC) -c -o $@ $<
+
+# Demo WITH timer (proper state machine)
+demo_with_timer: $(VEXNET_LIB) $(OBJ) demo_with_timer.o
+	$(CC) $(CFLAGS) -o $@ $(OBJ) demo_with_timer.o $(LIBS)
+
+demo_with_timer.o: demo_with_timer.c
+	$(CC) $(CFLAGS) $(INC) -c -o $@ $<
+
 clean:
-	rm -f $(OBJ) tests/example_async_demo.o $(TARGET)
+	rm -f $(OBJ) tests/example_async_demo.o $(TARGET) test_vexnet_integration test_vexnet_integration.o test_simple_vexnet test_simple_vexnet.o demo_notimer demo_notimer.o demo_with_timer demo_with_timer.o
+
+clean-all: clean
+	$(MAKE) -C $(VEXNET_DIR) clean
 
 print-config:
 	@echo OS=$(UNAME_S)
 	@echo KERNEL=$(KERNEL_R)
 	@echo POLLER=$(POLLER)
+	@echo USE_VEXNET=$(USE_VEXNET)
+	@echo VEXNET_LIB=$(VEXNET_LIB)
 
 # PRO extensions: timers/cancel/stats are built-in to runtime.c stubs

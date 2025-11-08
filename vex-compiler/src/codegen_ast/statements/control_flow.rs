@@ -2,6 +2,7 @@
 // return / break / continue / defer
 
 use super::ASTCodeGen;
+use inkwell::types::BasicTypeEnum;
 use inkwell::values::BasicValueEnum;
 use vex_ast::*;
 
@@ -12,7 +13,47 @@ impl<'ctx> ASTCodeGen<'ctx> {
     ) -> Result<(), String> {
         // Compile return value FIRST (may reference variables)
         let return_val = if let Some(e) = expr {
-            Some(self.compile_expression(e)?)
+            let val = self.compile_expression(e)?;
+
+            eprintln!(
+                "🔄 Return statement compiled expression: is_pointer={}, is_struct={}",
+                val.is_pointer_value(),
+                val.is_struct_value()
+            );
+
+            // ⭐ CRITICAL FIX: If returning a pointer to a struct, LOAD the value
+            // The function signature expects a struct BY VALUE, not a pointer.
+            // compile_struct_literal returns a POINTER, so we must load it.
+            if val.is_pointer_value() {
+                let ptr_val = val.into_pointer_value();
+                if let Some(func) = self.current_function {
+                    if let Some(ret_ty) = func.get_type().get_return_type() {
+                        let basic_type: BasicTypeEnum = ret_ty.try_into().map_err(|_| {
+                            "Failed to convert return type to BasicType".to_string()
+                        })?;
+
+                        eprintln!("🔄 Function return type: {:?}", basic_type);
+
+                        // Only load if the return type is a struct (not a pointer)
+                        if matches!(basic_type, BasicTypeEnum::StructType(_)) {
+                            eprintln!("🔄 Loading struct value from pointer before return");
+                            Some(
+                                self.builder
+                                    .build_load(basic_type, ptr_val, "ret_load")
+                                    .map_err(|e| format!("Failed to load return value: {}", e))?,
+                            )
+                        } else {
+                            Some(val)
+                        }
+                    } else {
+                        Some(val)
+                    }
+                } else {
+                    Some(val)
+                }
+            } else {
+                Some(val)
+            }
         } else {
             None
         };

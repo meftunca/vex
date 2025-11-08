@@ -1032,9 +1032,190 @@ struct Admin with APIModel {
 ## Next Steps
 
 1. ✅ **Design finalized** - Hybrid approach with inline + policy
-2. 🔄 **Start Phase 1** - Implement inline tags (2-3 days)
-3. 🔄 **Then Phase 2** - Implement policy declarations (3-4 days)
-4. 🔄 **Build vex-serde** - Use metadata for JSON serialization
+2. ✅ **Phase 1 Complete** - Inline tags implemented and tested
+3. ✅ **Phase 2-4 Complete** - Policy declarations, composition, metadata storage
+4. 🔄 **Build vex-serde** - Use metadata for JSON serialization (See below)
 5. 🔄 **Build vex-validator** - Use metadata for validation
 
 **Ready to start implementation!** 🚀
+
+---
+
+## 🔮 Future: vex-serde Library Design (Nov 8, 2025)
+
+### Architecture Decision: Compile-Time Codegen vs Runtime Reflection
+
+**Current State:**
+
+- ✅ Compile-time metadata storage in `ASTCodeGen.struct_metadata`
+- ✅ HashMap<String, HashMap<String, HashMap<String, String>>>
+- ✅ Accessible during compilation for type analysis
+- ❌ Runtime metadata access not yet implemented
+
+### Recommended Approach: **Compile-Time Plugin API** (Zero-Cost)
+
+**Why:** Like Rust's proc macros, generate serialization code at compile-time using metadata.
+
+**Design:**
+
+```vex
+// vex-serde library usage
+use serde.{Serialize, Deserialize};
+
+struct User with APIModel {
+    id: i32 `json:"user_id" db:"users.id"`,
+    name: str `json:"name" validate:"required"`,
+    email: str `json:"email" validate:"email"`,
+}
+
+// Compile-time plugin reads metadata and generates:
+fn serialize_user(user: &User): str {
+    let json = "{";
+    json += "\"user_id\": " + int_to_string(user.id) + ",";
+    json += "\"name\": \"" + user.name + "\",";
+    json += "\"email\": \"" + user.email + "\"";
+    json += "}";
+    return json;
+}
+```
+
+**Benefits:**
+
+- ✅ Zero runtime cost (no HashMap lookups)
+- ✅ Type-safe (compile-time errors for missing fields)
+- ✅ Optimizable (LLVM inlines everything)
+- ✅ No binary size overhead
+
+**Implementation Plan:**
+
+1. **Create plugin API** - Allow libraries to access `struct_metadata` during compilation
+2. **Codegen interface** - Plugin returns AST nodes to inject into program
+3. **vex-serde uses API** - Reads `json:"..."` tags, generates serialize/deserialize functions
+4. **Type safety** - Compiler validates generated code before LLVM codegen
+
+**Example Plugin API:**
+
+```rust
+// In vex-compiler plugin system
+pub trait CompilerPlugin {
+    fn on_struct_analyzed(&mut self, struct_def: &StructDef, metadata: &HashMap<String, HashMap<String, String>>) -> Vec<Item>;
+}
+
+// vex-serde plugin implementation
+impl CompilerPlugin for SerdePlugin {
+    fn on_struct_analyzed(&mut self, struct_def: &StructDef, metadata: &HashMap<String, HashMap<String, String>>) -> Vec<Item> {
+        // Read metadata, generate serialize/deserialize functions
+        let serialize_fn = generate_serialize(struct_def, metadata);
+        let deserialize_fn = generate_deserialize(struct_def, metadata);
+        vec![serialize_fn, deserialize_fn]
+    }
+}
+```
+
+### Alternative: Runtime Reflection (Optional, For Dynamic Use Cases)
+
+**Use Cases:**
+
+- REPL/debugger (inspect types dynamically)
+- Generic serializers (without knowing types at compile-time)
+- Plugin systems (load types from .so files)
+
+**Design:**
+
+```vex
+// Runtime metadata access (future Sprint 4 Phase 2)
+let user_type = Type.of::<User>();
+let id_metadata = user_type.field_metadata("id"); // Returns Option<HashMap<str, str>>
+
+if let Some(json_name) = id_metadata.get("json") {
+    println("JSON field name: {json_name}");
+}
+```
+
+**Implementation:**
+
+- Generate LLVM global const in `.rodata` section
+- `field_metadata(field_name: str): Option<HashMap<str, str>>` builtin
+- Small binary size overhead (only for types that need reflection)
+
+### Hybrid Approach (Recommended)
+
+1. **Default: Compile-time codegen** (vex-serde uses plugin API)
+2. **Opt-in: Runtime reflection** (mark struct with `reflect` policy)
+
+```vex
+policy Reflectable {
+    // Empty policy, just marks struct for runtime metadata generation
+}
+
+struct User with APIModel, Reflectable {
+    id: i32,
+    name: str,
+}
+
+// At runtime:
+let user_meta = Type.of::<User>().metadata(); // OK because of Reflectable
+```
+
+**Benefits:**
+
+- Zero cost for most code (compile-time only)
+- Pay-for-what-you-use (runtime reflection only if needed)
+- Best of both worlds
+
+### Next Steps for vex-serde
+
+1. **Design plugin API** - Define trait for compiler plugins
+2. **Implement in vex-compiler** - Hook into type checking phase
+3. **Create vex-serde plugin** - Read `json:""` tags, generate code
+4. **Test with examples** - JSON/YAML/TOML serialization
+5. **Document API** - How to write compiler plugins
+
+**Status:** Design phase - Implementation after current sprint complete
+
+---
+
+## Implementation Roadmap (Updated Nov 8, 2025)
+
+### ✅ Sprint 1: Policy Parser (1 day) - COMPLETE
+
+- [x] Parse `policy Name { field_name `tag:"value"`, }` syntax
+- [x] Build PolicyDef AST nodes with field metadata maps
+- [x] Validate policy references in `struct X with PolicyName`
+
+**Files:** vex-parser (policies.rs), vex-ast (lib.rs), examples/policy/
+
+### ✅ Sprint 2: Policy Composition (1 day) - COMPLETE
+
+- [x] Support parent policies: `policy Child: Parent { ... }`
+- [x] Merge parent metadata with child (child overrides)
+- [x] Handle deep inheritance chains (A: B: C)
+
+**Files:** registry.rs (apply_policies_to_struct, merge_metadata)
+
+### ✅ Sprint 3: Inline Metadata (1 day) - COMPLETE
+
+- [x] Inline tags override policy metadata
+- [x] Parse field-level tags in struct definitions
+- [x] Merge order: Parent → Child → Inline (last wins)
+
+**Files:** Parser field tags, registry merge logic
+
+### ✅ Sprint 4: Metadata Storage (2 days) - PHASE 1 COMPLETE
+
+- [x] **Phase 1:** Store in compile-time HashMap `ASTCodeGen.struct_metadata`
+- [x] Debug output showing merged metadata per field
+- [ ] **Phase 2:** Generate LLVM runtime metadata (future - for reflection)
+- [ ] **Phase 3:** Plugin API for vex-serde (future - for codegen)
+
+**Status:** Compile-time storage complete, runtime access deferred
+
+### 🔄 Sprint 5: vex-serde Integration (3-4 days) - FUTURE
+
+- [ ] Design compiler plugin API
+- [ ] Implement plugin hooks in type checker
+- [ ] Create vex-serde plugin (reads metadata, generates code)
+- [ ] Test JSON/YAML/TOML serialization
+- [ ] Document plugin development guide
+
+**Priority:** After core features stabilize

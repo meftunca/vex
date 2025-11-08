@@ -1,0 +1,27 @@
+// Test: Associated Types - Comprehensive Example
+
+// Basic trait with associated type
+trait Container {
+    type Item;
+    fn get(index: i32): Item;
+    fn len(): i32;
+}
+
+// Trait for indexing operations
+trait Index<Idx> {
+    type Output;
+    fn index(idx: Idx): &Output;
+}
+
+// Trait for conversion
+trait Into<T> {
+    type Output;
+    fn into(): Output;
+}
+
+// Test: Vec<i32> impl Container
+// (Parser only - codegen TBD)
+fn main(): i32 {
+    println("✅ Associated types parsed successfully");
+    return 0;
+}

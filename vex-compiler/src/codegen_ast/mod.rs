@@ -27,6 +27,7 @@ pub mod analysis;
 pub mod enums;
 mod functions;
 pub mod generics;
+pub mod metadata;
 pub mod methods;
 pub mod program;
 pub mod registry;
@@ -69,6 +70,12 @@ pub struct ASTCodeGen<'ctx> {
     pub(crate) trait_defs: HashMap<String, Trait>,
     // Trait implementations: (trait_name, type_name) -> Vec<Function>
     pub(crate) trait_impls: HashMap<(String, String), Vec<Function>>,
+
+    // Policy definitions: policy_name -> Policy
+    pub(crate) policy_defs: HashMap<String, vex_ast::Policy>,
+
+    // Struct metadata: struct_name -> (field_name -> metadata_map)
+    pub(crate) struct_metadata: HashMap<String, HashMap<String, HashMap<String, String>>>,
 
     // Module namespace tracking
     // Maps module names to their imported functions: "io" -> ["print", "println"]
@@ -153,6 +160,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
             generic_instantiations: HashMap::new(),
             trait_defs: HashMap::new(),
             trait_impls: HashMap::new(),
+            policy_defs: HashMap::new(),
+            struct_metadata: HashMap::new(),
             module_namespaces: HashMap::new(),
             builtins: BuiltinRegistry::new(),
             current_function: None,
@@ -640,7 +649,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 }
             }
             // Function call: look up return type in function_defs
-            Expression::Call { span_id: _,  func, .. } => {
+            Expression::Call {
+                span_id: _, func, ..
+            } => {
                 if let Expression::Ident(func_name) = func.as_ref() {
                     // Clone return_type to avoid borrow issues
                     let return_type_opt = self

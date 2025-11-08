@@ -12,12 +12,24 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 self.register_struct(struct_def)?;
             } else if let Item::Enum(enum_def) = item {
                 self.register_enum(enum_def)?;
+            } else if let Item::Policy(policy) = item {
+                self.register_policy(policy)?;
             } else if let Item::Trait(trait_def) = item {
+                // Check for policy collision before registering trait
+                self.check_trait_policy_collision(&trait_def.name)?;
                 self.register_trait(trait_def)?;
             } else if let Item::TraitImpl(trait_impl) = item {
                 self.register_trait_impl(trait_impl)?;
             } else if let Item::ExternBlock(extern_block) = item {
                 self.compile_extern_block(extern_block)?;
+            }
+        }
+
+        // Apply policies to structs (after all policies registered)
+        eprintln!("📋 Applying policies to structs...");
+        for item in &program.items {
+            if let Item::Struct(struct_def) = item {
+                self.apply_policies_to_struct(struct_def)?;
             }
         }
 

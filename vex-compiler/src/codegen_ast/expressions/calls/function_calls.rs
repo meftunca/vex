@@ -113,10 +113,14 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     .build_call(fn_val, &arg_vals, "call")
                     .map_err(|e| format!("Failed to build call: {}", e))?;
 
-                return call_site
-                    .try_as_basic_value()
-                    .left()
-                    .ok_or_else(|| "Function call returned void".to_string());
+                // Handle both value-returning and void functions
+                if let Some(val) = call_site.try_as_basic_value().left() {
+                    return Ok(val);
+                } else {
+                    // Void function - return a dummy i32 zero
+                    // This is OK for expression statements (result ignored)
+                    return Ok(self.context.i32_type().const_int(0, false).into());
+                }
             }
         }
 

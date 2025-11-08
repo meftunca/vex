@@ -13,18 +13,18 @@ impl<'a> Parser<'a> {
     /// Parse range expressions: 0..10 or 0..=10
     /// Lowest precedence (below comparison)
     pub(crate) fn parse_range(&mut self) -> Result<Expression, ParseError> {
-        let expr = self.parse_comparison()?;
+        let expr = self.parse_logical_or()?;
 
         if self.match_token(&Token::DotDotEq) {
             // Inclusive range: 0..=10
-            let end = self.parse_comparison()?;
+            let end = self.parse_logical_or()?;
             return Ok(Expression::RangeInclusive {
                 start: Box::new(expr),
                 end: Box::new(end),
             });
         } else if self.match_token(&Token::DotDot) {
             // Exclusive range: 0..10
-            let end = self.parse_comparison()?;
+            let end = self.parse_logical_or()?;
             return Ok(Expression::Range {
                 start: Box::new(expr),
                 end: Box::new(end),

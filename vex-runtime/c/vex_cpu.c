@@ -242,40 +242,40 @@ VexSimdLevel vex_cpu_best_simd()
 
 #if VEX_ARCH_X86
   if (g_cpu_features.avx512f)
-    return VEX_SIMD_AVX512;
+    return VEX_SIMD_LEVEL_AVX512;
   if (g_cpu_features.avx2)
-    return VEX_SIMD_AVX2;
+    return VEX_SIMD_LEVEL_AVX2;
   if (g_cpu_features.avx)
-    return VEX_SIMD_AVX;
+    return VEX_SIMD_LEVEL_AVX;
   if (g_cpu_features.sse2)
-    return VEX_SIMD_SSE2;
+    return VEX_SIMD_LEVEL_SSE2;
 #elif VEX_ARCH_ARM
   if (g_cpu_features.sve)
-    return VEX_SIMD_SVE;
+    return VEX_SIMD_LEVEL_SVE;
   if (g_cpu_features.neon)
-    return VEX_SIMD_NEON;
+    return VEX_SIMD_LEVEL_NEON;
 #endif
 
-  return VEX_SIMD_NONE;
+  return VEX_SIMD_LEVEL_NONE;
 }
 
 const char *vex_cpu_simd_name(VexSimdLevel level)
 {
   switch (level)
   {
-  case VEX_SIMD_NONE:
+  case VEX_SIMD_LEVEL_NONE:
     return "None";
-  case VEX_SIMD_SSE2:
+  case VEX_SIMD_LEVEL_SSE2:
     return "SSE2";
-  case VEX_SIMD_AVX:
+  case VEX_SIMD_LEVEL_AVX:
     return "AVX";
-  case VEX_SIMD_AVX2:
+  case VEX_SIMD_LEVEL_AVX2:
     return "AVX2";
-  case VEX_SIMD_AVX512:
+  case VEX_SIMD_LEVEL_AVX512:
     return "AVX-512";
-  case VEX_SIMD_NEON:
+  case VEX_SIMD_LEVEL_NEON:
     return "NEON";
-  case VEX_SIMD_SVE:
+  case VEX_SIMD_LEVEL_SVE:
     return "SVE";
   default:
     return "Unknown";

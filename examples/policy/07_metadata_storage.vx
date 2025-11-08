@@ -1,0 +1,23 @@
+// Test: Metadata Access API (Phase 1 - Compile-time visibility)
+// Expected: Metadata stored and accessible at compile time
+
+policy APIModel {
+    id `json:"id" db:"user_id" indexed:"true"`
+    name `json:"name" validate:"required"`
+}
+
+struct User with APIModel {
+    id: i32 `primary:"true"`,  // Inline overrides + adds
+    name: str,
+}
+
+fn main(): i32 {
+    let user = User { id: 1, name: "Alice" };
+    
+    // Phase 1: Compile-time metadata (visible in eprintln output)
+    // Phase 2 (future): Runtime metadata access via Type.metadata()
+    
+    print("User ID: ");
+    println(user.id);
+    return 0;
+}

@@ -42,6 +42,18 @@ impl BorrowChecker {
 
     /// Run all borrow checking phases on a program
     pub fn check_program(&mut self, program: &mut Program) -> BorrowResult<()> {
+        // Phase 0: Register extern functions (they're always valid)
+        for item in &program.items {
+            if let Item::ExternBlock(block) = item {
+                for func in &block.functions {
+                    self.moves.global_vars.insert(func.name.clone());
+                    self.moves.valid_vars.insert(func.name.clone());
+                    self.borrows.valid_vars.insert(func.name.clone());
+                    self.lifetimes.global_vars.insert(func.name.clone());
+                }
+            }
+        }
+
         // Phase 1: Check immutability violations
         self.immutability.check_program(program)?;
 
@@ -109,7 +121,8 @@ impl BorrowChecker {
             Statement::Expression(expr) => {
                 self.analyze_expression_closures(expr)?;
             }
-            Statement::If { span_id: _, 
+            Statement::If {
+                span_id: _,
                 condition,
                 then_block,
                 elif_branches,
@@ -131,13 +144,18 @@ impl BorrowChecker {
                     }
                 }
             }
-            Statement::While { span_id: _,  condition, body } => {
+            Statement::While {
+                span_id: _,
+                condition,
+                body,
+            } => {
                 self.analyze_expression_closures(condition)?;
                 for stmt in &mut body.statements {
                     self.analyze_statement_closures(stmt)?;
                 }
             }
-            Statement::For { span_id: _, 
+            Statement::For {
+                span_id: _,
                 init,
                 condition,
                 post,
@@ -221,16 +239,27 @@ impl BorrowChecker {
 
                 Ok(())
             }
-            Expression::Binary { span_id: _,  left, right, .. } => {
+            Expression::Binary {
+                span_id: _,
+                left,
+                right,
+                ..
+            } => {
                 self.analyze_expression_closures(left)?;
                 self.analyze_expression_closures(right)?;
                 Ok(())
             }
-            Expression::Unary { span_id: _,  expr, .. } => {
+            Expression::Unary {
+                span_id: _, expr, ..
+            } => {
                 self.analyze_expression_closures(expr)?;
                 Ok(())
             }
-            Expression::Call { span_id: _,  func, args } => {
+            Expression::Call {
+                span_id: _,
+                func,
+                args,
+            } => {
                 self.analyze_expression_closures(func)?;
                 for arg in args {
                     self.analyze_expression_closures(arg)?;

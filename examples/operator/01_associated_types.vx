@@ -1,0 +1,17 @@
+// Test: Associated Types in Traits
+
+trait Container {
+    type Item;  // Associated type
+    fn get(index: i32): Item;
+    fn len(): i32;
+}
+
+trait Index<Idx> {
+    type Output;  // Return type depends on impl
+    fn index(idx: Idx): &Output;
+}
+
+// Simple test: parse only (codegen not yet implemented)
+fn main(): i32 {
+    return 0;
+}

@@ -183,7 +183,47 @@ void vex_vec_free(vex_vec_t *vec)
     free(vec->data);
     vec->data = NULL;
   }
-  vec->len = 0;
-  vec->capacity = 0;
-  free(vec); // Free the Vec struct itself!
+  free(vec);
+}
+
+/**
+ * Concatenate two vectors (allocates new vector)
+ * @param v1 First vector
+ * @param v2 Second vector
+ * @return New vector containing v1 + v2 (must be freed)
+ */
+vex_vec_t *vex_vec_concat(vex_vec_t *v1, vex_vec_t *v2)
+{
+  if (!v1 || !v2)
+  {
+    fprintf(stderr, "Vec concat: NULL vector\n");
+    abort();
+  }
+  if (v1->elem_size != v2->elem_size)
+  {
+    fprintf(stderr, "Vec concat: mismatched element sizes (%zu vs %zu)\n", v1->elem_size, v2->elem_size);
+    abort();
+  }
+
+  // Create new vector with combined capacity
+  vex_vec_t *result = vex_vec_new(v1->elem_size);
+  size_t total_len = v1->len + v2->len;
+  vex_vec_reserve(result, total_len);
+
+  // Copy v1 elements
+  if (v1->len > 0)
+  {
+    memcpy(result->data, v1->data, v1->len * v1->elem_size);
+    result->len = v1->len;
+  }
+
+  // Copy v2 elements
+  if (v2->len > 0)
+  {
+    void *dest = (uint8_t *)result->data + (result->len * result->elem_size);
+    memcpy(dest, v2->data, v2->len * v2->elem_size);
+    result->len += v2->len;
+  }
+
+  return result;
 }

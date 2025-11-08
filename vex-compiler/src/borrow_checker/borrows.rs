@@ -25,7 +25,7 @@
 //! ```
 
 use crate::borrow_checker::errors::{BorrowError, BorrowResult};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use vex_ast::{Expression, Item, Program, Statement};
 
 /// Type of borrow (for tracking)
@@ -51,6 +51,9 @@ pub struct BorrowRulesChecker {
     /// Variables that are currently borrowed (cannot be moved or mutated)
     borrowed_vars: HashMap<String, Vec<BorrowKind>>,
 
+    /// Valid variables (includes extern functions)
+    pub(super) valid_vars: HashSet<String>,
+
     /// Registry of builtin function metadata
     builtin_registry: super::builtin_metadata::BuiltinBorrowRegistry,
 
@@ -70,6 +73,7 @@ impl BorrowRulesChecker {
         Self {
             active_borrows: HashMap::new(),
             borrowed_vars: HashMap::new(),
+            valid_vars: HashSet::new(),
             builtin_registry: super::builtin_metadata::BuiltinBorrowRegistry::new(),
             current_function: None,
         }
@@ -165,7 +169,8 @@ impl BorrowRulesChecker {
                 Ok(())
             }
 
-            Statement::If { span_id: _, 
+            Statement::If {
+                span_id: _,
                 condition,
                 then_block,
                 elif_branches,
@@ -194,7 +199,11 @@ impl BorrowRulesChecker {
                 Ok(())
             }
 
-            Statement::While { span_id: _,  condition, body } => {
+            Statement::While {
+                span_id: _,
+                condition,
+                body,
+            } => {
                 self.check_expression_for_borrows(condition)?;
 
                 for stmt in &body.statements {
@@ -204,7 +213,8 @@ impl BorrowRulesChecker {
                 Ok(())
             }
 
-            Statement::For { span_id: _, 
+            Statement::For {
+                span_id: _,
                 init,
                 condition,
                 post,
@@ -287,18 +297,29 @@ impl BorrowRulesChecker {
                 Ok(())
             }
 
-            Expression::Binary { span_id: _,  left, right, .. } => {
+            Expression::Binary {
+                span_id: _,
+                left,
+                right,
+                ..
+            } => {
                 self.check_expression_for_borrows(left)?;
                 self.check_expression_for_borrows(right)?;
                 Ok(())
             }
 
-            Expression::Unary { span_id: _,  expr, .. } => {
+            Expression::Unary {
+                span_id: _, expr, ..
+            } => {
                 self.check_expression_for_borrows(expr)?;
                 Ok(())
             }
 
-            Expression::Call { span_id: _,  func, args } => {
+            Expression::Call {
+                span_id: _,
+                func,
+                args,
+            } => {
                 // Skip checking builtin function names as variables
                 if let Expression::Ident(func_name) = func.as_ref() {
                     if !self.builtin_registry.is_builtin(func_name) {

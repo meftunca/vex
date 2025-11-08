@@ -1,0 +1,28 @@
+name: Windows Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test-windows:
+    runs-on: windows-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup MSVC
+      uses: microsoft/setup-msbuild@v1.1
+      
+    - name: Build vex_net
+      run: |
+        cd vex-clibs/vex_net
+        # Windows build commands here (nmake or cmake)
+        
+    - name: Run tests
+      run: |
+        cd vex-clibs/vex_net
+        # Test commands
+

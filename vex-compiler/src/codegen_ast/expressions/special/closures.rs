@@ -37,14 +37,25 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     }
                 }
             }
-            Expression::Binary { span_id: _,  left, right, .. } => {
+            Expression::Binary {
+                span_id: _,
+                left,
+                right,
+                ..
+            } => {
                 self.collect_variables(left, params, free_vars, visited);
                 self.collect_variables(right, params, free_vars, visited);
             }
-            Expression::Unary { span_id: _,  expr, .. } => {
+            Expression::Unary {
+                span_id: _, expr, ..
+            } => {
                 self.collect_variables(expr, params, free_vars, visited);
             }
-            Expression::Call { span_id: _,  func, args } => {
+            Expression::Call {
+                span_id: _,
+                func,
+                args,
+            } => {
                 self.collect_variables(func, params, free_vars, visited);
                 for arg in args {
                     self.collect_variables(arg, params, free_vars, visited);
@@ -464,6 +475,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let struct_def = Struct {
             name: struct_name.clone(),
             type_params: vec![],
+            policies: vec![], // No policies for generated closure structs
             impl_traits: vec![trait_name.to_string()],
             fields: vec![], // Internal LLVM representation
             methods: vec![method],

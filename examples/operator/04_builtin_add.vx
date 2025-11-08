@@ -1,0 +1,29 @@
+// Test: Builtin Add Trait for String and Vec
+
+// String concatenation
+fn test_string_add(): i32 {
+    let s1 = "Hello";
+    let s2 = " World";
+    let s3 = s1 + s2;  // String + String → concat
+    
+    println("String concat: {}", s3);
+    return 0;
+}
+
+// Vec concatenation (using builtin Vec<T>)
+fn test_vec_add(): i32 {
+    let v1: Vec<i32> = [1, 2, 3];  // Explicit type annotation
+    let v2: Vec<i32> = [4, 5, 6];
+    
+    let v3 = v1 + v2;  // Vec + Vec → concat
+    
+    println("Vec concat successful");
+    return 0;
+}
+
+fn main(): i32 {
+    test_string_add();
+    test_vec_add();
+    println("✅ Builtin Add trait works");
+    return 0;
+}

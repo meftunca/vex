@@ -1,8 +1,8 @@
 // src/codegen/functions/declare.rs
 use super::super::*;
-use vex_ast::*;
 use inkwell::types::{BasicMetadataTypeEnum, BasicTypeEnum};
 use inkwell::values::FunctionValue;
+use vex_ast::*;
 
 impl<'ctx> ASTCodeGen<'ctx> {
     pub(crate) fn declare_function(
@@ -13,20 +13,40 @@ impl<'ctx> ASTCodeGen<'ctx> {
             let type_name = match &receiver.ty {
                 Type::Named(name) => name.clone(),
                 Type::Reference(inner, _) => {
-                    if let Type::Named(name) = &**inner { name.clone() } else {
-                        return Err("Receiver must be a named type or reference to named type".to_string());
+                    if let Type::Named(name) = &**inner {
+                        name.clone()
+                    } else {
+                        return Err(
+                            "Receiver must be a named type or reference to named type".to_string()
+                        );
                     }
                 }
                 _ => {
-                    return Err("Receiver must be a named type or reference to named type".to_string());
+                    return Err(
+                        "Receiver must be a named type or reference to named type".to_string()
+                    );
                 }
             };
             format!("{}_{}", type_name, func.name)
-        } else { func.name.clone() };
+        } else {
+            func.name.clone()
+        };
 
         let mut param_types: Vec<BasicMetadataTypeEnum> = Vec::new();
         if let Some(ref receiver) = func.receiver {
-            param_types.push(self.ast_type_to_llvm(&receiver.ty).into());
+            // Receiver is always passed by pointer (it's a reference: &Point or &Point!)
+            // Even though ast_type_to_llvm now returns struct type directly,
+            // for receivers we want the pointer
+            let receiver_llvm_type = self.ast_type_to_llvm(&receiver.ty);
+            let receiver_param_type = if matches!(receiver_llvm_type, BasicTypeEnum::StructType(_))
+            {
+                // Struct receiver -> pass as pointer
+                BasicTypeEnum::PointerType(self.context.ptr_type(inkwell::AddressSpace::default()))
+            } else {
+                // Already a pointer or primitive - use as-is
+                receiver_llvm_type
+            };
+            param_types.push(receiver_param_type.into());
         }
         for param in &func.params {
             let param_llvm_type = self.ast_type_to_llvm(&param.ty);
@@ -35,6 +55,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 _ => false,
             };
             if is_struct {
+                // Struct parameters are passed by pointer for efficiency
                 let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
                 param_types.push(ptr_type.into());
             } else {
@@ -44,7 +65,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         let ret_type = if let Some(ref ty) = func.return_type {
             let llvm_ret = self.ast_type_to_llvm(ty);
-            eprintln!("🟢 Function {} return type: {:?} → LLVM: {:?}", fn_name, ty, llvm_ret);
+            eprintln!(
+                "🟢 Function {} return type: {:?} → LLVM: {:?}",
+                fn_name, ty, llvm_ret
+            );
             llvm_ret
         } else {
             BasicTypeEnum::IntType(self.context.i32_type())
@@ -56,7 +80,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
             BasicTypeEnum::ArrayType(t) => t.fn_type(&param_types, false),
             BasicTypeEnum::StructType(t) => t.fn_type(&param_types, false),
             BasicTypeEnum::PointerType(t) => t.fn_type(&param_types, false),
-            _ => return Err(format!("Unsupported return type for function {}", func.name)),
+            _ => {
+                return Err(format!(
+                    "Unsupported return type for function {}",
+                    func.name
+                ))
+            }
         };
 
         let fn_val = self.module.add_function(&fn_name, fn_type, None);

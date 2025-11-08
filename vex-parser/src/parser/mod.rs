@@ -62,7 +62,17 @@ impl<'a> Parser<'a> {
         let mut imports = Vec::new();
         let mut items = Vec::new();
 
+        println!(
+            "🔧 Parser: Starting parse, total tokens: {}",
+            self.tokens.len()
+        );
+
         while !self.is_at_end() {
+            println!(
+                "🔧 Parser: Current token at {}: {:?}",
+                self.current,
+                self.peek()
+            );
             // Parse top-level items
             if self.check(&Token::Import) {
                 imports.push(self.parse_import()?);
@@ -91,11 +101,15 @@ impl<'a> Parser<'a> {
                 items.push(self.parse_interface_or_trait()?);
             } else if self.check(&Token::Impl) {
                 items.push(self.parse_trait_impl()?);
+            } else if self.check(&Token::Policy) {
+                items.push(Item::Policy(self.parse_policy()?));
             } else if self.check(&Token::Extern) {
+                eprintln!("🔧 Parser: Found extern keyword");
                 items.push(self.parse_extern_block()?);
             } else {
+                eprintln!("🔧 Parser: Unknown token: {:?}", self.peek());
                 return Err(self.error(
-                    "Expected top-level item (import, export, const, fn, struct, type, enum, interface, trait, impl, extern)",
+                    "Expected top-level item (import, export, const, fn, struct, type, enum, interface, trait, impl, policy, extern)",
                 ));
             }
         }
@@ -161,6 +175,33 @@ impl<'a> Parser<'a> {
         } else {
             Err(self.error(message))
         }
+    }
+
+    pub(crate) fn consume_generic_close(&mut self, message: &str) -> Result<(), ParseError> {
+        if self.match_token(&Token::Gt) {
+            return Ok(());
+        }
+
+        if self.check(&Token::RShift) {
+            let span = self.peek_span().span.clone();
+            self.advance();
+
+            let idx = self.current - 1;
+            self.tokens[idx].token = Token::Gt;
+            self.tokens[idx].span = span.clone();
+
+            self.tokens.insert(
+                self.current,
+                TokenSpan {
+                    token: Token::Gt,
+                    span,
+                },
+            );
+
+            return Ok(());
+        }
+
+        Err(self.error(message))
     }
 
     pub(crate) fn error(&self, message: &str) -> ParseError {
@@ -359,7 +400,7 @@ impl<'a> Parser<'a> {
             }
         }
 
-        self.consume(&Token::Gt, "Expected '>' after type parameters")?;
+        self.consume_generic_close("Expected '>' after type parameters")?;
         Ok(params)
     }
 }

@@ -1,0 +1,24 @@
+// Test: Multiple Policies on One Struct
+// Expected: Policies merge, conflicts reported, last policy wins
+
+policy JSONModel {
+    id `json:"id"`
+    name `json:"name"`
+}
+
+policy DatabaseModel {
+    id `db:"user_id" primary:"true" json:"userId"`
+    name `db:"username" indexed:"true" json:"userName"`
+}
+
+struct User with JSONModel, DatabaseModel {
+    id: i32,
+    name: str,
+}
+
+fn main(): i32 {
+    let user = User { id: 1, name: "Alice" };
+    print("User ID: ");
+    println(user.id);
+    return 0;
+}

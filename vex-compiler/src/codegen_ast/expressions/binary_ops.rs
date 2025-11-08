@@ -13,6 +13,58 @@ impl<'ctx> ASTCodeGen<'ctx> {
         op: &BinaryOp,
         right: &Expression,
     ) -> Result<BasicValueEnum<'ctx>, String> {
+        // ⭐ NEW: Operator Overloading - Check if left operand has operator trait
+        if let Ok(left_type) = self.infer_expression_type(left) {
+            // ⭐ BUILTIN: Check for Vec + Vec (if both are Vec)
+            if let Type::Generic { ref name, .. } = left_type {
+                if name == "Vec" && matches!(op, BinaryOp::Add) {
+                    if let Ok(right_type) = self.infer_expression_type(right) {
+                        if let Type::Generic {
+                            name: right_name, ..
+                        } = right_type
+                        {
+                            if right_name == "Vec" {
+                                let left_val = self.compile_expression(left)?;
+                                let right_val = self.compile_expression(right)?;
+
+                                let concat_fn = self.get_vex_vec_concat();
+                                let result = self
+                                    .builder
+                                    .build_call(
+                                        concat_fn,
+                                        &[left_val.into(), right_val.into()],
+                                        "vec_concat",
+                                    )
+                                    .map_err(|e| format!("Failed to call vex_vec_concat: {}", e))?;
+
+                                return result
+                                    .try_as_basic_value()
+                                    .left()
+                                    .ok_or("vex_vec_concat didn't return a value".to_string());
+                            }
+                        }
+                    }
+                }
+            }
+
+            if let Type::Named(type_name) = left_type {
+                let (trait_name, method_name) = self.binary_op_to_trait(op);
+                if !trait_name.is_empty() {
+                    if let Some(_) = self.has_operator_trait(&type_name, trait_name) {
+                        // Desugar to method call: left.add(right)
+                        eprintln!("🎯 Operator overloading: {}.{}()", type_name, method_name);
+                        return self.compile_method_call(
+                            left,
+                            method_name,
+                            &vec![right.clone()],
+                            false,
+                        );
+                    }
+                }
+            }
+        }
+
+        // Fallback: Builtin operations (int, float, pointer)
         let lhs = self.compile_expression(left)?;
         let rhs = self.compile_expression(right)?;
 
@@ -92,6 +144,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     }
                     BinaryOp::And => self.builder.build_and(l, r, "and"),
                     BinaryOp::Or => self.builder.build_or(l, r, "or"),
+                    BinaryOp::BitAnd => self.builder.build_and(l, r, "bitand"),
+                    BinaryOp::BitOr => self.builder.build_or(l, r, "bitor"),
+                    BinaryOp::BitXor => self.builder.build_xor(l, r, "bitxor"),
+                    BinaryOp::Shl => self.builder.build_left_shift(l, r, "shl"),
+                    BinaryOp::Shr => self.builder.build_right_shift(l, r, true, "shr"),
                 }
                 .map_err(|e| format!("Failed to build operation: {}", e))?;
                 Ok(result.into())
@@ -151,8 +208,34 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 Ok(result.into())
             }
             (BasicValueEnum::PointerValue(l), BasicValueEnum::PointerValue(r)) => {
-                // String comparison using vex_strcmp
                 match op {
+                    // String concatenation: s1 + s2 → vex_strcat_new
+                    BinaryOp::Add => {
+                        eprintln!("🔗 String concatenation: calling vex_strcat_new");
+
+                        // Declare vex_strcat_new if not already declared
+                        let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                        let strcat_fn = self.declare_runtime_fn(
+                            "vex_strcat_new",
+                            &[ptr_type.into(), ptr_type.into()],
+                            ptr_type.into(),
+                        );
+
+                        // Call vex_strcat_new(left, right) → returns new string
+                        let concat_result = self
+                            .builder
+                            .build_call(strcat_fn, &[l.into(), r.into()], "strcat_result")
+                            .map_err(|e| format!("Failed to call vex_strcat_new: {}", e))?;
+
+                        let result_ptr = concat_result
+                            .try_as_basic_value()
+                            .left()
+                            .ok_or("vex_strcat_new didn't return a value")?;
+
+                        Ok(result_ptr)
+                    }
+
+                    // String comparison using vex_strcmp
                     BinaryOp::Eq | BinaryOp::NotEq => {
                         // Declare vex_strcmp if not already declared
                         let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());

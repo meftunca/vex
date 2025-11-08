@@ -106,6 +106,14 @@ fi
 MONGO_CFLAGS="$(pkg-config --cflags libmongoc-1.0 2>/dev/null || echo '')"
 MONGO_LDFLAGS="$(pkg-config --libs libmongoc-1.0 2>/dev/null || echo '-lmongoc-1.0 -lbson-1.0')"
 
+if [ -d "/opt/homebrew/opt/hiredis" ]; then
+    REDIS_CFLAGS="-I/opt/homebrew/opt/hiredis/include"
+    REDIS_LDFLAGS="-L/opt/homebrew/opt/hiredis/lib -lhiredis"
+else
+    REDIS_CFLAGS=""
+    REDIS_LDFLAGS="-lhiredis"
+fi
+
 make clean
 # Build without MongoDB for now (requires additional setup)
 make HAVE_LIBPQ=1 HAVE_MYSQL=1 HAVE_REDIS=1 HAVE_SQLITE=1 \
@@ -113,7 +121,8 @@ make HAVE_LIBPQ=1 HAVE_MYSQL=1 HAVE_REDIS=1 HAVE_SQLITE=1 \
   PQ_LDFLAGS="$PQ_LDFLAGS" \
   MYSQL_CFLAGS="$MYSQL_CFLAGS" \
   MYSQL_LDFLAGS="$MYSQL_LDFLAGS" \
-  REDIS_LDFLAGS="-lhiredis" \
+  REDIS_CFLAGS="$REDIS_CFLAGS" \
+  REDIS_LDFLAGS="$REDIS_LDFLAGS" \
   test_integration
 
 echo -e "\n${YELLOW}▶ Running unit tests...${NC}"

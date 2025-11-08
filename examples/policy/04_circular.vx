@@ -1,0 +1,19 @@
+// Test: Circular Policy Dependency Detection
+// EXPECT_ERROR: Circular policy dependency detected
+
+policy PolicyA with PolicyB {
+    field1 `meta:"a"`
+}
+
+policy PolicyB with PolicyA {
+    field2 `meta:"b"`
+}
+
+struct BadStruct with PolicyA {
+    field1: i32,
+    field2: i32,
+}
+
+fn main(): i32 {
+    return 0;
+}

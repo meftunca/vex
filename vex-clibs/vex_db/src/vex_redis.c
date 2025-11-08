@@ -142,11 +142,12 @@ static VexResultSet redis_execute_query(VexConnection *conn, const char *query,
     
     RedisContext *rctx = (RedisContext*)conn->native_conn;
     
-    // If there are parameters, use redisCommandArgv
+    // Parse the query string into command and arguments
+    // Redis commands are space-separated: "SET key value" or "GET key"
     redisReply *reply;
     
     if (nParams > 0) {
-        // Build argument array
+        // Build argument array with parameters
         const char **argv = malloc((nParams + 1) * sizeof(char*));
         size_t *argvlen = malloc((nParams + 1) * sizeof(size_t));
         
@@ -170,7 +171,55 @@ static VexResultSet redis_execute_query(VexConnection *conn, const char *query,
         free(argv);
         free(argvlen);
     } else {
-        reply = redisCommand(rctx->ctx, "%s", query);
+        // Parse query into words for redisCommandArgv
+        // Make a copy to tokenize
+        char *query_copy = strdup(query);
+        if (!query_copy) {
+            redis_set_error(&rs.error, VEX_DB_ERROR_EXECUTION, "out of memory");
+            return rs;
+        }
+        
+        // Count words
+        int word_count = 0;
+        char *tmp = query_copy;
+        int in_word = 0;
+        while (*tmp) {
+            if (*tmp == ' ' || *tmp == '\t') {
+                in_word = 0;
+            } else if (!in_word) {
+                in_word = 1;
+                word_count++;
+            }
+            tmp++;
+        }
+        
+        // Allocate argv
+        const char **argv = malloc(word_count * sizeof(char*));
+        size_t *argvlen = malloc(word_count * sizeof(size_t));
+        
+        if (!argv || !argvlen) {
+            free(query_copy);
+            free(argv);
+            free(argvlen);
+            redis_set_error(&rs.error, VEX_DB_ERROR_EXECUTION, "out of memory");
+            return rs;
+        }
+        
+        // Split into words
+        int idx = 0;
+        char *token = strtok(query_copy, " \t");
+        while (token && idx < word_count) {
+            argv[idx] = token;
+            argvlen[idx] = strlen(token);
+            idx++;
+            token = strtok(NULL, " \t");
+        }
+        
+        reply = redisCommandArgv(rctx->ctx, word_count, argv, argvlen);
+        
+        free(argv);
+        free(argvlen);
+        free(query_copy);
     }
     
     if (!reply) {

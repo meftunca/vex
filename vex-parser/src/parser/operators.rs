@@ -5,8 +5,40 @@ use super::*;
 use vex_lexer::Token;
 
 impl<'a> Parser<'a> {
+    pub(crate) fn parse_logical_or(&mut self) -> Result<Expression, ParseError> {
+        let mut expr = self.parse_logical_and()?;
+
+        while self.match_token(&Token::Or) {
+            let right = self.parse_logical_and()?;
+            expr = Expression::Binary {
+                span_id: None,
+                left: Box::new(expr),
+                op: BinaryOp::Or,
+                right: Box::new(right),
+            };
+        }
+
+        Ok(expr)
+    }
+
+    pub(crate) fn parse_logical_and(&mut self) -> Result<Expression, ParseError> {
+        let mut expr = self.parse_bitwise_or()?;
+
+        while self.match_token(&Token::And) {
+            let right = self.parse_bitwise_or()?;
+            expr = Expression::Binary {
+                span_id: None,
+                left: Box::new(expr),
+                op: BinaryOp::And,
+                right: Box::new(right),
+            };
+        }
+
+        Ok(expr)
+    }
+
     pub(crate) fn parse_comparison(&mut self) -> Result<Expression, ParseError> {
-        let mut expr = self.parse_additive()?;
+        let mut expr = self.parse_shift()?;
 
         while self.match_tokens(&[
             Token::EqEq,
@@ -23,6 +55,75 @@ impl<'a> Parser<'a> {
                 Token::LtEq => BinaryOp::LtEq,
                 Token::Gt => BinaryOp::Gt,
                 Token::GtEq => BinaryOp::GtEq,
+                _ => unreachable!(),
+            };
+            let right = self.parse_shift()?;
+            expr = Expression::Binary {
+                span_id: None,
+                left: Box::new(expr),
+                op,
+                right: Box::new(right),
+            };
+        }
+
+        Ok(expr)
+    }
+
+    pub(crate) fn parse_bitwise_or(&mut self) -> Result<Expression, ParseError> {
+        let mut expr = self.parse_bitwise_xor()?;
+
+        while self.match_token(&Token::Pipe) {
+            let right = self.parse_bitwise_xor()?;
+            expr = Expression::Binary {
+                span_id: None,
+                left: Box::new(expr),
+                op: BinaryOp::BitOr,
+                right: Box::new(right),
+            };
+        }
+
+        Ok(expr)
+    }
+
+    pub(crate) fn parse_bitwise_xor(&mut self) -> Result<Expression, ParseError> {
+        let mut expr = self.parse_bitwise_and()?;
+
+        while self.match_token(&Token::Caret) {
+            let right = self.parse_bitwise_and()?;
+            expr = Expression::Binary {
+                span_id: None,
+                left: Box::new(expr),
+                op: BinaryOp::BitXor,
+                right: Box::new(right),
+            };
+        }
+
+        Ok(expr)
+    }
+
+    pub(crate) fn parse_bitwise_and(&mut self) -> Result<Expression, ParseError> {
+        let mut expr = self.parse_comparison()?;
+
+        while self.match_token(&Token::Ampersand) {
+            let right = self.parse_comparison()?;
+            expr = Expression::Binary {
+                span_id: None,
+                left: Box::new(expr),
+                op: BinaryOp::BitAnd,
+                right: Box::new(right),
+            };
+        }
+
+        Ok(expr)
+    }
+
+    pub(crate) fn parse_shift(&mut self) -> Result<Expression, ParseError> {
+        let mut expr = self.parse_additive()?;
+
+        while self.match_tokens(&[Token::LShift, Token::RShift]) {
+            let op = match self.previous() {
+                Token::LShift => BinaryOp::Shl,
+                Token::RShift => BinaryOp::Shr,
                 _ => unreachable!(),
             };
             let right = self.parse_additive()?;
@@ -192,7 +293,7 @@ impl<'a> Parser<'a> {
                             break;
                         }
                     }
-                    self.consume(&Token::Gt, "Expected '>' after type arguments")?;
+                    self.consume_generic_close("Expected '>' after type arguments")?;
                     pending_type_args = Some(type_args);
                 }
             }

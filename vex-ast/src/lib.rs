@@ -99,6 +99,21 @@ pub struct Export {
     pub items: Vec<String>, // For export { io, net };
 }
 
+/// Policy declaration: policy APIModel { id `json:"id"`, name `json:"name"` }
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Policy {
+    pub name: String,
+    pub parent_policies: Vec<String>, // For policy composition: policy Child with Parent
+    pub fields: Vec<PolicyField>,
+}
+
+/// Policy field: field_name `metadata_string`
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PolicyField {
+    pub name: String,
+    pub metadata: String, // Raw backtick content: `json:"id" db:"user_id"`
+}
+
 /// Top-level items (functions, structs, traits, type aliases, enums, constants)
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Item {
@@ -109,6 +124,7 @@ pub enum Item {
     TypeAlias(TypeAlias),
     Enum(Enum),
     Const(Const),
+    Policy(Policy),
     ExternBlock(ExternBlock),
     Export(Export),
 }
@@ -148,6 +164,7 @@ pub struct Param {
 pub struct Struct {
     pub name: String,
     pub type_params: Vec<TypeParam>, // Generic type parameters with bounds: <T: Display>
+    pub policies: Vec<String>,       // ⭐ NEW: Policies applied to this struct (with clause)
     pub impl_traits: Vec<String>,    // Traits this struct implements (inline declaration)
     pub fields: Vec<Field>,
     pub methods: Vec<Function>, // Methods defined inline (including trait implementations)
@@ -158,7 +175,8 @@ pub struct Struct {
 pub struct Field {
     pub name: String,
     pub ty: Type,
-    pub tag: Option<String>, // Go-style tags: `json:"id" db:"pk"`
+    pub tag: Option<String>,      // Go-style tags: `json:"id" db:"pk"`
+    pub metadata: Option<String>, // ⭐ NEW: Raw metadata string (parsed in compiler)
 }
 
 /// Type alias definition: type UserID = u64;
@@ -255,6 +273,7 @@ pub struct Trait {
     pub name: String,
     pub type_params: Vec<TypeParam>, // Generic type parameters with bounds: Converter<T: Display>
     pub super_traits: Vec<String>,   // Trait inheritance: trait A: B, C
+    pub associated_types: Vec<String>, // Associated types: type Item; type Output;
     pub methods: Vec<TraitMethod>,
 }
 
@@ -277,6 +296,7 @@ pub struct TraitImpl {
     pub trait_name: String,
     pub type_params: Vec<TypeParam>, // Generic params with bounds for the impl
     pub for_type: Type,              // Type implementing the trait
+    pub associated_type_bindings: Vec<(String, Type)>, // Associated type bindings: type Item = i32;
     pub methods: Vec<Function>,      // Method implementations
 }
 
@@ -729,6 +749,11 @@ pub enum BinaryOp {
     GtEq,
     And,
     Or,
+    BitAnd, // &
+    BitOr,  // |
+    BitXor, // ^
+    Shl,    // <<
+    Shr,    // >>
 }
 
 /// Unary operators

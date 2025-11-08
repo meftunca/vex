@@ -102,12 +102,12 @@ static CoroStatus producer_coro(WorkerContext *ctx, void *data)
         {
             // Kuyruk doluysa kısa bir bekleme ile tekrar dene
             worker_await_after(ctx, 1); // 1ms
-            return CORO_STATUS_RUNNING;
+            return CORO_STATUS_YIELDED;  // Timer bekle!
         }
         atomic_fetch_add(&sh->produced_total, 1);
         // üretim hızı: 2ms
         worker_await_after(ctx, 2);
-        return CORO_STATUS_RUNNING;
+        return CORO_STATUS_YIELDED;  // Timer bekle!
     }
 
     // bitti
@@ -126,7 +126,7 @@ static CoroStatus consumer_coro(WorkerContext *ctx, void *data)
         worker_await_after(ctx, 1 + (m->payload % 3));
         atomic_fetch_add(&sh->consumed_total, 1);
         free(m);
-        return CORO_STATUS_RUNNING;
+        return CORO_STATUS_YIELDED;  // Timer bekle!
     }
     else
     {
@@ -138,7 +138,7 @@ static CoroStatus consumer_coro(WorkerContext *ctx, void *data)
         }
         // kısa bekleme ile tekrar dene
         worker_await_after(ctx, 1);
-        return CORO_STATUS_RUNNING;
+        return CORO_STATUS_YIELDED;  // Timer bekle!
     }
 }
 
@@ -169,7 +169,7 @@ static CoroStatus supervisor_coro(WorkerContext *ctx, void *data)
     }
 
     worker_await_after(ctx, 5);
-    return CORO_STATUS_RUNNING;
+    return CORO_STATUS_YIELDED;  // Timer bekle!
 }
 
 int main(void)

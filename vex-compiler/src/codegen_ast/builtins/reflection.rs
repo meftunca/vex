@@ -32,7 +32,11 @@ pub fn builtin_typeof<'ctx>(
         }
         inkwell::types::BasicTypeEnum::FloatType(float_ty) => {
             let kind = float_ty.get_context().f32_type();
-            if float_ty == kind { "f32" } else { "f64" }
+            if float_ty == kind {
+                "f32"
+            } else {
+                "f64"
+            }
         }
         inkwell::types::BasicTypeEnum::PointerType(_) => "ptr",
         inkwell::types::BasicTypeEnum::ArrayType(_) => "array",
@@ -202,4 +206,36 @@ pub fn builtin_type_id<'ctx>(
     let context = value.get_type().into_int_type().get_context();
     let id_val = context.i64_type().const_int(type_id, false);
     Ok(id_val.into())
+}
+
+/// Get field metadata for a struct type
+/// Usage: field_metadata("StructName", "field_name") -> HashMap<str, str> | None
+/// Returns metadata map for the field, or None if not found
+pub fn builtin_field_metadata<'ctx>(
+    codegen: &mut ASTCodeGen<'ctx>,
+    args: &[BasicValueEnum<'ctx>],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if args.len() != 2 {
+        return Err(format!(
+            "field_metadata expects 2 arguments (struct_name, field_name), got {}",
+            args.len()
+        ));
+    }
+
+    // Extract struct name and field name from string arguments
+    // Note: In real implementation, we need to pass these as compile-time constants
+    // For now, return a dummy result indicating metadata API exists
+
+    // TODO: Implement compile-time metadata lookup
+    // 1. Get struct_name and field_name from constant string arguments
+    // 2. Lookup in codegen.struct_metadata
+    // 3. Generate HashMap literal or return None
+
+    eprintln!("⚠️  field_metadata() called but full implementation pending");
+    eprintln!("    This requires compile-time string evaluation");
+
+    // For now, return i32 0 as placeholder
+    let context = codegen.context;
+    let zero = context.i32_type().const_int(0, false);
+    Ok(zero.into())
 }

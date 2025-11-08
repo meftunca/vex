@@ -262,7 +262,7 @@ bool vex_file_rename(const char *old_path, const char *new_path)
 // DIRECTORY OPERATIONS
 // ============================================================================
 
-bool vex_dir_create(const char *path)
+bool vex_dir_create_legacy(const char *path)
 {
     if (!path)
     {
@@ -272,7 +272,7 @@ bool vex_dir_create(const char *path)
     return mkdir(path, 0755) == 0;
 }
 
-bool vex_dir_remove(const char *path)
+bool vex_dir_remove_legacy(const char *path)
 {
     if (!path)
     {

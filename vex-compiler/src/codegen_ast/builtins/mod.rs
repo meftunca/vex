@@ -126,6 +126,7 @@ impl<'ctx> BuiltinRegistry<'ctx> {
         registry.register("is_int_type", reflection::builtin_is_int_type);
         registry.register("is_float_type", reflection::builtin_is_float_type);
         registry.register("is_pointer_type", reflection::builtin_is_pointer_type);
+        registry.register("field_metadata", reflection::builtin_field_metadata);
 
         // Register HashMap functions
         registry.register("hashmap_new", hashmap::builtin_hashmap_new);

@@ -4,81 +4,75 @@
  */
 
 // Core types (compiler builtins)
-pub use Vec;
-pub use Option;
-pub use Result;
-pub use Box;
-pub use String;
+
 
 // Common traits
-pub trait Clone {
+export trait Clone {
     fn clone(&self): Self;
 }
 
-pub trait Copy {}
+export trait Copy {}
 
-pub trait Drop {
+export trait Drop {
     fn drop(&self!): void;
 }
 
-pub trait Default {
+export trait Default {
     fn default(): Self;
 }
 
 // Iterator trait
-pub trait Iterator {
+export trait Iterator {
     type Item;
     fn next(&self!): Option<Self.Item>;
 }
 
 // Comparison traits
-pub trait PartialEq {
+export trait PartialEq {
     fn eq(&self, other: &Self): bool;
-    fn ne(&self, other: &Self): bool {
-        return !self.eq(other);
-    }
+    fn ne(&self, other: &Self): bool;
 }
 
-pub trait Eq: PartialEq {}
+export trait Eq: PartialEq {}
 
-pub trait PartialOrd: PartialEq {
+export trait PartialOrd: PartialEq {
     fn partial_cmp(&self, other: &Self): Option<Ordering>;
 }
 
-pub trait Ord: Eq + PartialOrd {
+export trait Ord: Eq + PartialOrd {
     fn cmp(&self, other: &Self): Ordering;
 }
 
-pub enum Ordering {
+export enum Ordering {
     Less,
     Equal,
     Greater,
 }
 
 // Display and debug traits
-pub trait Display {
+export trait Display {
     fn fmt(&self, f: &Formatter!): Result<void, Error>;
 }
 
-pub trait Debug {
+export trait Debug {
     fn fmt(&self, f: &Formatter!): Result<void, Error>;
 }
 
 // Conversion traits
-pub trait From<T> {
+export trait From<T> {
     fn from(value: T): Self;
 }
 
-pub trait Into<T> {
+export trait Into<T> {
     fn into(self): T;
 }
 
-pub trait TryFrom<T> {
+export trait TryFrom<T> {
     type Error;
     fn try_from(value: T): Result<Self, Self.Error>;
 }
 
-pub trait TryInto<T> {
+export trait TryInto<T> {
     type Error;
     fn try_into(self): Result<T, Self.Error>;
 }

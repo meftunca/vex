@@ -112,7 +112,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     eprintln!("  → Array literal or repeat");
                     None // Arrays don't have struct names, they're stack-allocated
                 }
-                Expression::Call { span_id: _,  func, .. } => {
+                Expression::Call {
+                    span_id: _, func, ..
+                } => {
                     eprintln!("  → Call expression");
                     if let Expression::Ident(func_name) = func.as_ref() {
                         eprintln!("    → Function: {}", func_name);
@@ -224,6 +226,84 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     eprintln!("  → MapLiteral expression");
                     Some("Map".to_string())
                 }
+                Expression::Binary {
+                    left, op, right, ..
+                } => {
+                    eprintln!("  → Binary expression");
+
+                    // First check for operator overloading (struct with trait impl)
+                    let operator_result = if let Ok(left_type) = self.infer_expression_type(left) {
+                        if let Type::Named(type_name) = &left_type {
+                            let (trait_name, _method_name) = self.binary_op_to_trait(op);
+                            if !trait_name.is_empty() {
+                                if let Some(_) = self.has_operator_trait(type_name, trait_name) {
+                                    eprintln!(
+                                        "    ✅ Operator overload {} → {}",
+                                        type_name, trait_name
+                                    );
+                                    Some(type_name.clone())
+                                } else {
+                                    None
+                                }
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    };
+
+                    if operator_result.is_some() {
+                        operator_result
+                    } else if matches!(op, BinaryOp::Add) {
+                        // Check for Vec + Vec concatenation
+                        // Try to infer from left operand
+                        if let Ok(left_type) = self.infer_expression_type(left) {
+                            if let Type::Generic { name, type_args } = left_type {
+                                if name == "Vec" {
+                                    // Check if right is also Vec
+                                    if let Ok(right_type) = self.infer_expression_type(right) {
+                                        if let Type::Generic {
+                                            name: right_name, ..
+                                        } = right_type
+                                        {
+                                            if right_name == "Vec" {
+                                                eprintln!("    ✅ Vec + Vec → Vec");
+                                                // Get mangled name with type args: Vec<i32> -> Vec_i32
+                                                if !type_args.is_empty() {
+                                                    let mangled = format!(
+                                                        "Vec_{}",
+                                                        self.type_to_string(&type_args[0])
+                                                    );
+                                                    eprintln!("    → Mangled: {}", mangled);
+                                                    Some(mangled)
+                                                } else {
+                                                    Some("Vec".to_string())
+                                                }
+                                            } else {
+                                                None
+                                            }
+                                        } else {
+                                            None
+                                        }
+                                    } else {
+                                        None
+                                    }
+                                } else {
+                                    None
+                                }
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                }
                 _ => {
                     eprintln!("  → Other expression type");
                     None
@@ -272,7 +352,25 @@ impl<'ctx> ASTCodeGen<'ctx> {
             value.clone()
         };
 
-        let mut val = self.compile_expression(&adjusted_value)?;
+        // Special case: Array literal → Vec<T> conversion
+        let mut val = if let Some(Type::Vec(elem_type)) = ty {
+            if matches!(adjusted_value, Expression::Array(_)) {
+                eprintln!(
+                    "  🔧 Array→Vec conversion: Vec<{}>",
+                    self.type_to_string(elem_type)
+                );
+                // Convert array literal to Vec
+                if let Expression::Array(elements) = &adjusted_value {
+                    self.compile_vec_from_array_literal(elements, elem_type)?
+                } else {
+                    self.compile_expression(&adjusted_value)?
+                }
+            } else {
+                self.compile_expression(&adjusted_value)?
+            }
+        } else {
+            self.compile_expression(&adjusted_value)?
+        };
 
         // Determine type from value or explicit type
         let (var_type, llvm_type) = if let Some(t) = ty {
@@ -447,12 +545,20 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 "    → Is enum: {}",
                 self.enum_ast_defs.contains_key(&type_name)
             );
+
+            // Check for mangled generic types (Vec_i32, Box_String, etc.)
+            let is_mangled_generic = type_name.starts_with("Vec_")
+                || type_name.starts_with("Box_")
+                || type_name.starts_with("Map_")
+                || type_name.starts_with("Set_");
+
             if type_name == "Vec"
                 || type_name == "Box"
                 || type_name == "String"
                 || type_name == "Map"
                 || type_name == "Set"
                 || type_name == "Slice"
+                || is_mangled_generic
             {
                 eprintln!("  ✅ Tracking as builtin type: {}", type_name);
                 self.variable_struct_names
@@ -494,7 +600,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         var_type.clone()
                     }
                 }
-                Expression::Call { span_id: _,  func, .. } => {
+                Expression::Call {
+                    span_id: _, func, ..
+                } => {
                     if let Expression::FieldAccess { object, field: _ } = func.as_ref() {
                         if let Expression::Ident(enum_name) = object.as_ref() {
                             if self.enum_ast_defs.contains_key(enum_name) {
@@ -624,15 +732,23 @@ impl<'ctx> ASTCodeGen<'ctx> {
         // Detect tuple literal
         let is_tuple_literal = matches!(&adjusted_value, Expression::TupleLiteral(_));
 
+        // Check if this is a builtin pointer type (Vec, Box, String, etc.)
+        let is_builtin_pointer = matches!(&final_var_type, Type::Vec(_) | Type::Box(_))
+            || (matches!(&final_var_type, Type::Named(name) if name.starts_with("Vec_") || name.starts_with("Box_")));
+
         let is_struct_or_tuple = if let Type::Named(type_name) = &final_var_type {
             type_name == "Tuple" || self.struct_defs.contains_key(type_name)
         } else {
             is_tuple_literal
         };
 
-        if is_struct_or_tuple {
-            // value is already a pointer to stack-allocated data
+        if is_struct_or_tuple || is_builtin_pointer {
+            // value is either:
+            // 1. A pointer to stack-allocated data (from struct literal)
+            // 2. A struct value (from method/function return)
+
             if let BasicValueEnum::PointerValue(data_ptr) = val {
+                // Case 1: Direct pointer from struct literal
                 self.variables.insert(name.clone(), data_ptr);
 
                 if is_tuple_literal {
@@ -648,9 +764,17 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 } else {
                     self.variable_types.insert(name.clone(), final_llvm_type);
                 }
+            } else if let BasicValueEnum::StructValue(_struct_val) = val {
+                // Case 2: Struct returned by value (from function/method)
+                // Need to allocate storage and store the value
+                eprintln!("📦 Allocating storage for struct value returned from function");
+                let alloca = self.create_entry_block_alloca(name, &final_var_type, is_mutable)?;
+                self.build_store_aligned(alloca, val)?;
+                self.variables.insert(name.clone(), alloca);
+                self.variable_types.insert(name.clone(), final_llvm_type);
             } else {
                 return Err(format!(
-                    "Struct/Tuple literal should return pointer, got {:?}",
+                    "Struct/Tuple literal should return pointer or struct value, got {:?}",
                     val
                 ));
             }

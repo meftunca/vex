@@ -12,7 +12,8 @@ typedef struct Poller Poller;
 typedef enum {
     EVENT_TYPE_NONE     = 0,
     EVENT_TYPE_READABLE = 1,
-    EVENT_TYPE_WRITABLE = 2
+    EVENT_TYPE_WRITABLE = 2,
+    EVENT_TYPE_TIMER    = 4
 } EventType;
 
 typedef struct {
@@ -26,6 +27,9 @@ void poller_destroy(Poller* poller);
 int poller_add(Poller* poller, int fd, EventType type, void* user_data);
 int poller_remove(Poller* poller, int fd);
 int poller_wait(Poller* poller, ReadyEvent* events, int max_events, int timeout_ms);
+
+// Timer support
+int poller_set_timer(Poller* poller, uint64_t ms, void* user_data);
 
 #ifdef __cplusplus
 }

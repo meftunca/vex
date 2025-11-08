@@ -10,6 +10,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+// Include central macro definitions
+#include "vex_macros.h"
+
 // Include LLVM intrinsics
 #include "vex_intrinsics.h"
 
@@ -75,6 +78,15 @@ extern "C"
   int vex_strcmp(const char *s1, const char *s2);
 
   /**
+   * Compare two strings (n bytes)
+   * @param s1 First string
+   * @param s2 Second string
+   * @param n Maximum bytes to compare
+   * @return 0 if equal, <0 if s1 < s2, >0 if s1 > s2
+   */
+  int vex_strncmp(const char *s1, const char *s2, size_t n);
+
+  /**
    * Copy string from src to dest
    * @param dest Destination buffer
    * @param src Source string
@@ -89,6 +101,14 @@ extern "C"
    * @return Pointer to dest
    */
   char *vex_strcat(char *dest, const char *src);
+
+  /**
+   * Concatenate two strings (allocates new string)
+   * @param s1 First string
+   * @param s2 Second string
+   * @return Pointer to new concatenated string (must be freed)
+   */
+  char *vex_strcat_new(const char *s1, const char *s2);
 
   /**
    * Duplicate a string (allocates memory)
@@ -108,6 +128,40 @@ extern "C"
    * @return true if valid UTF-8, false otherwise
    */
   bool vex_utf8_valid(const char *s, size_t byte_len);
+
+  /**
+   * Validate UTF-16 string
+   * @param s UTF-16 string
+   * @param len Length in UTF-16 units
+   * @return true if valid UTF-16, false otherwise
+   */
+  bool vex_utf16_validate(const uint16_t *s, size_t len);
+
+  /**
+   * Validate UTF-32 string
+   * @param s UTF-32 string
+   * @param len Length in UTF-32 units
+   * @return true if valid UTF-32, false otherwise
+   */
+  bool vex_utf32_validate(const uint32_t *s, size_t len);
+
+  /**
+   * Convert UTF-8 to UTF-16
+   * @param src Source UTF-8 string
+   * @param len Source length in bytes
+   * @param dst Destination UTF-16 buffer
+   * @return Number of UTF-16 units written, or (size_t)-1 on error
+   */
+  size_t vex_utf8_to_utf16(const uint8_t *src, size_t len, uint16_t *dst);
+
+  /**
+   * Convert UTF-8 to UTF-32
+   * @param src Source UTF-8 string
+   * @param len Source length in bytes
+   * @param dst Destination UTF-32 buffer
+   * @return Number of UTF-32 units written, or (size_t)-1 on error
+   */
+  size_t vex_utf8_to_utf32(const uint8_t *src, size_t len, uint32_t *dst);
 
   /**
    * Count UTF-8 characters (not bytes) in a string
@@ -626,13 +680,6 @@ extern "C"
   bool vex_file_rename(const char *old_path, const char *new_path);
 
   /**
-   * Create directory
-   * @param path Directory path
-   * @return true on success
-   */
-  bool vex_dir_create(const char *path);
-
-  /**
    * Remove directory
    * @param path Directory path
    * @return true on success
@@ -712,151 +759,6 @@ extern "C"
    */
   bool vex_mmap_protect(void *addr, size_t size, int prot);
 
-  // ============================================================================
-  // TIME AND DATE
-  // ============================================================================
-
-  /**
-   * DateTime structure
-   */
-  typedef struct
-  {
-    int year;        // Year (e.g., 2025)
-    int month;       // Month (1-12)
-    int day;         // Day (1-31)
-    int hour;        // Hour (0-23)
-    int minute;      // Minute (0-59)
-    int second;      // Second (0-59)
-    int millisecond; // Millisecond (0-999)
-    int weekday;     // Day of week (0=Sunday, 6=Saturday)
-    int yearday;     // Day of year (1-366)
-  } VexDateTime;
-
-  /**
-   * High-resolution timer
-   */
-  typedef struct
-  {
-    int64_t start_ns; // Start time in nanoseconds
-    bool is_running;  // Is timer running
-  } VexTimer;
-
-  /**
-   * Get current Unix timestamp in milliseconds
-   * @return Timestamp in milliseconds since epoch
-   */
-  int64_t vex_time_now();
-
-  /**
-   * Get current Unix timestamp in microseconds
-   * @return Timestamp in microseconds since epoch
-   */
-  int64_t vex_time_now_micros();
-
-  /**
-   * Get current Unix timestamp in nanoseconds
-   * @return Timestamp in nanoseconds since epoch
-   */
-  int64_t vex_time_now_nanos();
-
-  /**
-   * Get monotonic time (for measuring durations)
-   * @return Monotonic time in nanoseconds
-   */
-  int64_t vex_time_monotonic();
-
-  /**
-   * Sleep for specified milliseconds
-   * @param millis Milliseconds to sleep
-   */
-  void vex_time_sleep(int64_t millis);
-
-  /**
-   * Sleep for specified microseconds
-   * @param micros Microseconds to sleep
-   */
-  void vex_time_sleep_micros(int64_t micros);
-
-  /**
-   * Convert timestamp to UTC datetime
-   * @param timestamp_millis Timestamp in milliseconds
-   * @return DateTime structure (caller must free)
-   */
-  VexDateTime *vex_time_to_datetime(int64_t timestamp_millis);
-
-  /**
-   * Convert timestamp to local datetime
-   * @param timestamp_millis Timestamp in milliseconds
-   * @return DateTime structure (caller must free)
-   */
-  VexDateTime *vex_time_to_local_datetime(int64_t timestamp_millis);
-
-  /**
-   * Convert datetime to timestamp
-   * @param dt DateTime structure
-   * @return Timestamp in milliseconds
-   */
-  int64_t vex_datetime_to_timestamp(const VexDateTime *dt);
-
-  /**
-   * Format datetime to string
-   * @param dt DateTime structure
-   * @param format strftime format string
-   * @return Formatted string (caller must free)
-   */
-  char *vex_time_format(const VexDateTime *dt, const char *format);
-
-  /**
-   * Free datetime structure
-   * @param dt DateTime to free
-   */
-  void vex_datetime_free(VexDateTime *dt);
-
-  /**
-   * Start high-resolution timer
-   * @return Timer handle
-   */
-  VexTimer *vex_timer_start();
-
-  /**
-   * Get elapsed nanoseconds
-   * @param timer Timer handle
-   * @return Elapsed nanoseconds
-   */
-  int64_t vex_timer_elapsed_nanos(const VexTimer *timer);
-
-  /**
-   * Get elapsed microseconds
-   * @param timer Timer handle
-   * @return Elapsed microseconds
-   */
-  int64_t vex_timer_elapsed_micros(const VexTimer *timer);
-
-  /**
-   * Get elapsed milliseconds
-   * @param timer Timer handle
-   * @return Elapsed milliseconds
-   */
-  int64_t vex_timer_elapsed_millis(const VexTimer *timer);
-
-  /**
-   * Get elapsed seconds
-   * @param timer Timer handle
-   * @return Elapsed seconds
-   */
-  double vex_timer_elapsed_seconds(const VexTimer *timer);
-
-  /**
-   * Reset timer
-   * @param timer Timer handle
-   */
-  void vex_timer_reset(VexTimer *timer);
-
-  /**
-   * Free timer
-   * @param timer Timer to free
-   */
-  void vex_timer_free(VexTimer *timer);
 
   // ============================================================================
   // HASH MAP (SwissTable)
@@ -908,6 +810,14 @@ extern "C"
    * @return Number of entries
    */
   size_t vex_map_len(const VexMap *map);
+
+  /**
+   * Remove key from map
+   * @param map Map to remove from
+   * @param key Key to remove
+   * @return true if key was found and removed, false otherwise
+   */
+  bool vex_map_remove(VexMap *map, const char *key);
 
   /**
    * Free map resources
@@ -1034,6 +944,214 @@ extern "C"
    * @return Temp dir path (caller must free)
    */
   char *vex_path_temp_dir(const char *prefix);
+
+  // ============================================================================
+  // NEW PATH OPERATIONS (Cross-platform)
+  // ============================================================================
+
+  /**
+   * Get platform path separator
+   * @return "/" on Unix, "\\" on Windows
+   */
+  const char *vex_path_separator(void);
+
+  /**
+   * Normalize path (resolve . and .., remove duplicate separators)
+   * @param path Path to normalize
+   * @return Normalized path (caller must free)
+   */
+  char *vex_path_normalize(const char *path);
+
+  /**
+   * Clean path (alias for normalize)
+   * @param path Path to clean
+   * @return Cleaned path (caller must free)
+   */
+  char *vex_path_clean(const char *path);
+
+  /**
+   * Check if path is valid
+   * @param path Path to validate
+   * @return true if valid
+   */
+  bool vex_path_is_valid(const char *path);
+
+  /**
+   * Sanitize path (remove dangerous characters)
+   * @param path Path to sanitize
+   * @return Sanitized path (caller must free)
+   */
+  char *vex_path_sanitize(const char *path);
+
+  /**
+   * Get filename without extension
+   * @param path File path
+   * @return Stem (caller must free)
+   */
+  char *vex_path_stem(const char *path);
+
+  /**
+   * Split path into components
+   * @param path Path to split
+   * @return Array of path components (char*)
+   */
+  VexArray *vex_path_components(const char *path);
+
+  /**
+   * Get parent directory (alias for dirname)
+   * @param path File path
+   * @return Parent path (caller must free)
+   */
+  char *vex_path_parent(const char *path);
+
+  /**
+   * Compare two paths for equality (normalized)
+   * @param path1 First path
+   * @param path2 Second path
+   * @return true if equal
+   */
+  bool vex_path_equals(const char *path1, const char *path2);
+
+  /**
+   * Check if path starts with prefix
+   * @param path Path to check
+   * @param prefix Prefix path
+   * @return true if starts with prefix
+   */
+  bool vex_path_starts_with(const char *path, const char *prefix);
+
+  /**
+   * Check if path ends with suffix
+   * @param path Path to check
+   * @param suffix Suffix string
+   * @return true if ends with suffix
+   */
+  bool vex_path_ends_with(const char *path, const char *suffix);
+
+  /**
+   * Check if path exists (any type)
+   * @param path Path to check
+   * @return true if exists
+   */
+  bool vex_path_exists(const char *path);
+
+  /**
+   * Check if path is a symbolic link
+   * @param path Path to check
+   * @return true if symbolic link
+   */
+  bool vex_path_is_symlink(const char *path);
+
+  /**
+   * Check if path is readable
+   * @param path Path to check
+   * @return true if readable
+   */
+  bool vex_path_is_readable(const char *path);
+
+  /**
+   * Check if path is writable
+   * @param path Path to check
+   * @return true if writable
+   */
+  bool vex_path_is_writable(const char *path);
+
+  /**
+   * Check if path is executable
+   * @param path Path to check
+   * @return true if executable
+   */
+  bool vex_path_is_executable(const char *path);
+
+  /**
+   * Create directory
+   * @param path Directory path
+   * @param mode Permission mode (Unix only)
+   * @return true on success
+   */
+  bool vex_dir_create(const char *path, int mode);
+
+  /**
+   * Create directory and all parents (mkdir -p)
+   * @param path Directory path
+   * @param mode Permission mode (Unix only)
+   * @return true on success
+   */
+  bool vex_dir_create_all(const char *path, int mode);
+
+  /**
+   * Remove empty directory
+   * @param path Directory path
+   * @return true on success
+   */
+  bool vex_dir_remove(const char *path);
+
+  /**
+   * Remove directory and all contents (rm -rf)
+   * @param path Directory path
+   * @return true on success
+   */
+  bool vex_dir_remove_all(const char *path);
+
+  /**
+   * Match path against glob pattern
+   * @param path Path to test
+   * @param pattern Glob pattern
+   * @return true if matches
+   */
+  bool vex_path_match_glob(const char *path, const char *pattern);
+
+  /**
+   * Path metadata structure
+   */
+  typedef struct
+  {
+    uint64_t size;
+    int64_t modified_time;
+    int64_t created_time;
+    int64_t accessed_time;
+    uint32_t mode;
+    bool is_dir;
+    bool is_file;
+    bool is_symlink;
+  } VexPathMetadata;
+
+  /**
+   * Get path metadata
+   * @param path Path to query
+   * @return Metadata or NULL on error (caller must free)
+   */
+  VexPathMetadata *vex_path_metadata(const char *path);
+
+  /**
+   * Get file permissions (Unix only)
+   * @param path Path to query
+   * @return Permission bits (0 on Windows)
+   */
+  uint32_t vex_path_permissions(const char *path);
+
+  /**
+   * Set file permissions (Unix only)
+   * @param path Path to modify
+   * @param mode Permission bits
+   * @return true on success (false on Windows)
+   */
+  bool vex_path_set_permissions(const char *path, uint32_t mode);
+
+  /**
+   * Create symbolic link
+   * @param target Target path
+   * @param link_path Link path
+   * @return true on success
+   */
+  bool vex_symlink_create(const char *target, const char *link_path);
+
+  /**
+   * Read symbolic link target
+   * @param link_path Link path
+   * @return Target path (caller must free)
+   */
+  char *vex_symlink_read(const char *link_path);
 
   // ============================================================================
   // STRING CONVERSION (SIMD-accelerated)
@@ -1189,17 +1307,19 @@ extern "C"
   } VexCpuFeatures;
 
   /**
-   * SIMD instruction set level
+   * SIMD instruction set level (enum values, not the detection macros)
+   * Note: VEX_SIMD_X86 and VEX_SIMD_NEON are compile-time detection macros in vex_macros.h
+   *       These enum values are for runtime CPU feature detection
    */
   typedef enum
   {
-    VEX_SIMD_NONE = 0,
-    VEX_SIMD_SSE2,
-    VEX_SIMD_AVX,
-    VEX_SIMD_AVX2,
-    VEX_SIMD_AVX512,
-    VEX_SIMD_NEON,
-    VEX_SIMD_SVE
+    VEX_SIMD_LEVEL_NONE = 0,
+    VEX_SIMD_LEVEL_SSE2,
+    VEX_SIMD_LEVEL_AVX,
+    VEX_SIMD_LEVEL_AVX2,
+    VEX_SIMD_LEVEL_AVX512,
+    VEX_SIMD_LEVEL_NEON,
+    VEX_SIMD_LEVEL_SVE
   } VexSimdLevel;
 
   /**
@@ -1311,6 +1431,7 @@ extern "C"
   bool vex_vec_is_empty(vex_vec_t *vec);
   void vex_vec_clear(vex_vec_t *vec);
   void vex_vec_free(vex_vec_t *vec);
+  vex_vec_t *vex_vec_concat(vex_vec_t *v1, vex_vec_t *v2);
 
   // --- String - UTF-8 String Type ---
 

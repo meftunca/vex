@@ -19,6 +19,10 @@ pub enum Token {
     Trait,
     #[token("impl")]
     Impl,
+    #[token("policy")]
+    Policy,
+    #[token("with")]
+    With,
     #[token("async")]
     Async,
     #[token("await")]
@@ -155,14 +159,18 @@ pub enum Token {
     EqEq,
     #[token("!=")]
     NotEq,
-    #[token("<")]
-    Lt,
     #[token("<=")]
     LtEq,
-    #[token(">")]
-    Gt,
     #[token(">=")]
     GtEq,
+    #[token("<<")]
+    LShift,
+    #[token(">>")]
+    RShift,
+    #[token("<")]
+    Lt,
+    #[token(">")]
+    Gt,
     #[token("&&")]
     And,
     #[token("||")]
@@ -173,6 +181,8 @@ pub enum Token {
     Ampersand,
     #[token("|")]
     Pipe,
+    #[token("^")]
+    Caret,
     #[token("?")]
     Question,
 

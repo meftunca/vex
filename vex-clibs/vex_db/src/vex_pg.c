@@ -13,6 +13,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+/* PostgreSQL connection context to cache notifications */
+typedef struct {
+    PGconn *conn;
+    PGnotify *cached_notify;
+} PgContext;
+
 static const char* pg_column_name_impl(void *r, uint32_t i) {
     return PQfname((PGresult*)r, (int)i);
 }
@@ -29,12 +35,22 @@ static int pg_column_is_binary_impl(void *r, uint32_t i) {
 static VexConnection pg_connect(const char *conninfo){
     VexConnection c = {0};
     c.api_version = VEX_DB_API_VERSION;
-    c.capabilities = VEX_CAP_SQL | VEX_CAP_ASYNC | VEX_CAP_BINARY_PARAMS;
-    PGconn *pg = PQconnectdb(conninfo ? conninfo : "");
-    c.native_conn = pg;
-    if (PQstatus(pg) != CONNECTION_OK) {
+    c.capabilities = VEX_CAP_SQL | VEX_CAP_ASYNC | VEX_CAP_BINARY_PARAMS | VEX_CAP_TXN | VEX_CAP_PUBSUB | VEX_CAP_STREAMING;
+    
+    PgContext *ctx = (PgContext*)calloc(1, sizeof(PgContext));
+    if (!ctx) {
         c.error.code = VEX_DB_ERROR_CONNECT;
-        snprintf(c.error.message, sizeof(c.error.message), "%s", PQerrorMessage(pg));
+        snprintf(c.error.message, sizeof(c.error.message), "out of memory");
+        return c;
+    }
+    
+    ctx->conn = PQconnectdb(conninfo ? conninfo : "");
+    ctx->cached_notify = NULL;
+    
+    c.native_conn = ctx;
+    if (PQstatus(ctx->conn) != CONNECTION_OK) {
+        c.error.code = VEX_DB_ERROR_CONNECT;
+        snprintf(c.error.message, sizeof(c.error.message), "%s", PQerrorMessage(ctx->conn));
     } else {
         c.error.code = VEX_DB_OK;
     }
@@ -43,14 +59,20 @@ static VexConnection pg_connect(const char *conninfo){
 
 static void pg_disconnect(VexConnection *conn){
     if (!conn || !conn->native_conn) return;
-    PQfinish((PGconn*)conn->native_conn);
+    PgContext *ctx = (PgContext*)conn->native_conn;
+    if (ctx->cached_notify) {
+        PQfreemem(ctx->cached_notify);
+    }
+    PQfinish(ctx->conn);
+    free(ctx);
     conn->native_conn = NULL;
 }
 
 static VexResultSet pg_execute_query(VexConnection *conn, const char *query,
                                      int nParams, const VexDbValue *params){
     VexResultSet rs = {0};
-    PGconn *pg = (PGconn*)conn->native_conn;
+    PgContext *ctx = (PgContext*)conn->native_conn;
+    PGconn *pg = ctx->conn;
     const char *vals[256]={0}; int lens[256]={0}; int fmts[256]={0};
     if (nParams > 256) nParams = 256;
     for (int i=0;i<nParams;i++){ vals[i]=(const char*)params[i].data; lens[i]=(int)params[i].length; fmts[i]=params[i].is_binary?1:0; }
@@ -106,27 +128,28 @@ static void pg_clear_result(VexResultSet *res){
 }
 
 /* Async helpers */
-static int pg_get_event_fd(VexConnection *c){ return PQsocket((PGconn*)c->native_conn); }
+static int pg_get_event_fd(VexConnection *c){ return PQsocket(((PgContext*)c->native_conn)->conn); }
 static int pg_wants_read(VexConnection *c){ (void)c; return 1; }
 static int pg_wants_write(VexConnection *c){ (void)c; return 0; }
 static int pg_start_execute(VexConnection *c,const char *q,int n,const VexDbValue *p){
-    PGconn *pg=(PGconn*)c->native_conn;
+    PGconn *pg=((PgContext*)c->native_conn)->conn;
     const char *vals[256]={0}; int lens[256]={0}; int fmts[256]={0};
     if(n>256) n=256; for(int i=0;i<n;i++){ vals[i]=(const char*)p[i].data; lens[i]=(int)p[i].length; fmts[i]=p[i].is_binary?1:0; }
     return PQsendQueryParams(pg,q,n,NULL,vals,lens,fmts,1)?0:-1;
 }
-static int pg_poll_ready(VexConnection *c){ PGconn *pg=(PGconn*)c->native_conn; if(!PQconsumeInput(pg)) return -1; return PQisBusy(pg)?0:1; }
-static int pg_result_ready(VexConnection *c){ PGconn *pg=(PGconn*)c->native_conn; return PQisBusy(pg)?0:1; }
-static VexResultSet pg_get_result(VexConnection *c){ VexResultSet rs={0}; PGresult *pr=PQgetResult((PGconn*)c->native_conn); if(!pr){ rs.error.code=VEX_DB_ERROR_NOT_FOUND; return rs; } rs.native_result=pr; rs.column_count=(uint32_t)PQnfields(pr); rs._row_index=0; return rs; }
-static int pg_cancel(VexConnection *c){ return PQrequestCancel((PGconn*)c->native_conn)?0:-1; }
+static int pg_poll_ready(VexConnection *c){ PGconn *pg=((PgContext*)c->native_conn)->conn; if(!PQconsumeInput(pg)) return -1; return PQisBusy(pg)?0:1; }
+static int pg_result_ready(VexConnection *c){ PGconn *pg=((PgContext*)c->native_conn)->conn; return PQisBusy(pg)?0:1; }
+static VexResultSet pg_get_result(VexConnection *c){ VexResultSet rs={0}; PGresult *pr=PQgetResult(((PgContext*)c->native_conn)->conn); if(!pr){ rs.error.code=VEX_DB_ERROR_NOT_FOUND; return rs; } rs.native_result=pr; rs.column_count=(uint32_t)PQnfields(pr); rs._row_index=0; return rs; }
+static int pg_cancel(VexConnection *c){ return PQrequestCancel(((PgContext*)c->native_conn)->conn)?0:-1; }
 static void pg_set_timeout_ms(VexConnection *c,uint32_t ms){ (void)c; (void)ms; }
 
 /* Pub/Sub support (LISTEN/NOTIFY) */
 static int pg_subscribe(VexConnection *c, const char *channel) {
     if (!c || !channel) return -1;
+    PgContext *ctx = (PgContext*)c->native_conn;
     char query[256];
     snprintf(query, sizeof(query), "LISTEN %s", channel);
-    PGresult *res = PQexec((PGconn*)c->native_conn, query);
+    PGresult *res = PQexec(ctx->conn, query);
     int success = (PQresultStatus(res) == PGRES_COMMAND_OK) ? 0 : -1;
     PQclear(res);
     return success;
@@ -134,9 +157,10 @@ static int pg_subscribe(VexConnection *c, const char *channel) {
 
 static int pg_unsubscribe(VexConnection *c, const char *channel) {
     if (!c || !channel) return -1;
+    PgContext *ctx = (PgContext*)c->native_conn;
     char query[256];
     snprintf(query, sizeof(query), "UNLISTEN %s", channel);
-    PGresult *res = PQexec((PGconn*)c->native_conn, query);
+    PGresult *res = PQexec(ctx->conn, query);
     int success = (PQresultStatus(res) == PGRES_COMMAND_OK) ? 0 : -1;
     PQclear(res);
     return success;
@@ -146,6 +170,7 @@ static int pg_publish(VexConnection *c, const char *channel, const char *message
     if (!c || !channel || !message) return -1;
     (void)message_len; /* PostgreSQL NOTIFY uses null-terminated strings */
     
+    PgContext *ctx = (PgContext*)c->native_conn;
     char query[1024];
     /* Escape single quotes in message */
     char escaped_msg[512];
@@ -161,7 +186,7 @@ static int pg_publish(VexConnection *c, const char *channel, const char *message
     escaped_msg[j] = '\0';
     
     snprintf(query, sizeof(query), "NOTIFY %s, '%s'", channel, escaped_msg);
-    PGresult *res = PQexec((PGconn*)c->native_conn, query);
+    PGresult *res = PQexec(ctx->conn, query);
     int success = (PQresultStatus(res) == PGRES_COMMAND_OK) ? 0 : -1;
     PQclear(res);
     return success;
@@ -169,13 +194,18 @@ static int pg_publish(VexConnection *c, const char *channel, const char *message
 
 static int pg_poll_notifications(VexConnection *c) {
     if (!c) return -1;
-    PGconn *pg = (PGconn*)c->native_conn;
-    PQconsumeInput(pg);
-    PGnotify *notify = PQnotifies(pg);
+    PgContext *ctx = (PgContext*)c->native_conn;
+    
+    /* If we already have a cached notification, return 1 */
+    if (ctx->cached_notify) {
+        return 1;
+    }
+    
+    PQconsumeInput(ctx->conn);
+    PGnotify *notify = PQnotifies(ctx->conn);
     if (notify) {
-        /* Put it back for get_notification to retrieve */
-        /* Note: We can't really put it back, so we'll use a different approach */
-        PQfreemem(notify);
+        /* Cache it for get_notification */
+        ctx->cached_notify = notify;
         return 1; /* Has notifications */
     }
     return 0; /* No notifications */
@@ -185,9 +215,19 @@ static VexDbPayload pg_get_notification(VexConnection *c) {
     VexDbPayload p = {0};
     if (!c) return p;
     
-    PGconn *pg = (PGconn*)c->native_conn;
-    PQconsumeInput(pg);
-    PGnotify *notify = PQnotifies(pg);
+    PgContext *ctx = (PgContext*)c->native_conn;
+    
+    /* Check cached notification first */
+    PGnotify *notify = ctx->cached_notify;
+    
+    if (!notify) {
+        /* Try to get a new one */
+        PQconsumeInput(ctx->conn);
+        notify = PQnotifies(ctx->conn);
+    } else {
+        /* Clear the cache */
+        ctx->cached_notify = NULL;
+    }
     
     if (notify) {
         /* Format: "channel:payload" */
@@ -210,7 +250,8 @@ static VexDbPayload pg_get_notification(VexConnection *c) {
 /* Transaction support */
 static int pg_begin_transaction(VexConnection *c) {
     if (!c) return -1;
-    PGresult *res = PQexec((PGconn*)c->native_conn, "BEGIN");
+    PgContext *ctx = (PgContext*)c->native_conn;
+    PGresult *res = PQexec(ctx->conn, "BEGIN");
     int success = (PQresultStatus(res) == PGRES_COMMAND_OK) ? 0 : -1;
     PQclear(res);
     return success;
@@ -218,7 +259,8 @@ static int pg_begin_transaction(VexConnection *c) {
 
 static int pg_commit_transaction(VexConnection *c) {
     if (!c) return -1;
-    PGresult *res = PQexec((PGconn*)c->native_conn, "COMMIT");
+    PgContext *ctx = (PgContext*)c->native_conn;
+    PGresult *res = PQexec(ctx->conn, "COMMIT");
     int success = (PQresultStatus(res) == PGRES_COMMAND_OK) ? 0 : -1;
     PQclear(res);
     return success;
@@ -226,7 +268,8 @@ static int pg_commit_transaction(VexConnection *c) {
 
 static int pg_rollback_transaction(VexConnection *c) {
     if (!c) return -1;
-    PGresult *res = PQexec((PGconn*)c->native_conn, "ROLLBACK");
+    PgContext *ctx = (PgContext*)c->native_conn;
+    PGresult *res = PQexec(ctx->conn, "ROLLBACK");
     int success = (PQresultStatus(res) == PGRES_COMMAND_OK) ? 0 : -1;
     PQclear(res);
     return success;
@@ -235,12 +278,13 @@ static int pg_rollback_transaction(VexConnection *c) {
 /* Cursor-based streaming */
 static int pg_declare_cursor(VexConnection *c, const char *cursor_name, const char *query) {
     if (!c || !cursor_name || !query) return -1;
+    PgContext *ctx = (PgContext*)c->native_conn;
     
     char declare_query[2048];
     snprintf(declare_query, sizeof(declare_query), 
              "DECLARE %s CURSOR FOR %s", cursor_name, query);
     
-    PGresult *res = PQexec((PGconn*)c->native_conn, declare_query);
+    PGresult *res = PQexec(ctx->conn, declare_query);
     int success = (PQresultStatus(res) == PGRES_COMMAND_OK) ? 0 : -1;
     PQclear(res);
     return success;
@@ -252,12 +296,13 @@ static VexResultSet pg_fetch_from_cursor(VexConnection *c, const char *cursor_na
         rs.error.code = VEX_DB_ERROR_INVALID_PARAM;
         return rs;
     }
+    PgContext *ctx = (PgContext*)c->native_conn;
     
     char fetch_query[256];
     snprintf(fetch_query, sizeof(fetch_query), 
              "FETCH %d FROM %s", fetch_size, cursor_name);
     
-    PGresult *pr = PQexec((PGconn*)c->native_conn, fetch_query);
+    PGresult *pr = PQexec(ctx->conn, fetch_query);
     rs.native_result = pr;
     
     if (!pr || PQresultStatus(pr) != PGRES_TUPLES_OK) {
@@ -280,11 +325,12 @@ static VexResultSet pg_fetch_from_cursor(VexConnection *c, const char *cursor_na
 
 static int pg_close_cursor(VexConnection *c, const char *cursor_name) {
     if (!c || !cursor_name) return -1;
+    PgContext *ctx = (PgContext*)c->native_conn;
     
     char close_query[256];
     snprintf(close_query, sizeof(close_query), "CLOSE %s", cursor_name);
     
-    PGresult *res = PQexec((PGconn*)c->native_conn, close_query);
+    PGresult *res = PQexec(ctx->conn, close_query);
     int success = (PQresultStatus(res) == PGRES_COMMAND_OK) ? 0 : -1;
     PQclear(res);
     return success;

@@ -114,22 +114,26 @@ static void test_pg_transactions() {
         return;
     }
     
-    // Begin transaction
+    // Clean up any existing Charlie records from previous test runs
+    VexResultSet cleanup = VEX_DRIVER_POSTGRES.execute_query(&conn, 
+        "DELETE FROM test_users WHERE name IN ('Charlie', 'Diana')", 0, NULL);
+    VEX_DRIVER_POSTGRES.clear_result(&cleanup);
+    
+    // Test 1: Rollback should undo changes
     int result = VEX_DRIVER_POSTGRES.begin_transaction(&conn);
     ASSERT(result == 0, "Failed to begin transaction");
     
-    // Insert in transaction
     VexResultSet rs = VEX_DRIVER_POSTGRES.execute_query(&conn, 
         "INSERT INTO test_users (name, age) VALUES ('Charlie', 35)", 0, NULL);
     VEX_DRIVER_POSTGRES.clear_result(&rs);
     
-    // Rollback
     result = VEX_DRIVER_POSTGRES.rollback_transaction(&conn);
     ASSERT(result == 0, "Failed to rollback");
     
-    // Verify rollback
+    // Verify rollback worked - Charlie should not exist
+    // Use CAST to get text result instead of binary integer
     rs = VEX_DRIVER_POSTGRES.execute_query(&conn, 
-        "SELECT COUNT(*) FROM test_users WHERE name = 'Charlie'", 0, NULL);
+        "SELECT CAST(COUNT(*) AS TEXT) FROM test_users WHERE name = 'Charlie'", 0, NULL);
     VexDbPayload p = VEX_DRIVER_POSTGRES.fetch_next(&rs);
     ASSERT(p.data && p.data[0] == '0', "Transaction not rolled back");
     VEX_DRIVER_POSTGRES.clear_result(&rs);
@@ -247,9 +251,11 @@ static void test_mysql_full_crud() {
     
     extern VexDbDriver VEX_DRIVER_MYSQL;
     
-    VexConnection conn = VEX_DRIVER_MYSQL.connect("host=localhost user=vexdb password=vexdb_test db=vexdb_test port=3306");
+    VexConnection conn = VEX_DRIVER_MYSQL.connect("host=127.0.0.1 user=vexdb password=vexdb_test db=vexdb_test port=3306");
     if (conn.error.code != VEX_DB_OK) {
-        SKIP("MySQL not available");
+        char skip_msg[512];
+        snprintf(skip_msg, sizeof(skip_msg), "MySQL not available: %s", conn.error.message);
+        SKIP(skip_msg);
         return;
     }
     
@@ -287,9 +293,11 @@ static void test_mysql_transactions() {
     
     extern VexDbDriver VEX_DRIVER_MYSQL;
     
-    VexConnection conn = VEX_DRIVER_MYSQL.connect("host=localhost user=vexdb password=vexdb_test db=vexdb_test port=3306");
+    VexConnection conn = VEX_DRIVER_MYSQL.connect("host=127.0.0.1 user=vexdb password=vexdb_test db=vexdb_test port=3306");
     if (conn.error.code != VEX_DB_OK) {
-        SKIP("MySQL not available");
+        char skip_msg[512];
+        snprintf(skip_msg, sizeof(skip_msg), "MySQL not available: %s", conn.error.message);
+        SKIP(skip_msg);
         return;
     }
     

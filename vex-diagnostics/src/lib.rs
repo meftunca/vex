@@ -257,20 +257,16 @@ impl Diagnostic {
         // Line number with padding
         let line_num_width = self.span.line.to_string().len().max(2);
 
-        // Empty line
+        // Empty line before source
         snippet.push_str(&format!(" {}\n", " ".repeat(line_num_width + 1).cyan()));
 
-        // Actual source line
+        // Actual source line with line number
         snippet.push_str(&format!(
-            " {} {}\n",
+            " {} {} {}\n",
             format!("{:>width$}", self.span.line, width = line_num_width)
                 .cyan()
                 .bold(),
-            "| ".cyan().bold()
-        ));
-        snippet.push_str(&format!(
-            " {} {}\n",
-            " ".repeat(line_num_width + 1).cyan(),
+            "|".cyan().bold(),
             line
         ));
 

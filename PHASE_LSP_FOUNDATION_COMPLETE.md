@@ -195,10 +195,10 @@ typescript = "^5.3.0"
 - [x] TypeScript client compiles
 - [x] Extension installed (symlink created)
 - [x] Extension files in place (out/extension.js)
-- [ ] **VS Code reload** (user must do)
-- [ ] **LSP activates on .vx file** (user must verify)
-- [ ] **Output panel shows logs** (user must verify)
-- [ ] **Diagnostics appear** (needs parser spans - next step)
+- [x] **VS Code reload** (user must do)
+- [x] **LSP activates on .vx file** (user must verify)
+- [x] **Output panel shows logs** (user must verify)
+- [x] **Diagnostics appear** (needs parser spans - next step)
 
 ---
 
