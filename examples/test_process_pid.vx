@@ -1,8 +1,0 @@
-// Test: Process module - pid() function
-import { pid } from "process";
-
-fn main(): i32 {
-    let process_id: i32 = pid();
-    // Test passes if we get a valid PID (non-zero)
-    return 0;
-}

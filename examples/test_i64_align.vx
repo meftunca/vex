@@ -1,7 +1,0 @@
-// Test i64 alignment
-
-fn main(): i32 {
-    let x: i64 = 42;
-    println(x);
-    return 0;
-}

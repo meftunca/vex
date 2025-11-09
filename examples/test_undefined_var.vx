@@ -1,6 +1,0 @@
-// Test undefined variable diagnostic
-
-fn main(): i32 {
-    let x = 42;
-    return y;  // ❌ Error: undefined variable
-}
