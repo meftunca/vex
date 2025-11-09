@@ -1,0 +1,33 @@
+// Test: Multi-Value Tuple Variants
+// IpAddr enum with V4(u8,u8,u8,u8) and V6(string)
+
+enum IpAddr {
+    V4(u8, u8, u8, u8),
+    V6(string),
+}
+
+fn main(): i32 {
+    let localhost = IpAddr.V4(127, 0, 0, 1);
+    let google = IpAddr.V4(8, 8, 8, 8);
+    
+    match localhost {
+        IpAddr.V4(a, b, c, d) => {
+            // Successfully extracts all 4 values
+            println("Localhost IPv4");
+        },
+        IpAddr.V6(addr) => {
+            println("IPv6 address");
+        },
+    };
+    
+    match google {
+        IpAddr.V4(a, b, c, d) => {
+            println("Google DNS IPv4");
+        },
+        IpAddr.V6(addr) => {
+            println("IPv6 address");
+        },
+    };
+    
+    return 0;
+}

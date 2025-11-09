@@ -4,7 +4,7 @@
 fn divide(a: i32, b: i32): Result<i32, string> {
     if b == 0 {
         return Err("Division by zero");
-    };
+    }
     return Ok(a / b);
 }
 

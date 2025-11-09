@@ -156,7 +156,9 @@ enum Message {
 
 ### Tuple Variants ✅ COMPLETE (v0.9.2)
 
-Enum variants can carry data in tuple form (single value):
+Enum variants can carry data in tuple form:
+
+**Single-Value Tuple Variants**:
 
 ```vex
 enum Option<T> {
@@ -173,22 +175,37 @@ let x = Option.Some(42);
 let result = Result.Ok("success");
 ```
 
-**Implementation Details**:
-
-- Parser: `vex-parser/src/parser/enums.rs`
-- Codegen: `vex-compiler/src/codegen_ast/enums.rs`
-- Tagged union representation: `{ i32 tag, <data_type> value }`
-- Pattern matching: Full support in `compile_pattern_check()`
-- Test: `examples/06_patterns/enum_data.vx`
-
-**Multi-Value Tuple Variants (Future)**:
+**Multi-Value Tuple Variants** ✅ NEW (v0.9.2):
 
 ```vex
 enum IpAddr {
-    V4(u8, u8, u8, u8),  // Multiple tuple fields - not yet supported
+    V4(u8, u8, u8, u8),
     V6(string),
 }
+
+let localhost = IpAddr.V4(127, 0, 0, 1);
+let google = IpAddr.V4(8, 8, 8, 8);
+
+match localhost {
+    IpAddr.V4(a, b, c, d) => {
+        // Successfully extracts all 4 values
+    },
+    IpAddr.V6(addr) => {
+        // Single value extraction
+    },
+};
 ```
+
+**Implementation Details**:
+
+- Parser: `vex-parser/src/parser/items/enums.rs` - Supports `data: Vec<Type>`
+- Codegen: `vex-compiler/src/codegen_ast/enums.rs`
+- Tagged union representation: `{ i32 tag, struct { T1, T2, T3, ... } data }`
+- Pattern matching: Full support in `compile_pattern_check()` for multi-value extraction
+- Tests: 
+  - `examples/06_patterns/enum_data.vx` (single-value)
+  - `examples/06_patterns/enum_multi_tuple.vx` (multi-value)
+
 
 ### Struct Variants (Future)
 

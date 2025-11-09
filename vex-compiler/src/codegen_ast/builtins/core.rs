@@ -371,6 +371,23 @@ fn convert_to_vex_value<'ctx>(
                 .map_err(|e| format!("Failed to convert ptr to int: {}", e))?;
             (5, as_i64.into()) // VEX_VALUE_STRING (or PTR)
         }
+        BasicValueEnum::StructValue(struct_val) => {
+            // Struct: For now, use its address (convert to ptr first)
+            // TODO: Full struct printing support
+            let struct_ptr = codegen
+                .builder
+                .build_alloca(struct_val.get_type(), "struct_temp")
+                .map_err(|e| format!("Failed to allocate struct temp: {}", e))?;
+            codegen
+                .builder
+                .build_store(struct_ptr, struct_val)
+                .map_err(|e| format!("Failed to store struct: {}", e))?;
+            let as_i64 = codegen
+                .builder
+                .build_ptr_to_int(struct_ptr, codegen.context.i64_type(), "struct_ptr_to_int")
+                .map_err(|e| format!("Failed to convert struct ptr to int: {}", e))?;
+            (6, as_i64.into()) // VEX_VALUE_PTR
+        }
         _ => {
             return Err(format!("Unsupported type for VexValue: {:?}", val));
         }
