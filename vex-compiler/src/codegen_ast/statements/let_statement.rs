@@ -605,6 +605,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 || type_name == "Map"
                 || type_name == "Set"
                 || type_name == "Slice"
+                || type_name == "Result"
+                || type_name == "Option"
                 || is_mangled_generic
             {
                 eprintln!("  ✅ Tracking as builtin type: {}", type_name);

@@ -198,14 +198,74 @@ match localhost {
 
 **Implementation Details**:
 
-- Parser: `vex-parser/src/parser/items/enums.rs` - Supports `data: Vec<Type>`
-- Codegen: `vex-compiler/src/codegen_ast/enums.rs`
-- Tagged union representation: `{ i32 tag, struct { T1, T2, T3, ... } data }`
-- Pattern matching: Full support in `compile_pattern_check()` for multi-value extraction
-- Tests: 
-  - `examples/06_patterns/enum_data.vx` (single-value)
-  - `examples/06_patterns/enum_multi_tuple.vx` (multi-value)
+- **Parser**: `vex-parser/src/parser/items/enums.rs` - Supports `data: Vec<Type>`
+  - Syntax: `VariantName(Type1, Type2, Type3, ...)`
+  - Parses comma-separated type list in parentheses
+  - Empty `Vec` for unit variants
+- **AST**: `vex-ast/src/lib.rs`
+  - `EnumVariant { name: String, data: Vec<Type> }`
+  - Supports 0+ tuple fields per variant
+- **Codegen**: `vex-compiler/src/codegen_ast/enums.rs`
+  - Single-value: Direct data storage `{ i32 tag, T data }`
+  - Multi-value: Nested struct `{ i32 tag, struct { T1, T2, T3 } data }`
+  - Tag: i32 discriminant (variant index)
+  - Memory layout optimized for type size
+- **Pattern Matching**: `vex-compiler/src/codegen_ast/expressions/pattern_matching.rs`
+  - `compile_pattern_check()`: Tag validation + data extraction
+  - `compile_pattern_binding()`: Binds each tuple field to pattern variable
+  - Multi-value: Extracts each field from data struct via `build_extract_value()`
+  - Full support for nested patterns
+- **Tests**:
+  - `examples/06_patterns/enum_data.vx` - Single-value variants (Option, Result)
+  - `examples/06_patterns/enum_multi_tuple.vx` - Multi-value variants (IpAddr)
+  - `examples/04_types/enum_data_complete.vx` - Comprehensive enum tests
 
+**Memory Layout Example**:
+
+```c
+// IpAddr.V4(127, 0, 0, 1) in memory:
+struct {
+    i32 tag;        // 0 (variant index)
+    struct {
+        u8 field_0; // 127
+        u8 field_1; // 0
+        u8 field_2; // 0
+        u8 field_3; // 1
+    } data;
+}
+```
+
+**Advanced Examples**:
+
+```vex
+// Complex multi-value tuples
+enum Message {
+    Move(i32, i32),                    // 2 fields
+    Color(u8, u8, u8, u8),             // 4 fields (RGBA)
+    Transform(f32, f32, f32, f32, f32, f32),  // 6 fields (matrix)
+}
+
+let msg = Message.Color(255, 128, 64, 255);
+
+match msg {
+    Message.Move(x, y) => {
+        println("Move to ({}, {})", x, y);
+    },
+    Message.Color(r, g, b, a) => {
+        println("Color: rgba({}, {}, {}, {})", r, g, b, a);
+    },
+    Message.Transform(a, b, c, d, e, f) => {
+        println("Transform matrix");
+    },
+};
+```
+
+**Type Constraints**:
+
+- All tuple fields must have concrete types (no inference)
+- Generic types are supported: `Some(T)`, `V4(T, T, T, T)`
+- Recursive types allowed: `Node(i32, Box<Node>)`
+- No tuple size limit (practical limit: 255 fields)
 
 ### Struct Variants (Future)
 

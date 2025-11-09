@@ -3,6 +3,7 @@
 
 use std::collections::HashMap;
 use vex_ast::{Function, Program, Struct, Trait, TraitBound, Type, TypeParam};
+use vex_diagnostics::DiagnosticEngine;
 
 pub struct TraitBoundsChecker {
     // Maps struct/type names to their trait implementations
@@ -11,6 +12,9 @@ pub struct TraitBoundsChecker {
 
     // Maps trait names to their definitions
     traits: HashMap<String, Trait>,
+
+    // Diagnostic engine for error reporting
+    diagnostics: DiagnosticEngine,
 }
 
 impl TraitBoundsChecker {
@@ -18,7 +22,16 @@ impl TraitBoundsChecker {
         Self {
             type_impls: HashMap::new(),
             traits: HashMap::new(),
+            diagnostics: DiagnosticEngine::new(),
         }
+    }
+
+    pub fn diagnostics(&self) -> &DiagnosticEngine {
+        &self.diagnostics
+    }
+
+    pub fn diagnostics_mut(&mut self) -> &mut DiagnosticEngine {
+        &mut self.diagnostics
     }
 
     /// Initialize checker with program information
@@ -55,10 +68,14 @@ impl TraitBoundsChecker {
 
     /// Check if a function call with generic type arguments satisfies trait bounds
     /// Example: print_value<Point>(...) where print_value<T: Display>
-    pub fn check_function_bounds(&self, func: &Function, type_args: &[Type]) -> Result<(), String> {
+    pub fn check_function_bounds(
+        &mut self,
+        func: &Function,
+        type_args: &[Type],
+    ) -> Result<(), String> {
         if func.type_params.len() != type_args.len() {
             return Err(format!(
-                "Function '{}' expects {} type parameters, got {}",
+                "Generic argument count mismatch for function '{}': expected {} type parameters, got {}",
                 func.name,
                 func.type_params.len(),
                 type_args.len()
@@ -76,13 +93,13 @@ impl TraitBoundsChecker {
     /// Check if a struct instantiation with generic type arguments satisfies trait bounds
     /// Example: Box<Point> where Box<T: Clone>
     pub fn check_struct_bounds(
-        &self,
+        &mut self,
         struct_def: &Struct,
         type_args: &[Type],
     ) -> Result<(), String> {
         if struct_def.type_params.len() != type_args.len() {
             return Err(format!(
-                "Struct '{}' expects {} type parameters, got {}",
+                "Generic argument count mismatch for struct '{}': expected {} type parameters, got {}",
                 struct_def.name,
                 struct_def.type_params.len(),
                 type_args.len()
@@ -99,7 +116,7 @@ impl TraitBoundsChecker {
 
     /// Check if a concrete type satisfies the trait bounds of a type parameter
     fn check_type_bounds(
-        &self,
+        &mut self,
         type_param: &TypeParam,
         concrete_type: &Type,
     ) -> Result<(), String> {
@@ -116,7 +133,7 @@ impl TraitBoundsChecker {
                 TraitBound::Simple(trait_name) => {
                     if !self.type_implements_trait(&type_name, trait_name) {
                         return Err(format!(
-                            "Type '{}' does not implement trait '{}' required by type parameter '{}'",
+                            "Trait bound not satisfied: type `{}` does not implement trait `{}` (required by type parameter `{}`)",
                             type_name, trait_name, type_param.name
                         ));
                     }
@@ -131,7 +148,7 @@ impl TraitBoundsChecker {
                         }
                         _ => {
                             return Err(format!(
-                                "Type '{}' does not implement closure trait '{}' required by type parameter '{}'",
+                                "Trait bound not satisfied: type `{}` does not implement closure trait `{}` (required by type parameter `{}`)",
                                 type_name, trait_name, type_param.name
                             ));
                         }

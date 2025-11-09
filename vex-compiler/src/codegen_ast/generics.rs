@@ -16,7 +16,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         }
 
         // ⭐ NEW: Check trait bounds before instantiation
-        if let Some(ref checker) = self.trait_bounds_checker {
+        if let Some(ref mut checker) = self.trait_bounds_checker {
             checker.check_function_bounds(func_def, type_args)?;
             eprintln!(
                 "✅ Trait bounds validated for {}::<{}>",
@@ -99,7 +99,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         }
 
         // ⭐ NEW: Check trait bounds before instantiation
-        if let Some(ref checker) = self.trait_bounds_checker {
+        if let Some(ref mut checker) = self.trait_bounds_checker {
             checker.check_struct_bounds(&struct_ast, type_args)?;
             eprintln!(
                 "✅ Trait bounds validated for {}<{}>",

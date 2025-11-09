@@ -643,30 +643,60 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 let enum_name = if name.is_empty() {
                     // Infer enum name from variant by searching all enums
                     let mut found_enum = None;
-                    for (e_name, e_def) in &self.enum_ast_defs {
-                        if e_def.variants.iter().any(|v| v.name == *variant) {
-                            found_enum = Some(e_name.clone());
-                            break;
+
+                    // First check builtins
+                    if *variant == "Some" || *variant == "None" {
+                        found_enum = Some("Option".to_string());
+                    } else if *variant == "Ok" || *variant == "Err" {
+                        found_enum = Some("Result".to_string());
+                    } else {
+                        // Search user-defined enums
+                        for (e_name, e_def) in &self.enum_ast_defs {
+                            if e_def.variants.iter().any(|v| v.name == *variant) {
+                                found_enum = Some(e_name.clone());
+                                break;
+                            }
                         }
                     }
+
                     found_enum
                         .ok_or_else(|| format!("Cannot find enum for variant '{}'", variant))?
                 } else {
                     name.clone()
                 };
 
-                let enum_def = self
-                    .enum_ast_defs
-                    .get(&enum_name)
-                    .ok_or_else(|| format!("Enum '{}' not found", enum_name))?;
+                // Handle builtin enums (Result, Option) - they don't have AST definitions
+                let is_builtin_enum = enum_name == "Result" || enum_name == "Option";
 
-                let variant_index = enum_def
-                    .variants
-                    .iter()
-                    .position(|v| v.name == *variant)
-                    .ok_or_else(|| {
-                        format!("Variant '{}' not found in enum '{}'", variant, enum_name)
-                    })?;
+                let variant_index = if is_builtin_enum {
+                    // Builtin enums have fixed variant indices
+                    if enum_name == "Option" {
+                        if *variant == "Some" {
+                            0
+                        } else {
+                            1
+                        } // None
+                    } else {
+                        if *variant == "Ok" {
+                            0
+                        } else {
+                            1
+                        } // Err
+                    }
+                } else {
+                    let enum_def = self
+                        .enum_ast_defs
+                        .get(&enum_name)
+                        .ok_or_else(|| format!("Enum '{}' not found", enum_name))?;
+
+                    enum_def
+                        .variants
+                        .iter()
+                        .position(|v| v.name == *variant)
+                        .ok_or_else(|| {
+                            format!("Variant '{}' not found in enum '{}'", variant, enum_name)
+                        })?
+                };
 
                 // Compare tag value - use i32 for tag type (unified with unit enum literals)
                 let expected_tag = self
@@ -1077,7 +1107,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
                             }
                         }
                     } else {
-                        eprintln!("  ⚠️ Value is not struct, skipping data extraction");
+                        eprintln!("  ⚠️ Value is not struct, cannot extract data for bindings");
+                        // For builtin enums that return int instead of struct, we need special handling
+                        // Bind the value directly for now (single value case)
+                        if data.len() == 1 {
+                            self.compile_pattern_binding(&data[0], value)?;
+                        }
                     }
                 }
                 Ok(())

@@ -20,25 +20,27 @@ fn nested_operations(): Result<i32, string> {
     return Ok(z);
 }
 
-fn main() {
+fn main(): i32 {
     // Test basic ? operator
     let result1 = safe_divide(10, 2);
     match result1 {
-        Ok(val) => { print(val); },      // Should print 10
-        Err(msg) => { print(msg); }
+        Result.Ok(val) => { print(val); },      // Should print 10
+        Result.Err(msg) => { print(msg); }
     };
     
     // Test error propagation
     let result2 = safe_divide(10, 0);
     match result2 {
-        Ok(val) => { print(val); },
-        Err(msg) => { print(msg); }      // Should print "Division by zero"
+        Result.Ok(val) => { print(val); },
+        Result.Err(msg) => { print(msg); }      // Should print "Division by zero"
     };
     
     // Test nested ?
     let result3 = nested_operations();
     match result3 {
-        Ok(val) => { print(val); },
-        Err(msg) => { print(msg); }      // Should print "Division by zero"
+        Result.Ok(val) => { print(val); },
+        Result.Err(msg) => { print(msg); }      // Should print "Division by zero"
     };
+    
+    return 0;
 }
