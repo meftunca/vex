@@ -53,9 +53,19 @@ impl NativeLinker {
             linker_args.push(format!("-L{}", search_path));
         }
 
-        // 4. Add dynamic libraries
+        // 4. Add dynamic libraries (with -l prefix if needed)
         for lib in &config.libraries {
-            linker_args.push(format!("-l{}", lib));
+            // If library path is already complete (like "../path/libname.a"), resolve to absolute
+            // Otherwise, add -l prefix for system library
+            if lib.contains('/') || lib.ends_with(".a") {
+                let lib_path = self.project_root.join(lib);
+                if !lib_path.exists() {
+                    anyhow::bail!("Library not found: {}", lib);
+                }
+                linker_args.push(lib_path.display().to_string());
+            } else {
+                linker_args.push(format!("-l{}", lib));
+            }
         }
 
         Ok(linker_args.join(" "))

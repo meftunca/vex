@@ -132,16 +132,25 @@ pub enum Item {
 /// Function definition
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Function {
-    pub attributes: Vec<Attribute>, // #[inline], #[cfg], etc.
     pub is_async: bool,
     pub is_gpu: bool,
     pub is_mutable: bool, // ⭐ NEW: Method-level mutability (fn method()!)
     pub receiver: Option<Receiver>, // For methods
     pub name: String,
     pub type_params: Vec<TypeParam>, // Generic type parameters with bounds: <T: Display, U: Clone>
+    pub where_clause: Vec<WhereClausePredicate>, // Where clause: where T: Display, U: Clone
     pub params: Vec<Param>,
     pub return_type: Option<Type>,
     pub body: Block,
+    pub is_variadic: bool, // Variadic function: fn format(template: string, args: ...any)
+    pub variadic_type: Option<Type>, // Type of variadic params: ...any, ...string
+}
+
+/// Where clause predicate: T: Display, U: Clone + Debug
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct WhereClausePredicate {
+    pub type_param: String,      // T, U, etc.
+    pub bounds: Vec<TraitBound>, // Display, Clone + Debug, etc.
 }
 
 /// Method receiver: (self: &Vector2) or (self: &mut Vector2)
@@ -196,11 +205,11 @@ pub struct Enum {
     pub variants: Vec<EnumVariant>,
 }
 
-/// Enum variant
+/// Enum variant - can be unit, single-value tuple, or multi-value tuple
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct EnumVariant {
     pub name: String,
-    pub data: Option<Type>, // Some(T) or None (unit variant)
+    pub data: Vec<Type>, // Empty for unit variants, 1+ for tuple variants
 }
 
 /// Constant declaration
@@ -211,37 +220,29 @@ pub struct Const {
     pub value: Expression,
 }
 
-/// Attribute for declarations (#[inline], #[cfg(target_os = "linux")])
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Attribute {
-    pub name: String,
-    pub args: Vec<AttributeArg>,
-}
-
-/// Attribute argument
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum AttributeArg {
-    Single(String),           // unix, always
-    KeyValue(String, String), // target_os = "linux"
-    List(Vec<String>),        // [feature1, feature2]
-}
-
 /// Extern block for FFI
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ExternBlock {
-    pub attributes: Vec<Attribute>, // #[link(name = "c")], #[cfg(unix)]
-    pub abi: String,                // "C", "system", etc.
+    pub abi: String,            // "C", "system", etc.
+    pub types: Vec<ExternType>, // Opaque type declarations
     pub functions: Vec<ExternFunction>,
+}
+
+/// Extern type declaration (opaque types for FFI)
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ExternType {
+    pub name: String,
+    pub alias: Option<Type>, // type VexDuration = i64;
 }
 
 /// Extern function declaration
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ExternFunction {
-    pub attributes: Vec<Attribute>, // #[inline(always)]
     pub name: String,
     pub params: Vec<Param>,
     pub return_type: Option<Type>,
     pub is_variadic: bool,
+    pub variadic_type: Option<Type>, // Type for variadic params: ...any, ...string
 }
 
 /// Interface definition (DEPRECATED in v1.3 - Use Trait instead)
@@ -275,7 +276,15 @@ pub struct Trait {
     pub type_params: Vec<TypeParam>, // Generic type parameters with bounds: Converter<T: Display>
     pub super_traits: Vec<String>,   // Trait inheritance: trait A: B, C
     pub associated_types: Vec<String>, // Associated types: type Item; type Output;
+    pub type_aliases: Vec<TraitTypeAlias>, // ⭐ NEW: Type aliases in trait: type Iter = Iterator;
     pub methods: Vec<TraitMethod>,
+}
+
+/// Type alias inside a trait
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TraitTypeAlias {
+    pub name: String,
+    pub ty: Type, // The aliased type
 }
 
 /// Trait method (required or default)
@@ -368,6 +377,9 @@ pub enum Type {
 
     /// Infer type (used in conditional types): infer E
     Infer(String),
+
+    /// Typeof type: typeof(expr) - Get type of expression at compile time
+    Typeof(Box<Expression>),
 
     /// Unit type (void)
     Unit,
@@ -537,11 +549,16 @@ pub enum Pattern {
         name: String,
         fields: Vec<(String, Pattern)>,
     },
-    /// Enum variant: Some(x), None
+    /// Enum variant: Some(x), None, V4(a, b, c, d)
     Enum {
         name: String,
         variant: String,
-        data: Option<Box<Pattern>>,
+        data: Vec<Pattern>, // Empty for unit, 1+ for tuple variants
+    },
+    /// Array/Slice pattern: [a, b, ..rest] or [x, y, z]
+    Array {
+        elements: Vec<Pattern>,
+        rest: Option<String>, // Variable name for ..rest
     },
     /// Or pattern: 1 | 2 | 3 (for SIMD-optimized matching)
     Or(Vec<Pattern>),
@@ -550,10 +567,16 @@ pub enum Pattern {
 /// Compound assignment operators
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum CompoundOp {
-    Add, // +=
-    Sub, // -=
-    Mul, // *=
-    Div, // /=
+    Add,    // +=
+    Sub,    // -=
+    Mul,    // *=
+    Div,    // /=
+    Mod,    // %=
+    BitAnd, // &=
+    BitOr,  // |=
+    BitXor, // ^=
+    Shl,    // <<=
+    Shr,    // >>=
 }
 
 /// Expressions
@@ -634,23 +657,23 @@ pub enum Expression {
         fields: Vec<(String, Expression)>,
     },
 
-    /// Enum constructor: Result::Ok(42) or Option::None
+    /// Enum constructor: Result.Ok(42) or Option.None or IpAddr.V4(127, 0, 0, 1)
     EnumLiteral {
         enum_name: String,
         variant: String,
-        data: Option<Box<Expression>>, // Some(expr) or None for unit variants
+        data: Vec<Expression>, // Empty for unit, 1+ for tuple variants
     },
 
-    /// Range: 0..10 (exclusive end)
+    /// Range: 0..10 (exclusive end), ..10 (from start), 5.. (to end), .. (full)
     Range {
-        start: Box<Expression>,
-        end: Box<Expression>,
+        start: Option<Box<Expression>>,
+        end: Option<Box<Expression>>,
     },
 
-    /// RangeInclusive: 0..=10 (inclusive end)
+    /// RangeInclusive: 0..=10 (inclusive end), ..=10 (from start)
     RangeInclusive {
-        start: Box<Expression>,
-        end: Box<Expression>,
+        start: Option<Box<Expression>>,
+        end: Option<Box<Expression>>,
     },
 
     /// Reference: &expr or &mut expr
@@ -702,6 +725,9 @@ pub enum Expression {
     /// Question mark operator: expr? (Result early return)
     /// Desugars to: match expr { Ok(v) => v, Err(e) => return Err(e) }
     QuestionMark(Box<Expression>),
+
+    /// Typeof operator: typeof(expr) - Get type of expression
+    Typeof(Box<Expression>),
 
     /// Increment/Decrement: x++ or x--
     PostfixOp {

@@ -5,10 +5,10 @@
  */
 use inkwell::context::Context;
 use inkwell::module::Module;
-use inkwell::types::{BasicMetadataTypeEnum, BasicTypeEnum};
+use inkwell::types::BasicMetadataTypeEnum;
 use inkwell::values::FunctionValue;
 use inkwell::AddressSpace;
-use vex_ast::{ExternFunction, Param, Type};
+use vex_ast::{ExternFunction, Type};
 
 /// FFI Bridge for generating LLVM declarations from extern "C" blocks
 pub struct FFIBridge<'ctx> {
@@ -113,6 +113,7 @@ impl<'ctx> FFIBridge<'ctx> {
             Type::I16 => Ok(self.context.i16_type().into()),
             Type::I32 => Ok(self.context.i32_type().into()),
             Type::I64 => Ok(self.context.i64_type().into()),
+            Type::I128 => Ok(self.context.i128_type().into()),
             Type::U8 => Ok(self.context.i8_type().into()),
             Type::U16 => Ok(self.context.i16_type().into()),
             Type::U32 => Ok(self.context.i32_type().into()),

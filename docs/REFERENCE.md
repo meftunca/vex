@@ -113,6 +113,52 @@ impl Display for i32 {
 fn print<T: Display>(value: T) {
     println("{}", value.to_string());
 }
+
+// Where clauses (v0.9.2)
+fn print_both<T, U>(a: T, b: U): i32
+where
+    T: Display,
+    U: Display
+{
+    println("{}", a.to_string());
+    println("{}", b.to_string());
+    return 0;
+}
+```
+
+### Enums and Pattern Matching
+
+```vex
+// Unit variants
+enum Color {
+    Red,
+    Green,
+    Blue,
+}
+
+// Tuple variants (v0.9.2)
+enum Option<T> {
+    Some(T),
+    None,
+}
+
+enum Result<T, E> {
+    Ok(T),
+    Err(E),
+}
+
+// Pattern matching with data extraction
+let x = Option.Some(42);
+let value = match x {
+    Option.Some(v) => v,
+    Option.None => 0,
+};
+
+// Struct pattern matching (v0.9.2)
+struct Point { x: i32, y: i32 }
+match point {
+    Point { x, y } => println("Point at {}, {}", x, y),
+}
 ```
 
 ### Operator Overloading
@@ -312,7 +358,8 @@ extern "C" {
     fn free(ptr: *u8);
 }
 
-#[repr(C)]
+// Note: Vex does not use #[repr(C)] attributes
+// C-compatible struct layout is automatic for FFI
 struct CStruct {
     field1: i32,
     field2: f64,
@@ -359,4 +406,4 @@ struct CStruct {
 
 ---
 
-*This file is automatically updated by scripts/update_docs.sh*
+_This file is automatically updated by scripts/update_docs.sh_

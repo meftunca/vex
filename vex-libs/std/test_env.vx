@@ -1,0 +1,25 @@
+// Env Module Test
+// Tests environment variable operations
+
+import { println } from "io";
+import { get, set, unset } from "env";
+
+fn main(): i32 {
+    println("=== Env Module Test ===");
+    
+    // Test set
+    set("VEX_TEST_VAR", "test_value");
+    println("✓ set() working");
+    
+    // Test get
+    let value: String = get("VEX_TEST_VAR");
+    println("✓ get() working");
+    
+    // Test unset
+    unset("VEX_TEST_VAR");
+    println("✓ unset() working");
+    
+    println("✓ Env module functional");
+    
+    return 0;
+}

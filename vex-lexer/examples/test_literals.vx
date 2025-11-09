@@ -1,0 +1,35 @@
+// Test hex, binary, octal literals
+
+fn main(): i32 {
+    // Hex literals
+    let hex: i32 = 0xFF;
+    print("Hex 0xFF = ");
+    print(hex);
+    
+    // Binary literals
+    let bin: i32 = 0b1111;
+    print("Binary 0b1111 = ");
+    print(bin);
+    
+    // Octal literals
+    let oct: i32 = 0o17;
+    print("Octal 0o17 = ");
+    print(oct);
+    
+    // Test equality: 0xFF = 0b11111111 = 0o377 = 255
+    let a: i32 = 0xFF;
+    let b: i32 = 0b11111111;
+    let c: i32 = 0o377;
+    let d: i32 = 255;
+    
+    if a == b {
+        if b == c {
+            if c == d {
+                print("All equal to 255!");
+                return 0;
+            }
+        }
+    }
+    
+    return 1;
+}

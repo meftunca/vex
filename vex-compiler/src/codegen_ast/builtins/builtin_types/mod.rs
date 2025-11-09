@@ -3,7 +3,6 @@ pub(crate) mod collections;
 pub(crate) mod conversions;
 pub(crate) mod option_result;
 
-pub use collections::*;
 pub use conversions::*;
 pub use option_result::*;
 

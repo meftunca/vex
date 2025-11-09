@@ -2,8 +2,20 @@
   "name": "net",
   "version": "0.9.1",
   "description": "Network operations - TCP, UDP",
-  "authors": ["Vex Language Team"],
+  "authors": [
+    "Vex Language Team"
+  ],
   "license": "MIT",
-  "main": "src/lib.vx"
+  "main": "src/lib.vx",
+  "native": {
+    "libraries": [
+      "vex_runtime"
+    ],
+    "search_paths": [
+      "../../../vex-runtime/c"
+    ],
+    "include_dirs": [
+      "../../../vex-runtime/c"
+    ]
+  }
 }
-

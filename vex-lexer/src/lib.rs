@@ -75,8 +75,12 @@ pub enum Token {
     Extends,
     #[token("infer")]
     Infer,
+    #[token("where")]
+    Where,
     #[token("const")]
     Const,
+    #[token("typeof")]
+    Typeof,
     #[token("unsafe")]
     Unsafe,
     #[token("new")]
@@ -217,12 +221,10 @@ pub enum Token {
     Arrow,
     #[token("=>")]
     FatArrow,
-    #[token("#")]
-    Hash,
     #[token("...")]
     DotDotDot,
 
-    // Increment/Decrement
+    // Compound Assignment Operators
     #[token("+=")]
     PlusEq,
     #[token("-=")]
@@ -231,16 +233,53 @@ pub enum Token {
     StarEq,
     #[token("/=")]
     SlashEq,
+    #[token("%=")]
+    PercentEq,
+    #[token("&=")]
+    AmpersandEq,
+    #[token("|=")]
+    PipeEq,
+    #[token("^=")]
+    CaretEq,
+    #[token("<<=")]
+    LShiftEq,
+    #[token(">>=")]
+    RShiftEq,
+
+    // Increment/Decrement (NOT SUPPORTED - use += 1 instead)
     #[token("++")]
     Increment,
     #[token("--")]
     Decrement,
 
     // Literals
+    // Hex literal: 0x1A3F, 0xFF
+    #[regex(r"0[xX][0-9a-fA-F]+", |lex| {
+        let s = lex.slice();
+        i64::from_str_radix(&s[2..], 16).ok()
+    })]
+    HexLiteral(i64),
+
+    // Binary literal: 0b1010, 0B1111
+    #[regex(r"0[bB][01]+", |lex| {
+        let s = lex.slice();
+        i64::from_str_radix(&s[2..], 2).ok()
+    })]
+    BinaryLiteral(i64),
+
+    // Octal literal: 0o777, 0O123
+    #[regex(r"0[oO][0-7]+", |lex| {
+        let s = lex.slice();
+        i64::from_str_radix(&s[2..], 8).ok()
+    })]
+    OctalLiteral(i64),
+
+    // Decimal integer (must come AFTER hex/binary/octal to avoid conflicts)
     #[regex(r"[0-9]+", |lex| lex.slice().parse().ok())]
     IntLiteral(i64),
 
-    #[regex(r"[0-9]+\.[0-9]+", |lex| lex.slice().parse().ok())]
+    // Float literal with optional scientific notation: 3.14, 1.5e10, 2.0E-5
+    #[regex(r"[0-9]+\.[0-9]+([eE][+-]?[0-9]+)?", |lex| lex.slice().parse().ok())]
     FloatLiteral(f64),
 
     #[regex(r#""([^"\\]|\\["\\bnfrt]|u[a-fA-F0-9]{4})*""#, |lex| {

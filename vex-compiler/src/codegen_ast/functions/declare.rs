@@ -2,7 +2,6 @@
 use super::super::*;
 use inkwell::types::{BasicMetadataTypeEnum, BasicTypeEnum};
 use inkwell::values::FunctionValue;
-use vex_ast::*;
 
 impl<'ctx> ASTCodeGen<'ctx> {
     pub(crate) fn declare_function(
@@ -56,6 +55,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
             param_types.push(param_llvm_type.into());
         }
 
+        // Variadic support: fn format(template: string, args: ...any)
+        // In LLVM, variadic functions use is_var_args=true in fn_type
+        let is_variadic = func.is_variadic;
+
         let ret_type = if let Some(ref ty) = func.return_type {
             let llvm_ret = self.ast_type_to_llvm(ty);
             eprintln!(
@@ -68,11 +71,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
         };
 
         let fn_type = match ret_type {
-            BasicTypeEnum::IntType(t) => t.fn_type(&param_types, false),
-            BasicTypeEnum::FloatType(t) => t.fn_type(&param_types, false),
-            BasicTypeEnum::ArrayType(t) => t.fn_type(&param_types, false),
-            BasicTypeEnum::StructType(t) => t.fn_type(&param_types, false),
-            BasicTypeEnum::PointerType(t) => t.fn_type(&param_types, false),
+            BasicTypeEnum::IntType(t) => t.fn_type(&param_types, is_variadic),
+            BasicTypeEnum::FloatType(t) => t.fn_type(&param_types, is_variadic),
+            BasicTypeEnum::ArrayType(t) => t.fn_type(&param_types, is_variadic),
+            BasicTypeEnum::StructType(t) => t.fn_type(&param_types, is_variadic),
+            BasicTypeEnum::PointerType(t) => t.fn_type(&param_types, is_variadic),
             _ => {
                 return Err(format!(
                     "Unsupported return type for function {}",

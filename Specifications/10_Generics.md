@@ -288,8 +288,8 @@ let right: Either<i32, string> = Either::Right("text");
 
 ```vex
 trait Container<T> {
-    fn (self: &Self!) get(): T;
-    fn (self: &Self!) set(value: T);
+    fn get(): T;
+    fn set(value: T);
 }
 ```
 
@@ -313,7 +313,7 @@ struct Box<T> impl Container<T> {
 
 ```vex
 trait Converter {
-    fn (self: &Self!) convert<T>(): T;
+    fn convert<T>(): T;
 }
 
 struct Value impl Converter {
@@ -356,19 +356,38 @@ fn compare_and_show<T: Comparable & Display>(a: T, b: T): i32 {
 
 **Syntax**: `T: Trait1 & Trait2 & ...`
 
-### Where Clauses (Future)
+### Where Clauses ✅ COMPLETE (v0.9.2)
 
-For complex constraints:
+For complex constraints, use where clause for better readability:
 
 ```vex
-fn process<T, U>(a: T, b: U): i32
+fn print_both<T, U>(a: T, b: U): i32
 where
-    T: Display & Comparable,
-    U: Cloneable
+    T: Display,
+    U: Display
 {
-    // Implementation
+    print("T: ");
+    print(a);
+    print("U: ");
+    print(b);
+    return 0;
+}
+
+fn main(): i32 {
+    let x: i32 = 42;
+    let y: i32 = 100;
+    print_both(x, y);
+    return 0;
 }
 ```
+
+**Implementation**:
+
+- Parser: `parse_where_clause()` in `vex-parser/src/parser/items/functions.rs:138`
+- AST: `WhereClausePredicate { type_param, bounds }`
+- Syntax: `where T: Trait1 & Trait2, U: Trait3`
+- Test: `examples/test_where_clause.vx`
+- Limitation: Struct inline methods don't support where clauses yet
 
 ### Bound on Structs (Future)
 
@@ -722,20 +741,20 @@ fn create<T: Clone>(value: T): Container<T> {
 
 ## Generics Summary
 
-| Feature             | Syntax             | Status     | Example                  |
-| ------------------- | ------------------ | ---------- | ------------------------ |
-| Generic Functions   | `fn name<T>()`     | ✅ Working | `identity<T>(x: T)`      |
-| Generic Structs     | `struct S<T> { }`  | ✅ Working | `Box<i32>`               |
-| Multiple Parameters | `<T, U, V>`        | ✅ Working | `Pair<T, U>`             |
-| Type Inference      | Omit type args     | ✅ Working | `identity(42)`           |
-| Generic Methods     | `fn (self: &S<T>)` | ✅ Working | Methods on generic types |
-| Monomorphization    | Automatic          | ✅ Working | Zero runtime cost        |
-| Generic Enums       | `enum E<T> { }`    | 🚧 Future  | `Option<T>`              |
-| Trait Bounds        | `<T: Trait>`       | 🚧 Future  | Constrained types        |
-| Where Clauses       | `where T: Trait`   | 🚧 Future  | Complex constraints      |
-| Associated Types    | `type Item;`       | 🚧 Future  | In traits                |
-| Higher-Kinded       | `F<T>`             | ❌ Future  | Generic over generics    |
-| Const Generics      | `[T; N]`           | ❌ Future  | Array size parameter     |
+| Feature             | Syntax             | Status     | Example                        |
+| ------------------- | ------------------ | ---------- | ------------------------------ |
+| Generic Functions   | `fn name<T>()`     | ✅ Working | `identity<T>(x: T)`            |
+| Generic Structs     | `struct S<T> { }`  | ✅ Working | `Box<i32>`                     |
+| Multiple Parameters | `<T, U, V>`        | ✅ Working | `Pair<T, U>`                   |
+| Type Inference      | Omit type args     | ✅ Working | `identity(42)`                 |
+| Generic Methods     | `fn (self: &S<T>)` | ✅ Working | Methods on generic types       |
+| Monomorphization    | Automatic          | ✅ Working | Zero runtime cost              |
+| Generic Enums       | `enum E<T> { }`    | ✅ Working | `Option<T>`, `Result<T,E>`     |
+| Trait Bounds        | `<T: Trait>`       | ✅ Working | Constrained types              |
+| Where Clauses       | `where T: Trait`   | ✅ v0.9.2  | Complex constraints            |
+| Associated Types    | `type Item;`       | ✅ Working | Trait associated types working |
+| Higher-Kinded       | `F<T>`             | ❌ Future  | Generic over generics          |
+| Const Generics      | `[T; N]`           | ❌ Future  | Array size parameter           |
 
 ---
 

@@ -259,11 +259,11 @@ Trait'ler generic parametreler alabilir ve generic fonksiyonlarda constraint ola
 
 ```vex
 trait Display {
-    fn (self: &Self) display(): string;
+    fn display(): string;
 }
 
 trait Debug {
-    fn (self: &Self) debug(): string;
+    fn debug(): string;
 }
 ```
 
@@ -272,8 +272,8 @@ trait Debug {
 ```vex
 // Henüz implemente edilmedi
 trait Container<T> {
-    fn (self: &Self!) get(): T;
-    fn (self: &Self!) set(value: T);
+    fn get(): T;
+    fn set(value: T);
 }
 ```
 
@@ -978,7 +978,7 @@ let next = stack.pop(); // Some(2)
 trait Iterator {
     type Item;  // Associated type
 
-    fn (self: &Self!) next(): Option<Self.Item>;
+    fn next(): Option<Self.Item>;
 }
 
 struct RangeIterator {

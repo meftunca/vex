@@ -10,24 +10,66 @@ impl<'a> Parser<'a> {
         self.parse_range()
     }
 
-    /// Parse range expressions: 0..10 or 0..=10
+    /// Parse range expressions: 0..10, ..10, 5.., .., 0..=10, ..=10
     /// Lowest precedence (below comparison)
     pub(crate) fn parse_range(&mut self) -> Result<Expression, ParseError> {
+        // Check for leading .. or ..= (no start)
+        if self.check(&Token::DotDotEq) {
+            self.advance();
+            let end = self.parse_logical_or()?;
+            return Ok(Expression::RangeInclusive {
+                start: None,
+                end: Some(Box::new(end)),
+            });
+        } else if self.check(&Token::DotDot) {
+            self.advance();
+
+            // Check if end exists (could be just "..")
+            if self.check(&Token::RBracket)
+                || self.check(&Token::RBrace)
+                || self.check(&Token::Semicolon)
+            {
+                // Just ".." - full range
+                return Ok(Expression::Range {
+                    start: None,
+                    end: None,
+                });
+            }
+
+            let end = self.parse_logical_or()?;
+            return Ok(Expression::Range {
+                start: None,
+                end: Some(Box::new(end)),
+            });
+        }
+
         let expr = self.parse_logical_or()?;
 
         if self.match_token(&Token::DotDotEq) {
             // Inclusive range: 0..=10
             let end = self.parse_logical_or()?;
             return Ok(Expression::RangeInclusive {
-                start: Box::new(expr),
-                end: Box::new(end),
+                start: Some(Box::new(expr)),
+                end: Some(Box::new(end)),
             });
         } else if self.match_token(&Token::DotDot) {
+            // Check if end exists (could be "5..")
+            if self.check(&Token::RBracket)
+                || self.check(&Token::RBrace)
+                || self.check(&Token::Semicolon)
+            {
+                // No end: "5.."
+                return Ok(Expression::Range {
+                    start: Some(Box::new(expr)),
+                    end: None,
+                });
+            }
+
             // Exclusive range: 0..10
             let end = self.parse_logical_or()?;
             return Ok(Expression::Range {
-                start: Box::new(expr),
-                end: Box::new(end),
+                start: Some(Box::new(expr)),
+                end: Some(Box::new(end)),
             });
         }
 

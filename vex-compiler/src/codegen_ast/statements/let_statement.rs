@@ -5,7 +5,6 @@ use super::ASTCodeGen;
 use inkwell::types::BasicTypeEnum;
 use inkwell::values::BasicValueEnum;
 use vex_ast::*;
-
 impl<'ctx> ASTCodeGen<'ctx> {
     /// Compile a `let` statement
     pub(crate) fn compile_let_statement(
@@ -362,6 +361,54 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 // Convert array literal to Vec
                 if let Expression::Array(elements) = &adjusted_value {
                     self.compile_vec_from_array_literal(elements, elem_type)?
+                } else {
+                    self.compile_expression(&adjusted_value)?
+                }
+            } else {
+                self.compile_expression(&adjusted_value)?
+            }
+        } else if let Some(Type::Array(elem_type, _)) = ty {
+            // Special case: Array with type annotation [T; N]
+            // For large arrays, compile directly into destination to avoid load/store
+            if let Expression::ArrayRepeat(value_expr, count_expr) = &adjusted_value {
+                eprintln!(
+                    "  🔧 Array repeat with annotation: [{}; N]",
+                    self.type_to_string(elem_type)
+                );
+
+                // Allocate buffer first
+                let alloca =
+                    self.create_entry_block_alloca(name, ty.as_ref().unwrap(), is_mutable)?;
+
+                // Compile array repeat directly into buffer
+                self.compile_array_repeat_into_buffer(value_expr, count_expr, elem_type, alloca)?;
+
+                // Register variable and return early
+                let llvm_type = self.ast_type_to_llvm(ty.as_ref().unwrap());
+                self.variables.insert(name.clone(), alloca);
+                self.variable_types.insert(name.clone(), llvm_type);
+                return Ok(());
+            } else if let Expression::Array(elements) = &adjusted_value {
+                // Array literal optimization for large arrays
+                if elements.len() > 100 {
+                    eprintln!(
+                        "  🔧 Large array literal with annotation: [{}; {}]",
+                        self.type_to_string(elem_type),
+                        elements.len()
+                    );
+
+                    // Allocate buffer first
+                    let alloca =
+                        self.create_entry_block_alloca(name, ty.as_ref().unwrap(), is_mutable)?;
+
+                    // Compile array literal directly into buffer
+                    self.compile_array_literal_into_buffer(elements, elem_type, alloca)?;
+
+                    // Register variable and return early
+                    let llvm_type = self.ast_type_to_llvm(ty.as_ref().unwrap());
+                    self.variables.insert(name.clone(), alloca);
+                    self.variable_types.insert(name.clone(), llvm_type);
+                    return Ok(());
                 } else {
                     self.compile_expression(&adjusted_value)?
                 }

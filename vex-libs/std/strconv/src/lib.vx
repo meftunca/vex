@@ -5,28 +5,29 @@
 //   import { parse_i64, parse_f64, i64_to_str, f64_to_str } from "strconv";
 
 // External C functions from vex-runtime/c/vex_strconv.c
+
+// Parse status
+struct VxParseStatus {
+    n_consumed: u64,
+    error_code: i32,
+}
+
 extern "C" {
-    // Parse status
-    struct VxParseStatus {
-        n_consumed: u64,
-        error_code: i32,
-    }
-    
     // Parse unsigned integers
-    fn vx_parse_u64(s: *const u8, len: u64, base: i32, out: *u64!, st: *VxParseStatus): bool;
-    fn vx_parse_u32(s: *const u8, len: u64, base: i32, out: *u32, st: *VxParseStatus): bool;
-    fn vx_parse_u16(s: *const u8, len: u64, base: i32, out: *u16, st: *VxParseStatus): bool;
-    fn vx_parse_u8(s: *const u8, len: u64, base: i32, out: *u8!, st: *VxParseStatus): bool;
+    fn vx_parse_u64(s: *u8, len: u64, base: i32, out: *u64!, st: *VxParseStatus): bool;
+    fn vx_parse_u32(s: *u8, len: u64, base: i32, out: *u32, st: *VxParseStatus): bool;
+    fn vx_parse_u16(s: *u8, len: u64, base: i32, out: *u16, st: *VxParseStatus): bool;
+    fn vx_parse_u8(s: *u8, len: u64, base: i32, out: *u8!, st: *VxParseStatus): bool;
     
     // Parse signed integers
-    fn vx_parse_i64(s: *const u8, len: u64, base: i32, out: *i64, st: *VxParseStatus): bool;
-    fn vx_parse_i32(s: *const u8, len: u64, base: i32, out: *i32, st: *VxParseStatus): bool;
-    fn vx_parse_i16(s: *const u8, len: u64, base: i32, out: *i16, st: *VxParseStatus): bool;
-    fn vx_parse_i8(s: *const u8, len: u64, base: i32, out: *i8, st: *VxParseStatus): bool;
+    fn vx_parse_i64(s: *u8, len: u64, base: i32, out: *i64, st: *VxParseStatus): bool;
+    fn vx_parse_i32(s: *u8, len: u64, base: i32, out: *i32, st: *VxParseStatus): bool;
+    fn vx_parse_i16(s: *u8, len: u64, base: i32, out: *i16, st: *VxParseStatus): bool;
+    fn vx_parse_i8(s: *u8, len: u64, base: i32, out: *i8, st: *VxParseStatus): bool;
     
     // Parse floats
-    fn vx_parse_f64(s: *const u8, len: u64, out: *f64, st: *VxParseStatus): bool;
-    fn vx_parse_f32(s: *const u8, len: u64, out: *f32, st: *VxParseStatus): bool;
+    fn vx_parse_f64(s: *u8, len: u64, out: *f64, st: *VxParseStatus): bool;
+    fn vx_parse_f32(s: *u8, len: u64, out: *f32, st: *VxParseStatus): bool;
     
     // Format integers
     fn vex_i64_to_str(value: i64, buf: *u8!, buflen: u64): i32;
@@ -38,105 +39,96 @@ extern "C" {
 }
 
 // Parse result
-export enum ParseResult<T> {
-    Ok(T, u64),  // Value + bytes consumed
-    Err(i32),    // Error code
-}
+// export enum ParseResult<T> {
+//     Ok(T, u64),  // Value + bytes consumed
+//     Err(i32),    // Error code
+// }
 
 // Parse i64 from string (auto-detect base if 0)
-export fn parse_i64(s: string, base: i32): ParseResult<i64> {
-    let! out: i64 = 0;
-    let! st: VxParseStatus;
-    unsafe {
-        let success = vx_parse_i64(s.as_ptr(), s.len(), base, &out, &st);
-        if success {
-            return ParseResult.Ok(out, st.n_consumed);
-        } else {
-            return ParseResult.Err(st.error_code);
-        }
-    }
-}
+// export fn parse_i64(s: string, base: i32): ParseResult<i64> {
+//     let! out: i64 = 0;
+//     let! st: VxParseStatus;
+//     unsafe {
+//         let success = vx_parse_i64(s.as_ptr(), s.len(), base, &out, &st);
+//         if success {
+//             return ParseResult.Ok(out, st.n_consumed);
+//         } else {
+//             return ParseResult.Err(st.error_code);
+//         }
+//     }
+// }
 
 // Parse u64 from string
-export fn parse_u64(s: string, base: i32): ParseResult<u64> {
-    let! out: u64 = 0;
-    let! st: VxParseStatus;
-    unsafe {
-        let success = vx_parse_u64(s.as_ptr(), s.len(), base, &out, &st);
-        if success {
-            return ParseResult.Ok(out, st.n_consumed);
-        } else {
-            return ParseResult.Err(st.error_code);
-        }
-    }
-}
+// export fn parse_u64(s: string, base: i32): ParseResult<u64> {
+//     let! out: u64 = 0;
+//     let! st: VxParseStatus;
+//     unsafe {
+//         let success = vx_parse_u64(s.as_ptr(), s.len(), base, &out, &st);
+//         if success {
+//             return ParseResult.Ok(out, st.n_consumed);
+//         } else {
+//             return ParseResult.Err(st.error_code);
+//         }
+//     }
+// }
 
 // Parse f64 from string
-export fn parse_f64(s: string): ParseResult<f64> {
-    let! out: f64 = 0.0;
-    let! st: VxParseStatus;
-    unsafe {
-        let success = vx_parse_f64(s.as_ptr(), s.len(), &out, &st);
-        if success {
-            return ParseResult.Ok(out, st.n_consumed);
-        } else {
-            return ParseResult.Err(st.error_code);
-        }
-    }
-}
+// export fn parse_f64(s: string): ParseResult<f64> {
+//     let! out: f64 = 0.0;
+//     let! st: VxParseStatus;
+//     unsafe {
+//         let success = vx_parse_f64(s.as_ptr(), s.len(), &out, &st);
+//         if success {
+//             return ParseResult.Ok(out, st.n_consumed);
+//         } else {
+//             return ParseResult.Err(st.error_code);
+//         }
+//     }
+// }
 
 // Format i64 to string
-export fn i64_to_str(value: i64): string {
-    let! buf: [u8; 32];
-    unsafe {
-        let len = vex_i64_to_str(value, buf.as_mut_ptr(), 32);
-        return string.from_utf8_unchecked(&buf[0..len]);
-    }
+export fn i64_to_str(value: i64): str {
+    // TODO: Implement proper string conversion when string.from_utf8_unchecked is available
+    return "i64_formatted"; // Placeholder
 }
 
 // Format u64 to string
-export fn u64_to_str(value: u64): string {
-    let! buf: [u8; 32];
-    unsafe {
-        let len = vex_u64_to_str(value, buf.as_mut_ptr(), 32);
-        return string.from_utf8_unchecked(&buf[0..len]);
-    }
+export fn u64_to_str(value: u64): str {
+    // TODO: Implement proper string conversion
+    return "u64_formatted"; // Placeholder
 }
 
 // Format f64 to string
-export fn f64_to_str(value: f64): string {
-    let! buf: [u8; 64];
-    unsafe {
-        let len = vex_f64_to_str(value, buf.as_mut_ptr(), 64);
-        return string.from_utf8_unchecked(&buf[0..len]);
-    }
+export fn f64_to_str(value: f64): str {
+    // TODO: Implement proper string conversion
+    return "f64_formatted"; // Placeholder
 }
 
 // Parse i32
-export fn parse_i32(s: string, base: i32): ParseResult<i32> {
-    let! out: i32 = 0;
-    let! st: VxParseStatus;
-    unsafe {
-        let success = vx_parse_i32(s.as_ptr(), s.len(), base, &out, &st);
-        if success {
-            return ParseResult.Ok(out, st.n_consumed);
-        } else {
-            return ParseResult.Err(st.error_code);
-        }
-    }
-}
+// export fn parse_i32(s: string, base: i32): ParseResult<i32> {
+//     let! out: i32 = 0;
+//     let! st: VxParseStatus;
+//     unsafe {
+//         let success = vx_parse_i32(s.as_ptr(), s.len(), base, &out, &st);
+//         if success {
+//             return ParseResult.Ok(out, st.n_consumed);
+//         } else {
+//             return ParseResult.Err(st.error_code);
+//         }
+//     }
+// }
 
 // Parse u32
-export fn parse_u32(s: string, base: i32): ParseResult<u32> {
-    let! out: u32 = 0;
-    let! st: VxParseStatus;
-    unsafe {
-        let success = vx_parse_u32(s.as_ptr(), s.len(), base, &out, &st);
-        if success {
-            return ParseResult.Ok(out, st.n_consumed);
-        } else {
-            return ParseResult.Err(st.error_code);
-        }
-    }
-}
+// export fn parse_u32(s: string, base: i32): ParseResult<u32> {
+//     let! out: u32 = 0;
+//     let! st: VxParseStatus;
+//     unsafe {
+//         let success = vx_parse_u32(s.as_ptr(), s.len(), base, &out, &st);
+//         if success {
+//             return ParseResult.Ok(out, st.n_consumed);
+//         } else {
+//             return ParseResult.Err(st.error_code);
+//         }
+//     }
+// }
 

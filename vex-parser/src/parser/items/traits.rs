@@ -36,17 +36,31 @@ impl<'a> Parser<'a> {
             // Parse trait methods (required or default implementations)
             let mut trait_methods = Vec::new();
             let mut associated_types = Vec::new();
+            let mut type_aliases = Vec::new();
 
             while !self.check(&Token::RBrace) && !self.is_at_end() {
                 if self.check(&Token::Fn) {
                     self.advance(); // consume 'fn'
                     trait_methods.push(self.parse_trait_method_signature()?);
                 } else if self.check(&Token::Type) {
-                    // Parse associated type: type Item;
+                    // Parse associated type OR type alias
                     self.advance(); // consume 'type'
                     let type_name = self.consume_identifier()?;
-                    self.consume(&Token::Semicolon, "Expected ';' after associated type")?;
-                    associated_types.push(type_name);
+
+                    // Check if this is a type alias (type Iter = Iterator;) or associated type (type Item;)
+                    if self.match_token(&Token::Eq) {
+                        // Type alias: type Iter = Iterator;
+                        let aliased_type = self.parse_type()?;
+                        self.consume(&Token::Semicolon, "Expected ';' after type alias")?;
+                        type_aliases.push(TraitTypeAlias {
+                            name: type_name,
+                            ty: aliased_type,
+                        });
+                    } else {
+                        // Associated type: type Item;
+                        self.consume(&Token::Semicolon, "Expected ';' after associated type")?;
+                        associated_types.push(type_name);
+                    }
                 } else {
                     return Err(self.error("Expected method or associated type in trait"));
                 }
@@ -59,6 +73,7 @@ impl<'a> Parser<'a> {
                 type_params,
                 super_traits,
                 associated_types,
+                type_aliases,
                 methods: trait_methods,
             }))
         } else {
@@ -100,7 +115,7 @@ impl<'a> Parser<'a> {
     pub(crate) fn parse_trait_method_signature(&mut self) -> Result<TraitMethod, ParseError> {
         // Parse trait method signature (no body, just signature)
         // Supports both:
-        // 1. Golang-style: fn (self: &Self!) method_name(params): ReturnType;
+        // 1. Golang-style: fn method_name(params): ReturnType;
         // 2. Simplified: fn method_name(params): ReturnType;
 
         // Check for optional golang-style receiver: fn (self: Type) method_name()

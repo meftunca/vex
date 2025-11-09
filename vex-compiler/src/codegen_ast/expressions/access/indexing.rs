@@ -54,6 +54,26 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }
         }
 
+        // Check if this is string indexing (v0.9.2)
+        if let Some(var_type) = self.variable_types.get(var_name) {
+            if let BasicTypeEnum::PointerType(_) = var_type {
+                // Could be string - check if it's actually a string variable
+                // For now, assume pointer + integer index = string indexing
+                // Better: track string type explicitly in type system
+
+                // Check if index is a Range expression (string slicing)
+                if let Expression::Range { start, end } = index {
+                    return self.compile_string_slice(var_name, start.as_ref(), end.as_ref());
+                }
+
+                // Single index - could be string byte access
+                // Try string indexing first, fall back to array if it fails
+                if let Ok(string_byte) = self.try_compile_string_index(var_name, index) {
+                    return Ok(string_byte);
+                }
+            }
+        }
+
         // Array indexing
         let array_ptr = *self
             .variables
@@ -218,5 +238,144 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
             Ok(element_ptr)
         }
+    }
+
+    /// Try to compile string indexing: text[3] -> vex_string_get_byte(text, 3)
+    /// Returns Ok if successful, Err if not a string
+    fn try_compile_string_index(
+        &mut self,
+        var_name: &str,
+        index: &Expression,
+    ) -> Result<BasicValueEnum<'ctx>, String> {
+        // Get string pointer
+        let string_ptr_var = *self
+            .variables
+            .get(var_name)
+            .ok_or_else(|| format!("Variable {} not found", var_name))?;
+
+        let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+        let string_ptr = self
+            .builder
+            .build_load(ptr_type, string_ptr_var, &format!("{}_ptr", var_name))
+            .map_err(|e| format!("Failed to load string pointer: {}", e))?;
+
+        // Compile index
+        let index_val = self.compile_expression(index)?;
+        let index_int = if let BasicValueEnum::IntValue(iv) = index_val {
+            // Convert to i64 for runtime function
+            if iv.get_type().get_bit_width() < 64 {
+                self.builder
+                    .build_int_z_extend(iv, self.context.i64_type(), "index_i64")
+                    .map_err(|e| format!("Failed to extend index: {}", e))?
+            } else {
+                iv
+            }
+        } else {
+            return Err("Index must be integer".to_string());
+        };
+
+        // Call vex_string_index(str, index) -> u8
+        let vex_string_index = self.declare_runtime_fn(
+            "vex_string_index",
+            &[ptr_type.into(), self.context.i64_type().into()],
+            self.context.i8_type().into(),
+        );
+
+        let result = self
+            .builder
+            .build_call(
+                vex_string_index,
+                &[string_ptr.into(), index_int.into()],
+                "string_byte",
+            )
+            .map_err(|e| format!("Failed to call vex_string_index: {}", e))?
+            .try_as_basic_value()
+            .left()
+            .ok_or("vex_string_index should return a value".to_string())?;
+
+        Ok(result)
+    }
+
+    /// Compile string slicing: text[0..5] -> vex_string_substr(text, 0, 5)
+    fn compile_string_slice(
+        &mut self,
+        var_name: &str,
+        start: Option<&Box<Expression>>,
+        end: Option<&Box<Expression>>,
+    ) -> Result<BasicValueEnum<'ctx>, String> {
+        // Get string pointer
+        let string_ptr_var = *self
+            .variables
+            .get(var_name)
+            .ok_or_else(|| format!("Variable {} not found", var_name))?;
+
+        let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+        let string_ptr = self
+            .builder
+            .build_load(ptr_type, string_ptr_var, &format!("{}_ptr", var_name))
+            .map_err(|e| format!("Failed to load string pointer: {}", e))?;
+
+        // Compile start index (default: 0)
+        let start_val = if let Some(start_expr) = start {
+            let val = self.compile_expression(start_expr.as_ref())?;
+            if let BasicValueEnum::IntValue(iv) = val {
+                if iv.get_type().get_bit_width() < 64 {
+                    self.builder
+                        .build_int_z_extend(iv, self.context.i64_type(), "start_i64")
+                        .map_err(|e| format!("Failed to extend start: {}", e))?
+                } else {
+                    iv
+                }
+            } else {
+                return Err("Slice start must be integer".to_string());
+            }
+        } else {
+            // No start means [..end] -> start from 0
+            self.context.i64_type().const_int(0, false)
+        };
+
+        // Compile end index (default: -1 meaning "to end")
+        let end_val = if let Some(end_expr) = end {
+            let val = self.compile_expression(end_expr.as_ref())?;
+            if let BasicValueEnum::IntValue(iv) = val {
+                if iv.get_type().get_bit_width() < 64 {
+                    self.builder
+                        .build_int_z_extend(iv, self.context.i64_type(), "end_i64")
+                        .map_err(|e| format!("Failed to extend end: {}", e))?
+                } else {
+                    iv
+                }
+            } else {
+                return Err("Slice end must be integer".to_string());
+            }
+        } else {
+            // No end means [start..] -> use -1 (sentinel for "to end")
+            self.context.i64_type().const_int((-1i64) as u64, true)
+        };
+
+        // Call vex_string_substr(str, start, end) -> char*
+        let vex_string_substr = self.declare_runtime_fn(
+            "vex_string_substr",
+            &[
+                ptr_type.into(),
+                self.context.i64_type().into(),
+                self.context.i64_type().into(),
+            ],
+            ptr_type.into(),
+        );
+
+        let result = self
+            .builder
+            .build_call(
+                vex_string_substr,
+                &[string_ptr.into(), start_val.into(), end_val.into()],
+                "string_slice",
+            )
+            .map_err(|e| format!("Failed to call vex_string_substr: {}", e))?
+            .try_as_basic_value()
+            .left()
+            .ok_or("vex_string_substr should return a value".to_string())?;
+
+        Ok(result)
     }
 }

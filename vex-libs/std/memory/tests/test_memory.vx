@@ -1,0 +1,44 @@
+// Memory Module Tests
+// Test allocation, deallocation, and memory operations
+
+import { alloc, free, memcpy, memset, memcmp } from "memory";
+
+fn main(): i32 {
+    println("=== Memory Module Tests ===");
+
+    // Test 1: Basic allocation and deallocation
+    println("Test 1: Basic allocation");
+    let ptr = alloc(64);
+    if ptr == 0 as *u8 {
+        println("❌ Allocation failed");
+        return 1;
+    }
+    println("✓ Allocated 64 bytes");
+
+    // Test memset
+    memset(ptr, 0xAA, 64);
+    println("✓ Set memory to 0xAA");
+
+    // Test memcmp
+    let ptr2 = alloc(64);
+    memset(ptr2, 0xAA, 64);
+    if memcmp(ptr, ptr2, 64) != 0 {
+        println("❌ Memory comparison failed");
+        return 1;
+    }
+    println("✓ Memory comparison passed");
+
+    // Test memcpy
+    memset(ptr2, 0xBB, 64);
+    memcpy(ptr, ptr2, 32);
+    if memcmp(ptr, ptr2, 32) != 0 {
+        println("❌ Memory copy failed");
+        return 1;
+    }
+    println("✓ Memory copy passed");
+
+    println("✓ Memory freed");
+
+    println("=== Memory Tests Passed ===");
+    return 0;
+}

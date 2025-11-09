@@ -246,15 +246,40 @@ let multiline = "Line 1\nLine 2";
 // Concatenation (future)
 let full_name = first_name + " " + last_name;
 
-// Length (future)
-let len = str.len();
+// Length
+let len = str.len();  // Available via string methods
 
-// Indexing (future)
-let first_char = str[0];
+// Character Indexing ✅ v0.9.2
+let first_char = str[0];        // Returns byte at index
+let last_char = str[str.len() - 1];
 
-// Slicing (future)
-let substring = str[0..5];
+// String Slicing ✅ v0.9.2
+let substring = str[0..5];      // Slice from index 0 to 5 (exclusive)
+let from_start = str[..5];      // From beginning to index 5
+let to_end = str[7..];          // From index 7 to end
+let copy = str[..];             // Full string copy
 ```
+
+**UTF-8 Safety**:
+
+String indexing and slicing operate on **byte indices**, not character indices. This is fast but requires care with multi-byte UTF-8 characters:
+
+```vex
+let emoji = "Hello 👋";
+let slice = emoji[0..7];  // ✅ Safe: "Hello "
+// emoji[0..8] would panic - splits emoji in middle of UTF-8 sequence
+
+// For character-based indexing, use string methods:
+let chars = emoji.chars();  // Iterator over characters (future)
+```
+
+**Implementation Details** (v0.9.2):
+
+- **Indexing `str[i]`**: Returns `u8` byte at position `i`, bounds-checked at runtime
+- **Slicing `str[a..b]`**: Creates new string from bytes `a` to `b` (exclusive)
+- **Runtime**: `vex_string_slice(ptr, start, end)` in `vex-runtime/c/vex_string.c`
+- **Panic**: Out-of-bounds access or invalid UTF-8 split causes runtime panic
+- **Test**: `examples/test_string_slicing.vx`
 
 **String Interpolation**:
 
@@ -865,9 +890,11 @@ struct Pair<T, U> {
 
 ### Union Types
 
-Types that can be one of several alternatives:
+Union types allow a value to be one of several different types. They are implemented as **tagged unions** with a discriminator field.
 
 **Syntax**: `(Type1 | Type2 | ...)`
+
+**Implementation Status**: ✅ **COMPLETE** (v0.9.2)
 
 ```vex
 type NumberOrString = (i32 | string);
@@ -876,20 +903,63 @@ let value: NumberOrString = 42;
 let value2: NumberOrString = "hello";
 ```
 
+**Representation**:
+
+Union types are compiled to tagged unions (similar to Rust enums):
+
+```vex
+// Internal representation: { i32 tag, <largest_type> data }
+struct UnionLayout {
+    tag: i32,           // 0 for first type, 1 for second, etc.
+    data: LargestType   // Union of all member types
+}
+```
+
 **Use Cases**:
 
-- Flexible function parameters
+- Flexible function parameters accepting multiple types
 - Error handling with `(T | error)`
 - Optional values with `(T | nil)`
+- Multi-type return values
 
-**Pattern Matching**:
+**Examples**:
+
+```vex
+// Function accepting int or string
+fn accepts_int_or_string(value: (i32 | string)) {
+    // Type checking at runtime via tag field
+    print("Received union value");
+}
+
+// Nested unions
+fn accepts_option_or_bool(value: (Option<i32> | bool)) {
+    print("Received Option or bool");
+}
+
+// Union type in variable declaration
+let x: (i32 | string) = 42;
+accepts_int_or_string(x);
+
+// Union with Result/Option
+let z: (Result<i32, string> | Option<string>) = Some("test");
+```
+
+**Pattern Matching** (Future):
 
 ```vex
 match value {
-    i when i is i32 => { }      // Type guard (future)
-    s when s is string => { }
+    i when i is i32 => { println("Integer: {}", i); }
+    s when s is string => { println("String: {}", s); }
 }
 ```
+
+**Implementation Details**:
+
+- **Parser**: `vex-parser/src/parser/types.rs` - Parses `(T1 | T2)` syntax
+- **AST**: `vex-ast/src/lib.rs` - `Type::Union(Vec<Type>)`
+- **Codegen**: `vex-compiler/src/codegen_ast/types.rs` - Tagged union struct generation
+- **Size calculation**: Uses largest member type for data field
+- **Test file**: `examples/test_union_types.vx`
 
 ### Intersection Types
 
@@ -1151,7 +1221,7 @@ Types are compatible if they implement required traits:
 
 ```vex
 trait Display {
-    fn (self: &Self!) show();
+    fn show();
 }
 
 fn print_it<T: Display>(value: T) {

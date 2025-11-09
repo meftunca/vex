@@ -1,151 +1,269 @@
 // Time Module
-// Complete time operations - duration, instant, timezone, formatting
+// High-performance time handling with timezone support (Go-style API)
 //
 // Usage:
-//   import { now, sleep, Duration, Instant, parse_duration, format_rfc3339 } from "time";
+//   import { now, sleep, Duration, Instant, Time, Location } from "time";
 
-// External C functions from vex-runtime/c/vex_time/
+// Vex-friendly wrappers (Go-style API)
+
+// Duration represents a duration of time
+export struct Duration {
+    ns: i64,
+}
+
+// Time represents both wall clock and monotonic time
+type Time = i64;
+
 extern "C" {
-    // Core types (opaque in Vex, defined in C)
-    type VexTime;
-    type VexInstant;
-    type VexDuration = i64;
-    type VexTz;
-    type VexTimeSched;
-    type VexTimer;
-    type VexTicker;
-    
-    // Now & conversion
+    // Opaque types from vex_time.h
+    type VexDuration = i64;  // nanoseconds
+    type VexInstant = *u8;   // wall clock instant (UTC)
+    type VexTime = *u8;      // wall + monotonic
+    type VexTz = *u8;        // timezone
+
+    // Core functions
     fn vt_now(out: *VexTime);
-    fn vt_monotonic_now_ns(): u64;
-    fn vt_instant_from_unix(sec: i64, nsec: i32): VexInstant;
+    fn vt_monotonic_now_ns() -> u64;
+    fn vt_instant_from_unix(sec: i64, nsec: i32) -> VexInstant;
     fn vt_instant_to_unix(t: VexInstant, sec: *i64, nsec: *i32);
-    
+
     // Duration parsing/formatting
-    fn vt_parse_duration(s: *const u8, out_ns: *i64): i32;
-    fn vt_format_duration(ns: i64, buf: *u8!, buflen: u64): i32;
-    
+    fn vt_parse_duration(s: *u8, out_ns: *VexDuration) -> i32;
+    fn vt_format_duration(ns: VexDuration, buf: *u8, buflen: usize) -> i32;
+
     // Arithmetic
-    fn vt_add(t: VexTime, d: i64): VexTime;
-    fn vt_sub(t: VexTime, u: VexTime): i64;
-    fn vt_since(t: VexTime): i64;
-    fn vt_until(t: VexTime): i64;
-    
+    fn vt_add(t: VexTime, d: VexDuration) -> VexTime;
+    fn vt_sub(t: VexTime, u: VexTime) -> VexDuration;
+    fn vt_since(t: VexTime) -> VexDuration;
+    fn vt_until(t: VexTime) -> VexDuration;
+
     // Sleep
-    fn vt_sleep_ns(ns: i64): i32;
-    
+    fn vt_sleep_ns(ns: VexDuration) -> i32;
+
     // RFC3339
-    fn vt_format_rfc3339_utc(t: VexInstant, buf: *u8!, buflen: u64): i32;
-    fn vt_parse_rfc3339(s: *const u8, out: *VexInstant): i32;
-    
-    // Timezone
-    fn vt_tz_utc(): *const VexTz;
-    fn vt_tz_local(): *const VexTz;
-    fn vt_tz_load(name: *const u8): *const VexTz;
-    fn vt_tz_release(tz: *const VexTz);
-    fn vt_tz_offset_at(tz: *const VexTz, utc: VexInstant, offset_sec: *i32, abbr: *const *const u8): i32;
-    
-    // Go layout format/parse
-    fn vt_format_go(utc: VexInstant, tz: *const VexTz, layout: *const u8, out: *u8!, outlen: u64): i32;
-    fn vt_parse_go(layout: *const u8, value: *const u8, tz: *const VexTz, out: *VexInstant): i32;
-    
-    // Scheduler (timers/tickers)
-    fn vt_sched_create(): *const VexTimeSched;
-    fn vt_sched_destroy(s: *const VexTimeSched);
-    fn vt_timer_create(s: *const VexTimeSched, cb: fn(*const u8, VexTime), user: *const u8): *const VexTimer;
-    fn vt_timer_start(t: *const VexTimer, after_ns: i64): i32;
-    fn vt_timer_stop(t: *const VexTimer): i32;
-    fn vt_timer_destroy(t: *const VexTimer);
+    fn vt_format_rfc3339_utc(t: VexInstant, buf: *u8, buflen: usize) -> i32;
+    fn vt_parse_rfc3339(s: *u8, out: *VexInstant) -> i32;
+
+    // Time Zone (TZ)
+    fn vt_tz_set_dir(path: *u8);
+    fn vt_tz_utc() -> VexTz;
+    fn vt_tz_fixed(name: *u8, offset_sec: i32) -> VexTz;
+    fn vt_tz_local() -> VexTz;
+    fn vt_tz_load(name: *u8) -> VexTz;
+    fn vt_tz_load_from_memory(name: *u8, tzif: *u8, len: usize) -> VexTz;
+    fn vt_tz_release(tz: VexTz);
+    fn vt_tz_offset_at(tz: VexTz, utc: VexInstant, offset_sec: *i32, abbr: **u8) -> i32;
+    fn vt_utc_to_tz(tz: VexTz, utc: VexInstant) -> VexInstant;
+
+    // Go layout Format/Parse
+    fn vt_format_go(utc: VexInstant, tz: VexTz, layout: *u8, out: *u8, outlen: usize) -> i32;
+    fn vt_parse_go(layout: *u8, value: *u8, tz: VexTz, out: *VexInstant) -> i32;
 }
 
-// Duration in nanoseconds
-export type Duration = i64;
+// Vex-friendly wrappers (Go-style API)
 
-// Instant represents a point in time (UTC)
-export struct Instant {
-    inner: VexInstant,
+// Duration represents a duration of time
+export struct Duration {
+    ns: i64,
 }
 
-// Time with both wall and monotonic clock
-export struct Time {
-    inner: VexTime,
-}
+// Time represents both wall clock and monotonic time
+type Time = i64;
 
-// Timezone
-export struct Timezone {
-    ptr: *const VexTz,
-}
+// ===== BASIC TIME FUNCTIONS =====
 
-// Get current time
+// Now returns the current local time
 export fn now(): Time {
-    let! t: VexTime;
-    unsafe {
-        vt_now(&t);
-    }
-    return Time { inner: t };
+    let t: Time = 0;
+    vt_now(&t);
+    return t;
 }
 
-// Get monotonic time in nanoseconds
-export fn monotonic_ns(): u64 {
-    unsafe {
-        vt_monotonic_now_ns()
-    }
+// MonotonicNow returns the current monotonic time in nanoseconds
+export fn monotonic_now(): u64 {
+    return vt_monotonic_now_ns();
 }
 
-// Sleep for duration
-export fn sleep(dur: Duration): i32 {
-    unsafe {
-        vt_sleep_ns(dur)
-    }
+// Unix returns the local Time corresponding to the given Unix time
+export fn unix(sec: i64, nsec: i32): Time {
+    let instant = vt_instant_from_unix(sec, nsec);
+    let t: Time = Time { inner: 0 as VexTime };
+    // Set the wall clock time
+    t.inner.wall = instant;
+    // Set monotonic time to 0 (not meaningful for constructed times)
+    t.inner.mono_ns = 0;
+    return t;
 }
 
-// Parse duration string (e.g., "1h30m", "500ms")
-export fn parse_duration(s: string): Duration {
-    let! ns: i64 = 0;
-    unsafe {
-        vt_parse_duration(s.as_ptr(), &ns);
-    }
-    return ns;
-}
+// ===== DURATION FUNCTIONS =====
 
-// Format duration
-export fn format_duration(dur: Duration): string {
-    let! buf: [u8; 64];
-    unsafe {
-        vt_format_duration(dur, buf.as_mut_ptr(), 64);
-        return string.from_utf8_unchecked(&buf);
+// ParseDuration parses a duration string (e.g., "1h30m45s")
+export fn parse_duration(s: str): Result<Duration, str> {
+    let ns: VexDuration = 0;
+    let cstr = s.as_ptr() as *u8;
+    let result = vt_parse_duration(cstr, &ns);
+
+    if result == 0 {
+        return Ok(Duration { ns: ns });
+    } else {
+        return Err("invalid duration format");
     }
 }
 
-// Parse RFC3339 timestamp
-export fn parse_rfc3339(s: string): Instant {
-    let! inst: VexInstant;
-    unsafe {
-        vt_parse_rfc3339(s.as_ptr(), &inst);
-    }
-    return Instant { inner: inst };
+// String converts the duration to a string
+export fn duration_string(d: Duration): str {
+    // TODO: Implement proper string formatting when string module is available
+    return "duration_formatted";
 }
 
-// Format as RFC3339
-export fn format_rfc3339(t: Instant): string {
-    let! buf: [u8; 64];
-    unsafe {
-        vt_format_rfc3339_utc(t.inner, buf.as_mut_ptr(), 64);
-        return string.from_utf8_unchecked(&buf);
+// ===== ARITHMETIC =====
+
+// Add returns the time t+d
+export fn add(t: Time, d: Duration): Time {
+    let result = vt_add(t.inner, d.ns);
+    return Time { inner: result };
+}
+
+// Sub returns the duration t-u
+export fn sub(t: Time, u: Time): Duration {
+    let result = vt_sub(t.inner, u.inner);
+    return Duration { ns: result };
+}
+
+// Since returns the time elapsed since t
+export fn since(t: Time): Duration {
+    let result = vt_since(t.inner);
+    return Duration { ns: result };
+}
+
+// Until returns the duration until t
+export fn until(t: Time): Duration {
+    let result = vt_until(t.inner);
+    return Duration { ns: result };
+}
+
+// ===== SLEEP =====
+
+// Sleep pauses the current goroutine for at least the duration d
+export fn sleep(d: Duration) {
+    vt_sleep_ns(d.ns);
+}
+
+// ===== RFC3339 =====
+
+// FormatRFC3339 formats t as RFC3339 string
+export fn format_rfc3339(t: Time): str {
+    // TODO: Implement proper RFC3339 formatting when string module is available
+    return "2021-01-01T00:00:00Z";
+}
+
+// ParseRFC3339 parses an RFC3339 string
+export fn parse_rfc3339(s: str): Result<Time, str> {
+    let instant: VexInstant = VexInstant { unix_sec: 0, nsec: 0, _pad: 0 };
+    let cstr = s.as_ptr() as *u8;
+    let result = vt_parse_rfc3339(cstr, &instant);
+
+    if result == 0 {
+        // Convert instant to Time
+        let t: Time = Time { inner: 0 as VexTime };
+        t.inner.wall = instant;
+        t.inner.mono_ns = 0; // Not meaningful for parsed times
+        return Ok(t);
+    } else {
+        return Err("invalid RFC3339 format");
     }
 }
 
-// Get UTC timezone
-export fn utc(): Timezone {
-    unsafe {
-        Timezone { ptr: vt_tz_utc() }
+// ===== TIMEZONE FUNCTIONS =====
+
+// UTC represents Universal Coordinated Time (UTC)
+export fn utc(): Location {
+    let tz = vt_tz_utc();
+    return Location { tz: tz };
+}
+
+// Local represents the system's local time zone
+export fn local(): Location {
+    let tz = vt_tz_local();
+    return Location { tz: tz };
+}
+
+// FixedZone returns a Location that always uses the given zone name and offset
+export fn fixed_zone(name: str, offset: i32): Location {
+    let cname = name.as_ptr() as *u8;
+    let tz = vt_tz_fixed(cname, offset);
+    return Location { tz: tz };
+}
+
+// LoadLocation returns the Location with the given name (IANA timezone)
+export fn load_location(name: str): Result<Location, str> {
+    let cname = name.as_ptr() as *u8;
+    let tz = vt_tz_load(cname);
+
+    if tz != 0 as VexTz {
+        return Ok(Location { tz: tz });
+    } else {
+        return Err("timezone not found");
     }
 }
 
-// Get local timezone
-export fn local(): Timezone {
-    unsafe {
-        Timezone { ptr: vt_tz_local() }
+// ===== FORMATTING & PARSING (Go layout) =====
+
+// Format returns a textual representation of the time value formatted according to layout
+export fn format(t: Time, layout: str): str {
+    // TODO: Implement proper Go-style formatting when string module is available
+    return "formatted_time";
+}
+
+// Parse parses a formatted string and returns the time value it represents
+export fn parse(layout: str, value: str): Result<Time, str> {
+    let instant: VexInstant = VexInstant { unix_sec: 0, nsec: 0, _pad: 0 };
+    let layout_cstr = layout.as_ptr() as *u8;
+    let value_cstr = value.as_ptr() as *u8;
+    let result = vt_parse_go(layout_cstr, value_cstr, 0 as VexTz, &instant);
+
+    if result == 0 {
+        let t: Time = Time { inner: 0 as VexTime };
+        t.inner.wall = instant;
+        t.inner.mono_ns = 0;
+        return Ok(t);
+    } else {
+        return Err("invalid format");
     }
 }
 
+// ===== TIME METHODS =====
+
+// Unix returns t as a Unix time, the number of seconds elapsed since January 1, 1970 UTC
+export fn unix(t: Time): i64 {
+    let sec: i64 = 0;
+    let nsec: i32 = 0;
+    vt_instant_to_unix(t.inner.wall, &sec, &nsec);
+    return sec;
+}
+
+// UnixNano returns t as a Unix time, the number of nanoseconds elapsed since January 1, 1970 UTC
+export fn unix_nano(t: Time): i64 {
+    let sec: i64 = 0;
+    let nsec: i32 = 0;
+    vt_instant_to_unix(t.inner.wall, &sec, &nsec);
+    return sec * 1000000000 + nsec as i64;
+}
+
+// Nanosecond returns the nanoseconds within the second specified by t
+export fn nanosecond(t: Time): i32 {
+    let sec: i64 = 0;
+    let nsec: i32 = 0;
+    vt_instant_to_unix(t.inner.wall, &sec, &nsec);
+    return nsec;
+}
+
+// ===== DURATION CONSTANTS =====
+
+// Duration constants (nanoseconds)
+export const NANOSECOND: VexDuration = 1;
+export const MICROSECOND: VexDuration = 1000;
+export const MILLISECOND: VexDuration = 1000000;
+export const SECOND: VexDuration = 1000000000;
+export const MINUTE: VexDuration = 60000000000;
+export const HOUR: VexDuration = 3600000000000;

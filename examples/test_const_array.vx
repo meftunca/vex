@@ -1,0 +1,8 @@
+fn test_array_type() {
+    let arr: [i32; 5] = [1, 2, 3, 4, 5];
+    println("Array with const size works!");
+}
+
+fn main() {
+    test_array_type();
+}

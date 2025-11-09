@@ -120,7 +120,7 @@ While not enforced by the compiler, the following conventions are recommended:
 | Functions              | snake_case       | `calculate_total` |
 | Types (Structs, Enums) | PascalCase       | `UserAccount`     |
 | Traits                 | PascalCase       | `Serializable`    |
-| Private                | Prefix with `_`  | `_internal_fn`    |
+| Internal/Helper        | Prefix with `_`  | `_internal_fn`    |
 
 ---
 
@@ -138,7 +138,7 @@ continue    defer
 ```
 
 **Answer**: ✅ `for` keyword mevcut ve çalışıyor. 06_Control_Flow.md'de detaylı dokümante edilmiş.
-**Answer**: 🚧 `defer` keyword reserved ama codegen implement edilmemiş (Go-style resource cleanup).
+**Answer**: ✅ `defer` keyword IMPLEMENTED! (Nov 9, 2025) - Go-style resource cleanup with LIFO execution.
 
 ### Declaration Keywords
 
@@ -301,7 +301,6 @@ true        false
 | `;`     | Semicolon   | Statement terminator     |
 | `:`     | Colon       | Type annotations         |
 | `_`     | Underscore  | Wildcard pattern         |
-| `#`     | Hash        | Attributes               |
 
 ### Special Symbols
 
@@ -310,7 +309,7 @@ true        false
 | `=>`   | Fat Arrow | Match arms, lambdas               |
 | `@`    | At        | Intrinsics (`@vectorize`, `@gpu`) |
 
-**Answer**: ✅ `->` kaldırıldı. Vex'te return type için `:` kullanılıyor: `fn add(x: i32, y: i32): i32`
+**Note**: Vex does NOT use Rust-style `#[attribute]` syntax. Attributes are not part of the language.
 
 ---
 

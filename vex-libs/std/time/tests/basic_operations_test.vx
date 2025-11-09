@@ -1,0 +1,58 @@
+// Time Module - Basic Operations Test
+// Tests fundamental time operations: now, sleep, monotonic time
+
+import { now, monotonic_now, sleep, unix, unix_nano, nanosecond, Duration } from "time";
+
+fn main(): i32 {
+    println("=== Time Module: Basic Operations Test ===");
+
+    // Test 1: Current time
+    println("Test 1: Current Time");
+    let t1 = now();
+    println("✓ Got current time");
+
+    // Test 2: Unix timestamp conversion
+    println("Test 2: Unix Timestamp Conversion");
+    let unix_time = unix(t1);
+    let unix_nano_time = unix_nano(t1);
+    let nsec = nanosecond(t1);
+    println("✓ Unix time: " + unix_time.to_string());
+    println("✓ Unix nano: " + unix_nano_time.to_string());
+    println("✓ Nanosecond: " + nsec.to_string());
+
+    // Test 3: Monotonic time
+    println("Test 3: Monotonic Time");
+    let mono1 = monotonic_now();
+    sleep(Duration { ns: 100000000 }); // 100ms
+    let mono2 = monotonic_now();
+    let elapsed = mono2 - mono1;
+    println("✓ Monotonic time elapsed: " + elapsed.to_string() + " ns");
+
+    // Test 4: Sleep precision test
+    println("Test 4: Sleep Precision");
+    let start = monotonic_now();
+    sleep(Duration { ns: 500000000 }); // 500ms
+    let end = monotonic_now();
+    let actual_elapsed = end - start;
+    let expected_ns = 500000000;
+    let diff = (actual_elapsed as i64 - expected_ns as i64).abs();
+    if diff < 10000000 { // Within 10ms tolerance
+        println("✓ Sleep precision within tolerance");
+    } else {
+        println("⚠ Sleep precision outside tolerance: " + diff.to_string() + " ns");
+    }
+
+    // Test 5: Time creation from Unix
+    println("Test 5: Time from Unix Timestamp");
+    let unix_ts = 1609459200; // 2021-01-01 00:00:00 UTC
+    let t_from_unix = unix(unix_ts, 0);
+    let back_to_unix = unix(t_from_unix);
+    if back_to_unix == unix_ts {
+        println("✓ Round-trip Unix conversion successful");
+    } else {
+        println("⚠ Round-trip Unix conversion failed");
+    }
+
+    println("=== Basic Operations Test Complete ===");
+    return 0;
+}

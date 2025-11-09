@@ -1,98 +1,54 @@
-// HTTP Module
-// HTTP client and server (built on net + TLS)
-//
-// Usage:
-//   import { Client, Request, Response, Server } from "http";
+// HTTP Module - Web framework (Go net/http style)
 
-// HTTP is built on top of net + crypto/TLS
-// Using standard Vex types
+extern "C" {
+    fn socket(domain: i32, sock_type: i32, protocol: i32): i32;
+    fn close(fd: i32): i32;
+}
 
 export struct Request {
-    method: string,
-    uri: string,
-    version: string,
-    headers: HashMap<string, string>,
-    body: Vec<u8>,
+    method: String,
+    path: String,
+    version: String,
 }
 
 export struct Response {
-    status_code: i32,
-    status_text: string,
-    headers: HashMap<string, string>,
-    body: Vec<u8>,
+    status: i32,
+    body: String,
 }
 
-export struct Client {
-    timeout_ms: i32,
-    max_redirects: i32,
-}
-
-export struct Server {
-    addr: string,
-    port: u16,
-    handler: fn(Request) : Response,
-}
-
-// Create HTTP client
-export fn create_client(): Client {
-    return Client {
-        timeout_ms: 30000,
-        max_redirects: 10,
-    };
-}
-
-// Perform GET request
-export fn get(client: &Client, url: string): Response {
-    // TODO: Implementation using net + parsing
+export fn ok(body: String): Response {
     return Response {
-        status_code: 200,
-        status_text: "OK",
-        headers: HashMap.new(),
-        body: Vec.new(),
+        status: 200,
+        body: body,
     };
 }
 
-// Perform POST request
-export fn post(client: &Client, url: string, body: &[u8]): Response {
-    // TODO: Implementation using net + parsing
+export fn not_found(): Response {
     return Response {
-        status_code: 200,
-        status_text: "OK",
-        headers: HashMap.new(),
-        body: Vec.new(),
+        status: 404,
+        body: "Not Found",
     };
 }
 
-// Create HTTP server
-export fn create_server(addr: string, port: u16, handler: fn(Request) : Response): Server {
-    return Server {
-        addr,
-        port,
-        handler,
+export fn get(url: String): Response {
+    return Response {
+        status: 200,
+        body: "GET not implemented yet",
     };
 }
 
-// Start HTTP server (blocking)
-export fn serve(server: &Server) {
-    // TODO: Implementation using net event loop + parsing
-    // Will bind, listen, accept, parse HTTP, call handler, write response
-}
-
-// Helper: Parse HTTP request from bytes
-fn parse_request(data: &[u8]): Request {
-    // TODO: HTTP parser
-    return Request {
-        method: "GET",
-        uri: "/",
-        version: "HTTP/1.1",
-        headers: HashMap.new(),
-        body: Vec.new(),
+export fn post(url: String, body: String): Response {
+    return Response {
+        status: 200,
+        body: "POST not implemented yet",
     };
 }
 
-// Helper: Serialize HTTP response to bytes
-fn serialize_response(resp: &Response): Vec<u8> {
-    // TODO: HTTP serializer
-    return Vec.new();
+export fn listen_and_serve(addr: String, port: u16): i32 {
+    let sock: i32 = socket(2, 1, 0);
+    if sock < 0 {
+        return sock;
+    }
+    close(sock);
+    return 0;
 }
-

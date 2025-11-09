@@ -38,13 +38,13 @@ extern "C" {
     type VexDbPayload;
     
     // Connection
-    fn vex_db_connect(driver: *const VexDbDriver, conninfo: *const u8): *VexConnection;
+    fn vex_db_connect(driver: *const VexDbDriver, conninfo: *u8): *VexConnection;
     fn vex_db_disconnect(conn: *VexConnection);
     
     // Query execution
     fn vex_db_execute_query(
         conn: *VexConnection, 
-        query: *const u8, 
+        query: *u8, 
         nParams: i32, 
         params: *const VexDbValue
     ): *VexResultSet;
@@ -58,9 +58,9 @@ extern "C" {
     fn vex_db_rollback_transaction(conn: *VexConnection): i32;
     
     // Pub/Sub (PostgreSQL LISTEN/NOTIFY, Redis Pub/Sub)
-    fn vex_db_subscribe(conn: *VexConnection, channel: *const u8): i32;
-    fn vex_db_unsubscribe(conn: *VexConnection, channel: *const u8): i32;
-    fn vex_db_publish(conn: *VexConnection, channel: *const u8, message: *const u8, message_len: u64): i32;
+    fn vex_db_subscribe(conn: *VexConnection, channel: *u8): i32;
+    fn vex_db_unsubscribe(conn: *VexConnection, channel: *u8): i32;
+    fn vex_db_publish(conn: *VexConnection, channel: *u8, message: *u8, message_len: u64): i32;
     fn vex_db_poll_notifications(conn: *VexConnection): i32;
     fn vex_db_get_notification(conn: *VexConnection): VexDbPayload;
     
@@ -85,7 +85,7 @@ export struct ResultSet {
 
 // Row data
 export struct Row {
-    data: *const u8,
+    data: *u8,
     length: u64,
     is_null: bool,
 }

@@ -25,33 +25,33 @@ extern "C" {
     }
     
     // Hex
-    fn vex_hex_encode(src: *const u8, n: u64, dst: *u8!, uppercase: i32): u64;
-    fn vex_hex_decode(src: *const u8, n: u64, dst: *u8!): i64;
+    fn vex_hex_encode(src: *u8, n: u64, dst: *u8!, uppercase: i32): u64;
+    fn vex_hex_decode(src: *u8, n: u64, dst: *u8!): i64;
     fn vex_hex_encoded_len(nbytes: u64): u64;
     fn vex_hex_decoded_len(nchars: u64): u64;
     
     // Base64
-    fn vex_base64_encode(src: *const u8, n: u64, dst: *u8!, cfg: vex_b64_cfg): u64;
-    fn vex_base64_decode(src: *const u8, n: u64, dst: *u8!, alpha: i32): i64;
+    fn vex_base64_encode(src: *u8, n: u64, dst: *u8!, cfg: vex_b64_cfg): u64;
+    fn vex_base64_decode(src: *u8, n: u64, dst: *u8!, alpha: i32): i64;
     fn vex_base64_encoded_len(nbytes: u64, cfg: vex_b64_cfg): u64;
     fn vex_base64_max_decoded_len(nchars: u64): u64;
     
     // Base32
-    fn vex_base32_encode(src: *const u8, n: u64, dst: *u8!, cfg: vex_b32_cfg): u64;
-    fn vex_base32_decode(src: *const u8, n: u64, dst: *u8!, alpha: i32): i64;
+    fn vex_base32_encode(src: *u8, n: u64, dst: *u8!, cfg: vex_b32_cfg): u64;
+    fn vex_base32_decode(src: *u8, n: u64, dst: *u8!, alpha: i32): i64;
     fn vex_base32_encoded_len(nbytes: u64, cfg: vex_b32_cfg): u64;
     fn vex_base32_max_decoded_len(nchars: u64): u64;
     
     // UUID
     fn vex_uuid_v1(out: *vex_uuid): i32;
-    fn vex_uuid_v3(out: *vex_uuid, ns: *const vex_uuid, name: *const u8, len: u64): i32;
+    fn vex_uuid_v3(out: *vex_uuid, ns: *const vex_uuid, name: *u8, len: u64): i32;
     fn vex_uuid_v4(out: *vex_uuid): i32;
-    fn vex_uuid_v5(out: *vex_uuid, ns: *const vex_uuid, name: *const u8, len: u64): i32;
+    fn vex_uuid_v5(out: *vex_uuid, ns: *const vex_uuid, name: *u8, len: u64): i32;
     fn vex_uuid_v6(out: *vex_uuid): i32;
     fn vex_uuid_v7(out: *vex_uuid): i32;
-    fn vex_uuid_v8(out: *vex_uuid, custom: *const u8): i32;
+    fn vex_uuid_v8(out: *vex_uuid, custom: *u8): i32;
     fn vex_uuid_format(out: *u8!, u: *const vex_uuid): i32;  // 37 bytes (36 + null)
-    fn vex_uuid_parse(s: *const u8, out: *vex_uuid): i32;
+    fn vex_uuid_parse(s: *u8, out: *vex_uuid): i32;
 }
 
 // UUID wrapper

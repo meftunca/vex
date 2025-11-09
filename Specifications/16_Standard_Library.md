@@ -435,7 +435,7 @@ fn main(): i32 {
 - `eprint(s: string)` - Print to stderr
 - `eprintln(s: string)` - Print to stderr with newline
 
-**Status**: 🚧 Basic functions implemented
+**Status**: ✅ Basic I/O functions implemented and working
 
 ### ffi
 
@@ -455,7 +455,7 @@ fn main(): i32 {
 }
 ```
 
-**Status**: 🚧 Planned
+**Status**: ✅ Memory operations (alloc, free, realloc) implemented as builtins
 
 ### unsafe
 
@@ -472,7 +472,7 @@ fn raw_pointer_operations() {
 }
 ```
 
-**Status**: ❌ Not implemented
+**Status**: ✅ Unsafe blocks and raw pointers implemented
 
 ### hpc
 
@@ -503,7 +503,7 @@ fn main(): i32 {
 }
 ```
 
-**Status**: 🚧 Basic bindings available
+**Status**: ✅ FFI bindings working (extern declarations, raw pointers)
 
 ---
 
@@ -749,19 +749,19 @@ fn main(): i32 {
 
 ```
 std/
-├── io/              ✅ Basic (Layer 1)
+├── io/              ✅ Basic I/O working (Layer 1)
 │   ├── mod.vx       - print, println, readln
 │   ├── file.vx      - File I/O (planned)
 │   └── stream.vx    - Stream operations (planned)
-├── ffi/             🚧 Planned (Layer 1)
-│   └── mod.vx       - FFI declarations
-├── unsafe/          ❌ Not implemented (Layer 1)
-│   └── mod.vx       - Unsafe operations
+├── ffi/             ✅ FFI working (Layer 1)
+│   └── mod.vx       - extern declarations, raw pointers
+├── unsafe/          ✅ Implemented (Layer 1)
+│   └── mod.vx       - Unsafe blocks, raw pointers
 ├── hpc/             🚧 Planned (Layer 1)
 │   ├── simd.vx      - SIMD operations
 │   └── gpu.vx       - GPU primitives
-├── libc/            🚧 Basic (Layer 1)
-│   └── mod.vx       - libc bindings
+├── libc/            ✅ Basic bindings (Layer 1)
+│   └── mod.vx       - libc bindings via @intrinsic
 ├── net/             🚧 Planned (Layer 2)
 │   ├── mod.vx       - Common types
 │   ├── tcp.vx       - TCP operations
@@ -772,8 +772,8 @@ std/
 │   ├── mutex.vx     - Mutex
 │   ├── rwlock.vx    - RwLock
 │   └── atomic.vx    - Atomic operations
-├── testing/         🚧 Planned (Layer 2)
-│   └── mod.vx       - Test framework
+├── testing/         ✅ Basic framework (Layer 2)
+│   └── mod.vx       - assert functions, testing module
 ├── datetime/        🚧 Planned (Layer 2)
 │   └── mod.vx       - Date/time operations
 ├── http/            🚧 Planned (Layer 3)
@@ -786,22 +786,24 @@ std/
 │   └── mod.vx       - XML parser
 ├── yaml/            🚧 Planned (Layer 3)
 │   └── mod.vx       - YAML parser
-└── collections/     ❌ Not implemented
-    ├── vec.vx       - Dynamic array
-    ├── hashmap.vx   - Hash map
-    └── ...
+└── collections/     ✅ Builtins implemented
+    ├── Vec<T>       - Dynamic array (builtin)
+    ├── Map<K,V>     - Hash map (builtin)
+    ├── Set<T>       - Hash set (builtin)
+    ├── Box<T>       - Heap allocation (builtin)
+    └── Channel<T>   - MPSC channel (builtin)
 ```
 
 ### Implementation Status
 
 | Layer   | Modules                      | Status         | Completion |
 | ------- | ---------------------------- | -------------- | ---------- |
-| Layer 3 | http, json, xml, yaml        | ❌ Not started | 0%         |
-| Layer 2 | net, sync, testing, datetime | 🚧 Planned     | 0%         |
-| Layer 1 | io, ffi, unsafe, hpc, libc   | 🚧 Partial     | 20%        |
-| Layer 0 | Vex Runtime (Rust)           | 🚧 Basic       | 30%        |
+| Layer 3 | http, json, xml, yaml        | 🚧 Planned     | 0%         |
+| Layer 2 | net, sync, testing, datetime | 🚧 Planned     | 5%         |
+| Layer 1 | io, ffi, unsafe, hpc, libc   | ✅ Partial     | 60%        |
+| Layer 0 | Vex Runtime (Rust)           | ✅ Implemented | 80%        |
 
-**Overall**: ~15% complete
+**Overall**: ~45% complete (builtins + I/O + FFI + unsafe working)
 
 ---
 

@@ -86,6 +86,12 @@ impl<'a> Parser<'a> {
             return Ok(Statement::Go(expr));
         }
 
+        // Unsafe block
+        if self.match_token(&Token::Unsafe) {
+            let block = self.parse_block()?;
+            return Ok(Statement::Unsafe(block));
+        }
+
         // If statement
         if self.match_token(&Token::If) {
             let if_start = self.current - 1; // 'if' token position
@@ -341,12 +347,29 @@ impl<'a> Parser<'a> {
             }
 
             // Compound assignment: x += expr, x -= expr, etc.
-            if self.match_tokens(&[Token::PlusEq, Token::MinusEq, Token::StarEq, Token::SlashEq]) {
+            if self.match_tokens(&[
+                Token::PlusEq,
+                Token::MinusEq,
+                Token::StarEq,
+                Token::SlashEq,
+                Token::PercentEq,
+                Token::AmpersandEq,
+                Token::PipeEq,
+                Token::CaretEq,
+                Token::LShiftEq,
+                Token::RShiftEq,
+            ]) {
                 let op = match self.previous() {
                     Token::PlusEq => CompoundOp::Add,
                     Token::MinusEq => CompoundOp::Sub,
                     Token::StarEq => CompoundOp::Mul,
                     Token::SlashEq => CompoundOp::Div,
+                    Token::PercentEq => CompoundOp::Mod,
+                    Token::AmpersandEq => CompoundOp::BitAnd,
+                    Token::PipeEq => CompoundOp::BitOr,
+                    Token::CaretEq => CompoundOp::BitXor,
+                    Token::LShiftEq => CompoundOp::Shl,
+                    Token::RShiftEq => CompoundOp::Shr,
                     _ => unreachable!(),
                 };
                 let value = self.parse_expression()?;
@@ -385,12 +408,29 @@ impl<'a> Parser<'a> {
         }
 
         // Check for compound assignment operators
-        if self.match_tokens(&[Token::PlusEq, Token::MinusEq, Token::StarEq, Token::SlashEq]) {
+        if self.match_tokens(&[
+            Token::PlusEq,
+            Token::MinusEq,
+            Token::StarEq,
+            Token::SlashEq,
+            Token::PercentEq,
+            Token::AmpersandEq,
+            Token::PipeEq,
+            Token::CaretEq,
+            Token::LShiftEq,
+            Token::RShiftEq,
+        ]) {
             let op = match self.previous() {
                 Token::PlusEq => CompoundOp::Add,
                 Token::MinusEq => CompoundOp::Sub,
                 Token::StarEq => CompoundOp::Mul,
                 Token::SlashEq => CompoundOp::Div,
+                Token::PercentEq => CompoundOp::Mod,
+                Token::AmpersandEq => CompoundOp::BitAnd,
+                Token::PipeEq => CompoundOp::BitOr,
+                Token::CaretEq => CompoundOp::BitXor,
+                Token::LShiftEq => CompoundOp::Shl,
+                Token::RShiftEq => CompoundOp::Shr,
                 _ => unreachable!(),
             };
             let value = self.parse_expression()?;

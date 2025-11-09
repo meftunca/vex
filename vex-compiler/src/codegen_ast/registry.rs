@@ -1,7 +1,6 @@
 // src/codegen/registry.rs
 use super::*;
 use crate::diagnostics::{error_codes, Diagnostic, ErrorLevel, Span};
-use vex_ast::*;
 
 impl<'ctx> ASTCodeGen<'ctx> {
     pub(crate) fn register_type_alias(&mut self, type_alias: &TypeAlias) -> Result<(), String> {

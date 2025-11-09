@@ -608,7 +608,7 @@ let coords: (i32, i32) = (100, 200);
 **v0.9 Güncellemesi (Kasım 2025):** Trait method'ları artık **simplified syntax** kullanıyor:
 
 - ✅ Yeni: `fn method(params): type;` (receiver yok)
-- ❌ Eski: `fn (self: &Self!) method(params): type;`
+- ❌ Eski: `fn method(params): type;`
 - ⚠️ Trait method'ları **body içeremez** (sadece signature)
 
 ```vex
@@ -634,7 +634,7 @@ trait Converter<T> {
 
 // Opsiyonel: Golang-style hala destekleniyor
 trait Writer {
-    fn (self: &Self!) write(data: &[byte]);  // ✅ Still valid
+    fn write(data: &[byte]);  // ✅ Still valid
 }
 ```
 
@@ -643,12 +643,12 @@ trait Writer {
 ```vex
 // Trait inheritance
 trait Writer: Formatter, Closer {
-    fn (self: &Self!) write(data: &[byte]);
+    fn write(data: &[byte]);
 }
 
 // Multiple inheritance
 trait Logger: Display, Debug {
-    fn (self: &Self!) log(msg: string);
+    fn log(msg: string);
 }
 ```
 

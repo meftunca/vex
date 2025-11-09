@@ -42,15 +42,46 @@ impl BorrowChecker {
 
     /// Run all borrow checking phases on a program
     pub fn check_program(&mut self, program: &mut Program) -> BorrowResult<()> {
-        // Phase 0: Register extern functions (they're always valid)
+        // Phase 0.1: Register imported symbols (they're global and always valid)
+        for import in &program.imports {
+            // Register all imported names as global symbols
+            for name in &import.items {
+                self.moves.global_vars.insert(name.clone());
+                self.moves.valid_vars.insert(name.clone());
+                self.borrows.valid_vars.insert(name.clone());
+                self.lifetimes.global_vars.insert(name.clone());
+            }
+        }
+
+        // Phase 0.2: Register global symbols (extern functions + top-level functions + constants)
+        // These are always valid and never go out of scope
         for item in &program.items {
-            if let Item::ExternBlock(block) = item {
-                for func in &block.functions {
+            match item {
+                Item::ExternBlock(block) => {
+                    // Register extern "C" functions
+                    for func in &block.functions {
+                        self.moves.global_vars.insert(func.name.clone());
+                        self.moves.valid_vars.insert(func.name.clone());
+                        self.borrows.valid_vars.insert(func.name.clone());
+                        self.lifetimes.global_vars.insert(func.name.clone());
+                    }
+                }
+                Item::Function(func) => {
+                    // Register top-level functions (including imported ones)
+                    // These are global symbols and never go out of scope
                     self.moves.global_vars.insert(func.name.clone());
                     self.moves.valid_vars.insert(func.name.clone());
                     self.borrows.valid_vars.insert(func.name.clone());
                     self.lifetimes.global_vars.insert(func.name.clone());
                 }
+                Item::Const(const_decl) => {
+                    // Register constants (they're immutable globals)
+                    self.moves.global_vars.insert(const_decl.name.clone());
+                    self.moves.valid_vars.insert(const_decl.name.clone());
+                    self.borrows.valid_vars.insert(const_decl.name.clone());
+                    self.lifetimes.global_vars.insert(const_decl.name.clone());
+                }
+                _ => {}
             }
         }
 
@@ -313,7 +344,7 @@ impl BorrowChecker {
                 Ok(())
             }
             Expression::EnumLiteral { data, .. } => {
-                if let Some(data_expr) = data {
+                for data_expr in data {
                     self.analyze_expression_closures(data_expr)?;
                 }
                 Ok(())
@@ -345,8 +376,12 @@ impl BorrowChecker {
                 Ok(())
             }
             Expression::Range { start, end } | Expression::RangeInclusive { start, end } => {
-                self.analyze_expression_closures(start)?;
-                self.analyze_expression_closures(end)?;
+                if let Some(s) = start {
+                    self.analyze_expression_closures(s)?;
+                }
+                if let Some(e) = end {
+                    self.analyze_expression_closures(e)?;
+                }
                 Ok(())
             }
             Expression::Await(expr)
@@ -386,6 +421,11 @@ impl BorrowChecker {
             | Expression::BoolLiteral(_)
             | Expression::Nil
             | Expression::Ident(_) => Ok(()),
+
+            Expression::Typeof(expr) => {
+                // Check nested closures in typeof expression
+                self.analyze_expression_closures(expr)
+            }
         }
     }
 }

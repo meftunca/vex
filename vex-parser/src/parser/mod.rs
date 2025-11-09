@@ -17,7 +17,7 @@ mod types;
 
 // Re-export Parser as the main public interface
 pub struct Parser<'a> {
-    pub(crate) tokens: Vec<TokenSpan>,
+    pub tokens: Vec<TokenSpan>, // Make public for debugging
     pub(crate) current: usize,
     pub(crate) source: &'a str,
     pub(crate) file_name: String, // Track filename for error reporting

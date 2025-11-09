@@ -1,0 +1,25 @@
+// Test: Trait bounds syntax
+trait Display {
+    fn display(self: &Self): String;
+}
+
+// Generic function with trait bound
+fn print_value<T: Display>(value: T) {
+    let s: String = value.display();
+    // println would go here
+}
+
+struct Point impl Display {
+    x: i32,
+    y: i32,
+    
+    fn display(self: &Point): String {
+        return "Point";
+    }
+}
+
+fn main(): i32 {
+    let p = Point { x: 1, y: 2 };
+    print_value(p);
+    return 0;
+}

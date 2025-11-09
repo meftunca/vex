@@ -2,7 +2,7 @@
 
 **Status:** ✅ Globally Installed  
 **Extension ID:** `meftunca.vex-language`  
-**Version:** 0.9.1
+**Version:** 0.9.2
 
 ## 🚀 Quick Start
 
@@ -36,11 +36,20 @@ Cmd+Shift+P → "Developer: Reload Window"
 
 ## ✨ Features
 
-### Current (v0.9.1)
+### Current (v0.9.2)
 
-- ✅ **Syntax Highlighting** - Full Vex v0.9.1 syntax with all new features
+- ✅ **Syntax Highlighting** - Full Vex v0.9.2 syntax with all new features
+  - ✅ `unsafe` blocks for raw pointer operations
+  - ✅ Trait bounds syntax (`<T: Display>`)
+  - ✅ `interface` keyword support
+  - ✅ Extended types: f128, str, byte, unit, nil
+  - ✅ HashMap, HashSet, String types
 - ✅ **Language Server (LSP)** - Real-time diagnostics with exact positions
-- ✅ **Extended Type Support** - i128, u128, f16, error, Map, Set, Channel, Vec, Box
+  - ✅ Trait bounds validation errors
+  - ✅ Unsafe block tracking
+  - ✅ Generic type inference
+- ✅ **Code Formatter** - Auto-formatting with unsafe/defer/go support
+- ✅ **Extended Type Support** - i128, u128, f16, f128, error, Map, Set, Channel, Vec, Box
 - ✅ **Builtin Functions** - 50+ builtin functions including memory ops, LLVM intrinsics, reflection
 - ✅ **Code Snippets** - Comprehensive snippets for all language features
 - ✅ **Vex Dark Theme** - Custom color scheme
@@ -51,7 +60,7 @@ Cmd+Shift+P → "Developer: Reload Window"
 - 🚧 Hover type information
 - 🚧 Go to definition
 - 🚧 Auto-completion
-- 🚧 Code formatting
+- 🚧 Code actions (quick fixes)
 
 ---
 
@@ -59,7 +68,7 @@ Cmd+Shift+P → "Developer: Reload Window"
 
 ```bash
 # Extension location (symlink)
-~/.vscode/extensions/vex-language-0.9.1
+~/.vscode/extensions/vex-language-0.9.2
 → /Users/mapletechnologies/Desktop/big_projects/vex_lang/vscode-vex
 
 # LSP server
@@ -69,7 +78,9 @@ Cmd+Shift+P → "Developer: Reload Window"
 ✅ Extension globally installed
 ✅ TypeScript compiled (out/extension.js)
 ✅ LSP server built
-✅ All v0.9.1 features supported
+✅ All v0.9.2 features supported
+✅ Trait bounds enforcement
+✅ Unsafe block support
 ⏳ Waiting for .vx file to activate
 ```
 

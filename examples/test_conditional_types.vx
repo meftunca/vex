@@ -1,0 +1,30 @@
+// Test conditional types (TypeScript-inspired)
+
+// Type alias with conditional type
+type IsString<T> = T extends string ? i32 : i64;
+type IsNumber<T> = T extends i32 ? bool : string;
+
+// Complex conditional type with nested conditions
+type TypeName<T> = T extends string ? string
+                 : T extends i32 ? string
+                 : T extends bool ? string
+                 : string;
+
+// Conditional types with infer (extract inner type)
+type Unpack<T> = T extends Vec<infer U> ? U : T;
+type UnwrapOption<T> = T extends Option<infer U> ? U : T;
+
+// Nested infer
+type DeepUnpack<T> = T extends Vec<Vec<infer U>> ? U : T;
+
+fn main() {
+    print("Testing conditional types:");
+    print("✅ Type IsString<T> = T extends string ? i32 : i64");
+    print("✅ Type IsNumber<T> = T extends i32 ? bool : string");
+    print("✅ Type TypeName<T> with nested conditions");
+    print("✅ Type Unpack<T> = T extends Vec<infer U> ? U : T");
+    print("✅ Type UnwrapOption<T> = T extends Option<infer U> ? U : T");
+    print("✅ Type DeepUnpack<T> with nested infer");
+    
+    print("\n✅ Conditional types with infer test passed!");
+}

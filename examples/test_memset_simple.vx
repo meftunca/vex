@@ -4,7 +4,7 @@ fn main(): i32 {
     
     // Before: [0; 8192] = 16,384 LLVM instructions (compile hangs)
     // After:  [0; 8192] = 1 memset call (instant compile)
-    let buffer: [u8; 1280] = [0; 1280];
+    let buffer: [u8; 8192] = [0; 8192];
     
     println("8KB buffer allocated successfully!");
     

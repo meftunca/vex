@@ -1,0 +1,26 @@
+// Fmt Module Tests
+// Test formatting operations
+
+import { format, printf, sprintf } from "fmt";
+
+fn main(): i32 {
+    println("=== Fmt Module Tests ===");
+
+    // Test 1: Basic format (placeholder)
+    println("Test 1: Basic format");
+    let template = "Hello, {}!";
+    let formatted = format(template);
+    println("Formatted: {}", formatted);
+
+    // Test 2: Printf
+    println("Test 2: Printf");
+    printf("Direct print: value1 value2");
+
+    // Test 3: Sprintf
+    println("Test 3: Sprintf");
+    let sprintf_result = sprintf("Formatted: 1 + 2 = 3");
+    println("Result: {}", sprintf_result);
+
+    println("=== Fmt Tests Completed ===");
+    return 0;
+}

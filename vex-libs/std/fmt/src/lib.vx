@@ -1,11 +1,22 @@
 // Fmt Module
-// Formatting utilities (placeholder)
+// Formatting utilities
 //
 // Usage:
-//   import { format } from "fmt";
+//   import { format, printf } from "fmt";
 
-export fn format(template: string): string {
-    // TODO: Implement formatting
-    return template;
+// Simple format function (placeholder implementation)
+export fn format(template: str): str {
+    // TODO: Implement proper formatting with argument substitution
+    return template; // Placeholder - just return template
 }
 
+// Print formatted string
+export fn printf(template: str) {
+    let formatted = format(template);
+    println(formatted);
+}
+
+// Sprintf - format to string
+export fn sprintf(template: str): str {
+    return format(template);
+}

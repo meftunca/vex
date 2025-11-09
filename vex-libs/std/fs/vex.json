@@ -10,8 +10,8 @@
 
   "native": {
     "sources": [],
-    "libraries": [],
-    "search_paths": [],
+    "libraries": ["vex_runtime"],
+    "search_paths": ["../../../vex-runtime/c"],
     "static_libs": [],
     "cflags": ["-O3", "-Wall"],
     "include_dirs": ["../../../vex-runtime/c"]

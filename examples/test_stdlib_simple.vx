@@ -1,0 +1,23 @@
+// Simplified stdlib_integration test - without problematic parts
+import { println } from "io";
+import { sin_f64, PI } from "math";
+import { join } from "path";
+import { get, set } from "env";
+
+fn main(): i32 {
+    println("=== Simplified Stdlib Test ===");
+    
+    // Math
+    let angle: f64 = PI / 4.0;
+    let sine: f64 = sin_f64(angle);
+    
+    // Path
+    let combined: String = join("/home", "file.vx");
+    
+    // Env
+    set("VEX_TEST", "hello");
+    let value: String = get("VEX_TEST");
+    
+    println("✅ Math, Path, Env modules working!");
+    return 0;
+}

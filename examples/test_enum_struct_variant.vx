@@ -1,0 +1,20 @@
+// Test: Enum Struct Variants
+// Check if enum variants can have named fields like structs
+
+enum Shape {
+    Circle { radius: i32 },
+    Rectangle { width: i32, height: i32 },
+    Point,
+}
+
+fn main(): i32 {
+    let circle = Shape.Circle { radius: 10 };
+    
+    let area = match circle {
+        Shape.Circle { radius } => radius * radius * 3,
+        Shape.Rectangle { width, height } => width * height,
+        Shape.Point => 0,
+    };
+    
+    return area;
+}

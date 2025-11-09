@@ -1,0 +1,33 @@
+// Path Module Tests
+// Test path operations
+
+import { join, exists, normalize, basename, extension } from "path";
+
+fn main(): i32 {
+    println("=== Path Module Tests ===");
+
+    // Test 1: Path joining
+    println("Test 1: Path joining");
+    let path1 = "home/user";
+    let path2 = "documents/file.txt";
+    let joined = join(path1, path2);
+    println("Joined: {}", joined);
+    // TODO: Check actual result when string operations are available
+
+    // Test 2: Path normalization
+    println("Test 2: Path normalization");
+    let messy_path = "./home/../home/user/./file.txt";
+    let normalized = normalize(messy_path);
+    println("Normalized: {}", normalized);
+
+    // Test 3: Basename and extension
+    println("Test 3: Basename and extension");
+    let full_path1 = "/home/user/file.txt";
+    let base = basename(full_path1);
+    let full_path2 = "/home/user/file.txt";
+    let ext = extension(full_path2);
+    println("Basename: {}, Extension: {}", base, ext);
+
+    println("=== Path Tests Completed (placeholders used) ===");
+    return 0;
+}

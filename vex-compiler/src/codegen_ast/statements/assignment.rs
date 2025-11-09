@@ -181,6 +181,36 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     .build_int_signed_div(lhs, rhs, "div_tmp")
                     .map_err(|e| format!("Failed to build div: {}", e))?
                     .into(),
+                CompoundOp::Mod => self
+                    .builder
+                    .build_int_signed_rem(lhs, rhs, "mod_tmp")
+                    .map_err(|e| format!("Failed to build mod: {}", e))?
+                    .into(),
+                CompoundOp::BitAnd => self
+                    .builder
+                    .build_and(lhs, rhs, "and_tmp")
+                    .map_err(|e| format!("Failed to build bitwise and: {}", e))?
+                    .into(),
+                CompoundOp::BitOr => self
+                    .builder
+                    .build_or(lhs, rhs, "or_tmp")
+                    .map_err(|e| format!("Failed to build bitwise or: {}", e))?
+                    .into(),
+                CompoundOp::BitXor => self
+                    .builder
+                    .build_xor(lhs, rhs, "xor_tmp")
+                    .map_err(|e| format!("Failed to build bitwise xor: {}", e))?
+                    .into(),
+                CompoundOp::Shl => self
+                    .builder
+                    .build_left_shift(lhs, rhs, "shl_tmp")
+                    .map_err(|e| format!("Failed to build left shift: {}", e))?
+                    .into(),
+                CompoundOp::Shr => self
+                    .builder
+                    .build_right_shift(lhs, rhs, false, "shr_tmp")
+                    .map_err(|e| format!("Failed to build right shift: {}", e))?
+                    .into(),
             }
         } else if current_val.is_float_value() {
             let lhs = current_val.into_float_value();
@@ -206,6 +236,16 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     .build_float_div(lhs, rhs, "div_tmp")
                     .map_err(|e| format!("Failed to build div: {}", e))?
                     .into(),
+                CompoundOp::Mod => {
+                    return Err("Modulo operator not supported for floats".to_string());
+                }
+                CompoundOp::BitAnd
+                | CompoundOp::BitOr
+                | CompoundOp::BitXor
+                | CompoundOp::Shl
+                | CompoundOp::Shr => {
+                    return Err("Bitwise operators not supported for floats".to_string());
+                }
             }
         } else {
             return Err("Invalid type for compound assignment".to_string());

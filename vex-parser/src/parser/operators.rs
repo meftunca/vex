@@ -432,41 +432,24 @@ impl<'a> Parser<'a> {
                     self.advance(); // consume '('
 
                     if is_potential_enum && !self.check(&Token::RParen) {
-                        // Parse single argument for enum constructor
-                        let first_arg = self.parse_expression()?;
-
-                        // If followed by ')', it's enum constructor with single data field
-                        // If followed by ',', it's a method call with multiple args
-                        if self.check(&Token::RParen) {
-                            self.advance(); // consume ')'
-                            let enum_name = match expr {
-                                Expression::Ident(name) => name,
-                                _ => unreachable!(),
-                            };
-                            expr = Expression::EnumLiteral {
-                                enum_name,
-                                variant: field_or_method,
-                                data: Some(Box::new(first_arg)),
-                            };
-                            continue; // Skip to next iteration
-                        } else {
-                            // Multiple args = method call, collect remaining args
-                            let mut args = vec![first_arg];
-                            while self.match_token(&Token::Comma) {
-                                args.push(self.parse_expression()?);
-                            }
-                            self.consume(&Token::RParen, "Expected ')' after arguments")?;
-
-                            // Check for mutable call suffix: method()!
-                            let is_mutable_call = self.match_token(&Token::Not);
-
-                            expr = Expression::MethodCall {
-                                receiver: Box::new(expr),
-                                method: field_or_method,
-                                args,
-                                is_mutable_call,
-                            };
+                        // Parse arguments (may be enum constructor or method call)
+                        let mut args = vec![self.parse_expression()?];
+                        while self.match_token(&Token::Comma) {
+                            args.push(self.parse_expression()?);
                         }
+                        self.consume(&Token::RParen, "Expected ')' after arguments")?;
+
+                        // Enum constructor with data (single or multi-value tuple)
+                        let enum_name = match expr {
+                            Expression::Ident(name) => name,
+                            _ => unreachable!(),
+                        };
+                        expr = Expression::EnumLiteral {
+                            enum_name,
+                            variant: field_or_method,
+                            data: args,
+                        };
+                        continue; // Skip to next iteration
                     } else {
                         // Empty parens or not potential enum - parse as method call
                         let args = self.parse_arguments()?;
@@ -507,11 +490,11 @@ impl<'a> Parser<'a> {
                                 .map(|c| c.is_uppercase())
                                 .unwrap_or(false)
                         {
-                            // Both PascalCase = likely Enum.Variant
+                            // Both PascalCase = likely Enum.Variant (unit variant, no data)
                             expr = Expression::EnumLiteral {
                                 enum_name,
                                 variant: field_or_method,
-                                data: None,
+                                data: vec![],
                             };
                         } else {
                             // Field access: obj.field

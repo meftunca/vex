@@ -141,7 +141,7 @@ Vex defines three closure traits that correspond to capture modes:
 
 ```vex
 trait Callable<Args, Return> {
-    fn (self: &Self) call(args: Args): Return;
+    fn call(args: Args): Return;
 }
 ```
 
@@ -153,7 +153,7 @@ trait Callable<Args, Return> {
 
 ```vex
 trait CallableMut<Args, Return> {
-    fn (self: &Self!) call(args: Args): Return;
+    fn call(args: Args): Return;
 }
 ```
 

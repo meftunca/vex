@@ -1,0 +1,54 @@
+// Test struct destructuring in match expressions
+
+struct Point {
+    x: i32,
+    y: i32,
+}
+
+struct Color {
+    r: u8,
+    g: u8,
+    b: u8,
+}
+
+fn describe_point(p: Point): string {
+    // Struct destructuring in match
+    let! result: string = match p {
+        Point { x: 0, y: 0 } => "Origin",
+        Point { x: 0, y } => "On Y axis",
+        Point { x, y: 0 } => "On X axis",
+        Point { x, y } => "Somewhere else"
+    };
+    return result;
+}
+
+fn describe_color(c: Color): string {
+    // Struct destructuring with shorthand
+    let! result: string = match c {
+        Color { r: 255, g: 0, b: 0 } => "Pure red",
+        Color { r, g, b } => "Some color"
+    };
+    return result;
+}
+
+fn main() {
+    let! p1: Point = Point { x: 0, y: 0 };
+    let! p2: Point = Point { x: 5, y: 0 };
+    let! p3: Point = Point { x: 0, y: 10 };
+    let! p4: Point = Point { x: 3, y: 4 };
+    
+    print("Testing struct destructuring:");
+    print(describe_point(p1));
+    print(describe_point(p2));
+    print(describe_point(p3));
+    print(describe_point(p4));
+    
+    let! red: Color = Color { r: 255, g: 0, b: 0 };
+    let! blue: Color = Color { r: 0, g: 0, b: 255 };
+    
+    print("\nTesting color destructuring:");
+    print(describe_color(red));
+    print(describe_color(blue));
+    
+    print("\n✅ Struct destructuring test passed!");
+}

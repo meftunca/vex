@@ -2,7 +2,7 @@
  * Standard Library Resolver
  * Resolves import statements to stdlib file paths with platform-specific selection
  */
-use super::platform::{Arch, Platform, Target};
+use super::platform::Target;
 use std::path::{Path, PathBuf};
 
 /// Standard library modules (built-in)
@@ -24,6 +24,10 @@ const STDLIB_MODULES: &[&str] = &[
     "json",
     "fmt",
     "testing",
+    "math",    // Mathematical functions
+    "fs",      // File system operations
+    "env",     // Environment variables
+    "process", // Process management
 ];
 
 /// Errors that can occur during module resolution
@@ -183,6 +187,8 @@ impl StdlibResolver {
 
 #[cfg(test)]
 mod tests {
+    use crate::{Arch, Platform, Target};
+
     use super::*;
 
     #[test]
@@ -198,7 +204,8 @@ mod tests {
     #[test]
     fn test_all_modules() {
         let modules = StdlibResolver::all_modules();
-        assert_eq!(modules.len(), 17);
+        // Updated: stdlib now has 21 modules (was 17)
+        assert_eq!(modules.len(), 21);
         assert!(modules.contains(&"io"));
         assert!(modules.contains(&"collections"));
         assert!(modules.contains(&"testing"));

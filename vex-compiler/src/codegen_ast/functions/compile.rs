@@ -1,7 +1,6 @@
 // src/codegen/functions/compile.rs
 use super::super::*;
 use inkwell::values::BasicValueEnum;
-use vex_ast::*;
 
 impl<'ctx> ASTCodeGen<'ctx> {
     pub(crate) fn compile_function(&mut self, func: &Function) -> Result<(), String> {

@@ -210,31 +210,119 @@ match triple {
 }
 ```
 
-### Struct Destructuring (Future)
+### Struct Destructuring
 
-Extract struct fields:
+**Status**: ✅ **COMPLETE** (v0.9.2)
 
-```vex
-struct Point { x: i32, y: i32 }
-
-match point {
-    Point { x: 0, y: 0 } => { /* origin */ }
-    Point { x, y: 0 } => { /* on x-axis */ }
-    Point { x, y } => { /* general */ }
-}
-```
-
-**Shorthand**:
+Extract struct fields in pattern matching:
 
 ```vex
+struct Point { x: f32, y: f32 }
+
 match point {
     Point { x, y } => {
-        // Binds x and y from point.x and point.y
+        // x and y are bound from point.x and point.y
+        print(x);
+        print(y);
     }
 }
 ```
 
-**Partial Destructuring**:
+**Nested Destructuring**:
+
+```vex
+struct Line {
+    start: Point,
+    end: Point
+}
+
+match line {
+    Line { start, end } => {
+        match start {
+            Point { x: x1, y: y1 } => {
+                match end {
+                    Point { x: x2, y: y2 } => {
+                        // Access nested fields
+                        print(x1);
+                        print(y2);
+                    }
+                };
+            }
+        };
+    }
+}
+```
+
+**Field Renaming**:
+
+```vex
+match point {
+    Point { x: px, y: py } => {
+        // Bind point.x to px, point.y to py
+        print(px);
+        print(py);
+    }
+}
+```
+
+**Use Cases**:
+
+- Extract specific fields from structs
+- Validate struct values with guards
+- Destructure function parameters (future)
+- Pattern matching in match expressions
+
+**Examples**:
+
+```vex
+fn distance(p: Point): f32 {
+    match p {
+        Point { x, y } => {
+            return (x * x + y * y);  // Simplified distance
+        }
+    };
+}
+
+fn origin_check(p: Point): bool {
+    match p {
+        Point { x, y } => {
+            if x == 0.0 && y == 0.0 {
+                return true;
+            } else {
+                return false;
+            };
+        }
+    };
+}
+
+fn quadrant(p: Point): i32 {
+    match p {
+        Point { x, y } => {
+            if x > 0.0 && y > 0.0 {
+                return 1;
+            } else if x < 0.0 && y > 0.0 {
+                return 2;
+            } else if x < 0.0 && y < 0.0 {
+                return 3;
+            } else if x > 0.0 && y < 0.0 {
+                return 4;
+            } else {
+                return 0;  // On axis
+            };
+        }
+    };
+}
+```
+
+**Implementation Details**:
+
+- **Parser**: `vex-parser/src/parser/patterns.rs` - Parses `Struct { field1, field2 }` syntax
+- **AST**: `vex-ast/src/lib.rs` - `Pattern::Struct { name, fields }`
+- **Pattern checking**: `vex-compiler/src/codegen_ast/expressions/pattern_matching.rs`
+- **Pattern binding**: Extract field values and bind to variables
+- **Test file**: `examples/test_struct_patterns.vx`
+
+**Partial Destructuring** (Future):
 
 ```vex
 match person {
@@ -430,21 +518,6 @@ match &value {
 }
 ```
 
-### At-Patterns (Future)
-
-Bind whole value and destructure:
-
-```vex
-match point {
-    p @ Point { x: 0, y } => {
-        // p is the whole point
-        // y is extracted
-    }
-}
-```
-
-**Syntax**: `variable @ pattern`
-
 ### Nested Patterns (Future)
 
 ```vex
@@ -637,22 +710,21 @@ match error_code {
 
 ## Pattern Matching Summary
 
-| Pattern Type | Syntax                 | Status     | Example              |
-| ------------ | ---------------------- | ---------- | -------------------- |
-| Literal      | `42`, `true`, `"text"` | ✅ Working | Exact value match    |
-| Variable     | `x`, `name`            | ✅ Working | Bind to variable     |
-| Wildcard     | `_`                    | ✅ Working | Match anything       |
-| Enum         | `Color::Red`           | ✅ Working | Enum variant         |
-| Or           | `1 \| 2 \| 3`          | ✅ Working | Multiple patterns    |
-| Tuple        | `(x, y)`               | ✅ Working | Destructure tuples   |
-| Struct       | `Point { x, y }`       | 🚧 Future  | Destructure structs  |
-| Array        | `[a, b, c]`            | 🚧 Future  | Fixed-size arrays    |
-| Slice        | `[head, ..]`           | 🚧 Future  | Variable-size        |
-| Enum Data    | `Some(x)`              | 🚧 Future  | Data-carrying enums  |
-| Range        | `0..10`                | 🚧 Future  | Value ranges         |
-| Guard        | `x if x > 0`           | 🚧 Future  | Conditional patterns |
-| At-pattern   | `p @ Point { }`        | 🚧 Future  | Bind and destructure |
-| Reference    | `&x`                   | 🚧 Future  | Match references     |
+| Pattern Type | Syntax                 | Status               | Example                      |
+| ------------ | ---------------------- | -------------------- | ---------------------------- |
+| Literal      | `42`, `true`, `"text"` | ✅ Working           | Exact value match            |
+| Variable     | `x`, `name`            | ✅ Working           | Bind to variable             |
+| Wildcard     | `_`                    | ✅ Working           | Match anything               |
+| Enum         | `Color::Red`           | ✅ Working           | Enum variant                 |
+| Or           | `1 \| 2 \| 3`          | ✅ Working           | Multiple patterns            |
+| Tuple        | `(x, y)`               | ✅ Working           | Destructure tuples           |
+| Struct       | `Point { x, y }`       | ✅ Complete (v0.9.2) | Destructure structs          |
+| Array        | `[a, b, c]`            | ✅ Working           | Fixed-size arrays            |
+| Slice        | `[head, ...rest]`      | ✅ Working           | Rest patterns with `...`     |
+| Enum Data    | `Some(x)`              | ✅ Working           | Data-carrying enums working  |
+| Range        | `0..10`, `0..=10`      | ✅ Working           | Value ranges with .. and ..= |
+| Guard        | `x if x > 0`           | ✅ Working           | Conditional patterns         |
+| Reference    | `&x`                   | 🚧 Future            | Match references             |
 
 ---
 

@@ -204,31 +204,90 @@ fn complex_operation_manual(): Result<i32, String> {
 
 ## Error Propagation
 
-Vex supports the `?` operator for concise error propagation:
+Vex supports the `?` operator for concise error propagation, similar to Rust.
+
+**Implementation Status**: ✅ **COMPLETE** (v0.9.2)
+
+### The `?` Operator
+
+The question mark operator (`?`) provides automatic error propagation for `Result<T, E>` types:
 
 ```vex
-fn read_and_process_file(filename: String): Result<String, String> {
+fn divide(a: i32, b: i32): Result<i32, string> {
+    if b == 0 {
+        return Err("Division by zero");
+    };
+    return Ok(a / b);
+}
+
+fn safe_divide(a: i32, b: i32): Result<i32, string> {
+    let result = divide(a, b)?;  // Early return if Err
+    return Ok(result * 2);
+}
+```
+
+**How it works**:
+
+The `?` operator desugars to a match expression:
+
+```vex
+// This code:
+let result = divide(10, 2)?;
+
+// Becomes:
+let result = match divide(10, 2) {
+    Ok(v) => v,
+    Err(e) => return Err(e)
+};
+```
+
+### Nested Error Propagation
+
+```vex
+fn read_and_process_file(filename: string): Result<string, string> {
     let content = read_file(filename)?;      // Propagates file errors
     let data = parse_json(content)?;         // Propagates parse errors
     let result = validate_data(data)?;       // Propagates validation errors
 
-    Ok(result)
+    return Ok(result);
 }
 
 // Equivalent without ? operator
-fn read_and_process_file_manual(filename: String): Result<String, String> {
+fn read_and_process_file_manual(filename: string): Result<string, string> {
     match read_file(filename) {
-        Ok(content) => match parse_json(content) {
-            Ok(data) => match validate_data(data) {
-                Ok(result) => Ok(result),
-                Err(e) => Err(e)
-            },
-            Err(e) => Err(e)
+        Ok(content) => {
+            match parse_json(content) {
+                Ok(data) => {
+                    match validate_data(data) {
+                        Ok(result) => { return Ok(result); },
+                        Err(e) => { return Err(e); }
+                    };
+                },
+                Err(e) => { return Err(e); }
+            };
         },
-        Err(e) => Err(e)
-    }
+        Err(e) => { return Err(e); }
+    };
 }
 ```
+
+### Chain of Operations
+
+```vex
+fn nested_operations(): Result<i32, string> {
+    let x = divide(10, 2)?;   // Ok(5)
+    let y = divide(x, 0)?;    // Err("Division by zero") - propagates here
+    let z = divide(y, 2)?;    // Never reached
+    return Ok(z);
+}
+```
+
+**Implementation Details**:
+
+- **Parser**: `vex-parser/src/parser/operators.rs` - Parses `expr?` syntax
+- **AST**: `vex-ast/src/lib.rs` - `Expression::QuestionMark(Box<Expression>)`
+- **Codegen**: `vex-compiler/src/codegen_ast/expressions/mod.rs` - Desugars to Result match
+- **Test file**: `examples/test_question_mark.vx`
 
 ### Early Returns
 

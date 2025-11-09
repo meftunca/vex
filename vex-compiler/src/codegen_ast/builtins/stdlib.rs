@@ -3,7 +3,6 @@
  * Zero-cost FFI declarations for LLVM codegen
  */
 use super::ASTCodeGen;
-use inkwell::values::BasicValueEnum;
 use inkwell::AddressSpace;
 
 // ============================================================================

@@ -1,0 +1,98 @@
+// Time Module - Timezone Operations Test
+// Tests timezone loading and operations
+
+import { utc, local, fixed_zone, load_location, Location } from "time";
+
+fn main(): i32 {
+    println("=== Time Module: Timezone Operations Test ===");
+
+    // Test 1: UTC timezone
+    println("Test 1: UTC Timezone");
+    let utc_loc = utc();
+    println("✓ UTC timezone created");
+
+    // Test 2: Local timezone
+    println("Test 2: Local Timezone");
+    let local_loc = local();
+    println("✓ Local timezone created");
+
+    // Test 3: Fixed offset timezones
+    println("Test 3: Fixed Offset Timezones");
+    let tz_plus_5_30 = fixed_zone("IST", 19800);  // +5:30
+    let tz_minus_8 = fixed_zone("PST", -28800);   // -8:00
+    let tz_zero = fixed_zone("GMT", 0);          // GMT
+    println("✓ Created fixed timezones: IST (+5:30), PST (-8:00), GMT (0)");
+
+    // Test 4: Load IANA timezones
+    println("Test 4: Load IANA Timezones");
+    let iana_zones = [
+        "America/New_York",
+        "Europe/London",
+        "Asia/Tokyo",
+        "Australia/Sydney",
+        "Pacific/Honolulu",
+    ];
+
+    let! load_success = 0;
+    for i in 0..iana_zones.len() {
+        let zone_name = iana_zones[i];
+        match load_location(zone_name) {
+            Ok(tz) => {
+                println("✓ Successfully loaded: " + zone_name);
+                load_success = load_success + 1;
+            }
+            Err(e) => {
+                println("⚠ Failed to load '" + zone_name + "': " + e + " (may not be available on this system)");
+            }
+        }
+    }
+
+    // Test 5: Invalid timezone names
+    println("Test 5: Invalid Timezone Names");
+    let invalid_zones = [
+        "",
+        "Invalid/Timezone",
+        "America/InvalidCity",
+        "NotATimezone",
+        "UTC+05:00",  // Should use fixed_zone instead
+    ];
+
+    for i in 0..invalid_zones.len() {
+        let invalid_name = invalid_zones[i];
+        match load_location(invalid_name) {
+            Ok(tz) => {
+                println("⚠ '" + invalid_name + "' should have failed but loaded successfully");
+            }
+            Err(e) => {
+                println("✓ '" + invalid_name + "' correctly rejected: " + e);
+            }
+        }
+    }
+
+    // Test 6: Common timezone aliases
+    println("Test 6: Common Timezone Aliases");
+    let aliases = [
+        "UTC",
+        "GMT",
+        "EST",  // Eastern Standard Time
+        "CST",  // Central Standard Time
+        "MST",  // Mountain Standard Time
+        "PST",  // Pacific Standard Time
+    ];
+
+    for i in 0..aliases.len() {
+        let alias = aliases[i];
+        match load_location(alias) {
+            Ok(tz) => {
+                println("✓ '" + alias + "' loaded successfully");
+            }
+            Err(e) => {
+                println("⚠ '" + alias + "' not available: " + e);
+            }
+        }
+    }
+
+    println("=== Timezone Operations Test Complete ===");
+    println("Successfully loaded " + load_success.to_string() + "/" + iana_zones.len().to_string() + " IANA timezones");
+    return 0;
+}

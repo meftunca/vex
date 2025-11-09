@@ -1,0 +1,35 @@
+// String Module Tests
+// Test string operations
+
+import { len, compare, contains, has_prefix, to_upper } from "string";
+
+fn main(): i32 {
+    println("=== String Module Tests ===");
+
+    // Test 1: Basic operations
+    println("Test 1: Basic operations");
+    let len_s1 = len("hello");
+    println("Length of '{}': {}", "hello", len_s1);
+    let cmp_result = compare("hello", "world");
+    println("Compare '{}' and '{}': {}", "hello", "world", cmp_result);
+
+    // Test 2: String operations
+    println("Test 2: String operations");
+    let contains_result = contains("hello world", "world");
+    println("Contains '{}': {}", "world", contains_result);
+    let has_prefix_result = has_prefix("hello world", "hello");
+    println("Has prefix 'hello': {}", has_prefix_result);
+
+    // Test 3: Case conversion
+    println("Test 3: Case conversion");
+    let upper = to_upper("Hello World");
+    println("Upper: {}", upper);
+
+    // Test 4: String creation (placeholders)
+    println("Test 4: String creation - placeholders");
+    println("From bytes: placeholder");
+    println("Unchecked: placeholder");
+
+    println("=== String Tests Completed ===");
+    return 0;
+}

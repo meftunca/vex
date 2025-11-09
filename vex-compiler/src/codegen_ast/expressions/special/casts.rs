@@ -130,6 +130,28 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }
         }
 
+        // ⭐ NEW: Handle int -> pointer cast (e.g., 0 as *u8 for null pointer)
+        if let BasicValueEnum::IntValue(int_val) = value {
+            if let inkwell::types::BasicTypeEnum::PointerType(target_ptr) = target_llvm {
+                return Ok(self
+                    .builder
+                    .build_int_to_ptr(int_val, target_ptr, "cast_itop")
+                    .map_err(|e| format!("Failed to cast int to pointer: {}", e))?
+                    .into());
+            }
+        }
+
+        // ⭐ NEW: Handle pointer -> int cast (e.g., ptr as i64 for address)
+        if let BasicValueEnum::PointerValue(ptr_val) = value {
+            if let inkwell::types::BasicTypeEnum::IntType(target_int) = target_llvm {
+                return Ok(self
+                    .builder
+                    .build_ptr_to_int(ptr_val, target_int, "cast_ptoi")
+                    .map_err(|e| format!("Failed to cast pointer to int: {}", e))?
+                    .into());
+            }
+        }
+
         Err(format!(
             "Unsupported cast from {:?} to {:?}",
             value.get_type(),

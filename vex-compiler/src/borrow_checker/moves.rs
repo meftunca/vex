@@ -451,8 +451,12 @@ impl MoveChecker {
             }
 
             Expression::Range { start, end } => {
-                self.check_expression(start)?;
-                self.check_expression(end)?;
+                if let Some(s) = start {
+                    self.check_expression(s)?;
+                }
+                if let Some(e) = end {
+                    self.check_expression(e)?;
+                }
                 Ok(())
             }
 
@@ -578,6 +582,9 @@ impl MoveChecker {
 
             // Raw pointers are Copy (just addresses)
             Type::RawPtr { .. } => false,
+
+            // Typeof is compile-time only, treated as Copy
+            Type::Typeof(_) => false,
         }
     }
 }

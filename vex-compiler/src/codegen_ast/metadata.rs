@@ -5,7 +5,7 @@
 /// - Merging metadata from multiple sources
 /// - Policy composition with parent resolution
 use std::collections::{HashMap, HashSet};
-use vex_ast::{Policy, PolicyField};
+use vex_ast::Policy;
 
 /// Parse metadata string into HashMap
 /// Format: `json:"id" db:"user_id" validate:"required"`
@@ -150,7 +150,7 @@ pub fn apply_policy_to_fields(
 
     // Apply to each struct field
     for field_name in field_names {
-        let mut warnings = Vec::new();
+        let warnings = Vec::new();
 
         let metadata = if let Some(policy_metadata) = policy_map.get(field_name) {
             policy_metadata.clone()

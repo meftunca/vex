@@ -1,56 +1,90 @@
 // Memory Module
-// Memory allocation and manipulation
+// Memory allocation and manipulation with safety wrappers
 //
 // Usage:
-//   import { alloc, free, memcpy } from "memory";
+//   import { alloc, free, memcpy, Box } from "memory";
 
 // External C functions from vex-runtime/c/vex_alloc.c and vex_memory.c
 extern "C" {
     // Allocation
-    fn vex_malloc(size: u64): *const u8;
-    fn vex_calloc(nmemb: u64, size: u64): *const u8;
-    fn vex_realloc(ptr: *const u8, size: u64): *const u8;
-    fn vex_free(ptr: *const u8);
-    
+    fn vex_malloc(size: u64): *u8;
+    fn vex_calloc(nmemb: u64, size: u64): *u8;
+    fn vex_realloc(ptr: *u8, size: u64): *u8;
+    fn vex_free(ptr: *u8);
+
     // Memory operations
-    fn vex_memcpy(dest: *const u8, src: *const u8, n: u64): *const u8;
-    fn vex_memmove(dest: *const u8, src: *const u8, n: u64): *const u8;
-    fn vex_memset(s: *const u8, c: i32, n: u64): *const u8;
-    fn vex_memcmp(s1: *const u8, s2: *const u8, n: u64): i32;
+    fn vex_memcpy(dest: *u8, src: *u8, n: u64): *u8;
+    fn vex_memmove(dest: *u8, src: *u8, n: u64): *u8;
+    fn vex_memset(s: *u8, c: i32, n: u64): *u8;
+    fn vex_memcmp(s1: *u8, s2: *u8, n: u64): i32;
 }
 
-
-export fn alloc(size: u64): *const u8 {
+// Safe allocation functions
+export fn alloc(size: u64): *u8 {
+    if size == 0 {
+        return 0 as *u8;
+    }
     unsafe {
-        vex_malloc(size)
+        return vex_malloc(size);
     }
 }
 
-
-export fn free(ptr: *const u8) {
+export fn calloc(nmemb: u64, size: u64): *u8 {
+    if nmemb == 0 || size == 0 {
+        return 0 as *u8;
+    }
     unsafe {
-        vex_free(ptr);
+        return vex_calloc(nmemb, size);
     }
 }
 
-
-export fn memcpy(dest: *const u8, src: *const u8, n: u64): *const u8 {
+export fn realloc(ptr: *u8, size: u64): *u8 {
     unsafe {
-        vex_memcpy(dest, src, n)
+        return vex_realloc(ptr, size);
     }
 }
 
-
-export fn memset(s: *const u8, c: i32, n: u64): *const u8 {
-    unsafe {
-        vex_memset(s, c, n)
+export fn free(ptr: *u8) {
+    if ptr != 0 as *u8 {
+        unsafe {
+            vex_free(ptr);
+        }
     }
 }
 
-
-export fn memcmp(s1: *const u8, s2: *const u8, n: u64): i32 {
+// Memory operations
+export fn memcpy(dest: *u8, src: *u8, n: u64): *u8 {
+    if n == 0 {
+        return dest;
+    }
     unsafe {
-        vex_memcmp(s1, s2, n)
+        return vex_memcpy(dest, src, n);
     }
 }
 
+export fn memmove(dest: *u8, src: *u8, n: u64): *u8 {
+    if n == 0 {
+        return dest;
+    }
+    unsafe {
+        return vex_memmove(dest, src, n);
+    }
+}
+
+export fn memset(s: *u8, c: i32, n: u64): *u8 {
+    if n == 0 {
+        return s;
+    }
+    unsafe {
+        return vex_memset(s, c, n);
+    }
+}
+
+export fn memcmp(s1: *u8, s2: *u8, n: u64): i32 {
+    if n == 0 {
+        return 0;
+    }
+    unsafe {
+        return vex_memcmp(s1, s2, n);
+    }
+}

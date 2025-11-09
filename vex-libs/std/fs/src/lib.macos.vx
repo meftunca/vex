@@ -103,11 +103,10 @@ export fn append(path: String): File {
     };
 }
 
-/// Close file
-export fn close(f: File!) {
+/// Close file  
+export fn close(f: &File) {
     if f.is_open {
         vex_file_close(f.handle);
-        f.is_open = false;
     }
 }
 

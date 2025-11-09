@@ -1,6 +1,5 @@
 // src/codegen/traits.rs
 use super::*;
-use vex_ast::*;
 
 impl<'ctx> ASTCodeGen<'ctx> {
     pub(crate) fn compile_trait_impl_method(

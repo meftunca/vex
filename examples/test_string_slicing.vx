@@ -1,0 +1,14 @@
+// Test: String Slicing
+// Check if string slicing/indexing works
+
+fn main(): i32 {
+    let text: string = "Hello, World!";
+    
+    // Try character indexing
+    let first_char = text[0];  // Should be 'H'
+    
+    println("First character: ");
+    // println(first_char);  // May not work if char type doesn't have println
+    
+    return 0;
+}

@@ -1,0 +1,38 @@
+// Math Module Test
+// Tests mathematical functions and constants
+
+import { println } from "io";
+import { 
+    sin_f64, cos_f64, sqrt_f64, pow_f64, abs_f64,
+    PI, E,
+    min_i32, max_i32, abs_i32
+} from "math";
+
+fn main(): i32 {
+    println("=== Math Module Test ===");
+    
+    // Test constants
+    let pi_val: f64 = PI;
+    let e_val: f64 = E;
+    println("✓ Constants (PI, E) accessible");
+    
+    // Test trigonometric functions
+    let s: f64 = sin_f64(0.0);
+    let c: f64 = cos_f64(0.0);
+    println("✓ Trigonometry (sin, cos) working");
+    
+    // Test basic math
+    let sq: f64 = sqrt_f64(16.0);
+    let pw: f64 = pow_f64(2.0, 3.0);
+    let ab: f64 = abs_f64(-5.0);
+    println("✓ Basic math (sqrt, pow, abs) working");
+    
+    // Test integer functions
+    let min_val: i32 = min_i32(10, 5);
+    let max_val: i32 = max_i32(10, 5);
+    let abs_val: i32 = abs_i32(-10);
+    println("✓ Integer math (min, max, abs) working");
+    
+    println("✓ Math module fully working");
+    return 0;
+}

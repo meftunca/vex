@@ -1,0 +1,110 @@
+// Testing Module (Simplified for current parser)
+// Basic assertion and testing utilities
+//
+// Usage:
+//   import { assert, assert_eq, log } from "testing";
+
+// External C functions from vex-runtime/c/vex_testing.c
+extern "C" {
+    // Test assertions & logging
+    fn vex_assert(cond: bool, file: *u8, line: i32, msg: *u8);
+    fn vex_log_msg(msg: *u8);
+    fn vex_error_msg(msg: *u8);
+    fn vex_fatal_msg(msg: *u8);
+    fn vex_skip_msg(msg: *u8);
+    
+    // Benchmarking
+    fn vex_bench_set_bytes(bytes_per_op: u64);
+    fn vex_bench_reset_timer();
+    fn vex_bench_start_timer();
+    fn vex_bench_stop_timer();
+}
+
+// Assert with custom message
+export fn assert(condition: bool, message: string) {
+    if !condition {
+        let file: string = "test";
+        let file_ptr: *u8 = file.as_ptr();
+        let msg_ptr: *u8 = message.as_ptr();
+        vex_assert(condition, file_ptr, 0, msg_ptr);
+    }
+}
+
+// Assert equality for i32
+export fn assert_eq_i32(left: i32, right: i32, message: string) {
+    if left != right {
+        vex_fatal_msg(message.as_ptr());
+    }
+}
+
+// Assert equality for i64
+export fn assert_eq_i64(left: i64, right: i64, message: string) {
+    if left != right {
+        vex_fatal_msg(message.as_ptr());
+    }
+}
+
+// Assert equality for u64
+export fn assert_eq_u64(left: u64, right: u64, message: string) {
+    if left != right {
+        vex_fatal_msg(message.as_ptr());
+    }
+}
+
+// Assert equality for f64
+export fn assert_eq_f64(left: f64, right: f64, message: string) {
+    if left != right {
+        vex_fatal_msg(message.as_ptr());
+    }
+}
+
+// Assert equality for bool
+export fn assert_eq_bool(left: bool, right: bool, message: string) {
+    if left != right {
+        vex_fatal_msg(message.as_ptr());
+    }
+}
+
+// Log message (visible in test output)
+export fn log(message: string) {
+    let msg_ptr: *u8 = message.as_ptr();
+    vex_log_msg(msg_ptr);
+}
+
+// Test error (non-fatal, marks test as failed)
+export fn test_error(message: string) {
+    let msg_ptr: *u8 = message.as_ptr();
+    vex_error_msg(msg_ptr);
+}
+
+// Fatal error (stops test immediately)
+export fn fatal(message: string) {
+    let msg_ptr: *u8 = message.as_ptr();
+    vex_fatal_msg(msg_ptr);
+}
+
+// Skip test with reason
+export fn skip(reason: string) {
+    let msg_ptr: *u8 = reason.as_ptr();
+    vex_skip_msg(msg_ptr);
+}
+
+// Set bytes per operation (for throughput calculation)
+export fn set_bytes(bytes_per_op: u64) {
+    vex_bench_set_bytes(bytes_per_op);
+}
+
+// Reset benchmark timer (exclude setup time)
+export fn reset_timer() {
+    vex_bench_reset_timer();
+}
+
+// Start benchmark timer
+export fn start_timer() {
+    vex_bench_start_timer();
+}
+
+// Stop benchmark timer
+export fn stop_timer() {
+    vex_bench_stop_timer();
+}

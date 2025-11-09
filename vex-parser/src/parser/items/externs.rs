@@ -20,22 +20,31 @@ impl<'a> Parser<'a> {
 
         self.consume(&Token::LBrace, "Expected '{' after extern ABI")?;
 
+        let mut types = Vec::new();
         let mut functions = Vec::new();
 
         while !self.check(&Token::RBrace) && !self.is_at_end() {
-            functions.push(self.parse_extern_function()?);
+            // Check if it's a type declaration or function
+            if self.check(&Token::Type) {
+                types.push(self.parse_extern_type()?);
+            } else if self.check(&Token::Fn) {
+                functions.push(self.parse_extern_function()?);
+            } else {
+                return Err(self.error("Expected 'type' or 'fn' in extern block"));
+            }
         }
 
-        self.consume(&Token::RBrace, "Expected '}' after extern functions")?;
+        self.consume(&Token::RBrace, "Expected '}' after extern block")?;
 
         eprintln!(
-            "🔧 Parser: Parsed extern block with {} functions",
+            "🔧 Parser: Parsed extern block with {} types and {} functions",
+            types.len(),
             functions.len()
         );
 
         Ok(Item::ExternBlock(ExternBlock {
-            attributes: Vec::new(), // TODO: Parse attributes
             abi,
+            types,
             functions,
         }))
     }
@@ -94,11 +103,28 @@ impl<'a> Parser<'a> {
         self.consume(&Token::Semicolon, "Expected ';' after extern function")?;
 
         Ok(ExternFunction {
-            attributes: Vec::new(), // TODO: Parse attributes
             name,
             params,
             return_type,
             is_variadic,
+            variadic_type: None, // C-style variadic (no type info)
         })
+    }
+
+    fn parse_extern_type(&mut self) -> Result<ExternType, ParseError> {
+        self.consume(&Token::Type, "Expected 'type'")?;
+
+        let name = self.consume_identifier()?;
+
+        // Check for type alias: type VexDuration = i64;
+        let alias = if self.match_token(&Token::Eq) {
+            Some(self.parse_type()?)
+        } else {
+            None // Opaque type
+        };
+
+        self.consume(&Token::Semicolon, "Expected ';' after extern type")?;
+
+        Ok(ExternType { name, alias })
     }
 }

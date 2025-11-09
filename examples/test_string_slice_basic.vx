@@ -1,0 +1,13 @@
+// Test: Basic String Slicing
+// Simplified test
+
+fn main(): i32 {
+    let text: string = "Hello, World!";
+    
+    // Test: Basic slicing with both start and end
+    let hello = text[0..5];
+    println("Slice [0..5]: ");
+    println(hello);
+    
+    return 0;
+}

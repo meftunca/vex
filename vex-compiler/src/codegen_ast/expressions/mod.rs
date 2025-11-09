@@ -60,6 +60,18 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     ));
                 }
 
+                // Check global constants FIRST (never cleared during function compilation)
+                if let Some(ptr) = self.global_constants.get(name) {
+                    let ty = self
+                        .global_constant_types
+                        .get(name)
+                        .ok_or_else(|| format!("Type for constant {} not found", name))?;
+
+                    // Load the constant value
+                    let loaded = self.build_load_aligned(*ty, *ptr, name)?;
+                    return Ok(loaded);
+                }
+
                 // Check if this is a function pointer parameter first
                 if let Some(fn_ptr) = self.function_params.get(name) {
                     // Return function pointer directly
@@ -181,9 +193,58 @@ impl<'ctx> ASTCodeGen<'ctx> {
             Expression::PostfixOp { expr, op } => self.compile_postfix_op(expr, op),
 
             Expression::Await(expr) => {
-                // For now, await is just a pass-through - compile the inner expression
-                // TODO: Proper async runtime with futures/promises and state machines
-                self.compile_expression(expr)
+                // Await expression: suspend coroutine and yield to scheduler
+                // 1. Compile the future expression
+                // 2. Check if it's ready (for now, assume always ready - TODO: poll)
+                // 3. Call worker_await_after to yield control
+                // 4. Return CORO_STATUS_YIELDED
+
+                let _future_val = self.compile_expression(expr)?;
+
+                // Get current WorkerContext (first parameter of resume function)
+                let current_fn = self
+                    .current_function
+                    .ok_or_else(|| "Await outside of function".to_string())?;
+
+                // Check if we're in an async function (resume function has WorkerContext* param)
+                let is_in_async = current_fn
+                    .get_name()
+                    .to_str()
+                    .map(|n| n.ends_with("_resume"))
+                    .unwrap_or(false);
+
+                if !is_in_async {
+                    return Err("Await can only be used inside async functions".to_string());
+                }
+
+                // Get WorkerContext parameter (first param)
+                let ctx_param = current_fn
+                    .get_nth_param(0)
+                    .ok_or_else(|| "Missing WorkerContext parameter".to_string())?
+                    .into_pointer_value();
+
+                // Call worker_await_after(ctx, 0) to yield
+                let worker_await_fn = self.get_or_declare_worker_await();
+                self.builder
+                    .build_call(
+                        worker_await_fn,
+                        &[
+                            ctx_param.into(),
+                            self.context.i64_type().const_int(0, false).into(),
+                        ],
+                        "await_yield",
+                    )
+                    .map_err(|e| format!("Failed to call worker_await_after: {}", e))?;
+
+                // Return CORO_STATUS_YIELDED (1)
+                let yielded_status = self.context.i32_type().const_int(1, false);
+                self.builder
+                    .build_return(Some(&yielded_status))
+                    .map_err(|e| format!("Failed to build await return: {}", e))?;
+
+                // For type system compatibility, return a dummy value
+                // (this code is unreachable after return)
+                Ok(self.context.i8_type().const_int(0, false).into())
             }
 
             Expression::Nil => {
@@ -421,9 +482,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     })?;
 
                     // Check if enum has ANY data-carrying variants
-                    let enum_has_data = enum_def.variants.iter().any(|v| v.data.is_some());
+                    let enum_has_data = enum_def.variants.iter().any(|v| !v.data.is_empty());
 
-                    if data.is_none() && !enum_has_data {
+                    if data.is_empty() && !enum_has_data {
                         // Pure unit enum (all variants are unit): return tag as i32 for compatibility
                         // (Variables expect i32, return statements expect i32)
                         let tag = self
@@ -435,11 +496,48 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         // Mixed enum (has data variants): create struct { tag: i32, data: T }
                         // For unit variants in mixed enums, use enum's data type from definition
 
-                        let (data_value, actual_data_type) = if let Some(data_expr) = data {
-                            // Variant has data: compile expression
-                            let val = self.compile_expression(data_expr)?;
-                            let ty = val.get_type();
-                            (val, ty)
+                        let (data_value, actual_data_type) = if !data.is_empty() {
+                            // Variant has data: compile all expressions
+                            if data.len() == 1 {
+                                // Single-value tuple: compile directly
+                                let val = self.compile_expression(&data[0])?;
+                                let ty = val.get_type();
+                                (val, ty)
+                            } else {
+                                // Multi-value tuple: create struct with all values
+                                let mut field_values = Vec::new();
+                                let mut field_types = Vec::new();
+
+                                for expr in data {
+                                    let val = self.compile_expression(expr)?;
+                                    let ty = val.get_type();
+                                    field_values.push(val);
+                                    field_types.push(ty);
+                                }
+
+                                // Create tuple struct type
+                                let tuple_struct_type =
+                                    self.context.struct_type(&field_types, false);
+
+                                // Build tuple value
+                                let mut tuple_val = tuple_struct_type.get_undef();
+                                for (i, val) in field_values.iter().enumerate() {
+                                    tuple_val = self
+                                        .builder
+                                        .build_insert_value(
+                                            tuple_val,
+                                            *val,
+                                            i as u32,
+                                            &format!("tuple_field_{}", i),
+                                        )
+                                        .map_err(|e| {
+                                            format!("Failed to insert tuple field: {}", e)
+                                        })?
+                                        .into_struct_value();
+                                }
+
+                                (tuple_val.into(), tuple_struct_type.into())
+                            }
                         } else {
                             // Unit variant in mixed enum: use enum's largest data type with zero value
                             let enum_llvm_type =
@@ -555,39 +653,50 @@ impl<'ctx> ASTCodeGen<'ctx> {
     /// Compile Range or RangeInclusive expressions
     fn compile_range(
         &mut self,
-        start: &Expression,
-        end: &Expression,
+        start: &Option<Box<Expression>>,
+        end: &Option<Box<Expression>>,
         _inclusive: bool,
     ) -> Result<BasicValueEnum<'ctx>, String> {
-        // Compile start and end expressions
-        let start_val = self.compile_expression(start)?;
-        let end_val = self.compile_expression(end)?;
+        // Default values: start=0, end=max_i64
+        let zero_i64 = self.context.i64_type().const_int(0, false);
+        let max_i64 = self.context.i64_type().const_int(i64::MAX as u64, false);
 
-        // Cast to i64 if needed
-        let start_i64 = if start_val.is_int_value() {
-            let int_val = start_val.into_int_value();
-            if int_val.get_type().get_bit_width() < 64 {
-                self.builder
-                    .build_int_s_extend(int_val, self.context.i64_type(), "start_ext")
-                    .map_err(|e| format!("Failed to extend start: {}", e))?
+        // Compile start expression or use 0
+        let start_i64 = if let Some(s) = start {
+            let start_val = self.compile_expression(s)?;
+            if start_val.is_int_value() {
+                let int_val = start_val.into_int_value();
+                if int_val.get_type().get_bit_width() < 64 {
+                    self.builder
+                        .build_int_s_extend(int_val, self.context.i64_type(), "start_ext")
+                        .map_err(|e| format!("Failed to extend start: {}", e))?
+                } else {
+                    int_val
+                }
             } else {
-                int_val
+                return Err("Range start must be an integer".to_string());
             }
         } else {
-            return Err("Range start must be an integer".to_string());
+            zero_i64
         };
 
-        let end_i64 = if end_val.is_int_value() {
-            let int_val = end_val.into_int_value();
-            if int_val.get_type().get_bit_width() < 64 {
-                self.builder
-                    .build_int_s_extend(int_val, self.context.i64_type(), "end_ext")
-                    .map_err(|e| format!("Failed to extend end: {}", e))?
+        // Compile end expression or use max_i64
+        let end_i64 = if let Some(e) = end {
+            let end_val = self.compile_expression(e)?;
+            if end_val.is_int_value() {
+                let int_val = end_val.into_int_value();
+                if int_val.get_type().get_bit_width() < 64 {
+                    self.builder
+                        .build_int_s_extend(int_val, self.context.i64_type(), "end_ext")
+                        .map_err(|e| format!("Failed to extend end: {}", e))?
+                } else {
+                    int_val
+                }
             } else {
-                int_val
+                return Err("Range end must be an integer".to_string());
             }
         } else {
-            return Err("Range end must be an integer".to_string());
+            max_i64
         };
 
         // Create Range struct: { start: i64, end: i64, current: i64 }

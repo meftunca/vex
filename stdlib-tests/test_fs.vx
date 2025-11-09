@@ -1,0 +1,30 @@
+// FS Module Test
+// Tests file system operations via FFI
+
+import { println } from "io";
+
+// Direct FFI test for now
+extern "C" {
+    fn vex_file_exists(path: *u8): bool;
+    fn vex_string_as_cstr(s: *String): *u8;
+}
+
+fn main(): i32 {
+    println("=== FS Module Test ===");
+    
+    // Test file_exists via FFI
+    let test_path: String = "stdlib-tests/test_fs.vx";
+    let path_ptr: *String = &test_path;
+    let cpath: *u8 = vex_string_as_cstr(path_ptr);
+    let exists: bool = vex_file_exists(cpath);
+    
+    if exists {
+        println("✓ FS: file_exists working (FFI)");
+    } else {
+        println("✗ FS: file_exists failed");
+        return 1;
+    }
+    
+    println("✓ FS module working (FFI level)");
+    return 0;
+}

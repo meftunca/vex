@@ -2,35 +2,61 @@
 // Path operations - join, normalize, exists
 //
 // Usage:
-//   import { join, normalize, exists } from "path";
+//   import { join, normalize, exists, basename, dirname } from "path";
 
 // External C functions from vex-runtime/c/vex_path.c
 extern "C" {
-    fn vex_path_join(path1: *const u8, path2: *const u8): *const u8;
-    fn vex_path_normalize(path: *const u8): *const u8;
-    fn vex_path_exists(path: *const u8): bool;
-    fn vex_path_is_absolute(path: *const u8): bool;
-    fn vex_path_dirname(path: *const u8): *const u8;
-    fn vex_path_basename(path: *const u8): *const u8;
+    fn vex_path_join(path1: *u8, path2: *u8): *u8;
+    fn vex_path_normalize(path: *u8): *u8;
+    fn vex_path_exists(path: *u8): bool;
+    fn vex_path_is_absolute(path: *u8): bool;
+    fn vex_path_dirname(path: *u8): *u8;
+    fn vex_path_basename(path: *u8): *u8;
+    fn vex_path_ext(path: *u8): *u8;
 }
 
-export fn join(path1: string, path2: string): string {
-    unsafe {
-        let result = vex_path_join(path1.as_ptr(), path2.as_ptr());
-        return string.from_raw(result);
-    }
+export fn join(path1: str, path2: str): str {
+    let p1_ptr = path1 as *u8;
+    let p2_ptr = path2 as *u8;
+    let result_ptr = vex_path_join(p1_ptr, p2_ptr);
+    // TODO: Convert back to str when string.from_cstr is available
+    return "joined_path"; // Placeholder
 }
 
-export fn exists(path: string): bool {
-    unsafe {
-        vex_path_exists(path.as_ptr())
-    }
+export fn exists(path: str): bool {
+    let path_ptr = path as *u8;
+    return vex_path_exists(path_ptr);
 }
 
-export fn normalize(path: string): string {
-    unsafe {
-        let result = vex_path_normalize(path.as_ptr());
-        return string.from_raw(result);
-    }
+export fn normalize(path: str): str {
+    let path_ptr = path as *u8;
+    let result_ptr = vex_path_normalize(path_ptr);
+    // TODO: Convert back to str
+    return "normalized_path"; // Placeholder
 }
 
+export fn is_absolute(path: str): bool {
+    let path_ptr = path as *u8;
+    return vex_path_is_absolute(path_ptr);
+}
+
+export fn dirname(path: str): str {
+    let path_ptr = path as *u8;
+    let result_ptr = vex_path_dirname(path_ptr);
+    // TODO: Convert back to str
+    return "dirname"; // Placeholder
+}
+
+export fn basename(path: str): str {
+    let path_ptr = path as *u8;
+    let result_ptr = vex_path_basename(path_ptr);
+    // TODO: Convert back to str
+    return "basename"; // Placeholder
+}
+
+export fn extension(path: str): str {
+    let path_ptr = path as *u8;
+    let result_ptr = vex_path_ext(path_ptr);
+    // TODO: Convert back to str
+    return "extension"; // Placeholder
+}

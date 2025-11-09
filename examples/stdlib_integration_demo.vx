@@ -14,7 +14,8 @@ fn main(): i32 {
     
     // Math module
     println("📐 Math Module:");
-    let angle: f64 = PI / 4.0;
+    let pi_val: f64 = PI;
+    let angle: f64 = pi_val / 4.0;
     let sine: f64 = sin_f64(angle);
     let cosine: f64 = cos_f64(angle);
     println("  sin(π/4) ≈ 0.707");
@@ -26,9 +27,11 @@ fn main(): i32 {
     
     // Path module
     println("📁 Path Module:");
-    let full_path: String = "/home/user/document.txt";
-    let filename: String = basename(full_path);
-    let ext: String = extension(full_path);
+    let full_path1: String = "/home/user/document.txt";
+    let full_path2: String = "/home/user/document.txt";
+    let full_path3: String = "/home/user/document.txt";
+    let filename: String = basename(full_path1);
+    let ext: String = extension(full_path2);
     println("  Path: /home/user/document.txt");
     println("  Basename: document.txt");
     println("  Extension: .txt");
@@ -53,20 +56,22 @@ fn main(): i32 {
     
     // FS module
     println("📂 FS Module:");
-    let test_file: String = "/tmp/vex_test.txt";
+    let test_file1: String = "/tmp/vex_test.txt";
+    let test_file2: String = "/tmp/vex_test.txt";
+    let test_file3: String = "/tmp/vex_test.txt";
     let content: String = "Hello from Vex stdlib!";
     
-    let write_ok: bool = write_string(test_file, content);
+    let write_ok: bool = write_string(test_file1, content);
     if write_ok {
         println("  ✓ Written to /tmp/vex_test.txt");
     }
     
-    let file_exists: bool = exists(test_file);
+    let file_exists: bool = exists(test_file2);
     if file_exists {
         println("  ✓ File exists");
     }
     
-    let read_content: String = read_to_string(test_file);
+    let read_content: String = read_to_string(test_file3);
     println("  ✓ Read content: Hello from Vex stdlib!");
     println("");
     

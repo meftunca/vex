@@ -1,0 +1,77 @@
+// Test: Lifetime analysis (Phase 4)
+// Status: Implemented (tracking references, preventing dangling refs)
+
+fn test_basic_lifetime() {
+    let x = 10;
+    let y = &x;  // OK: x is in scope
+    print(*y);
+}
+
+fn test_dangling_reference(): &i32 {
+    let x = 42;
+    return &x;  // ERROR: Cannot return reference to local variable
+}
+
+fn test_reference_outlives() {
+    let y: &i32;
+    {
+        let x = 10;
+        y = &x;  // ERROR: x goes out of scope, y would dangle
+    }
+    print(*y);  // ERROR: y is dangling
+}
+
+fn test_valid_reference_lifetime(): &i32 {
+    let x = Box.new(42);  // Heap allocation
+    return x;  // OK: Box ownership transferred
+}
+
+fn test_conditional_lifetime(condition: bool): &i32 {
+    let x = 10;
+    let y = 20;
+    
+    if condition {
+        return &x;  // ERROR: Returns reference to local
+    } else {
+        return &y;  // ERROR: Returns reference to local
+    }
+}
+
+fn test_loop_lifetime() {
+    let! refs: Vec<&i32> = Vec.new();
+    
+    for i in 0..5 {
+        let x = i * 2;
+        refs.push(&x);  // ERROR: x goes out of scope at end of loop
+    }
+}
+
+fn test_method_lifetime(self: &Vector2): &f32 {
+    return &self.x;  // OK: Returns reference to field (lifetime tied to self)
+}
+
+struct Container {
+    value: i32
+}
+
+fn test_field_lifetime(c: &Container): &i32 {
+    return &c.value;  // OK: Field lifetime tied to struct
+}
+
+fn test_closure_capture_lifetime() {
+    let x = 10;
+    let f = |y: i32| x + y;  // OK: Closure captures x by value
+    print(f(5));
+}
+
+fn test_closure_reference_capture() {
+    let x = 10;
+    let f = |y: i32| &x + y;  // ERROR: Closure returns reference to captured variable
+    print(f(5));
+}
+
+fn main() {
+    test_basic_lifetime();
+    // test_dangling_reference();  // Should fail at compile time
+    // test_reference_outlives();   // Should fail at compile time
+}

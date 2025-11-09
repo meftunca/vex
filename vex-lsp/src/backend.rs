@@ -6,6 +6,7 @@ use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer};
 
+use crate::code_actions;
 use crate::document_cache::DocumentCache;
 use vex_compiler::borrow_checker::BorrowChecker;
 
@@ -728,6 +729,7 @@ impl LanguageServer for VexBackend {
                 rename_provider: Some(OneOf::Left(true)),
                 document_formatting_provider: Some(OneOf::Left(true)),
                 document_range_formatting_provider: Some(OneOf::Left(true)),
+                code_action_provider: Some(CodeActionProviderCapability::Simple(true)),
                 ..Default::default()
             },
         })
@@ -1255,10 +1257,27 @@ impl LanguageServer for VexBackend {
                             if let Some(variant_range) =
                                 self.find_pattern_in_source(&text, &variant.name)
                             {
+                                // Format multi-value tuple variant types
+                                let detail = if variant.data.is_empty() {
+                                    None
+                                } else if variant.data.len() == 1 {
+                                    Some(self.type_to_string(&variant.data[0]))
+                                } else {
+                                    Some(format!(
+                                        "({})",
+                                        variant
+                                            .data
+                                            .iter()
+                                            .map(|t| self.type_to_string(t))
+                                            .collect::<Vec<_>>()
+                                            .join(", ")
+                                    ))
+                                };
+
                                 #[allow(deprecated)]
                                 children.push(DocumentSymbol {
                                     name: variant.name.clone(),
-                                    detail: variant.data.as_ref().map(|t| self.type_to_string(t)),
+                                    detail,
                                     kind: SymbolKind::ENUM_MEMBER,
                                     tags: None,
                                     deprecated: None,
@@ -1528,6 +1547,77 @@ impl LanguageServer for VexBackend {
             work_done_progress_params: params.work_done_progress_params,
         })
         .await
+    }
+
+    async fn code_action(&self, params: CodeActionParams) -> Result<Option<CodeActionResponse>> {
+        let uri = &params.text_document.uri;
+        let _range = params.range;
+
+        // Get document text
+        let text = match self.documents.get(&uri.to_string()) {
+            Some(text) => text.clone(),
+            None => return Ok(None),
+        };
+
+        // Get cached document for diagnostics
+        let cached_doc = self.document_cache.get(&uri.to_string());
+        if cached_doc.is_none() {
+            return Ok(None);
+        }
+
+        let cached_doc = cached_doc.unwrap();
+        let mut actions = Vec::new();
+
+        // Generate code actions for each diagnostic in the range
+        for vex_diag in &cached_doc.parse_errors {
+            let code_actions = code_actions::generate_code_actions(uri, vex_diag, &text);
+            for action in code_actions {
+                actions.push(CodeActionOrCommand::CodeAction(action));
+            }
+        }
+
+        // Also check params.context.diagnostics (from client)
+        for lsp_diag in &params.context.diagnostics {
+            // Convert LSP Diagnostic back to vex_diagnostics::Diagnostic
+            // Use the same structure as vex-diagnostics
+            let vex_diag = vex_diagnostics::Diagnostic {
+                level: match lsp_diag.severity {
+                    Some(DiagnosticSeverity::ERROR) => vex_diagnostics::ErrorLevel::Error,
+                    Some(DiagnosticSeverity::WARNING) => vex_diagnostics::ErrorLevel::Warning,
+                    _ => vex_diagnostics::ErrorLevel::Info,
+                },
+                code: lsp_diag
+                    .code
+                    .as_ref()
+                    .and_then(|c| match c {
+                        NumberOrString::String(s) => Some(s.clone()),
+                        _ => None,
+                    })
+                    .unwrap_or_default(),
+                message: lsp_diag.message.clone(),
+                span: vex_diagnostics::Span {
+                    file: uri.to_string(),
+                    line: lsp_diag.range.start.line as usize + 1,
+                    column: lsp_diag.range.start.character as usize + 1,
+                    length: (lsp_diag.range.end.character - lsp_diag.range.start.character)
+                        as usize,
+                },
+                notes: Vec::new(),
+                help: None,
+                suggestion: None,
+            };
+
+            let actions_for_diag = code_actions::generate_code_actions(uri, &vex_diag, &text);
+            for action in actions_for_diag {
+                actions.push(CodeActionOrCommand::CodeAction(action));
+            }
+        }
+
+        if actions.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(actions))
+        }
     }
 }
 

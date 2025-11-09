@@ -453,7 +453,6 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Create method with receiver
         let method = Function {
-            attributes: vec![],
             is_async: false,
             is_gpu: false,
             is_mutable, // ⭐ NEW: Method mutability matches closure capture mode
@@ -463,11 +462,14 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }),
             name: method_name.to_string(),
             type_params: vec![],
+            where_clause: vec![],
             params: method_params,
             return_type: return_type.clone(),
             body: Block {
                 statements: vec![], // Empty body - will be generated in codegen
             },
+            is_variadic: false,
+            variadic_type: None,
         };
 
         // Create struct definition with trait impl (no fields - managed by LLVM)

@@ -173,21 +173,40 @@ impl<'ctx> ASTCodeGen<'ctx> {
                             .as_ref()
                             .map(|t| Self::replace_self_type(t, &type_name));
 
+                        let receiver = trait_method.receiver.as_ref().map(|r| Receiver {
+                            is_mutable: r.is_mutable,
+                            ty: Self::replace_self_type(&r.ty, &type_name),
+                        });
+
+                        let params: Vec<Param> = trait_method
+                            .params
+                            .iter()
+                            .map(|p| Param {
+                                name: p.name.clone(),
+                                ty: Self::replace_self_type(&p.ty, &type_name),
+                            })
+                            .collect();
+
+                        let return_type = trait_method
+                            .return_type
+                            .as_ref()
+                            .map(|t| Self::replace_self_type(t, &type_name));
+
                         // Convert TraitMethod to Function for compilation
                         let func = vex_ast::Function {
-                            attributes: vec![],
                             is_async: false,
                             is_gpu: false,
                             is_mutable: trait_method.is_mutable, // ⭐ NEW: Copy mutability from trait
                             name: method.to_string(),
                             type_params: vec![],
+                            where_clause: vec![],
                             receiver,
                             params,
                             return_type,
                             body: trait_method.body.clone().unwrap(), // Safe because we checked is_some()
-                        };
-
-                        // Declare and compile the default method for this specific type
+                            is_variadic: false,
+                            variadic_type: None,
+                        }; // Declare and compile the default method for this specific type
                         self.declare_trait_impl_method(&trait_name, &concrete_type, &func)?;
                         self.compile_trait_impl_method(&trait_name, &concrete_type, &func)?;
 

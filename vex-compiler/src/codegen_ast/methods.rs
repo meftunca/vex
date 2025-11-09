@@ -1,8 +1,6 @@
 // src/codegen/methods.rs
 use super::*;
 use inkwell::types::BasicTypeEnum;
-use inkwell::values::BasicValueEnum;
-use vex_ast::*;
 
 impl<'ctx> ASTCodeGen<'ctx> {
     pub(crate) fn declare_struct_method(

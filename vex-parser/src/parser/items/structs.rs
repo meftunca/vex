@@ -186,16 +186,18 @@ impl<'a> Parser<'a> {
         self.in_method_body = was_in_method;
 
         Ok(Function {
-            attributes: Vec::new(),
             is_async: false,
             is_gpu: false,
             is_mutable, // ⭐ NEW: Store mutability flag
             receiver,
             name,
             type_params: Vec::new(),
+            where_clause: Vec::new(), // Struct inline methods don't support where clauses yet
             params,
             return_type,
             body,
+            is_variadic: false,
+            variadic_type: None,
         })
     }
 }

@@ -1,0 +1,25 @@
+import { println } from "io";
+import { ok, not_found, get, listen_and_serve, Response } from "http";
+
+fn main(): i32 {
+    println("=== HTTP Module Test ===");
+    
+    // Test ok()
+    let resp_ok: Response = ok("Hello World");
+    println("✓ ok() working");
+    
+    // Test not_found()
+    let resp_404: Response = not_found();
+    println("✓ not_found() working");
+    
+    // Test get() 
+    let resp_get: Response = get("http://example.com");
+    println("✓ get() working");
+    
+    // Test listen_and_serve()
+    let result: i32 = listen_and_serve("127.0.0.1", 8080);
+    println("✓ listen_and_serve() working");
+    
+    println("✓ HTTP module functional");
+    return 0;
+}

@@ -115,7 +115,7 @@
         },
         {
           "name": "keyword.declaration.vex",
-          "match": "\\b(fn|struct|enum|trait|impl|type|const|let|policy|with)\\b"
+          "match": "\\b(fn|struct|enum|trait|impl|type|const|let|policy|with|interface)\\b"
         },
         {
           "name": "storage.modifier.vex",
@@ -127,7 +127,7 @@
         },
         {
           "name": "constant.language.vex",
-          "match": "\\b(true|false|null|None|Some|Ok|Err)\\b"
+          "match": "\\b(true|false|null|nil|None|Some|Ok|Err)\\b"
         },
         {
           "name": "keyword.operator.mutable.vex",
@@ -139,7 +139,7 @@
       "patterns": [
         {
           "name": "support.type.primitive.vex",
-          "match": "\\b(i8|i16|i32|i64|i128|u8|u16|u32|u64|u128|f16|f32|f64|bool|string|char|void|never|error)\\b"
+          "match": "\\b(i8|i16|i32|i64|i128|u8|u16|u32|u64|u128|f16|f32|f64|f128|bool|string|str|char|byte|void|never|error|unit)\\b"
         },
         {
           "name": "entity.name.type.vex",
@@ -147,7 +147,7 @@
         },
         {
           "name": "storage.type.vex",
-          "match": "\\b(dyn|Box|Rc|Arc|Vec|Map|Set|Channel|Option|Result|Some|None|Ok|Err)\\b"
+          "match": "\\b(dyn|Box|Rc|Arc|Vec|Map|Set|HashMap|HashSet|Channel|Option|Result|Some|None|Ok|Err|String)\\b"
         }
       ]
     },

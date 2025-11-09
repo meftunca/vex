@@ -1,6 +1,7 @@
 // Match expression and pattern matching code generation
 
 use super::ASTCodeGen;
+use inkwell::types::BasicTypeEnum;
 use inkwell::values::BasicValueEnum;
 use inkwell::IntPredicate;
 use vex_ast::*;
@@ -29,6 +30,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             match_value.get_type(),
             match_value.is_struct_value()
         );
+        eprintln!("🟣 Match expression type: {:?}", value);
 
         // Special handling for tuple literals/variables: load struct value for pattern matching
         if matches!(value, Expression::TupleLiteral(_)) && match_value.is_pointer_value() {
@@ -115,8 +117,14 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
             // Also handle struct names for old code path
             if let Some(struct_name) = self.variable_struct_names.get(var_name) {
+                eprintln!(
+                    "  🔍 Found struct variable: {} -> {}",
+                    var_name, struct_name
+                );
+                eprintln!("  🔍 Is pointer: {}", match_value.is_pointer_value());
                 // This variable holds a struct value, load it for pattern matching
                 if match_value.is_pointer_value() {
+                    eprintln!("  → Loading struct from pointer...");
                     // Build struct type from definition
                     let struct_def = self
                         .struct_defs
@@ -139,7 +147,16 @@ impl<'ctx> ASTCodeGen<'ctx> {
                             "match_struct_var_loaded",
                         )
                         .map_err(|e| format!("Failed to load struct variable for match: {}", e))?;
+                    eprintln!(
+                        "  ✅ Loaded! Now is_struct: {}",
+                        match_value.is_struct_value()
+                    );
                 }
+            } else {
+                eprintln!(
+                    "  ⚠️ Struct variable '{}' NOT found in variable_struct_names!",
+                    var_name
+                );
             }
 
             // Also handle enum variables
@@ -474,12 +491,43 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }
 
             Pattern::Struct { name, fields } => {
+                eprintln!("🔵 compile_pattern_check: Struct pattern '{}'", name);
                 // For struct patterns: value should be a struct value
-                if !value.is_struct_value() {
+                // If it's a pointer, load it first
+                let struct_value = if value.is_pointer_value() {
+                    eprintln!("🔵 Struct pattern: value is pointer, loading...");
+                    // Get struct definition
+                    let struct_def = self
+                        .struct_defs
+                        .get(name)
+                        .ok_or_else(|| format!("Struct '{}' not found", name))?
+                        .clone();
+
+                    let field_types: Vec<_> = struct_def
+                        .fields
+                        .iter()
+                        .map(|(_, ty)| self.ast_type_to_llvm(ty))
+                        .collect();
+                    let struct_type = self.context.struct_type(&field_types, false);
+
+                    self.builder
+                        .build_load(
+                            struct_type,
+                            value.into_pointer_value(),
+                            "struct_pattern_loaded",
+                        )
+                        .map_err(|e| format!("Failed to load struct for pattern: {}", e))?
+                } else {
+                    value
+                };
+
+                if !struct_value.is_struct_value() {
+                    eprintln!("  ⚠️ After load, still not struct value!");
                     return Ok(self.context.bool_type().const_int(0, false));
                 }
 
-                let struct_val = value.into_struct_value();
+                eprintln!("  ✅ Struct value ready, extracting fields...");
+                let struct_val = struct_value.into_struct_value();
 
                 // Get struct definition to map field names to indices
                 let struct_def = self
@@ -492,6 +540,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 let mut combined_result = self.context.bool_type().const_int(1, false);
 
                 for (field_name, field_pattern) in fields.iter() {
+                    eprintln!(
+                        "    → Checking field '{}', pattern={:?}",
+                        field_name, field_pattern
+                    );
                     // Find field index in struct definition
                     let field_index = struct_def
                         .fields
@@ -511,8 +563,16 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         )
                         .map_err(|e| format!("Failed to extract struct field: {}", e))?;
 
+                    eprintln!(
+                        "    → Field extracted: index={}, value_type={:?}",
+                        field_index,
+                        field_val.get_type()
+                    );
+
                     // Recursively check field pattern
                     let field_matches = self.compile_pattern_check(field_pattern, field_val)?;
+
+                    eprintln!("    → Field match result: {:?}", field_matches);
 
                     // Combine with AND
                     combined_result = self
@@ -537,11 +597,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     "🔵 Pattern::Enum check called - enum={}, variant={}, has_data={}",
                     name,
                     variant,
-                    data.is_some()
+                    !data.is_empty()
                 );
                 // Enum patterns: check variant tag
                 // Unit variants: value is i8 tag
-                // Data-carrying variants: value is struct { i8, T }
+                // Data-carrying variants: value is struct { i8, T } or { i8, struct{T1,T2,...} }
 
                 // Check if value is struct (data-carrying) or int (unit)
                 let is_data_carrying = value.is_struct_value();
@@ -623,8 +683,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     .build_int_compare(IntPredicate::EQ, enum_val, expected_tag, "enum_tag_check")
                     .map_err(|e| format!("Failed to compare enum tags: {}", e))?;
 
-                // If variant has data, also check inner pattern
-                if let Some(inner_pattern) = data {
+                // If variant has data patterns, check them
+                if !data.is_empty() {
                     if is_data_carrying {
                         // Extract data from struct { tag, data }
                         let struct_val = value.into_struct_value();
@@ -633,16 +693,56 @@ impl<'ctx> ASTCodeGen<'ctx> {
                             .build_extract_value(struct_val, 1, "enum_data")
                             .map_err(|e| format!("Failed to extract enum data: {}", e))?;
 
-                        // Recursively check inner pattern
-                        let data_matches = self.compile_pattern_check(inner_pattern, data_val)?;
+                        // For multi-value tuple: data is struct, need to extract each field
+                        // For single-value: data is the value itself
+                        if data.len() == 1 {
+                            // Single-value tuple - check directly
+                            let data_matches = self.compile_pattern_check(&data[0], data_val)?;
 
-                        // Combine: tag matches AND data matches
-                        let combined = self
-                            .builder
-                            .build_and(tag_matches, data_matches, "enum_full_match")
-                            .map_err(|e| format!("Failed to combine enum pattern checks: {}", e))?;
+                            // Combine: tag matches AND data matches
+                            let combined = self
+                                .builder
+                                .build_and(tag_matches, data_matches, "enum_full_match")
+                                .map_err(|e| {
+                                    format!("Failed to combine enum pattern checks: {}", e)
+                                })?;
 
-                        return Ok(combined);
+                            return Ok(combined);
+                        } else {
+                            // Multi-value tuple - extract each field from data struct
+                            let mut combined_match = tag_matches;
+
+                            // Data is a struct with multiple fields
+                            let data_struct = data_val.into_struct_value();
+                            for (i, pattern) in data.iter().enumerate() {
+                                let field_val = self
+                                    .builder
+                                    .build_extract_value(
+                                        data_struct,
+                                        i as u32,
+                                        &format!("field_{}", i),
+                                    )
+                                    .map_err(|e| {
+                                        format!("Failed to extract tuple field {}: {}", i, e)
+                                    })?;
+
+                                let field_matches =
+                                    self.compile_pattern_check(pattern, field_val)?;
+
+                                combined_match = self
+                                    .builder
+                                    .build_and(
+                                        combined_match,
+                                        field_matches,
+                                        &format!("tuple_match_{}", i),
+                                    )
+                                    .map_err(|e| {
+                                        format!("Failed to combine tuple field match: {}", e)
+                                    })?;
+                            }
+
+                            return Ok(combined_match);
+                        }
                     } else {
                         // Pattern expects data but value is unit variant
                         return Ok(self.context.bool_type().const_int(0, false));
@@ -678,6 +778,109 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 }
 
                 Ok(combined_result)
+            }
+
+            Pattern::Array { elements, rest } => {
+                // Array/Slice pattern: [a, b, ..rest] or [x, y, z]
+                // Extract elements from array value and check patterns
+
+                eprintln!(
+                    "🔵 Pattern::Array check - elements={}, rest={:?}",
+                    elements.len(),
+                    rest
+                );
+
+                // Value should be an array or vector
+                if !value.is_array_value() && !value.is_struct_value() {
+                    eprintln!("  ⚠️ Value is not an array, pattern fails");
+                    return Ok(self.context.bool_type().const_int(0, false));
+                }
+
+                // Start with true - all patterns must match
+                let mut all_match = self.context.bool_type().const_int(1, false);
+
+                if value.is_array_value() {
+                    let array_val = value.into_array_value();
+                    let array_type = array_val.get_type();
+                    let array_len = array_type.len() as usize;
+
+                    eprintln!(
+                        "  → Array length={}, pattern elements={}",
+                        array_len,
+                        elements.len()
+                    );
+
+                    // If no rest pattern, length must match exactly
+                    if rest.is_none() && array_len != elements.len() {
+                        eprintln!("  ⚠️ Length mismatch, pattern fails");
+                        return Ok(self.context.bool_type().const_int(0, false));
+                    }
+
+                    // If rest pattern exists, we need at least as many elements as patterns
+                    if rest.is_some() && array_len < elements.len() {
+                        eprintln!("  ⚠️ Not enough elements for pattern, fails");
+                        return Ok(self.context.bool_type().const_int(0, false));
+                    }
+
+                    // Check each element pattern
+                    for (i, elem_pattern) in elements.iter().enumerate() {
+                        // Extract array element using build_extract_value
+                        let elem_val = self
+                            .builder
+                            .build_extract_value(array_val, i as u32, &format!("array_elem_{}", i))
+                            .map_err(|e| format!("Failed to extract array element {}: {}", i, e))?;
+
+                        eprintln!("  → Checking element {} against pattern", i);
+
+                        // Recursively check sub-pattern
+                        let elem_matches = self.compile_pattern_check(elem_pattern, elem_val)?;
+
+                        all_match = self
+                            .builder
+                            .build_and(all_match, elem_matches, &format!("array_and_{}", i))
+                            .map_err(|e| format!("Failed to AND array element checks: {}", e))?;
+                    }
+                } else if value.is_struct_value() {
+                    // Vector/dynamic array represented as struct
+                    // For now, treat as array-like
+                    let struct_val = value.into_struct_value();
+                    let struct_type = struct_val.get_type();
+                    let field_count = struct_type.count_fields() as usize;
+
+                    eprintln!(
+                        "  → Struct/vector field_count={}, pattern elements={}",
+                        field_count,
+                        elements.len()
+                    );
+
+                    // If no rest pattern, must have exact number of fields
+                    if rest.is_none() && field_count != elements.len() {
+                        return Ok(self.context.bool_type().const_int(0, false));
+                    }
+
+                    // Check each element pattern
+                    for (i, elem_pattern) in elements.iter().enumerate() {
+                        if i >= field_count {
+                            break;
+                        }
+
+                        let elem_val = self
+                            .builder
+                            .build_extract_value(struct_val, i as u32, &format!("vec_elem_{}", i))
+                            .map_err(|e| {
+                                format!("Failed to extract vector element {}: {}", i, e)
+                            })?;
+
+                        let elem_matches = self.compile_pattern_check(elem_pattern, elem_val)?;
+
+                        all_match = self
+                            .builder
+                            .build_and(all_match, elem_matches, &format!("vec_and_{}", i))
+                            .map_err(|e| format!("Failed to AND vector element checks: {}", e))?;
+                    }
+                }
+
+                Ok(all_match)
             }
         }
     }
@@ -733,11 +936,46 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }
 
             Pattern::Struct { name, fields } => {
+                eprintln!("🟢 compile_pattern_binding: Struct pattern '{}'", name);
                 // Destructure struct and bind each field
-                if !value.is_struct_value() {
+                // If it's a pointer, load it first
+                let struct_value = if value.is_pointer_value() {
+                    eprintln!("🔵 Struct binding: value is pointer, loading...");
+                    // Get struct definition
+                    let struct_def_temp = self
+                        .struct_defs
+                        .get(name)
+                        .ok_or_else(|| format!("Struct '{}' not found", name))?
+                        .clone();
+
+                    let field_types: Vec<_> = struct_def_temp
+                        .fields
+                        .iter()
+                        .map(|(_, ty)| self.ast_type_to_llvm(ty))
+                        .collect();
+                    let struct_type = self.context.struct_type(&field_types, false);
+
+                    self.builder
+                        .build_load(
+                            struct_type,
+                            value.into_pointer_value(),
+                            "struct_binding_loaded",
+                        )
+                        .map_err(|e| format!("Failed to load struct for binding: {}", e))?
+                } else {
+                    eprintln!("🔵 Struct binding: value is already loaded");
+                    value
+                };
+
+                if !struct_value.is_struct_value() {
+                    eprintln!("  ⚠️ After load, binding still not struct value!");
                     return Err("Expected struct value for struct pattern".to_string());
                 }
 
+                eprintln!(
+                    "  ✅ Struct binding ready, extracting {} fields",
+                    fields.len()
+                );
                 // Get struct definition to map field names to indices
                 let struct_def = self
                     .struct_defs
@@ -745,9 +983,13 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     .ok_or_else(|| format!("Struct '{}' not found", name))?
                     .clone();
 
-                let struct_val = value.into_struct_value();
+                let struct_val = struct_value.into_struct_value();
 
                 for (field_name, sub_pattern) in fields {
+                    eprintln!(
+                        "    → Binding field '{}', pattern={:?}",
+                        field_name, sub_pattern
+                    );
                     // Find the field index
                     let field_idx = struct_def
                         .fields
@@ -756,6 +998,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         .ok_or_else(|| {
                             format!("Field '{}' not found in struct '{}'", field_name, name)
                         })?;
+
+                    eprintln!("    → Field index: {}", field_idx);
 
                     // Extract the field value
                     let field_value = self
@@ -767,8 +1011,15 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         )
                         .map_err(|e| format!("Failed to extract struct field: {}", e))?;
 
+                    eprintln!(
+                        "    → Field value extracted, type={:?}",
+                        field_value.get_type()
+                    );
+
                     // Recursively bind the field pattern
+                    eprintln!("    → Calling compile_pattern_binding recursively...");
                     self.compile_pattern_binding(sub_pattern, field_value)?;
+                    eprintln!("    → Field binding complete");
                 }
                 Ok(())
             }
@@ -782,12 +1033,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     "🔵 Pattern binding - Enum: {}::{}, has_data={}",
                     enum_name,
                     variant,
-                    data.is_some()
+                    !data.is_empty()
                 );
                 // For unit variants (no data), no binding needed
                 // For data-carrying variants, extract and bind the data
-                if let Some(inner_pattern) = data {
-                    eprintln!("  → Has inner pattern: {:?}", inner_pattern);
+                if !data.is_empty() {
+                    eprintln!("  → Has {} data patterns", data.len());
                     eprintln!("  → Value is struct: {}", value.is_struct_value());
                     eprintln!("  → Value type: {:?}", value.get_type());
                     // Check if value is struct (data-carrying enum)
@@ -802,8 +1053,29 @@ impl<'ctx> ASTCodeGen<'ctx> {
                             })?;
 
                         eprintln!("  ✅ Extracted enum data, binding to pattern...");
-                        // Recursively bind inner pattern
-                        self.compile_pattern_binding(inner_pattern, data_val)?;
+
+                        // For single-value tuple: bind directly
+                        // For multi-value tuple: extract each field from struct
+                        if data.len() == 1 {
+                            self.compile_pattern_binding(&data[0], data_val)?;
+                        } else {
+                            // Multi-value tuple - extract each field from data struct
+                            let data_struct = data_val.into_struct_value();
+                            for (i, pattern) in data.iter().enumerate() {
+                                let field_val = self
+                                    .builder
+                                    .build_extract_value(
+                                        data_struct,
+                                        i as u32,
+                                        &format!("tuple_field_{}", i),
+                                    )
+                                    .map_err(|e| {
+                                        format!("Failed to extract tuple field {}: {}", i, e)
+                                    })?;
+
+                                self.compile_pattern_binding(pattern, field_val)?;
+                            }
+                        }
                     } else {
                         eprintln!("  ⚠️ Value is not struct, skipping data extraction");
                     }
@@ -823,11 +1095,168 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 // Check if any pattern has bindings (identifiers)
                 // For now, we only support Or patterns with literals
                 for pattern in patterns {
-                    if matches!(pattern, Pattern::Ident(_)) {
-                        return Err(
-                            "Or patterns with identifier bindings not yet supported".to_string()
-                        );
+                    if let Pattern::Ident(_) = pattern {
+                        return Err("Or patterns with variable bindings not yet supported. Use separate match arms instead.".to_string());
                     }
+                }
+
+                // No bindings needed for literals
+                Ok(())
+            }
+
+            Pattern::Array { elements, rest } => {
+                // Array/Slice pattern binding: [a, b, ..rest]
+                // Bind each element and optionally the rest slice
+                eprintln!(
+                    "🔵 Pattern::Array binding - elements={}, rest={:?}",
+                    elements.len(),
+                    rest
+                );
+
+                // Extract array elements and bind them
+                if value.is_array_value() {
+                    let array_val = value.into_array_value();
+
+                    for (i, elem_pattern) in elements.iter().enumerate() {
+                        // Extract array element
+                        let elem_val = self
+                            .builder
+                            .build_extract_value(array_val, i as u32, &format!("array_bind_{}", i))
+                            .map_err(|e| {
+                                format!("Failed to extract array element for binding: {}", e)
+                            })?;
+
+                        eprintln!("  → Binding array element {} to pattern", i);
+
+                        // Recursively bind sub-pattern
+                        self.compile_pattern_binding(elem_pattern, elem_val)?;
+                    }
+
+                    // If there's a rest pattern, bind the remaining slice
+                    if let Some(rest_name) = rest {
+                        if rest_name != "_" {
+                            eprintln!(
+                                "  → Rest pattern '{}' - creating slice from remaining elements",
+                                rest_name
+                            );
+
+                            // Create a slice/array with remaining elements
+                            let array_len = array_val.get_type().len() as usize;
+                            let remaining_count = array_len - elements.len();
+
+                            if remaining_count > 0 {
+                                // Allocate array for rest elements
+                                let elem_type = array_val.get_type().get_element_type();
+
+                                // Convert BasicTypeEnum to concrete type for array creation
+                                let rest_array_type: BasicTypeEnum = match elem_type {
+                                    BasicTypeEnum::IntType(t) => {
+                                        t.array_type(remaining_count as u32).into()
+                                    }
+                                    BasicTypeEnum::FloatType(t) => {
+                                        t.array_type(remaining_count as u32).into()
+                                    }
+                                    BasicTypeEnum::PointerType(t) => {
+                                        t.array_type(remaining_count as u32).into()
+                                    }
+                                    BasicTypeEnum::StructType(t) => {
+                                        t.array_type(remaining_count as u32).into()
+                                    }
+                                    BasicTypeEnum::ArrayType(t) => {
+                                        t.array_type(remaining_count as u32).into()
+                                    }
+                                    _ => {
+                                        return Err(
+                                            "Unsupported element type for rest pattern".to_string()
+                                        )
+                                    }
+                                };
+
+                                let rest_ptr = self
+                                    .builder
+                                    .build_alloca(rest_array_type, &format!("{}_rest", rest_name))
+                                    .map_err(|e| format!("Failed to allocate rest array: {}", e))?;
+
+                                // Copy remaining elements
+                                for i in 0..remaining_count {
+                                    let src_idx = elements.len() + i;
+                                    let elem_val = self
+                                        .builder
+                                        .build_extract_value(
+                                            array_val,
+                                            src_idx as u32,
+                                            &format!("rest_elem_{}", i),
+                                        )
+                                        .map_err(|e| {
+                                            format!("Failed to extract rest element: {}", e)
+                                        })?;
+
+                                    let dest_ptr = unsafe {
+                                        self.builder
+                                            .build_gep(
+                                                rest_array_type,
+                                                rest_ptr,
+                                                &[
+                                                    self.context.i32_type().const_int(0, false),
+                                                    self.context
+                                                        .i32_type()
+                                                        .const_int(i as u64, false),
+                                                ],
+                                                &format!("rest_gep_{}", i),
+                                            )
+                                            .map_err(|e| {
+                                                format!("Failed to GEP rest array: {}", e)
+                                            })?
+                                    };
+
+                                    self.builder.build_store(dest_ptr, elem_val).map_err(|e| {
+                                        format!("Failed to store rest element: {}", e)
+                                    })?;
+                                }
+
+                                // Bind rest array to variable
+                                self.variables.insert(rest_name.clone(), rest_ptr);
+                                self.variable_types
+                                    .insert(rest_name.clone(), rest_array_type.into());
+
+                                eprintln!(
+                                    "  ✅ Bound rest pattern '{}' with {} elements",
+                                    rest_name, remaining_count
+                                );
+                            } else {
+                                eprintln!("  ⚠️ No remaining elements for rest pattern");
+                            }
+                        }
+                    }
+                } else if value.is_struct_value() {
+                    // Vector/dynamic array as struct
+                    let struct_val = value.into_struct_value();
+
+                    for (i, elem_pattern) in elements.iter().enumerate() {
+                        let elem_val = self
+                            .builder
+                            .build_extract_value(struct_val, i as u32, &format!("vec_bind_{}", i))
+                            .map_err(|e| {
+                                format!("Failed to extract vector element for binding: {}", e)
+                            })?;
+
+                        self.compile_pattern_binding(elem_pattern, elem_val)?;
+                    }
+
+                    if let Some(rest_name) = rest {
+                        if rest_name != "_" {
+                            eprintln!(
+                                "  → Rest pattern '{}' for vector (not yet implemented)",
+                                rest_name
+                            );
+                            // TODO: Vector slice support
+                        }
+                    }
+                } else {
+                    return Err(format!(
+                        "Cannot bind array pattern to non-array value: {:?}",
+                        value.get_type()
+                    ));
                 }
 
                 Ok(())
@@ -842,10 +1271,35 @@ impl<'ctx> ASTCodeGen<'ctx> {
         right: BasicValueEnum<'ctx>,
     ) -> Result<inkwell::values::IntValue<'ctx>, String> {
         match (left, right) {
-            (BasicValueEnum::IntValue(l), BasicValueEnum::IntValue(r)) => self
-                .builder
-                .build_int_compare(inkwell::IntPredicate::EQ, l, r, "eq_cmp")
-                .map_err(|e| format!("Failed to build int comparison: {}", e)),
+            (BasicValueEnum::IntValue(l), BasicValueEnum::IntValue(r)) => {
+                // Handle integer width mismatch by casting to wider type
+                let l_width = l.get_type().get_bit_width();
+                let r_width = r.get_type().get_bit_width();
+
+                let (left_val, right_val) = if l_width != r_width {
+                    if l_width > r_width {
+                        // Cast right to left's type
+                        let r_cast = self
+                            .builder
+                            .build_int_s_extend(r, l.get_type(), "pattern_cast")
+                            .map_err(|e| format!("Failed to cast pattern literal: {}", e))?;
+                        (l, r_cast)
+                    } else {
+                        // Cast left to right's type
+                        let l_cast = self
+                            .builder
+                            .build_int_s_extend(l, r.get_type(), "pattern_cast")
+                            .map_err(|e| format!("Failed to cast pattern value: {}", e))?;
+                        (l_cast, r)
+                    }
+                } else {
+                    (l, r)
+                };
+
+                self.builder
+                    .build_int_compare(inkwell::IntPredicate::EQ, left_val, right_val, "eq_cmp")
+                    .map_err(|e| format!("Failed to build int comparison: {}", e))
+            }
 
             (BasicValueEnum::FloatValue(l), BasicValueEnum::FloatValue(r)) => self
                 .builder

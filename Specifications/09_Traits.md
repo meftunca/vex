@@ -27,11 +27,11 @@ This document defines the trait system in the Vex programming language. Traits p
 
 ```vex
 trait Display {
-    fn (self: &Self!) show();
+    fn show();
 }
 
 trait Comparable {
-    fn (self: &Self!) compare(other: &Self): i32;
+    fn compare(other: &Self): i32;
 }
 ```
 
@@ -47,7 +47,7 @@ trait Comparable {
 
 ```vex
 trait Greet {
-    fn (self: &Self!) say_hello();
+    fn say_hello();
 }
 ```
 
@@ -57,9 +57,9 @@ trait Greet {
 
 ```vex
 trait Shape {
-    fn (self: &Self!) area(): f64;
-    fn (self: &Self!) perimeter(): f64;
-    fn (self: &Self!) name(): string;
+    fn area(): f64;
+    fn perimeter(): f64;
+    fn name(): string;
 }
 ```
 
@@ -69,11 +69,11 @@ trait Shape {
 
 ```vex
 trait Cloneable {
-    fn (self: &Self!) clone(): Self;
+    fn clone(): Self;
 }
 
 trait Comparable {
-    fn (self: &Self!) equals(other: &Self): bool;
+    fn equals(other: &Self): bool;
 }
 ```
 
@@ -139,33 +139,14 @@ struct FileLogger impl Logger, Closeable {
 }
 ```
 
-### Separate Implementation (Future)
-
-```vex
-trait Display {
-    fn (self: &Self!) show();
-}
-
-struct Point {
-    x: i32,
-    y: i32,
-}
-
-impl Display for Point {
-    fn (self: &Point!) show() {
-        // Implementation
-    }
-}
-```
-
 ### Implementation Requirements
 
 All trait methods must be implemented:
 
 ```vex
 trait Shape {
-    fn (self: &Self!) area(): f64;
-    fn (self: &Self!) perimeter(): f64;
+    fn area(): f64;
+    fn perimeter(): f64;
 }
 
 // ERROR: Missing perimeter() implementation
@@ -265,13 +246,13 @@ Default methods can call other trait methods:
 
 ```vex
 trait Formatter {
-    fn (self: &Self!) format(): string;  // Required
+    fn format(): string;  // Required
 
-    fn (self: &Self!) format_bold(): string {
+    fn format_bold(): string {
         return "**" + self.format() + "**";
     }
 
-    fn (self: &Self!) format_italic(): string {
+    fn format_italic(): string {
         return "_" + self.format() + "_";
     }
 }
@@ -311,19 +292,42 @@ fn compare_and_show<T: Comparable & Display>(a: T, b: T) {
 
 **Syntax**: `T: Trait1 & Trait2 & ...`
 
-### Where Clauses (Future)
+### Where Clauses ✅ COMPLETE (v0.9.2)
 
-Complex bounds use where clause:
+Complex bounds use where clause for readability:
 
 ```vex
-fn process<T, U>(a: T, b: U)
+fn print_both<T, U>(a: T, b: U): i32
 where
-    T: Display & Comparable,
-    U: Cloneable
+    T: Display,
+    U: Display
 {
-    // Implementation
+    print("T: ");
+    print(a);
+    print("U: ");
+    print(b);
+    return 0;
+}
+
+fn main(): i32 {
+    let x: i32 = 42;
+    let y: i32 = 100;
+    print_both(x, y);
+    return 0;
 }
 ```
+
+**Implementation Details**:
+
+- Parser: `parse_where_clause()` in `vex-parser/src/parser/items/functions.rs:138`
+- AST: `WhereClausePredicate { type_param, bounds }`
+- Syntax: `where T: Trait1 & Trait2, U: Trait3`
+- Test: `examples/test_where_clause.vx`
+- Verified: November 9, 2025
+
+**Limitations**:
+
+- Struct inline methods don't support where clauses yet (see `structs.rs:195`)
 
 ### Bound on Methods (Future)
 
@@ -349,7 +353,7 @@ Traits can have associated types:
 trait Iterator {
     type Item;
 
-    fn (self: &Self!) next(): Option<Self::Item>;
+    fn next(): Option<Self::Item>;
 }
 ```
 
@@ -381,7 +385,7 @@ struct Counter impl Iterator {
 trait Container {
     type Item<T>;
 
-    fn (self: &Self!) get<T>(): Self::Item<T>;
+    fn get<T>(): Self::Item<T>;
 }
 ```
 
@@ -395,12 +399,12 @@ Traits can require other traits:
 
 ```vex
 trait Eq {
-    fn (self: &Self!) equals(other: &Self): bool;
+    fn equals(other: &Self): bool;
 }
 
 trait Ord: Eq {
     // Ord requires Eq
-    fn (self: &Self!) less_than(other: &Self): bool;
+    fn less_than(other: &Self): bool;
 }
 ```
 
@@ -426,7 +430,7 @@ struct Number impl Ord {
 
 ```vex
 trait Serializable: Display & Cloneable {
-    fn (self: &Self!) serialize(): string;
+    fn serialize(): string;
 }
 ```
 
@@ -440,7 +444,7 @@ Format types for display:
 
 ```vex
 trait Display {
-    fn (self: &Self!) show();
+    fn show();
 }
 
 struct Point impl Display {
@@ -459,7 +463,7 @@ Explicit copying:
 
 ```vex
 trait Clone {
-    fn (self: &Self!) clone(): Self;
+    fn clone(): Self;
 }
 
 struct Data impl Clone {
@@ -477,7 +481,7 @@ Equality comparison:
 
 ```vex
 trait Eq {
-    fn (self: &Self!) equals(other: &Self): bool;
+    fn equals(other: &Self): bool;
 }
 
 struct Point impl Eq {
@@ -496,7 +500,7 @@ Ordering comparison:
 
 ```vex
 trait Ord {
-    fn (self: &Self!) compare(other: &Self): i32;
+    fn compare(other: &Self): i32;
     // Returns: -1 (less), 0 (equal), 1 (greater)
 }
 
@@ -523,7 +527,7 @@ Iteration protocol:
 trait Iterator {
     type Item;
 
-    fn (self: &Self!) next(): Option<Self::Item>;
+    fn next(): Option<Self::Item>;
 }
 
 struct Range impl Iterator {
@@ -551,7 +555,7 @@ struct Range impl Iterator {
 
 ```vex
 trait Greet {
-    fn (self: &Self!) say_hello();
+    fn say_hello();
 }
 
 struct Person impl Greet {
@@ -573,13 +577,13 @@ fn main(): i32 {
 
 ```vex
 trait Logger {
-    fn (self: &Self!) log(msg: string);
+    fn log(msg: string);
 
-    fn (self: &Self!) info(msg: string) {
+    fn info(msg: string) {
         self.log(msg);
     }
 
-    fn (self: &Self!) debug(msg: string) {
+    fn debug(msg: string) {
         self.log(msg);
     }
 }
@@ -605,8 +609,8 @@ fn main(): i32 {
 
 ```vex
 trait Shape {
-    fn (self: &Self!) area(): i32;
-    fn (self: &Self!) perimeter(): i32;
+    fn area(): i32;
+    fn perimeter(): i32;
 }
 
 struct Rectangle impl Shape {
@@ -634,9 +638,9 @@ fn main(): i32 {
 
 ```vex
 trait Counter {
-    fn (self: &Self!) count(): i32;
+    fn count(): i32;
 
-    fn (self: &Self!) count_double(): i32 {
+    fn count_double(): i32 {
         return self.count() * 2;
     }
 }
@@ -664,7 +668,7 @@ struct SimpleCounter impl Counter {
 ```vex
 // Good: Focused trait
 trait Serializable {
-    fn (self: &Self!) serialize(): string;
+    fn serialize(): string;
 }
 
 trait Deserializable {
@@ -673,10 +677,10 @@ trait Deserializable {
 
 // Bad: Too many responsibilities
 trait DataHandler {
-    fn (self: &Self!) serialize(): string;
+    fn serialize(): string;
     fn from_string(s: string): Self;
-    fn (self: &Self!) validate(): bool;
-    fn (self: &Self!) transform(): Self;
+    fn validate(): bool;
+    fn transform(): Self;
 }
 ```
 
@@ -685,16 +689,16 @@ trait DataHandler {
 ```vex
 // Good: Clear purpose
 trait Drawable {
-    fn (self: &Self!) draw();
+    fn draw();
 }
 
 trait Comparable {
-    fn (self: &Self!) compare(other: &Self): i32;
+    fn compare(other: &Self): i32;
 }
 
 // Bad: Vague
 trait Handler {
-    fn (self: &Self!) handle();
+    fn handle();
 }
 ```
 
@@ -703,18 +707,18 @@ trait Handler {
 ```vex
 // Good: Provide defaults when sensible
 trait Logger {
-    fn (self: &Self!) log(msg: string);
+    fn log(msg: string);
 
-    fn (self: &Self!) info(msg: string) {
+    fn info(msg: string) {
         self.log("[INFO] " + msg);
     }
 }
 
 // Bad: Force implementation of similar methods
 trait Logger {
-    fn (self: &Self!) log(msg: string);
-    fn (self: &Self!) info(msg: string);  // No default
-    fn (self: &Self!) debug(msg: string); // No default
+    fn log(msg: string);
+    fn info(msg: string);  // No default
+    fn debug(msg: string); // No default
 }
 ```
 
@@ -723,11 +727,11 @@ trait Logger {
 ```vex
 // Good: Composable traits
 trait Display {
-    fn (self: &Self!) show();
+    fn show();
 }
 
 trait Clone {
-    fn (self: &Self!) clone(): Self;
+    fn clone(): Self;
 }
 
 struct Data impl Display, Clone {
@@ -736,10 +740,10 @@ struct Data impl Display, Clone {
 
 // Bad: Monolithic trait
 trait Everything {
-    fn (self: &Self!) show();
-    fn (self: &Self!) clone(): Self;
-    fn (self: &Self!) serialize(): string;
-    fn (self: &Self!) validate(): bool;
+    fn show();
+    fn clone(): Self;
+    fn serialize(): string;
+    fn validate(): bool;
 }
 ```
 
@@ -750,13 +754,13 @@ trait Everything {
 /// Represents types that can be displayed to the user.
 /// Implementations should provide a human-readable representation.
 trait Display {
-    fn (self: &Self!) show();
+    fn show();
 }
 
 /// Represents types that can be compared for ordering.
 /// Returns: -1 if self < other, 0 if equal, 1 if self > other
 trait Ord {
-    fn (self: &Self!) compare(other: &Self): i32;
+    fn compare(other: &Self): i32;
 }
 ```
 
@@ -771,13 +775,10 @@ trait Ord {
 | Default Methods       | `fn (self) { body }`   | ✅ Working | With implementation   |
 | Self Type             | `Self`                 | ✅ Working | Refers to implementer |
 | Multiple Methods      | Multiple fn signatures | ✅ Working | In trait body         |
-| Separate impl         | `impl T for S { }`     | 🚧 Future  | Outside struct        |
-| Multiple Traits       | `impl T1, T2 { }`      | 🚧 Future  | Multiple traits       |
-| Trait Bounds          | `<T: Trait>`           | 🚧 Future  | Generic constraints   |
-| Associated Types      | `type Item;`           | 🚧 Future  | Type members          |
+| Trait Bounds          | `<T: Trait>`           | ✅ Working | Generic constraints   |
+| Associated Types      | `type Item;`           | ✅ Working | Type members          |
 | Supertraits           | `trait T: U { }`       | ✅ Working | Trait inheritance     |
-| Where Clauses         | `where T: Trait`       | 🚧 Future  | Complex bounds        |
-| Dynamic Dispatch      | `&dyn Trait`           | 🚧 Future  | Runtime polymorphism  |
+| Where Clauses         | `where T: Trait`       | ✅ v0.9.2  | Complex bounds        |
 
 ---
 
@@ -788,8 +789,8 @@ trait Ord {
 ```vex
 // 1. Define trait
 trait Logger {
-    fn (self: &Self!) log(msg: string);
-    fn (self: &Self!) info(msg: string) {
+    fn log(msg: string);
+    fn info(msg: string) {
         self.log(msg);  // Default method
     }
 }

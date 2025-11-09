@@ -23,13 +23,37 @@ impl<'a> Parser<'a> {
     }
 
     pub(crate) fn parse_primary(&mut self) -> Result<Expression, ParseError> {
+        // Typeof expression: typeof(expr)
+        if self.check(&Token::Typeof) {
+            self.advance();
+            self.consume(&Token::LParen, "Expected '(' after 'typeof'")?;
+            let expr = self.parse_expression()?;
+            self.consume(&Token::RParen, "Expected ')' after typeof expression")?;
+            return Ok(Expression::Typeof(Box::new(expr)));
+        }
+
         // Closure/Lambda: |x, y| expr or |x: i32, y: i32| { body }
         if self.check(&Token::Pipe) {
             return self.parse_closure();
         }
 
-        // Integer literal
+        // Integer literals (decimal, hex, binary, octal)
         if let Token::IntLiteral(n) = self.peek() {
+            let n = *n;
+            self.advance();
+            return Ok(Expression::IntLiteral(n));
+        }
+        if let Token::HexLiteral(n) = self.peek() {
+            let n = *n;
+            self.advance();
+            return Ok(Expression::IntLiteral(n));
+        }
+        if let Token::BinaryLiteral(n) = self.peek() {
+            let n = *n;
+            self.advance();
+            return Ok(Expression::IntLiteral(n));
+        }
+        if let Token::OctalLiteral(n) = self.peek() {
             let n = *n;
             self.advance();
             return Ok(Expression::IntLiteral(n));
@@ -223,7 +247,7 @@ impl<'a> Parser<'a> {
                     return Ok(Expression::EnumLiteral {
                         enum_name: "Option".to_string(),
                         variant: "None".to_string(),
-                        data: None,
+                        data: vec![],
                     });
                 }
                 "Some" => {
@@ -235,7 +259,7 @@ impl<'a> Parser<'a> {
                         return Ok(Expression::EnumLiteral {
                             enum_name: "Option".to_string(),
                             variant: "Some".to_string(),
-                            data: Some(Box::new(value)),
+                            data: vec![value],
                         });
                     } else {
                         // No parens - might be used as identifier (error case)
@@ -251,7 +275,7 @@ impl<'a> Parser<'a> {
                         return Ok(Expression::EnumLiteral {
                             enum_name: "Result".to_string(),
                             variant: "Ok".to_string(),
-                            data: Some(Box::new(value)),
+                            data: vec![value],
                         });
                     } else {
                         return Ok(Expression::Ident(name));
@@ -266,7 +290,7 @@ impl<'a> Parser<'a> {
                         return Ok(Expression::EnumLiteral {
                             enum_name: "Result".to_string(),
                             variant: "Err".to_string(),
-                            data: Some(Box::new(error)),
+                            data: vec![error],
                         });
                     } else {
                         return Ok(Expression::Ident(name));
@@ -310,7 +334,8 @@ impl<'a> Parser<'a> {
                             "vec_with_capacity"
                         };
 
-                        return Ok(Expression::Call { span_id: None,
+                        return Ok(Expression::Call {
+                            span_id: None,
                             func: Box::new(Expression::Ident(func_name.to_string())),
                             args,
                         });
@@ -326,7 +351,8 @@ impl<'a> Parser<'a> {
                         let value = self.parse_expression()?;
                         self.consume(&Token::RParen, "Expected ')' after Box argument")?;
                         // Map to box_new(value) builtin call
-                        return Ok(Expression::Call { span_id: None,
+                        return Ok(Expression::Call {
+                            span_id: None,
                             func: Box::new(Expression::Ident("box_new".to_string())),
                             args: vec![value],
                         });
@@ -342,7 +368,8 @@ impl<'a> Parser<'a> {
                         let capacity = self.parse_expression()?;
                         self.consume(&Token::RParen, "Expected ')' after Channel argument")?;
                         // Map to channel_new(capacity) builtin call
-                        return Ok(Expression::Call { span_id: None,
+                        return Ok(Expression::Call {
+                            span_id: None,
                             func: Box::new(Expression::Ident("channel_new".to_string())),
                             args: vec![capacity],
                         });
@@ -373,7 +400,8 @@ impl<'a> Parser<'a> {
                             "string_from"
                         };
 
-                        return Ok(Expression::Call { span_id: None,
+                        return Ok(Expression::Call {
+                            span_id: None,
                             func: Box::new(Expression::Ident(func_name.to_string())),
                             args,
                         });
@@ -388,7 +416,8 @@ impl<'a> Parser<'a> {
                         let capacity = self.parse_expression()?;
                         self.consume(&Token::RParen, "Expected ')' after Channel argument")?;
                         // Map to channel_new(capacity) builtin call
-                        return Ok(Expression::Call { span_id: None,
+                        return Ok(Expression::Call {
+                            span_id: None,
                             func: Box::new(Expression::Ident("channel_new".to_string())),
                             args: vec![capacity],
                         });
@@ -445,7 +474,8 @@ impl<'a> Parser<'a> {
                 "map_with_capacity"
             };
 
-            Ok(Expression::Call { span_id: None,
+            Ok(Expression::Call {
+                span_id: None,
                 func: Box::new(Expression::Ident(func_name.to_string())),
                 args,
             })
@@ -477,7 +507,8 @@ impl<'a> Parser<'a> {
                 "set_with_capacity"
             };
 
-            Ok(Expression::Call { span_id: None,
+            Ok(Expression::Call {
+                span_id: None,
                 func: Box::new(Expression::Ident(func_name.to_string())),
                 args,
             })
@@ -487,5 +518,3 @@ impl<'a> Parser<'a> {
         }
     }
 }
-
-

@@ -1,6 +1,5 @@
 // src/codegen/generics.rs
 use super::*;
-use vex_ast::*;
 use std::collections::HashMap;
 
 impl<'ctx> ASTCodeGen<'ctx> {
@@ -14,6 +13,16 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         if let Some(fn_val) = self.functions.get(&mangled_name) {
             return Ok(*fn_val);
+        }
+
+        // ⭐ NEW: Check trait bounds before instantiation
+        if let Some(ref checker) = self.trait_bounds_checker {
+            checker.check_function_bounds(func_def, type_args)?;
+            eprintln!(
+                "✅ Trait bounds validated for {}::<{}>",
+                func_def.name,
+                type_names.join(", ")
+            );
         }
 
         let mut type_subst = HashMap::new();
@@ -89,6 +98,16 @@ impl<'ctx> ASTCodeGen<'ctx> {
             ));
         }
 
+        // ⭐ NEW: Check trait bounds before instantiation
+        if let Some(ref checker) = self.trait_bounds_checker {
+            checker.check_struct_bounds(&struct_ast, type_args)?;
+            eprintln!(
+                "✅ Trait bounds validated for {}<{}>",
+                struct_name,
+                type_arg_strings.join(", ")
+            );
+        }
+
         let mut type_subst = HashMap::new();
         for (param, arg) in struct_ast.type_params.iter().zip(type_args.iter()) {
             type_subst.insert(param.name.clone(), arg.clone());
@@ -109,24 +128,48 @@ impl<'ctx> ASTCodeGen<'ctx> {
         use super::StructDef;
         self.struct_defs.insert(
             mangled_name.clone(),
-            StructDef { fields: specialized_fields },
+            StructDef {
+                fields: specialized_fields,
+            },
         );
 
-        self.generic_instantiations.insert(cache_key, mangled_name.clone());
+        self.generic_instantiations
+            .insert(cache_key, mangled_name.clone());
 
         Ok(mangled_name)
     }
 
     pub(crate) fn infer_type_args_from_call(
         &mut self,
-        _func_def: &Function,
+        func_def: &Function,
         args: &[Expression],
     ) -> Result<Vec<Type>, String> {
-        let mut type_args = Vec::new();
-        for arg in args {
-            let arg_type = self.infer_expression_type(arg)?;
-            type_args.push(arg_type);
+        // For functions with multiple type parameters of the same type,
+        // we need to infer unique type parameters, not all argument types
+        // Example: fn max<T>(a: T, b: T): T has 1 type param T, not 2
+
+        if func_def.type_params.is_empty() {
+            return Ok(Vec::new());
         }
+
+        // Infer first type parameter from first argument
+        if args.is_empty() {
+            return Err(format!(
+                "Cannot infer type arguments for '{}': no arguments provided",
+                func_def.name
+            ));
+        }
+
+        let first_arg_type = self.infer_expression_type(&args[0])?;
+
+        // For now, simple strategy: assume all type params are the same type as first arg
+        // This works for max<T>(a: T, b: T), identity<T>(x: T), etc.
+        // TODO: More sophisticated type inference for multi-param generics
+        let mut type_args = Vec::new();
+        for _ in 0..func_def.type_params.len() {
+            type_args.push(first_arg_type.clone());
+        }
+
         Ok(type_args)
     }
 
@@ -143,7 +186,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
         if let Some(ret_ty) = &new_func.return_type {
             new_func.return_type = Some(self.substitute_type(ret_ty, type_subst));
         }
-        let type_names: Vec<String> = type_subst.values().map(|t| self.type_to_string(t)).collect();
+        let type_names: Vec<String> = type_subst
+            .values()
+            .map(|t| self.type_to_string(t))
+            .collect();
         new_func.name = format!("{}_{}", func.name, type_names.join("_"));
         Ok(new_func)
     }

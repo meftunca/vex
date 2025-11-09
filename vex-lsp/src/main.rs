@@ -4,6 +4,7 @@
 use tower_lsp::{LspService, Server};
 
 mod backend;
+mod code_actions;
 mod diagnostics;
 mod document_cache;
 mod symbol_resolver;

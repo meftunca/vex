@@ -7,28 +7,41 @@ use vex_lexer::Token;
 
 impl<'a> Parser<'a> {
     pub(crate) fn parse_type(&mut self) -> Result<Type, ParseError> {
+        // Infer type: infer E (used in conditional types - must be checked FIRST)
+        if self.check(&Token::Infer) {
+            self.advance();
+            let name = self.consume_identifier()?;
+            return Ok(Type::Infer(name));
+        }
+
+        // Typeof type: typeof(expr)
+        if self.check(&Token::Typeof) {
+            self.advance();
+            self.consume(&Token::LParen, "Expected '(' after 'typeof'")?;
+            let expr = self.parse_expression()?;
+            self.consume(&Token::RParen, "Expected ')' after typeof expression")?;
+            return Ok(Type::Typeof(Box::new(expr)));
+        }
+
         // Never type: !
         if self.check(&Token::Not) {
             self.advance();
             return Ok(Type::Never);
         }
 
-        // Raw pointer type: *T or *const T
+        // Raw pointer type: *T (immutable) or *T! (mutable)
         if self.check(&Token::Star) {
             self.advance();
 
-            // Check for 'const' keyword
-            let is_const = if self.check(&Token::Const) {
-                self.advance();
-                true
-            } else {
-                false
-            };
-
+            // Parse inner type
             let inner_ty = self.parse_type()?;
+
+            // Check for ! after type for mutable pointer: *T!
+            let is_mutable = self.match_token(&Token::Not);
+
             return Ok(Type::RawPtr {
                 inner: Box::new(inner_ty),
-                is_const,
+                is_const: !is_mutable, // is_const is opposite of is_mutable
             });
         }
 
@@ -81,7 +94,7 @@ impl<'a> Parser<'a> {
             return Ok(Type::Reference(Box::new(inner_ty), is_mutable));
         }
 
-        // Tuple type: (T1, T2, T3)
+        // Tuple type or Union/Intersection in parens: (T1, T2, T3) or (T1 | T2)
         if self.check(&Token::LParen) {
             self.advance();
             let mut types = Vec::new();
@@ -141,6 +154,10 @@ impl<'a> Parser<'a> {
                 self.advance();
                 Type::I64
             }
+            Token::I128 => {
+                self.advance();
+                Type::I128
+            }
             Token::U8 => {
                 self.advance();
                 Type::U8
@@ -156,6 +173,10 @@ impl<'a> Parser<'a> {
             Token::U64 => {
                 self.advance();
                 Type::U64
+            }
+            Token::U128 => {
+                self.advance();
+                Type::U128
             }
             Token::F32 => {
                 self.advance();
@@ -392,22 +413,20 @@ impl<'a> Parser<'a> {
             return Ok(Type::Never);
         }
 
-        // Raw pointer type: *T or *const T
+        // Raw pointer type: *T (immutable) or *T! (mutable)
         if self.check(&Token::Star) {
             eprintln!("🔵 parse_type_primary: Detected Token::Star, parsing RawPtr type");
             self.advance();
 
-            let is_const = if self.check(&Token::Const) {
-                self.advance();
-                true
-            } else {
-                false
-            };
-
+            // Parse inner type first
             let inner_ty = self.parse_type_primary()?;
+
+            // Check for ! after type for mutable pointer: *T!
+            let is_mutable = self.match_token(&Token::Not);
+
             return Ok(Type::RawPtr {
                 inner: Box::new(inner_ty),
-                is_const,
+                is_const: !is_mutable, // is_const is opposite of is_mutable
             });
         }
 

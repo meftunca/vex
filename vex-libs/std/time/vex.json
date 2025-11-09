@@ -1,9 +1,20 @@
 {
   "name": "time",
-  "version": "0.9.1",
-  "description": "Time operations and duration types",
-  "authors": ["Vex Language Team"],
-  "license": "MIT",
-  "main": "src/lib.vx"
+  "version": "0.1.0",
+  "description": "High-performance time handling with timezone support",
+  "main": "src/lib.vx",
+  "native": {
+    "sources": [
+      "native/src/common/vex_time_common.c",
+      "native/src/common/layout_parse.c",
+      "native/src/common/layout_format.c",
+      "native/src/common/simd_rfc3339.c",
+      "native/src/common/simd_detect.c",
+      "native/src/common/tz_and_windows.c",
+      "native/src/common/fast_parse.c",
+      "native/src/posix/time_posix.c"
+    ],
+    "include_dirs": ["/Users/mapletechnologies/Desktop/big_projects/vex_lang/vex-libs/std/time/native/include"],
+    "cflags": ["-O3", "-Wall", "-Wextra"]
+  }
 }
-

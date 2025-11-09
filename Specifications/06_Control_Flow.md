@@ -384,6 +384,7 @@ for i in 0..=10 {
 ```
 
 **Operators**:
+
 - `..` - Exclusive range: `0..10` → 0, 1, 2, ..., 9
 - `..=` - Inclusive range: `0..=10` → 0, 1, 2, ..., 10
 
@@ -881,38 +882,23 @@ fn measured_operation() {
 
 ### Comparison with Other Languages
 
-| Feature       | Vex       | Go      | Rust          | C++       |
-| ------------- | --------- | ------- | ------------- | --------- |
-| **Keyword**   | `defer`   | `defer` | N/A           | N/A       |
-| **RAII**      | Manual    | Manual  | Automatic     | Manual    |
-| **Execution** | On exit   | On exit | On drop       | On scope  |
-| **Order**     | LIFO      | LIFO    | LIFO (drop)   | LIFO      |
-| **Closures**  | 🚧 Future | ✅ Yes  | ✅ Yes (Drop) | ✅ Lambda |
+| Feature       | Vex     | Go      | Rust          | C++       |
+| ------------- | ------- | ------- | ------------- | --------- |
+| **Keyword**   | `defer` | `defer` | N/A           | N/A       |
+| **RAII**      | Manual  | Manual  | Automatic     | Manual    |
+| **Execution** | On exit | On exit | On drop       | On scope  |
+| **Order**     | LIFO    | LIFO    | LIFO (drop)   | LIFO      |
+| **Closures**  | ✅ Yes  | ✅ Yes  | ✅ Yes (Drop) | ✅ Lambda |
 
 ### Implementation Status
 
 - ✅ Keyword reserved (`defer`)
-- 🚧 Parser support (TODO: needs implementation)
-- ❌ Codegen not implemented
-- ❌ Stack unwinding integration needed
-- **Priority**: 🟡 Medium (useful but not critical)
+- ✅ Parser support (COMPLETE - Nov 9, 2025)
+- ✅ Codegen implemented (LIFO execution)
+- ✅ Stack unwinding integration working
+- **Priority**: ✅ COMPLETE
 
-**Alternative**: Manual cleanup or RAII-style Drop trait (Rust pattern)
-
-**Workaround** (until implemented):
-
-```vex
-fn manual_cleanup() {
-    let resource = acquire();
-
-    let result = process(resource);
-
-    // Manual cleanup
-    release(resource);
-
-    return result;
-}
-```
+**Examples**: See `examples/defer_*.vx` for working demonstrations
 
 ---
 
@@ -1123,10 +1109,12 @@ fn fetch_with_timeout(): (string | error) {
 
 ### Current Status
 
-**Syntax**: 🚧 `select` keyword reserved  
-**Parser**: ❌ Not implemented  
-**Channels**: ❌ Not implemented  
-**Priority**: 🔴 High (Part of channel implementation)
+**Syntax**: ✅ `select` keyword reserved  
+**Parser**: 🚧 Partial (keyword recognized, AST node exists)  
+**Channels**: ✅ MPSC channels implemented (lock-free ring buffer)  
+**Priority**: � Medium (Channel infrastructure complete, select syntax pending)
+
+**Note**: Basic channel operations (`send`, `recv`, `close`) fully working. Multi-channel `select` syntax planned.
 
 See [13_Concurrency.md](./13_Concurrency.md) for full concurrency model.
 
@@ -1158,12 +1146,14 @@ switch day {
 ```
 
 **Properties**:
+
 - Only works with integer types (i32, u32, etc.)
 - No implicit fallthrough (unlike C)
 - Must have `default` case (unlike C)
 - Each case must be a compile-time constant
 
 **Differences from C**:
+
 - No fallthrough by default
 - Requires `default` case
 - Only integer types supported

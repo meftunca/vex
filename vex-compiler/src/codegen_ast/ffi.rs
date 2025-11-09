@@ -5,13 +5,32 @@ use inkwell::values::FunctionValue;
 use vex_ast::{ExternBlock, ExternFunction};
 
 impl<'ctx> ASTCodeGen<'ctx> {
-    /// Compile all extern functions in a block
+    /// Compile all extern types and functions in a block
     pub fn compile_extern_block(&mut self, block: &ExternBlock) -> Result<(), String> {
+        // Register extern types (opaque or aliased)
+        for extern_type in &block.types {
+            self.register_extern_type(extern_type)?;
+        }
+
+        // Declare extern functions
         for func in &block.functions {
             let fn_val = self.declare_extern_function(&block.abi, func)?;
             // Add to function registry (even if already in LLVM module)
             self.functions.insert(func.name.clone(), fn_val);
         }
+        Ok(())
+    }
+
+    /// Register an extern type (opaque or type alias)
+    fn register_extern_type(&mut self, extern_type: &vex_ast::ExternType) -> Result<(), String> {
+        // For now, we treat all extern types as opaque pointers
+        // Even if they have an alias (type VexDuration = i64), we ignore it
+        // because they're usually opaque C structs
+
+        // The actual type resolution happens in ast_type_to_llvm when we see the type used
+        // We just need to make sure the parser accepts them
+
+        eprintln!("📋 Registered extern type: {} (opaque)", extern_type.name);
         Ok(())
     }
 

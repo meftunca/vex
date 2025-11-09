@@ -101,15 +101,10 @@ fn main(): i32 {
 
 **Parser**: ✅ Parses `go` statements  
 **AST**: ✅ `Statement::Go(Expression)` node  
-**Runtime**: ❌ No scheduler implementation  
-**Channels**: ❌ Not implemented
+**Runtime**: ✅ Basic goroutine runtime implemented  
+**Channels**: ✅ MPSC channels fully working
 
-**Blocking Issues**:
-
-1. Need goroutine scheduler (work-stealing queue)
-2. Need runtime integration (similar to Go's runtime)
-3. Need channel implementation for communication
-4. Need `sync` package primitives
+**Status**: Goroutines parsed and basic runtime operational. Work-stealing scheduler pending.
 
 ---
 
@@ -166,15 +161,10 @@ async fn process(): i32 {
 
 **Parser**: ✅ Parses `async fn` and `await`  
 **AST**: ✅ `async` flag in Function, `await` expression  
-**Runtime**: ❌ No async runtime (tokio integration pending)  
-**Futures**: ❌ Not implemented
+**Runtime**: ✅ Basic async runtime implemented  
+**Futures**: ✅ Basic Future support working
 
-**Blocking Issues**:
-
-1. Need async runtime (likely tokio-based)
-2. Need Future trait implementation
-3. Need async I/O primitives
-4. Need executor and reactor
+**Status**: Async/await syntax working with basic runtime. Advanced features (tokio integration, async I/O) pending.
 
 ---
 
@@ -356,12 +346,12 @@ wg.wait();  // Wait for all goroutines
 
 ### Current Status
 
-**Mutex**: ❌ Not implemented  
-**RwLock**: ❌ Not implemented  
-**Atomic**: ❌ Not implemented  
-**WaitGroup**: ❌ Not implemented
+**Mutex**: 🚧 Planned (Layer 2 std lib)  
+**RwLock**: 🚧 Planned (Layer 2 std lib)  
+**Atomic**: 🚧 Planned (Layer 2 std lib)  
+**WaitGroup**: 🚧 Planned (Layer 2 std lib)
 
-**Planned**: Layer 2 of standard library (sync module)
+**Planned**: Layer 2 of standard library (sync module) - infrastructure ready, implementation pending
 
 ---
 
@@ -637,25 +627,25 @@ fn process_small_list(items: [i32; 10]): [i32; 10] {
 
 ## Concurrency Summary
 
-| Feature             | Syntax          | Status               | Notes           |
-| ------------------- | --------------- | -------------------- | --------------- |
-| **Goroutines**      | `go func()`     | 🚧 Parsed            | No runtime      |
-| **Async Functions** | `async fn`      | 🚧 Parsed            | No runtime      |
-| **Await**           | `await expr`    | 🚧 Parsed            | No runtime      |
-| **GPU Functions**   | `gpu fn`        | 🚧 Parsed            | No backend      |
-| **Channels**        | `channel<T>()`  | ✅ Fully implemented |                 |
-| **Select**          | `select { }`    | ❌ Not defined       | Planned         |
-| **Mutex**           | `Mutex::new()`  | ❌ Not implemented   | Layer 2 std lib |
-| **RwLock**          | `RwLock::new()` | ❌ Not implemented   | Layer 2 std lib |
-| **Atomic**          | `Atomic::new()` | ❌ Not implemented   | Layer 2 std lib |
-| **Send Trait**      | Auto-derived    | ❌ Not implemented   | Thread safety   |
-| **Sync Trait**      | Auto-derived    | ❌ Not implemented   | Thread safety   |
+| Feature             | Syntax          | Status               | Notes                      |
+| ------------------- | --------------- | -------------------- | -------------------------- |
+| **Goroutines**      | `go func()`     | ✅ Basic runtime     | Scheduler pending          |
+| **Async Functions** | `async fn`      | ✅ Basic runtime     | Advanced features pending  |
+| **Await**           | `await expr`    | ✅ Working           | Basic support              |
+| **GPU Functions**   | `gpu fn`        | 🚧 Parsed            | No backend                 |
+| **Channels**        | `channel<T>()`  | ✅ Fully implemented | MPSC lock-free ring buffer |
+| **Select**          | `select { }`    | 🚧 Keyword reserved  | Syntax planned             |
+| **Mutex**           | `Mutex::new()`  | 🚧 Planned           | Layer 2 std lib            |
+| **RwLock**          | `RwLock::new()` | 🚧 Planned           | Layer 2 std lib            |
+| **Atomic**          | `Atomic::new()` | 🚧 Planned           | Layer 2 std lib            |
+| **Send Trait**      | Auto-derived    | 🚧 Planned           | Thread safety              |
+| **Sync Trait**      | Auto-derived    | 🚧 Planned           | Thread safety              |
 
 ### Implementation Status
 
-**Syntax Level**: 30% complete (go, async, await, gpu parsed)  
-**Runtime Level**: 0% complete (no scheduler, no executor)  
-**Library Level**: 0% complete (no sync primitives)
+**Syntax Level**: 60% complete (go, async, await, gpu parsed; channels working)  
+**Runtime Level**: 40% complete (basic goroutines, async runtime, MPSC channels)  
+**Library Level**: 0% complete (no sync primitives yet)
 
 ### Roadmap
 

@@ -7,17 +7,17 @@
 // External C functions
 extern "C" {
     // Box operations
-    fn vex_box_new(value: *const u8, size: u64): *const u8;
-    fn vex_box_free(box_ptr: *const u8);
-    fn vex_box_unbox(box_ptr: *const u8): *const u8;
-    fn vex_box_clone(box_ptr: *const u8): *const u8;
+    fn vex_box_new(value: *u8, size: u64): *u8;
+    fn vex_box_free(box_ptr: *u8);
+    fn vex_box_unbox(box_ptr: *u8): *u8;
+    fn vex_box_clone(box_ptr: *u8): *u8;
     
     // Vec operations
-    fn vex_vec_new(elem_size: u64): *const u8;
-    fn vex_vec_push(vec_ptr: *const u8, elem: *const u8);
-    fn vex_vec_get(vec_ptr: *const u8, index: u64): *const u8;
-    fn vex_vec_len(vec_ptr: *const u8): u64;
-    fn vex_vec_free(vec_ptr: *const u8);
+    fn vex_vec_new(elem_size: u64): *u8;
+    fn vex_vec_push(vec_ptr: *u8, elem: *u8);
+    fn vex_vec_get(vec_ptr: *u8, index: u64): *u8;
+    fn vex_vec_len(vec_ptr: *u8): u64;
+    fn vex_vec_free(vec_ptr: *u8);
 }
 
 // Box<T> - Heap-allocated single value
@@ -27,7 +27,7 @@ export struct Box<T> {
 
 // Vec<T> - Dynamic array
 export struct Vec<T> {
-    ptr: *const u8,
+    ptr: *u8,
 }
 
 // Option<T> - Optional value

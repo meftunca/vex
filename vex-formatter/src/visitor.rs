@@ -394,6 +394,58 @@ impl<'a> FormattingVisitor<'a> {
 
                 self.write_line("");
             }
+            Statement::Unsafe(block) => {
+                self.write("unsafe ");
+                self.visit_block(block);
+                self.write_line("");
+            }
+            Statement::Defer(stmt) => {
+                self.write("defer ");
+                self.visit_statement(&*stmt);
+            }
+            Statement::Go(expr) => {
+                self.write("go ");
+                self.visit_expression(expr);
+                self.write_line(";");
+            }
+            Statement::While {
+                condition, body, ..
+            } => {
+                self.write("while ");
+                self.visit_expression(condition);
+                self.write(" ");
+                self.visit_block(body);
+                self.write_line("");
+            }
+            Statement::For {
+                init,
+                condition,
+                post,
+                body,
+                ..
+            } => {
+                self.write("for ");
+                if let Some(init_stmt) = init {
+                    self.visit_statement(&*init_stmt);
+                    self.write("; ");
+                }
+                if let Some(cond) = condition {
+                    self.visit_expression(cond);
+                }
+                self.write("; ");
+                if let Some(post_stmt) = post {
+                    self.visit_statement(&*post_stmt);
+                }
+                self.write(" ");
+                self.visit_block(body);
+                self.write_line("");
+            }
+            Statement::Break => {
+                self.write_line("break;");
+            }
+            Statement::Continue => {
+                self.write_line("continue;");
+            }
             _ => {
                 self.write_line("// TODO: statement");
             }

@@ -78,6 +78,19 @@ test_file() {
         return
     fi
     
+    # Tests with stdlib imports need 'run' instead of 'compile'
+    if [[ "$file" == *"test_io_"* ]] || [[ "$file" == *"test_stdlib_"* ]] || \
+       [[ "$file" == *"test_process_"* ]] || [[ "$file" == *"stdlib_integration"* ]]; then
+        if "$vex_bin" run "$file" > /dev/null 2>&1; then
+            echo "PASS" > "$result_file"
+            echo "✅ PASS $name"
+        else
+            echo "FAIL" > "$result_file"
+            echo "❌ FAIL $name"
+        fi
+        return
+    fi
+    
     # Normal test - compile
     if "$vex_bin" compile "$file" > /dev/null 2>&1; then
         echo "PASS" > "$result_file"

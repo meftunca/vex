@@ -154,16 +154,40 @@ enum Message {
 }
 ```
 
-### Tuple Variants (Future)
+### Tuple Variants ✅ COMPLETE (v0.9.2)
+
+Enum variants can carry data in tuple form (single value):
+
+```vex
+enum Option<T> {
+    Some(T),
+    None,
+}
+
+enum Result<T, E> {
+    Ok(T),
+    Err(E),
+}
+
+let x = Option.Some(42);
+let result = Result.Ok("success");
+```
+
+**Implementation Details**:
+
+- Parser: `vex-parser/src/parser/enums.rs`
+- Codegen: `vex-compiler/src/codegen_ast/enums.rs`
+- Tagged union representation: `{ i32 tag, <data_type> value }`
+- Pattern matching: Full support in `compile_pattern_check()`
+- Test: `examples/06_patterns/enum_data.vx`
+
+**Multi-Value Tuple Variants (Future)**:
 
 ```vex
 enum IpAddr {
-    V4(u8, u8, u8, u8),
+    V4(u8, u8, u8, u8),  // Multiple tuple fields - not yet supported
     V6(string),
 }
-
-let home = IpAddr::V4(127, 0, 0, 1);
-let loopback = IpAddr::V6("::1");
 ```
 
 ### Struct Variants (Future)
@@ -501,7 +525,7 @@ let value = Some(42);        // Option::Some<i32>
 let nothing = None<i32>();   // Option::None (needs type annotation)
 ```
 
-**Implementation Status**: ✅ Partial - constructors implemented, full pattern matching in progress
+**Implementation Status**: ✅ Complete - constructors and pattern matching fully working
 
 ### Result Type
 
@@ -534,7 +558,7 @@ let success = Ok(42);                  // Result::Ok<i32, E>
 let failure = Err("error message");    // Result::Err<T, string>
 ```
 
-**Implementation Status**: ✅ Partial - constructors implemented, full pattern matching in progress
+**Implementation Status**: ✅ Complete - constructors and pattern matching fully working
 
 ### State Machine
 
@@ -811,18 +835,19 @@ match status {
 
 ## Enum Features Summary
 
-| Feature         | Syntax               | Status     | Example             |
-| --------------- | -------------------- | ---------- | ------------------- |
-| Unit Variants   | `Red, Green, Blue`   | ✅ Working | C-style enums       |
-| Explicit Values | `Active = 0`         | ✅ Working | Discriminants       |
-| Pattern Match   | `match enum { }`     | ✅ Working | Exhaustive          |
-| Or Patterns     | `A \| B => { }`      | ✅ Working | Multiple variants   |
-| Inline Methods  | Inside enum body     | ✅ Working | Methods on enums    |
-| Golang Methods  | Outside enum         | ✅ Working | Separate definition |
-| Data-Carrying   | `Some(T), None`      | 🟡 Partial | Builtins work       |
-| Tuple Variants  | `V4(u8, u8, u8, u8)` | 🚧 Future  | Multiple values     |
-| Struct Variants | `Move { x, y }`      | 🚧 Future  | Named fields        |
-| Generic Enums   | `Option<T>`          | 🚧 Future  | Type parameters     |
+| Feature         | Syntax               | Status      | Example                  |
+| --------------- | -------------------- | ----------- | ------------------------ |
+| Unit Variants   | `Red, Green, Blue`   | ✅ Working  | C-style enums            |
+| Explicit Values | `Active = 0`         | ✅ Working  | Discriminants            |
+| Pattern Match   | `match enum { }`     | ✅ Working  | Exhaustive               |
+| Or Patterns     | `A \| B => { }`      | ✅ Working  | Multiple variants        |
+| Inline Methods  | Inside enum body     | ✅ Working  | Methods on enums         |
+| Golang Methods  | Outside enum         | ✅ Working  | Separate definition      |
+| Data-Carrying   | `Some(T), None`      | ✅ Complete | Option/Result work fully |
+| Tuple Variants  | `Some(T)` (single)   | ✅ v0.9.2   | Single value tuples      |
+| Multi-Tuple     | `V4(u8, u8, u8, u8)` | 🚧 Future   | Multiple values          |
+| Struct Variants | `Move { x, y }`      | 🚧 Future   | Named fields             |
+| Generic Enums   | `Option<T>`          | ✅ Complete | Type parameters working  |
 
 ---
 

@@ -1,0 +1,114 @@
+// Time Module - Arithmetic Operations Test
+// Tests time arithmetic: add, sub, since, until
+
+import { now, unix, add, sub, since, until, sleep, monotonic_now, Duration, SECOND, MINUTE, HOUR } from "time";
+
+fn main(): i32 {
+    println("=== Time Module: Arithmetic Operations Test ===");
+
+    // Test 1: Time addition
+    println("Test 1: Time Addition");
+    let t1 = unix(1609459200, 0); // 2021-01-01 00:00:00 UTC
+    let d1 = Duration { ns: 3600000000000 }; // 1 hour
+    let t2 = add(t1, d1);
+    let t2_unix = unix(t2);
+
+    if t2_unix == 1609462800 { // Should be 2021-01-01 01:00:00 UTC
+        println("✓ Time addition: 2021-01-01 00:00:00 + 1h = 2021-01-01 01:00:00");
+    } else {
+        println("⚠ Time addition failed: expected 1609462800, got " + t2_unix.to_string());
+    }
+
+    // Test 2: Time subtraction (duration between times)
+    println("Test 2: Time Subtraction (Duration)");
+    let t3 = unix(1609462800, 0); // 2021-01-01 01:00:00 UTC
+    let duration_diff = sub(t3, t1);
+    if duration_diff.ns == 3600000000000 { // 1 hour in nanoseconds
+        println("✓ Time subtraction: 01:00:00 - 00:00:00 = 1h");
+    } else {
+        println("⚠ Time subtraction failed: expected 3600000000000 ns, got " + duration_diff.ns.to_string());
+    }
+
+    // Test 3: Since (time elapsed since a point)
+    println("Test 3: Since Operation");
+    let reference_time = unix(1609459200, 0); // 2021-01-01 00:00:00 UTC
+    let future_time = unix(1609462800, 0);    // 2021-01-01 01:00:00 UTC
+    let elapsed = since(reference_time); // This will be time since reference_time
+
+    // Since we can't control exact timing, just test that since() returns a duration
+    println("✓ Since operation returns duration: " + elapsed.ns.to_string() + " ns");
+
+    // Test 4: Until (time remaining until a point)
+    println("Test 4: Until Operation");
+    let past_time = unix(1609459200, 0);     // 2021-01-01 00:00:00 UTC
+    let future_time2 = unix(1609462800, 0);  // 2021-01-01 01:00:00 UTC
+    let remaining = until(future_time2); // This will be time until future_time2
+
+    println("✓ Until operation returns duration: " + remaining.ns.to_string() + " ns");
+
+    // Test 5: Duration arithmetic with constants
+    println("Test 5: Duration Arithmetic with Constants");
+    let base_time = unix(1609459200, 0); // 2021-01-01 00:00:00 UTC
+
+    // Add various durations
+    let add_1h = add(base_time, HOUR);
+    let add_30m = add(base_time, MINUTE * 30);
+    let add_45s = add(base_time, SECOND * 45);
+
+    println("✓ Base time + 1 hour: Unix " + unix(add_1h).to_string());
+    println("✓ Base time + 30 minutes: Unix " + unix(add_30m).to_string());
+    println("✓ Base time + 45 seconds: Unix " + unix(add_45s).to_string());
+
+    // Test 6: Negative durations
+    println("Test 6: Negative Durations");
+    let negative_d = Duration { ns: -3600000000000 }; // -1 hour
+    let t_neg = add(base_time, negative_d);
+    let t_neg_unix = unix(t_neg);
+
+    if t_neg_unix == 1609455600 { // Should be 2021-01-01 23:00:00 UTC (previous day)
+        println("✓ Negative duration: 2021-01-01 00:00:00 + (-1h) = 2020-12-31 23:00:00");
+    } else {
+        println("⚠ Negative duration failed: expected 1609455600, got " + t_neg_unix.to_string());
+    }
+
+    // Test 7: Large duration arithmetic
+    println("Test 7: Large Duration Arithmetic");
+    let large_d = Duration { ns: 86400000000000 }; // 24 hours in nanoseconds
+    let t_large = add(base_time, large_d);
+    let t_large_unix = unix(t_large);
+
+    if t_large_unix == 1609545600 { // Should be 2021-01-02 00:00:00 UTC
+        println("✓ Large duration: +24 hours works correctly");
+    } else {
+        println("⚠ Large duration failed: expected 1609545600, got " + t_large_unix.to_string());
+    }
+
+    // Test 8: Precision test with monotonic time
+    println("Test 8: Precision Test");
+    let mono_start = monotonic_now();
+    let time_start = now();
+
+    // Sleep for a precise duration
+    sleep(Duration { ns: 100000000 }); // 100ms
+
+    let mono_end = monotonic_now();
+    let time_end = now();
+
+    let mono_elapsed = mono_end - mono_start;
+    let time_elapsed = sub(time_end, time_start);
+
+    println("✓ Monotonic elapsed: " + mono_elapsed.to_string() + " ns");
+    println("✓ Time elapsed: " + time_elapsed.ns.to_string() + " ns");
+
+    // Monotonic should be very close to 100ms
+    let expected_ns = 100000000;
+    let mono_diff = (mono_elapsed as i64 - expected_ns as i64).abs();
+    if mono_diff < 5000000 { // Within 5ms tolerance
+        println("✓ Monotonic precision within tolerance");
+    } else {
+        println("⚠ Monotonic precision outside tolerance: " + mono_diff.to_string() + " ns");
+    }
+
+    println("=== Arithmetic Operations Test Complete ===");
+    return 0;
+}

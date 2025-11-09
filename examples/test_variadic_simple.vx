@@ -1,0 +1,13 @@
+// Test variadic function declaration
+// Variadic syntax: fn printf(format: *byte, ...)
+
+extern "C" {
+    fn printf(format: *byte, ...) -> i32;
+}
+
+fn main() {
+    // Call variadic C function
+    printf("Hello %s %d\n", "world", 42);
+    printf("Number: %d\n", 100);
+    printf("Float: %.2f\n", 3.14);
+}

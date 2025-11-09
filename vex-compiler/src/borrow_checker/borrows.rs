@@ -431,8 +431,12 @@ impl BorrowRulesChecker {
             }
 
             Expression::Range { start, end } => {
-                self.check_expression_for_borrows(start)?;
-                self.check_expression_for_borrows(end)?;
+                if let Some(s) = start {
+                    self.check_expression_for_borrows(s)?;
+                }
+                if let Some(e) = end {
+                    self.check_expression_for_borrows(e)?;
+                }
                 Ok(())
             }
 

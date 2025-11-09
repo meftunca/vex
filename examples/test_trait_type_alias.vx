@@ -1,0 +1,33 @@
+// Test: Type alias inside trait (Rust-style)
+
+// Trait with associated type alias
+trait Iterator {
+    type Item;
+    
+    fn next(): Option<Item>;
+    fn size_hint(): (i32, Option<i32>);
+}
+
+// Trait with type alias using Self
+trait Container {
+    type Item;
+    type Iter = Iterator; // Type alias inside trait
+    
+    fn iter(): &Iter;
+    fn len(): i32;
+}
+
+// Generic trait with type bounds
+trait Converter<T> {
+    type Output;
+    type Error = string; // Type alias with default
+    
+    fn convert(value: T): Result<Output, Error>;
+}
+
+fn main() {
+    print("Testing trait type aliases:");
+    print("✅ Trait with associated types parsed");
+    print("✅ Trait with type alias parsed");
+    print("✅ Generic trait with type bounds parsed");
+}

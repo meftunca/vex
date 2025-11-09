@@ -308,16 +308,39 @@ fn main() -> Result<()> {
             let target_triple = inkwell::targets::TargetMachine::get_default_triple();
             let target =
                 Target::from_triple(&target_triple).map_err(|e| anyhow::anyhow!(e.to_string()))?;
+
+            // Map CLI opt_level to LLVM OptimizationLevel
+            let llvm_opt_level = match opt_level {
+                0 => inkwell::OptimizationLevel::None,
+                1 => inkwell::OptimizationLevel::Less,
+                2 => inkwell::OptimizationLevel::Default,
+                3 => inkwell::OptimizationLevel::Aggressive,
+                _ => inkwell::OptimizationLevel::Default,
+            };
+
             let target_machine = target
                 .create_target_machine(
                     &target_triple,
                     "generic",
                     "",
-                    inkwell::OptimizationLevel::Default,
+                    llvm_opt_level,
                     inkwell::targets::RelocMode::Default,
                     inkwell::targets::CodeModel::Default,
                 )
                 .ok_or_else(|| anyhow::anyhow!("Unable to create target machine"))?;
+
+            // Write LLVM IR or object file based on emit_llvm flag
+            if emit_llvm {
+                let ll_path = output_path.with_extension("ll");
+                codegen
+                    .module
+                    .print_to_file(&ll_path)
+                    .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+                println!("✓ LLVM IR generated!");
+                println!("  Output: {}", ll_path.display());
+                println!("\n▶️  View with: cat {}", ll_path.display());
+                return Ok(());
+            }
 
             target_machine
                 .write_to_file(&codegen.module, FileType::Object, &obj_path)
@@ -450,43 +473,11 @@ fn main() -> Result<()> {
 
             println!("   ✅ Parsed {} successfully", filename);
 
-            // Run borrow checker (Phase 1-5: Immutability, Moves, Borrows, Lifetimes, Closure Traits)
-            if !json {
-                println!("   🔍 Running borrow checker...");
-            }
-            let mut borrow_checker = vex_compiler::BorrowChecker::new();
-            if let Err(borrow_error) = borrow_checker.check_program(&mut ast) {
-                // Convert borrow error to diagnostic
-                let diagnostic = borrow_error.to_diagnostic();
+            // CRITICAL: Resolve imports BEFORE borrow checker
+            // This ensures imported functions are registered as valid global symbols
+            let mut module_namespaces: Vec<(String, Vec<String>)> = Vec::new();
+            let mut native_linker_args: Vec<String> = Vec::new();
 
-                if json {
-                    // Output as single diagnostic JSON
-                    println!("{{\"diagnostics\":[{{");
-                    println!("  \"level\":\"error\",");
-                    println!("  \"code\":\"{}\",", diagnostic.code);
-                    println!(
-                        "  \"message\":\"{}\",",
-                        diagnostic.message.replace('"', "\\\"")
-                    );
-                    println!("  \"file\":\"{}\",", diagnostic.span.file);
-                    println!("  \"line\":{},", diagnostic.span.line);
-                    println!("  \"column\":{}", diagnostic.span.column);
-                    println!("}}]}}");
-                } else {
-                    eprintln!("{}", diagnostic.format(&source));
-                }
-                return Err(anyhow::anyhow!("Borrow check failed"));
-            }
-            if !json {
-                println!("   ✅ Borrow check passed");
-            }
-
-            // Codegen
-            let context = Context::create();
-            let mut codegen =
-                vex_compiler::ASTCodeGen::new_with_span_map(&context, &filename, span_map);
-
-            // Resolve imports if any
             if !ast.imports.is_empty() {
                 let std_lib_path = PathBuf::from("vex-libs/std");
                 let mut resolver = vex_compiler::ModuleResolver::new(std_lib_path);
@@ -512,6 +503,11 @@ fn main() -> Result<()> {
                                                 vex_ast::Item::Struct(struct_def) => {
                                                     ast.items.push(vex_ast::Item::Struct(
                                                         struct_def.clone(),
+                                                    ));
+                                                }
+                                                vex_ast::Item::Const(const_decl) => {
+                                                    ast.items.push(vex_ast::Item::Const(
+                                                        const_decl.clone(),
                                                     ));
                                                 }
                                                 vex_ast::Item::ExternBlock(extern_block) => {
@@ -550,6 +546,12 @@ fn main() -> Result<()> {
                                                         ast.items
                                                             .push(vex_ast::Item::Struct(s.clone()));
                                                     }
+                                                    vex_ast::Item::Const(c)
+                                                        if c.name == *requested =>
+                                                    {
+                                                        ast.items
+                                                            .push(vex_ast::Item::Const(c.clone()));
+                                                    }
                                                     _ => {}
                                                 }
                                             }
@@ -576,6 +578,10 @@ fn main() -> Result<()> {
                                                     struct_def.clone(),
                                                 ));
                                             }
+                                            vex_ast::Item::Const(const_decl) => {
+                                                ast.items
+                                                    .push(vex_ast::Item::Const(const_decl.clone()));
+                                            }
                                             vex_ast::Item::ExternBlock(extern_block) => {
                                                 // Import extern declarations
                                                 ast.items.push(vex_ast::Item::ExternBlock(
@@ -585,11 +591,9 @@ fn main() -> Result<()> {
                                             _ => {}
                                         }
                                     }
-                                    // Track module namespace for codegen
-                                    codegen.register_module_namespace(
-                                        module_name.to_string(),
-                                        imported_funcs,
-                                    );
+                                    // Save for later codegen registration
+                                    module_namespaces
+                                        .push((module_name.to_string(), imported_funcs));
                                 }
                                 vex_ast::ImportKind::Namespace(alias) => {
                                     // Namespace import: import all with alias
@@ -606,6 +610,10 @@ fn main() -> Result<()> {
                                                     struct_def.clone(),
                                                 ));
                                             }
+                                            vex_ast::Item::Const(const_decl) => {
+                                                ast.items
+                                                    .push(vex_ast::Item::Const(const_decl.clone()));
+                                            }
                                             vex_ast::Item::ExternBlock(extern_block) => {
                                                 // Import extern declarations
                                                 ast.items.push(vex_ast::Item::ExternBlock(
@@ -615,9 +623,8 @@ fn main() -> Result<()> {
                                             _ => {}
                                         }
                                     }
-                                    // Track with alias
-                                    codegen
-                                        .register_module_namespace(alias.clone(), imported_funcs);
+                                    // Save for later codegen registration
+                                    module_namespaces.push((alias.clone(), imported_funcs));
                                 }
                             }
                         }
@@ -625,7 +632,78 @@ fn main() -> Result<()> {
                             anyhow::bail!("⚠️  Import error for '{}': {}", module_path, e);
                         }
                     }
+
+                    // Check for native dependencies in imported module's vex.json
+                    let module_dir = PathBuf::from("vex-libs/std").join(module_path);
+                    let vex_json_path = module_dir.join("vex.json");
+                    if vex_json_path.exists() {
+                        if let Ok(manifest) = vex_pm::Manifest::from_file(&vex_json_path) {
+                            if let Some(native_config) = manifest.get_native() {
+                                let linker = vex_pm::NativeLinker::new(&module_dir);
+                                match linker.process(native_config) {
+                                    Ok(native_args) if !native_args.is_empty() => {
+                                        eprintln!(
+                                            "   🔗 Native libs for '{}': {}",
+                                            module_path, native_args
+                                        );
+                                        // Store native args in resolver for later use
+                                        for arg in native_args.split_whitespace() {
+                                            resolver.native_linker_args.push(arg.to_string());
+                                        }
+                                    }
+                                    Ok(_) => {} // No native args
+                                    Err(e) => {
+                                        eprintln!("   ⚠️  Warning: Failed to process native config for '{}': {}", module_path, e);
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
+
+                // Collect native linker args from resolver
+                native_linker_args.extend(resolver.native_linker_args);
+            }
+
+            // NOW run borrow checker AFTER imports are resolved
+            if !json {
+                println!("   🔍 Running borrow checker...");
+            }
+            let mut borrow_checker = vex_compiler::BorrowChecker::new();
+            if let Err(borrow_error) = borrow_checker.check_program(&mut ast) {
+                // Convert borrow error to diagnostic
+                let diagnostic = borrow_error.to_diagnostic();
+
+                if json {
+                    // Output as single diagnostic JSON
+                    println!("{{\"diagnostics\":[{{");
+                    println!("  \"level\":\"error\",");
+                    println!("  \"code\":\"{}\",", diagnostic.code);
+                    println!(
+                        "  \"message\":\"{}\",",
+                        diagnostic.message.replace('"', "\\\"")
+                    );
+                    println!("  \"file\":\"{}\",", diagnostic.span.file);
+                    println!("  \"line\":{},", diagnostic.span.line);
+                    println!("  \"column\":{}", diagnostic.span.column);
+                    println!("}}]}}");
+                } else {
+                    eprintln!("{}", diagnostic.format(&source));
+                }
+                return Err(anyhow::anyhow!("Borrow check failed"));
+            }
+            if !json {
+                println!("   ✅ Borrow check passed");
+            }
+
+            // Codegen
+            let context = Context::create();
+            let mut codegen =
+                vex_compiler::ASTCodeGen::new_with_span_map(&context, &filename, span_map);
+
+            // Register module namespaces with codegen
+            for (module_name, imported_funcs) in module_namespaces {
+                codegen.register_module_namespace(module_name, imported_funcs);
             }
 
             let compile_result = codegen.compile_program(&ast);
@@ -693,6 +771,11 @@ fn main() -> Result<()> {
                         }
                     }
                 }
+            }
+
+            // Add native linker args from imported modules
+            for arg in &native_linker_args {
+                command.arg(arg);
             }
 
             let link_result = command.output()?;

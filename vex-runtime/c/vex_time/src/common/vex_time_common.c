@@ -420,3 +420,174 @@ int vt_parse_go(const char* layout, const char* value, const VexTz* tz, VexInsta
   out->unix_sec = epoch; out->nsec = nsec; out->_pad=0;
   return 0;
 }
+
+/* ==== Component extraction (fast_date_from_epoch usage) ==== */
+/* External function declared in fast_parse.h */
+extern void fast_date_from_epoch(int64_t unix_sec, int* year, int* month, int* day, 
+                                  int* hour, int* minute, int* second, int* weekday);
+
+void vt_instant_date(VexInstant t, int* year, int* month, int* day, int* hour, int* minute, int* second, int* nsec) {
+  int weekday_unused;
+  fast_date_from_epoch(t.unix_sec, year, month, day, hour, minute, second, &weekday_unused);
+  if (nsec) *nsec = t.nsec;
+}
+
+void vt_instant_clock(VexInstant t, int* hour, int* minute, int* second) {
+  int y, m, d, w;
+  fast_date_from_epoch(t.unix_sec, &y, &m, &d, hour, minute, second, &w);
+}
+
+int vt_instant_yearday(VexInstant t) {
+  int year, month, day, hour, minute, second, weekday;
+  fast_date_from_epoch(t.unix_sec, &year, &month, &day, &hour, &minute, &second, &weekday);
+  
+  /* Days in each month for non-leap year */
+  static const int days_in_month[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+  
+  /* Check if leap year */
+  int is_leap = (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
+  
+  /* Calculate day of year */
+  int yday = day;
+  for (int i = 0; i < month - 1; i++) {
+    yday += days_in_month[i];
+    if (i == 1 && is_leap) yday++;  /* Add leap day after February */
+  }
+  return yday;
+}
+
+int vt_instant_weekday(VexInstant t) {
+  int year, month, day, hour, minute, second, weekday;
+  fast_date_from_epoch(t.unix_sec, &year, &month, &day, &hour, &minute, &second, &weekday);
+  return weekday;  /* 0=Sunday, 6=Saturday */
+}
+
+int vt_instant_isoweek(VexInstant t, int* iso_year) {
+  int year, month, day, hour, minute, second, weekday;
+  int dummy_y, dummy_m, dummy_d, dummy_h, dummy_min, dummy_s;
+  fast_date_from_epoch(t.unix_sec, &year, &month, &day, &hour, &minute, &second, &weekday);
+  
+  /* ISO 8601 week date: week starts on Monday (1), ends on Sunday (7) */
+  /* Thursday is day 4, so weeks are determined by Thursday's date */
+  
+  /* Convert weekday: 0=Sunday -> 7, 1=Monday -> 1, ..., 6=Saturday -> 6 */
+  int iso_weekday = (weekday == 0) ? 7 : weekday;
+  
+  /* Find January 4 of this year (which is always in week 1) */
+  struct tm tm_jan4;
+  memset(&tm_jan4, 0, sizeof(tm_jan4));
+  tm_jan4.tm_year = year - 1900;
+  tm_jan4.tm_mon = 0;
+  tm_jan4.tm_mday = 4;
+  time_t t_jan4 = timegm_compat(&tm_jan4);
+  
+  int y_jan4, m_jan4, d_jan4, h_jan4, min_jan4, s_jan4, wd_jan4;
+  fast_date_from_epoch(t_jan4, &y_jan4, &m_jan4, &d_jan4, &h_jan4, &min_jan4, &s_jan4, &wd_jan4);
+  
+  int jan4_iso_weekday = (wd_jan4 == 0) ? 7 : wd_jan4;
+  
+  /* Find Monday of week containing January 4 */
+  time_t week1_monday = t_jan4 - (int64_t)(jan4_iso_weekday - 1) * 86400;
+  
+  /* If this date is before week 1 Monday, it belongs to previous year's last week */
+  if (t.unix_sec < week1_monday) {
+    /* Date is in previous year's last week */
+    if (iso_year) *iso_year = year - 1;
+    
+    /* Find week 1 of previous year */
+    struct tm tm_prev_jan4;
+    memset(&tm_prev_jan4, 0, sizeof(tm_prev_jan4));
+    tm_prev_jan4.tm_year = (year - 1) - 1900;
+    tm_prev_jan4.tm_mon = 0;
+    tm_prev_jan4.tm_mday = 4;
+    time_t t_prev_jan4 = timegm_compat(&tm_prev_jan4);
+    
+    int wd_prev_jan4;
+    fast_date_from_epoch(t_prev_jan4, &dummy_y, &dummy_m, &dummy_d, &dummy_h, &dummy_min, &dummy_s, &wd_prev_jan4);
+    
+    int prev_jan4_iso_weekday = (wd_prev_jan4 == 0) ? 7 : wd_prev_jan4;
+    time_t prev_week1_monday = t_prev_jan4 - (int64_t)(prev_jan4_iso_weekday - 1) * 86400;
+    
+    return 1 + (int)((t.unix_sec - prev_week1_monday) / 604800);
+  }
+  
+  /* Find next year's week 1 Monday to check if we're in the first week of next year */
+  struct tm tm_next_jan4;
+  memset(&tm_next_jan4, 0, sizeof(tm_next_jan4));
+  tm_next_jan4.tm_year = (year + 1) - 1900;
+  tm_next_jan4.tm_mon = 0;
+  tm_next_jan4.tm_mday = 4;
+  time_t t_next_jan4 = timegm_compat(&tm_next_jan4);
+  
+  int wd_next_jan4;
+  fast_date_from_epoch(t_next_jan4, &dummy_y, &dummy_m, &dummy_d, &dummy_h, &dummy_min, &dummy_s, &wd_next_jan4);
+  
+  int next_jan4_iso_weekday = (wd_next_jan4 == 0) ? 7 : wd_next_jan4;
+  time_t next_week1_monday = t_next_jan4 - (int64_t)(next_jan4_iso_weekday - 1) * 86400;
+  
+  if (t.unix_sec >= next_week1_monday) {
+    if (iso_year) *iso_year = year + 1;
+    return 1;
+  }
+  
+  if (iso_year) *iso_year = year;
+  return 1 + (int)((t.unix_sec - week1_monday) / 604800);
+}
+
+/* ==== Comparison operators ==== */
+int vt_instant_compare(VexInstant a, VexInstant b) {
+  if (a.unix_sec < b.unix_sec) return -1;
+  if (a.unix_sec > b.unix_sec) return 1;
+  if (a.nsec < b.nsec) return -1;
+  if (a.nsec > b.nsec) return 1;
+  return 0;
+}
+
+int vt_instant_equal(VexInstant a, VexInstant b) {
+  return (a.unix_sec == b.unix_sec && a.nsec == b.nsec) ? 1 : 0;
+}
+
+int vt_instant_before(VexInstant a, VexInstant b) {
+  return (vt_instant_compare(a, b) < 0) ? 1 : 0;
+}
+
+int vt_instant_after(VexInstant a, VexInstant b) {
+  return (vt_instant_compare(a, b) > 0) ? 1 : 0;
+}
+
+/* ==== Time truncation and rounding ==== */
+VexInstant vt_instant_truncate(VexInstant t, VexDuration d) {
+  if (d <= 0) return t;
+  
+  int64_t sec_and_ns = (t.unix_sec * 1000000000LL) + (int64_t)t.nsec;
+  int64_t truncated = (sec_and_ns / d) * d;
+  
+  VexInstant result;
+  result.unix_sec = truncated / 1000000000LL;
+  result.nsec = (int32_t)(truncated % 1000000000LL);
+  result._pad = 0;
+  return result;
+}
+
+VexInstant vt_instant_round(VexInstant t, VexDuration d) {
+  if (d <= 0) return t;
+  
+  int64_t sec_and_ns = (t.unix_sec * 1000000000LL) + (int64_t)t.nsec;
+  int64_t rounded = ((sec_and_ns + d/2) / d) * d;
+  
+  VexInstant result;
+  result.unix_sec = rounded / 1000000000LL;
+  result.nsec = (int32_t)(rounded % 1000000000LL);
+  result._pad = 0;
+  return result;
+}
+
+/* ==== Unix timestamp variants ==== */
+int64_t vt_instant_unix_milli(VexInstant t) {
+  return (t.unix_sec * 1000LL) + (t.nsec / 1000000);
+}
+
+int64_t vt_instant_unix_micro(VexInstant t) {
+  return (t.unix_sec * 1000000LL) + (t.nsec / 1000);
+}
+

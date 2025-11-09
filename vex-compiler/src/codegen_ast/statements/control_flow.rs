@@ -3,7 +3,6 @@
 
 use super::ASTCodeGen;
 use inkwell::types::BasicTypeEnum;
-use inkwell::values::BasicValueEnum;
 use vex_ast::*;
 
 impl<'ctx> ASTCodeGen<'ctx> {

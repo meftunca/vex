@@ -4,7 +4,7 @@
 // Compiler limits
 pub(crate) const MAX_GENERIC_DEPTH: usize = 64; // Maximum nesting depth for generic types (Rust uses 128)
 
-use crate::diagnostics::{error_codes, DiagnosticEngine, Span};
+use crate::diagnostics::DiagnosticEngine;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::Module;
@@ -20,6 +20,7 @@ use vex_ast::*;
 
 // Sub-modules containing impl blocks for ASTCodeGen
 pub mod builtins; // Now a directory module
+mod constants;
 mod expressions;
 mod ffi;
 mod ffi_bridge;
@@ -61,6 +62,9 @@ pub struct ASTCodeGen<'ctx> {
     // Track function pointer parameters (stored as values, not allocas)
     pub(crate) function_params: HashMap<String, PointerValue<'ctx>>,
     pub(crate) function_param_types: HashMap<String, Type>,
+    // Global constants (never cleared during function compilation)
+    pub(crate) global_constants: HashMap<String, PointerValue<'ctx>>,
+    pub(crate) global_constant_types: HashMap<String, BasicTypeEnum<'ctx>>,
     pub(crate) functions: HashMap<String, FunctionValue<'ctx>>,
     pub(crate) function_defs: HashMap<String, Function>,
     pub(crate) struct_ast_defs: HashMap<String, Struct>,
@@ -128,6 +132,9 @@ pub struct ASTCodeGen<'ctx> {
     // ⭐ NEW: Span tracking for AST nodes (from parser)
     // Maps AST node addresses to their source locations
     pub(crate) span_map: vex_diagnostics::SpanMap,
+
+    // ⭐ NEW: Trait bounds checker for generic constraints
+    pub(crate) trait_bounds_checker: Option<crate::trait_bounds_checker::TraitBoundsChecker>,
 }
 
 impl<'ctx> ASTCodeGen<'ctx> {
@@ -154,6 +161,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
             tuple_variable_types: HashMap::new(),
             function_params: HashMap::new(),
             function_param_types: HashMap::new(),
+            global_constants: HashMap::new(),
+            global_constant_types: HashMap::new(),
             functions: HashMap::new(),
             function_defs: HashMap::new(),
             struct_ast_defs: HashMap::new(),
@@ -178,6 +187,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             current_method_is_mutable: false, // ⭐ NEW: Default to immutable
             diagnostics: DiagnosticEngine::new(), // Initialize diagnostic engine
             span_map,                         // ⭐ NEW: Store span map from parser
+            trait_bounds_checker: None,       // ⭐ NEW: Initialized in compile_program
         };
 
         // Register Phase 0 builtin types (Vec, Option, Result, Box)

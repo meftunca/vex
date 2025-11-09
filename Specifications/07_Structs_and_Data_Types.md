@@ -113,40 +113,37 @@ struct Mixed {
 }
 ```
 
-### Struct Tags (Future - Go-style)
+### Struct Tags (Go-style)
 
-**Answer to TODO**: 🟡 Struct tags Medium Priority - Serialization/reflection için gerekli
+Vex supports Go-style backtick struct tags for metadata:
 
 ```vex
-// Future syntax proposal:
 struct User {
-    #[json = "user_id", db = "id"]
-    id: u64,
-
-    #[json = "username", validate = "length:3-20"]
-    name: string,
-
-    #[json = "email_address", validate = "email"]
-    email: string,
-
-    #[json = "-"]  // Skip this field in JSON
-    password_hash: string,
+    id: u64        `json:"id" db:"pk"`,
+    username: string `json:"username" db:"username"`,
+    email: string   `json:"email" db:"email"`,
+    age: i32        `json:"age"`,
+    is_active: bool `json:"is_active"`,
 }
 ```
+
+**Syntax**: Backtick-enclosed string literals after field type
 
 **Use Cases**:
 
 - JSON serialization field mapping
 - Database column mapping
 - Validation rules
-- Documentation generation
-- Code generation hints
+- API documentation
+- Reflection metadata
 
-**Implementation Status**: ❌ Not implemented yet
+**Implementation Status**: ✅ Fully implemented
 
-- Requires attribute syntax `#[...]`
-- Needs reflection system
-- Medium priority (after collections and iterators)
+- Struct tags ARE parsed and stored in AST (`Field.tag`)
+- Metadata available in compiler
+- **IMPORTANT**: Vex does NOT use Rust-style `#[attribute]` syntax
+- Runtime reflection builtins: `typeof`, `type_id`, `type_size`, `type_align`, `is_*_type` functions
+- Policy system provides rich metadata annotations
 
 ### Nested Structs
 

@@ -1,52 +1,127 @@
 // String Module
-// String operations and UTF-8 validation
+// String operations and UTF-8 validation (Go-like API)
 //
 // Usage:
-//   import { len, compare, is_valid_utf8 } from "string";
+//   import { len, compare, contains, has_prefix, to_upper } from "string";
 
 // External C functions from vex-runtime/c/vex_string.c
 extern "C" {
-    fn vex_strlen(s: *const u8): u64;
-    fn vex_strcmp(s1: *const u8, s2: *const u8): i32;
-    fn vex_strncmp(s1: *const u8, s2: *const u8, n: u64): i32;
-    fn vex_utf8_valid(s: *const u8, len: u64): bool;
-    fn vex_utf8_char_count(s: *const u8, len: u64): u64;
-    fn vex_strdup(s: *const u8): *const u8;
-    fn vex_strcat(dest: *const u8, src: *const u8): *const u8;
-    fn vex_strcpy(dest: *const u8, src: *const u8): *const u8;
+    fn vex_strlen(s: *u8): u64;
+    fn vex_strcmp(s1: *u8, s2: *u8): i32;
+    fn vex_strncmp(s1: *u8, s2: *u8, n: u64): i32;
+    fn vex_utf8_valid(s: *u8, len: u64): bool;
+    fn vex_utf8_char_count(s: *u8, len: u64): u64;
+    fn vex_strdup(s: *u8): *u8;
+    fn vex_strcat(dest: *u8!, src: *u8): *u8;
+    fn vex_strcpy(dest: *u8!, src: *u8): *u8;
+    
+    // Go-like string operations
+    fn vex_str_contains(s: *u8, substr: *u8): bool;
+    fn vex_str_has_prefix(s: *u8, prefix: *u8): bool;
+    fn vex_str_has_suffix(s: *u8, suffix: *u8): bool;
+    fn vex_str_to_upper(s: *u8): *u8;
+    fn vex_str_to_lower(s: *u8): *u8;
+    fn vex_str_trim(s: *u8): *u8;
+    fn vex_str_replace(s: *u8, old_str: *u8, new_str: *u8): *u8;
     
     // UTF-16/32 operations
-    fn vex_utf16_validate(s: *const u16, len: u64): bool;
-    fn vex_utf32_validate(s: *const u32, len: u64): bool;
-    fn vex_utf8_to_utf16(utf8: *const u8, utf8_len: u64, out: *const u16, out_cap: u64): u64;
-    fn vex_utf8_to_utf32(utf8: *const u8, utf8_len: u64, out: *const u32, out_cap: u64): u64;
+    fn vex_utf16_validate(s: *u16, len: u64): bool;
+    fn vex_utf32_validate(s: *u32, len: u64): bool;
+    fn vex_utf8_to_utf16(utf8: *u8, utf8_len: u64, out: *u16!, out_cap: u64): u64;
+    fn vex_utf8_to_utf32(utf8: *u8, utf8_len: u64, out: *u32, out_cap: u64): u64;
 }
 
+// ============================================================================
+// STRING CREATION AND CONVERSION
+// ============================================================================
 
-export fn len(s: string): u64 {
-    unsafe {
-        vex_strlen(s.as_ptr())
+export fn from_utf8(bytes: *u8, len: u64): Result<str, str> {
+    if vex_utf8_valid(bytes, len) {
+        // TODO: Create string from bytes when from_utf8_unchecked is available
+        return Result.Ok("string_from_bytes"); // Placeholder
+    } else {
+        return Result.Err("invalid_utf8");
     }
 }
 
-
-export fn compare(s1: string, s2: string): i32 {
-    unsafe {
-        vex_strcmp(s1.as_ptr(), s2.as_ptr())
-    }
+export fn from_utf8_unchecked(bytes: *u8, len: u64): str {
+    // TODO: Implement when string creation from bytes is available
+    return "unchecked_string"; // Placeholder
 }
 
-
-export fn is_valid_utf8(s: string): bool {
-    unsafe {
-        vex_utf8_valid(s.as_ptr(), s.len())
-    }
+export fn from_cstr(cstr: *u8): str {
+    // TODO: Implement C string to Vex string conversion
+    return "from_cstr"; // Placeholder
 }
 
+export fn len(s: str): u64 {
+    let ptr: *u8 = s as *u8;
+    return vex_strlen(ptr);
+}
 
-export fn char_count(s: string): u64 {
-    unsafe {
-        vex_utf8_char_count(s.as_ptr(), s.len())
-    }
+export fn compare(s1: str, s2: str): i32 {
+    let ptr1: *u8 = s1 as *u8;
+    let ptr2: *u8 = s2 as *u8;
+    return vex_strcmp(ptr1, ptr2);
+}
+
+export fn is_valid_utf8(s: str): bool {
+    let ptr: *u8 = s as *u8;
+    let length: u64 = len(s);
+    return vex_utf8_valid(ptr, length);
+}
+
+export fn char_count(s: str): u64 {
+    let ptr: *u8 = s as *u8;
+    let length: u64 = len(s);
+    return vex_utf8_char_count(ptr, length);
+}
+
+// ============================================================================
+// GO-LIKE STRING OPERATIONS
+// ============================================================================
+
+export fn contains(s: str, substr: str): bool {
+    let s_ptr: *u8 = s as *u8;
+    let substr_ptr: *u8 = substr as *u8;
+    return vex_str_contains(s_ptr, substr_ptr);
+}
+
+export fn has_prefix(s: str, prefix: str): bool {
+    let s_ptr: *u8 = s as *u8;
+    let prefix_ptr: *u8 = prefix as *u8;
+    return vex_str_has_prefix(s_ptr, prefix_ptr);
+}
+
+export fn has_suffix(s: String, suffix: String): bool {
+    let s_ptr: *u8 = &s;
+    let suffix_ptr: *u8 = &suffix;
+    return vex_str_has_suffix(s_ptr, suffix_ptr);
+}
+
+export fn to_upper(s: String): String {
+    let s_ptr: *u8 = &s;
+    let result_ptr: *u8 = vex_str_to_upper(s_ptr);
+    return result_ptr;
+}
+
+export fn to_lower(s: String): String {
+    let s_ptr: *u8 = &s;
+    let result_ptr: *u8 = vex_str_to_lower(s_ptr);
+    return result_ptr;
+}
+
+export fn trim(s: String): String {
+    let s_ptr: *u8 = &s;
+    let result_ptr: *u8 = vex_str_trim(s_ptr);
+    return result_ptr;
+}
+
+export fn replace(s: String, old_str: String, new_str: String): String {
+    let s_ptr: *u8 = &s;
+    let old_ptr: *u8 = &old_str;
+    let new_ptr: *u8 = &new_str;
+    let result_ptr: *u8 = vex_str_replace(s_ptr, old_ptr, new_ptr);
+    return result_ptr;
 }
 

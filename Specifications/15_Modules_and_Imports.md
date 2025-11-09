@@ -142,9 +142,16 @@ export fn public_api(): i32 {
 
 ```vex
 export struct Point {
-    pub x: i32,  // Public field
-    pub y: i32,
-    private_data: i32,  // Private field
+    x: i32,
+    y: i32,
+}
+
+// All fields in exported structs are accessible
+// Use underscore prefix for internal/helper fields (convention only)
+export struct User {
+    id: i64,
+    name: String,
+    _internal_cache: i32,  // Convention: internal field
 }
 ```
 
@@ -162,7 +169,7 @@ export enum Status {
 
 ```vex
 export trait Display {
-    fn (self: &Self!) show();
+    fn show();
 }
 ```
 
@@ -439,18 +446,18 @@ import "std::json";  // ❌ Wrong!
 
 ## Module System Summary
 
-| Feature               | Status             | Example                          |
-| --------------------- | ------------------ | -------------------------------- |
-| **Named Import**      | ✅ Working         | `import { println } from "io"`   |
-| **Import with Alias** | ✅ Working         | `import * as io from "io"`       |
-| **Export**            | ✅ v0.9            | `export fn name()`               |
-| **Module Resolution** | ✅ Working         | Loads from `vex-libs/std/`       |
-| **Nested Modules**    | ✅ Working         | `import { get } from "net/http"` |
-| **Re-exports**        | 🚧 Partial         | `export { x } from "mod"`        |
-| **Private Items**     | ✅ Working         | Default (no export)              |
-| **Public Fields**     | 🚧 Future          | `pub x: i32`                     |
-| **Relative Imports**  | ❌ Not implemented | `import "./local"`               |
-| **Package System**    | ❌ Not implemented | No package manager               |
+| Feature               | Status         | Example                                           |
+| --------------------- | -------------- | ------------------------------------------------- |
+| **Named Import**      | ✅ Working     | `import { println } from "io"`                    |
+| **Import with Alias** | ✅ Working     | `import * as io from "io"`                        |
+| **Export**            | ✅ v0.9        | `export fn name()`                                |
+| **Module Resolution** | ✅ Working     | Loads from `vex-libs/std/`                        |
+| **Nested Modules**    | ✅ Working     | `import { get } from "net/http"`                  |
+| **Re-exports**        | ✅ Working     | `export { x } from "mod"`                         |
+| **Private Items**     | ✅ Working     | Default (no export)                               |
+| **Field Visibility**  | ❌ Not Planned | All fields accessible (use `_` prefix convention) |
+| **Relative Imports**  | ✅ Working     | `import "./local"` supported                      |
+| **Package System**    | ✅ vex-pm      | Full package manager with dependency resolution   |
 
 ---
 

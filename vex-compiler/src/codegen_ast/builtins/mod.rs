@@ -28,7 +28,7 @@ mod utf8; // Stdlib: testing module
 
 // Re-export all builtin implementations
 pub use array::*;
-pub use async_runtime::*; // Async runtime functions
+ // Async runtime functions
 pub use builtin_types::*; // Phase 0 builtin types
 pub use channel::*;
 pub use core::*;

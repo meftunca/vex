@@ -14,7 +14,7 @@ Simple trait with single method. Demonstrates the core inline syntax.
 
 ```vex
 trait Printer {
-    fn (self: &Self!) print();
+    fn print();
 }
 
 struct Message impl Printer {
@@ -31,7 +31,7 @@ Multiple structs implementing the same trait. Shows trait reusability.
 
 ```vex
 trait Display {
-    fn (self: &Self!) show();
+    fn show();
 }
 
 struct Point impl Display {
@@ -70,8 +70,8 @@ Trait with default methods (parsed but not fully functional yet).
 
 ```vex
 trait Logger {
-    fn (self: &Self!) log(level: string, msg: string);
-    fn (self: &Self!) info(msg: string) {  // Default method
+    fn log(level: string, msg: string);
+    fn info(msg: string) {  // Default method
         self.log("INFO", msg);
     }
 }

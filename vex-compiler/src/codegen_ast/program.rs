@@ -1,10 +1,31 @@
 // src/codegen/program.rs
 use super::*;
-use vex_ast::*;
 
 impl<'ctx> ASTCodeGen<'ctx> {
     pub fn compile_program(&mut self, program: &Program) -> Result<(), String> {
-        // First pass: register types and function signatures
+        eprintln!(
+            "📋 compile_program: {} total items in AST",
+            program.items.len()
+        );
+
+        // Check if any async functions exist in the program
+        let has_async = program
+            .items
+            .iter()
+            .any(|item| matches!(item, Item::Function(f) if f.is_async));
+
+        if has_async {
+            eprintln!("🔄 Async functions detected - runtime will be initialized in main");
+        }
+
+        // Initialize trait bounds checker
+        use crate::trait_bounds_checker::TraitBoundsChecker;
+        let mut trait_checker = TraitBoundsChecker::new();
+        trait_checker.initialize(program);
+        self.trait_bounds_checker = Some(trait_checker);
+        eprintln!("✅ Trait bounds checker initialized");
+
+        // First pass: register types, constants, and function signatures
         for item in &program.items {
             if let Item::TypeAlias(type_alias) = item {
                 self.register_type_alias(type_alias)?;
@@ -22,6 +43,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 self.register_trait_impl(trait_impl)?;
             } else if let Item::ExternBlock(extern_block) = item {
                 self.compile_extern_block(extern_block)?;
+            } else if let Item::Const(const_decl) = item {
+                // Register constants as global variables
+                eprintln!("📋 Found const item: {}", const_decl.name);
+                self.compile_const(const_decl)?;
             }
         }
 

@@ -4,7 +4,8 @@
  */
 
 #include "vex.h"
-#include <stdio.h> // For snprintf
+#include <stdio.h>  // For snprintf
+#include <string.h> // For strstr, memcpy
 
 // vex.h already includes vex_macros.h which provides:
 // - VEX_SIMD_X86, VEX_SIMD_NEON (with proper intrinsics)
@@ -1007,6 +1008,207 @@ char *vex_f32_to_string(float value)
     return buf;
 }
 
+// ============================================================================
+// GO-LIKE STRING OPERATIONS
+// ============================================================================
+
+/**
+ * Contains - Check if string contains substring
+ * Returns true if substr is found in s
+ */
+bool vex_str_contains(const char *s, const char *substr)
+{
+    if (!s || !substr)
+        return false;
+    if (*substr == '\0')
+        return true; // Empty string is contained in any string
+
+    return strstr(s, substr) != NULL;
+}
+
+/**
+ * HasPrefix - Check if string starts with prefix
+ */
+bool vex_str_has_prefix(const char *s, const char *prefix)
+{
+    if (!s || !prefix)
+        return false;
+
+    size_t prefix_len = vex_strlen(prefix);
+    return vex_strncmp(s, prefix, prefix_len) == 0;
+}
+
+/**
+ * HasSuffix - Check if string ends with suffix
+ */
+bool vex_str_has_suffix(const char *s, const char *suffix)
+{
+    if (!s || !suffix)
+        return false;
+
+    size_t s_len = vex_strlen(s);
+    size_t suffix_len = vex_strlen(suffix);
+
+    if (suffix_len > s_len)
+        return false;
+
+    return vex_strcmp(s + (s_len - suffix_len), suffix) == 0;
+}
+
+/**
+ * ToUpper - Convert string to uppercase (ASCII only)
+ * Returns heap-allocated string (caller must free)
+ */
+char *vex_str_to_upper(const char *s)
+{
+    if (!s)
+        return NULL;
+
+    size_t len = vex_strlen(s);
+    char *result = (char *)vex_malloc(len + 1);
+    if (!result)
+        return NULL;
+
+    for (size_t i = 0; i <= len; i++)
+    {
+        char c = s[i];
+        result[i] = (c >= 'a' && c <= 'z') ? (c - 32) : c;
+    }
+
+    return result;
+}
+
+/**
+ * ToLower - Convert string to lowercase (ASCII only)
+ * Returns heap-allocated string (caller must free)
+ */
+char *vex_str_to_lower(const char *s)
+{
+    if (!s)
+        return NULL;
+
+    size_t len = vex_strlen(s);
+    char *result = (char *)vex_malloc(len + 1);
+    if (!result)
+        return NULL;
+
+    for (size_t i = 0; i <= len; i++)
+    {
+        char c = s[i];
+        result[i] = (c >= 'A' && c <= 'Z') ? (c + 32) : c;
+    }
+
+    return result;
+}
+
+/**
+ * Trim - Remove leading and trailing whitespace
+ * Returns heap-allocated string (caller must free)
+ */
+char *vex_str_trim(const char *s)
+{
+    if (!s)
+        return NULL;
+
+    // Skip leading whitespace
+    while (*s && (*s == ' ' || *s == '\t' || *s == '\n' || *s == '\r'))
+        s++;
+
+    if (*s == '\0')
+    {
+        // All whitespace - return empty string
+        char *result = (char *)vex_malloc(1);
+        if (result)
+            result[0] = '\0';
+        return result;
+    }
+
+    // Find end (last non-whitespace)
+    const char *end = s + vex_strlen(s) - 1;
+    while (end > s && (*end == ' ' || *end == '\t' || *end == '\n' || *end == '\r'))
+        end--;
+
+    size_t len = end - s + 1;
+    char *result = (char *)vex_malloc(len + 1);
+    if (!result)
+        return NULL;
+
+    memcpy(result, s, len);
+    result[len] = '\0';
+
+    return result;
+}
+
+/**
+ * Replace - Replace all occurrences of old with new
+ * Returns heap-allocated string (caller must free)
+ */
+char *vex_str_replace(const char *s, const char *old_str, const char *new_str)
+{
+    if (!s || !old_str || !new_str)
+        return NULL;
+
+    size_t old_len = vex_strlen(old_str);
+    size_t new_len = vex_strlen(new_str);
+
+    if (old_len == 0)
+    {
+        // Can't replace empty string - return copy
+        return vex_strdup(s);
+    }
+
+    // Count occurrences
+    size_t count = 0;
+    const char *tmp = s;
+    while ((tmp = strstr(tmp, old_str)) != NULL)
+    {
+        count++;
+        tmp += old_len;
+    }
+
+    if (count == 0)
+    {
+        // No replacements - return copy
+        return vex_strdup(s);
+    }
+
+    // Allocate result
+    size_t s_len = vex_strlen(s);
+    size_t result_len = s_len + count * (new_len - old_len);
+    char *result = (char *)vex_malloc(result_len + 1);
+    if (!result)
+        return NULL;
+
+    // Perform replacements
+    char *dst = result;
+    const char *src = s;
+
+    while (*src)
+    {
+        const char *match = strstr(src, old_str);
+
+        if (match == NULL)
+        {
+            // Copy rest of string
+            vex_strcpy(dst, src);
+            break;
+        }
+
+        // Copy up to match
+        size_t prefix_len = match - src;
+        memcpy(dst, src, prefix_len);
+        dst += prefix_len;
+
+        // Copy replacement
+        memcpy(dst, new_str, new_len);
+        dst += new_len;
+
+        src = match + old_len;
+    }
+
+    return result;
+}
+
 /**
  * Convert f64 to string
  * Returns heap-allocated string (caller must free)
@@ -1020,4 +1222,111 @@ char *vex_f64_to_string(double value)
 
     snprintf(buf, 32, "%g", value); // %g uses shortest representation
     return buf;
+}
+
+// ============================================================================
+// STRING INDEXING AND SLICING (v0.9.2)
+// ============================================================================
+
+#include <stdlib.h> // For abort()
+
+/**
+ * Get byte at index (not UTF-8 character!)
+ * Used for: text[3]
+ * Returns: u8 byte value at index
+ * Panics: If index >= length
+ */
+uint8_t vex_string_index(const char *str, size_t index)
+{
+    size_t len = vex_strlen(str);
+
+    if (index >= len)
+    {
+        fprintf(stderr, "String index out of bounds: %zu >= %zu\n", index, len);
+        abort(); // Runtime panic
+    }
+
+    return (uint8_t)str[index];
+}
+
+/**
+ * Check if index is on UTF-8 character boundary
+ * Returns: 1 if valid boundary, 0 if in middle of multi-byte char
+ */
+static int vex_is_utf8_boundary(const char *str, size_t index)
+{
+    // UTF-8 continuation bytes start with 0b10xxxxxx (0x80-0xBF)
+    // Valid start positions: 0b0xxxxxxx or 0b11xxxxxx
+    uint8_t byte = (uint8_t)str[index];
+    return (byte & 0xC0) != 0x80; // Not a continuation byte
+}
+
+/**
+ * String slicing - creates new substring
+ * Used for: text[start..end], text[..end], text[start..], text[..]
+ *
+ * Args:
+ *   str: Source string (null-terminated)
+ *   start: Start index (inclusive), use 0 for text[..end]
+ *   end: End index (exclusive), use -1 for text[start..]
+ *
+ * Returns: Heap-allocated substring (caller must free)
+ * Panics: If indices out of bounds or split UTF-8 character
+ */
+char *vex_string_substr(const char *str, int64_t start, int64_t end)
+{
+    size_t len = vex_strlen(str);
+
+    // Handle negative indices (not yet supported, but for future)
+    if (start < 0)
+        start = 0;
+    if (end < 0)
+        end = (int64_t)len; // -1 means "to end"
+
+    // Bounds check
+    if (start > (int64_t)len || end > (int64_t)len || start > end)
+    {
+        fprintf(stderr, "String slice out of bounds: [%lld..%lld] (len=%zu)\n",
+                (long long)start, (long long)end, len);
+        abort();
+    }
+
+    // UTF-8 boundary check
+    if (!vex_is_utf8_boundary(str, start))
+    {
+        fprintf(stderr, "String slice splits UTF-8 character at start=%lld\n",
+                (long long)start);
+        abort();
+    }
+
+    if (end < (int64_t)len && !vex_is_utf8_boundary(str, end))
+    {
+        fprintf(stderr, "String slice splits UTF-8 character at end=%lld\n",
+                (long long)end);
+        abort();
+    }
+
+    // Allocate new string
+    size_t slice_len = (size_t)(end - start);
+    char *result = (char *)vex_malloc(slice_len + 1);
+    if (!result)
+    {
+        fprintf(stderr, "String slice allocation failed\n");
+        abort();
+    }
+
+    // Copy substring
+    memcpy(result, str + start, slice_len);
+    result[slice_len] = '\0';
+
+    return result;
+}
+
+/**
+ * Helper: Get string length (exposed for Vex code)
+ * Note: Different from vex_string_len which takes vex_string_t*
+ */
+size_t vex_string_length(const char *str)
+{
+    return vex_strlen(str);
 }

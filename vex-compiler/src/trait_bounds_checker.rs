@@ -2,7 +2,7 @@
 // Verifies that type arguments satisfy trait bounds at compile time
 
 use std::collections::HashMap;
-use vex_ast::{Function, Program, Struct, Trait, TraitBound, TraitImpl, Type, TypeParam};
+use vex_ast::{Function, Program, Struct, Trait, TraitBound, Type, TypeParam};
 
 pub struct TraitBoundsChecker {
     // Maps struct/type names to their trait implementations
@@ -199,6 +199,7 @@ impl TraitBoundsChecker {
                 }
             }
             Type::Channel(inner) => format!("Channel<{}>", self.extract_type_name(inner)),
+            Type::Typeof(_) => "typeof".to_string(), // Compile-time evaluated
         }
     }
 }

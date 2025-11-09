@@ -14,14 +14,8 @@ mod control_flow;
 mod let_statement;
 mod loops;
 
-pub use assignment::*;
-pub use control_flow::*;
-pub use let_statement::*;
-pub use loops::*;
-
 use super::ASTCodeGen;
 use crate::diagnostics::{error_codes, Diagnostic, ErrorLevel, Span};
-use inkwell::values::BasicValueEnum;
 use vex_ast::*;
 
 impl<'ctx> ASTCodeGen<'ctx> {
@@ -78,6 +72,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }
             Statement::Go(expr) => {
                 self.compile_go_statement(expr)?;
+            }
+
+            // Unsafe block - just compile the block (no special handling for now)
+            Statement::Unsafe(block) => {
+                self.compile_block(block)?;
             }
 
             // loops & branching

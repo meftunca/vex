@@ -294,6 +294,33 @@ fn deallocate_buffer(ptr: *u8) {
 
 ### Struct Layout Compatibility
 
+C-compatible struct layout is automatic in Vex (no attributes needed):
+
+```vex
+struct CPoint {
+    x: f32,
+    y: f32,
+}
+
+extern "C" {
+    fn create_point(x: f32, y: f32): *CPoint;
+    fn get_x(point: *CPoint): f32;
+}
+
+fn use_c_library() {
+    unsafe {
+        let point = create_point(1.0, 2.0);
+        let x = get_x(point);
+        println("x: {}", x);
+        // Remember to deallocate if required by C library
+    }
+}
+```
+
+````
+
+### Struct Layout Compatibility
+
 ```vex
 #[repr(C)]
 struct CPoint {
@@ -314,7 +341,7 @@ fn use_c_library() {
         // Remember to deallocate if required by C library
     }
 }
-```
+````
 
 ---
 

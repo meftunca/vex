@@ -44,7 +44,7 @@
   },
   "Trait": {
     "prefix": "trait",
-    "body": ["trait ${1:Name} {", "\tfn (self: &Self)${2:method}() : ${3:i32};", "}"],
+    "body": ["trait ${1:Name} {", "\tfn${2:method}() : ${3:i32};", "}"],
     "description": "Trait declaration"
   },
   "Impl Trait": {
@@ -143,7 +143,11 @@
   },
   "Generic Function": {
     "prefix": "fng",
-    "body": ["fn ${1:name}<${2:T}>(${3:param}: ${2:T}) : ${4:T} {", "\t$0", "}"],
+    "body": [
+      "fn ${1:name}<${2:T}>(${3:param}: ${2:T}) : ${4:T} {",
+      "\t$0",
+      "}"
+    ],
     "description": "Generic function"
   },
   "Test Function": {

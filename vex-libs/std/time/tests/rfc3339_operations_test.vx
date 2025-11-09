@@ -1,0 +1,104 @@
+// Time Module - RFC3339 Operations Test
+// Tests RFC3339 formatting and parsing
+
+import { now, unix, format_rfc3339, parse_rfc3339, Time } from "time";
+
+fn main(): i32 {
+    println("=== Time Module: RFC3339 Operations Test ===");
+
+    // Test 1: Format current time as RFC3339
+    println("Test 1: Format Current Time");
+    let t1 = now();
+    let rfc3339_str = format_rfc3339(t1);
+    println("✓ Current time RFC3339: " + rfc3339_str);
+
+    // Test 2: Parse RFC3339 strings
+    println("Test 2: Parse RFC3339 Strings");
+    let test_cases = [
+        "2021-01-01T00:00:00Z",
+        "2021-01-01T12:30:45Z",
+        "2021-01-01T23:59:59.123456789Z",
+        "2021-06-15T14:22:33+05:30",
+        "2021-12-31T09:15:30-08:00",
+        "2000-02-29T12:00:00Z",  // Leap year
+    ];
+
+    let! parse_success = 0;
+    for i in 0..test_cases.len() {
+        let rfc3339_input = test_cases[i];
+        match parse_rfc3339(rfc3339_input) {
+            Ok(parsed_time) => {
+                let formatted_back = format_rfc3339(parsed_time);
+                println("✓ '" + rfc3339_input + "' -> parsed and formatted: " + formatted_back);
+                parse_success = parse_success + 1;
+            }
+            Err(e) => {
+                println("✗ '" + rfc3339_input + "' -> parse error: " + e);
+            }
+        }
+    }
+
+    // Test 3: Round-trip conversion
+    println("Test 3: Round-trip Conversion");
+    let original_time = unix(1609459200, 123456789); // 2021-01-01 00:00:00.123456789 UTC
+    let formatted = format_rfc3339(original_time);
+    match parse_rfc3339(formatted) {
+        Ok(parsed_back) => {
+            let original_unix = unix(original_time);
+            let parsed_unix = unix(parsed_back);
+            if original_unix == parsed_unix {
+                println("✓ Round-trip conversion successful");
+                println("  Original Unix: " + original_unix.to_string());
+                println("  RFC3339: " + formatted);
+                println("  Parsed back Unix: " + parsed_unix.to_string());
+            } else {
+                println("⚠ Round-trip conversion failed");
+                println("  Original: " + original_unix.to_string());
+                println("  Parsed: " + parsed_unix.to_string());
+            }
+        }
+        Err(e) => {
+            println("✗ Round-trip parse failed: " + e);
+        }
+    }
+
+    // Test 4: Invalid RFC3339 strings
+    println("Test 4: Invalid RFC3339 Strings");
+    let invalid_cases = [
+        "",
+        "not-a-date",
+        "2021-13-01T00:00:00Z",  // Invalid month
+        "2021-01-32T00:00:00Z",  // Invalid day
+        "2021-01-01T25:00:00Z",  // Invalid hour
+        "2021-01-01T00:60:00Z",  // Invalid minute
+        "2021-01-01T00:00:60Z",  // Invalid second
+        "2021-01-01T00:00:00",   // Missing Z or timezone
+        "2021-01-01",            // Date only
+    ];
+
+    for i in 0..invalid_cases.len() {
+        let invalid_input = invalid_cases[i];
+        match parse_rfc3339(invalid_input) {
+            Ok(t) => {
+                println("⚠ '" + invalid_input + "' should have failed but parsed");
+            }
+            Err(e) => {
+                println("✓ '" + invalid_input + "' correctly rejected");
+            }
+        }
+    }
+
+    // Test 5: Edge cases
+    println("Test 5: Edge Cases");
+    let unix_epoch = unix(0, 0);  // 1970-01-01 00:00:00 UTC
+    let epoch_rfc3339 = format_rfc3339(unix_epoch);
+    println("✓ Unix epoch RFC3339: " + epoch_rfc3339);
+
+    let far_future = unix(2147483647, 999999999);  // Year 2038 + nanoseconds
+    let future_rfc3339 = format_rfc3339(far_future);
+    println("✓ Far future RFC3339: " + future_rfc3339);
+
+    println("=== RFC3339 Operations Test Complete ===");
+    println("Successfully parsed " + parse_success.to_string() + "/" + test_cases.len().to_string() + " RFC3339 strings");
+    return 0;
+}

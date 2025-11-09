@@ -1,0 +1,28 @@
+// Net Module Test
+// Tests TCP/UDP socket operations
+
+import { println } from "io";
+import { tcp_socket, udp_socket, socket_close } from "net";
+
+fn main(): i32 {
+    println("=== Net Module Test ===");
+    
+    // Test TCP socket creation
+    let tcp_fd: i32 = tcp_socket();
+    if tcp_fd >= 0 {
+        println("✓ tcp_socket() working");
+        socket_close(tcp_fd);
+        println("✓ socket_close() working");
+    }
+    
+    // Test UDP socket creation
+    let udp_fd: i32 = udp_socket();
+    if udp_fd >= 0 {
+        println("✓ udp_socket() working");
+        socket_close(udp_fd);
+    }
+    
+    println("✓ Net module functional");
+    
+    return 0;
+}

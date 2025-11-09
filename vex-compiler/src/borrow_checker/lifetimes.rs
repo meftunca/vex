@@ -629,16 +629,20 @@ impl LifetimeChecker {
             | Expression::Nil => Ok(()),
 
             Expression::EnumLiteral { data, .. } => {
-                if let Some(expr) = data {
-                    self.check_expression(expr)
-                } else {
-                    Ok(())
+                for expr in data {
+                    self.check_expression(expr)?;
                 }
+                Ok(())
             }
 
             Expression::Range { start, end } | Expression::RangeInclusive { start, end } => {
-                self.check_expression(start)?;
-                self.check_expression(end)
+                if let Some(s) = start {
+                    self.check_expression(s)?;
+                }
+                if let Some(e) = end {
+                    self.check_expression(e)?;
+                }
+                Ok(())
             }
 
             Expression::PostfixOp { expr, .. } => self.check_expression(expr),
@@ -659,6 +663,11 @@ impl LifetimeChecker {
             Expression::Cast { expr, .. } => self.check_expression(expr),
 
             Expression::ErrorNew(expr) => self.check_expression(expr),
+
+            Expression::Typeof(expr) => {
+                // typeof is compile-time, just check the inner expression
+                self.check_expression(expr)
+            }
 
             Expression::Closure { params, body, .. } => {
                 // Enter a new scope for closure parameters
@@ -716,9 +725,9 @@ impl LifetimeChecker {
                 self.declare_variable(name);
             }
             Pattern::Enum { data, .. } => {
-                // Enum variant with data: Result.Ok(val), Option.Some(x)
-                if let Some(data_pattern) = data {
-                    self.declare_pattern_bindings(data_pattern);
+                // Enum variant with data: Result.Ok(val), Option.Some(x), IpAddr.V4(a,b,c,d)
+                for pattern in data {
+                    self.declare_pattern_bindings(pattern);
                 }
             }
             Pattern::Struct { fields, .. } => {
@@ -743,6 +752,17 @@ impl LifetimeChecker {
                 // Or pattern: bindings must be consistent across all alternatives
                 for p in patterns {
                     self.declare_pattern_bindings(p);
+                }
+            }
+            Pattern::Array { elements, rest } => {
+                // Array/Slice pattern: [a, b, ..rest]
+                for elem_pattern in elements {
+                    self.declare_pattern_bindings(elem_pattern);
+                }
+                if let Some(rest_name) = rest {
+                    if rest_name != "_" {
+                        self.declare_variable(rest_name);
+                    }
                 }
             }
         }

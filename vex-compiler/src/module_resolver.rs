@@ -1,11 +1,11 @@
 // Module resolution system for Vex compiler
 // Loads and resolves imports from vex-libs/std/
 
-use crate::resolver::{ResolveError, StdlibResolver};
+use crate::resolver::StdlibResolver;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use vex_ast::{Import, Program};
+use vex_ast::Program;
 use vex_parser::Parser;
 
 /// Module resolver - loads and caches parsed modules
@@ -18,6 +18,9 @@ pub struct ModuleResolver {
 
     /// Stdlib resolver for platform-specific file selection
     stdlib_resolver: StdlibResolver,
+
+    /// Native linker arguments collected from imported modules
+    pub native_linker_args: Vec<String>,
 }
 
 impl ModuleResolver {
@@ -27,6 +30,7 @@ impl ModuleResolver {
             std_lib_path: path.clone(),
             module_cache: HashMap::new(),
             stdlib_resolver: StdlibResolver::new(path),
+            native_linker_args: Vec::new(),
         }
     }
 

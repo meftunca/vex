@@ -7,29 +7,29 @@
 // External C functions from vex-runtime/c/swisstable/
 extern "C" {
     // Map operations
-    fn vex_map_create(): *const u8;
-    fn vex_map_insert(map: *const u8, key: *const u8, value: *const u8);
-    fn vex_map_get(map: *const u8, key: *const u8): *const u8;
-    fn vex_map_remove(map: *const u8, key: *const u8): bool;
-    fn vex_map_len(map: *const u8): u64;
-    fn vex_map_free(map: *const u8);
+    fn vex_map_create(): *u8;
+    fn vex_map_insert(map: *u8, key: *u8, value: *u8);
+    fn vex_map_get(map: *u8, key: *u8): *u8;
+    fn vex_map_remove(map: *u8, key: *u8): bool;
+    fn vex_map_len(map: *u8): u64;
+    fn vex_map_free(map: *u8);
     
     // Set operations
-    fn vex_set_create(): *const u8;
-    fn vex_set_insert(set: *const u8, key: *const u8);
-    fn vex_set_contains(set: *const u8, key: *const u8): bool;
-    fn vex_set_remove(set: *const u8, key: *const u8): bool;
-    fn vex_set_len(set: *const u8): u64;
-    fn vex_set_free(set: *const u8);
+    fn vex_set_create(): *u8;
+    fn vex_set_insert(set: *u8, key: *u8);
+    fn vex_set_contains(set: *u8, key: *u8): bool;
+    fn vex_set_remove(set: *u8, key: *u8): bool;
+    fn vex_set_len(set: *u8): u64;
+    fn vex_set_free(set: *u8);
 }
 
 // Map<K, V> - Hash table
 export struct Map<K, V> {
-    ptr: *const u8,
+    ptr: *u8,
 }
 
 // Set<T> - Hash set
 export struct Set<T> {
-    ptr: *const u8,
+    ptr: *u8,
 }
 

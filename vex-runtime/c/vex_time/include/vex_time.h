@@ -64,6 +64,43 @@ int    vt_tz_offset_at(const VexTz* tz, VexInstant utc, int* offset_sec, const c
 /* Convert UTC instant to local instant in tz (offset application only) */
 VexInstant vt_utc_to_tz(const VexTz* tz, VexInstant utc);
 
+/* ==== Component extraction (Go Time.Date/Clock equivalent) ==== */
+/* Extract date components from UTC instant */
+void vt_instant_date(VexInstant t, int* year, int* month, int* day, int* hour, int* minute, int* second, int* nsec);
+
+/* Extract clock components from UTC instant */
+void vt_instant_clock(VexInstant t, int* hour, int* minute, int* second);
+
+/* Get day of year (1-366) for UTC instant */
+int vt_instant_yearday(VexInstant t);
+
+/* Get weekday (0=Sunday, 6=Saturday) for UTC instant */
+int vt_instant_weekday(VexInstant t);
+
+/* Get ISO week number (1-53) for UTC instant; year in first param */
+int vt_instant_isoweek(VexInstant t, int* iso_year);
+
+/* ==== Comparison operators ==== */
+/* Returns: -1 if a < b, 0 if a == b, 1 if a > b */
+int vt_instant_compare(VexInstant a, VexInstant b);
+int vt_instant_equal(VexInstant a, VexInstant b);   /* Returns: 1 if equal, 0 if not */
+int vt_instant_before(VexInstant a, VexInstant b);  /* Returns: 1 if a < b, 0 otherwise */
+int vt_instant_after(VexInstant a, VexInstant b);   /* Returns: 1 if a > b, 0 otherwise */
+
+/* ==== Time truncation and rounding ==== */
+/* Truncate instant to duration boundary (e.g., truncate to minute removes seconds) */
+VexInstant vt_instant_truncate(VexInstant t, VexDuration d);
+
+/* Round instant to nearest duration boundary */
+VexInstant vt_instant_round(VexInstant t, VexDuration d);
+
+/* ==== Unix timestamp variants ==== */
+/* Returns milliseconds since epoch */
+int64_t vt_instant_unix_milli(VexInstant t);
+
+/* Returns microseconds since epoch */
+int64_t vt_instant_unix_micro(VexInstant t);
+
 /* ==== Go layout Format/Parse ====
    Supported tokens (full, commonly used set):
    Year:      2006 / 06

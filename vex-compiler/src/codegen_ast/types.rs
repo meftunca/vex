@@ -2,9 +2,8 @@
 // Contains ast_type_to_llvm, infer_expression_type and related methods
 
 use super::ASTCodeGen;
-use crate::diagnostics::{error_codes, Diagnostic, ErrorLevel, Span};
 use inkwell::types::BasicTypeEnum;
-use std::{collections::HashMap, u128};
+use std::collections::HashMap;
 use vex_ast::*;
 
 impl<'ctx> ASTCodeGen<'ctx> {
@@ -107,7 +106,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     // Handle enum types
                     // Enums with data are represented as structs: {i32 tag, T data}
                     // Find the largest data type among all variants
-                    let has_data = enum_def.variants.iter().any(|v| v.data.is_some());
+                    let has_data = enum_def.variants.iter().any(|v| !v.data.is_empty());
                     eprintln!(
                         "🟠 ast_type_to_llvm for enum {}: has_data={}, variants={}",
                         name,
@@ -120,14 +119,25 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         // For simplicity, use the first data type we find
                         // For mixed enums (Some + None), calculate union size
 
-                        // Find the largest data type
+                        // Find the largest data type (for single-value variants, use first type)
                         let largest_data_type = enum_def
                             .variants
                             .iter()
-                            .filter_map(|v| v.data.as_ref())
-                            .map(|ty| {
-                                let llvm_ty = self.ast_type_to_llvm(ty);
-                                (ty, llvm_ty)
+                            .filter(|v| !v.data.is_empty())
+                            .map(|v| {
+                                // For multi-value tuple variants, create a tuple type
+                                if v.data.len() > 1 {
+                                    // Multi-value tuple: create struct type
+                                    let field_types: Vec<BasicTypeEnum> =
+                                        v.data.iter().map(|ty| self.ast_type_to_llvm(ty)).collect();
+                                    let tuple_ty = self.context.struct_type(&field_types, false);
+                                    (&v.data[0], BasicTypeEnum::StructType(tuple_ty))
+                                } else {
+                                    // Single-value tuple
+                                    let ty = &v.data[0];
+                                    let llvm_ty = self.ast_type_to_llvm(ty);
+                                    (ty, llvm_ty)
+                                }
                             })
                             .max_by_key(|(_, llvm_ty)| {
                                 // Get size of LLVM type
@@ -230,12 +240,43 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }
             Type::Union(types) => {
                 // Union type: T1 | T2 | T3
-                // For now, use the first type as the LLVM representation
-                // TODO: Implement proper tagged union with discriminator
+                // Implementation: Tagged union with discriminator (like Rust enums)
+                // Layout: { i32 tag, <largest_type> data }
+
+                if types.is_empty() {
+                    // Empty union, fallback to i32
+                    return BasicTypeEnum::IntType(self.context.i32_type());
+                }
+
+                // Find the largest type among all union members
+                let largest_type = types
+                    .iter()
+                    .map(|ty| {
+                        let llvm_ty = self.ast_type_to_llvm(ty);
+                        let size = Self::approximate_type_size(&llvm_ty);
+                        (llvm_ty, size)
+                    })
+                    .max_by_key(|(_, size)| *size)
+                    .map(|(ty, _)| ty)
+                    .unwrap_or(self.context.i32_type().into());
+
+                // Create tagged union: { i32 tag, <largest_type> data }
+                let tag_ty = self.context.i32_type();
+                let union_struct = self
+                    .context
+                    .struct_type(&[tag_ty.into(), largest_type], false);
+
+                BasicTypeEnum::StructType(union_struct)
+            }
+
+            Type::Intersection(types) => {
+                // Intersection type: T1 & T2 & T3
+                // Implementation: Merge all struct fields (for trait composition)
+                // For now, use first type as representation
+                // TODO: Implement proper intersection semantics
                 if let Some(first_type) = types.first() {
                     self.ast_type_to_llvm(first_type)
                 } else {
-                    // Empty union, fallback to i32
                     BasicTypeEnum::IntType(self.context.i32_type())
                 }
             }

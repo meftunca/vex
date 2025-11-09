@@ -1,4 +1,5 @@
 # Package Manager & Stdlib - Durum Raporu
+
 **Tarih:** 9 Kasım 2025
 
 ## 📦 Package Manager (vex-pm) - ✅ TAMAMLANDI
@@ -6,12 +7,14 @@
 ### Tamamlanan Özellikler
 
 #### Phase 0.1: Proje Yönetimi ✅
+
 - `vex new <name>` - Yeni proje oluşturma
 - `vex init` - Mevcut dizinde vex.json oluşturma
 - Proje şablonu (src/, tests/, .gitignore, README.md)
 - vex.json manifest formatı
 
 #### Phase 0.2: Dependency Yönetimi ✅
+
 - `vex add <package>[@version]` - Paket ekleme
 - `vex remove <package>` - Paket çıkarma
 - `vex list` - Paketleri listeleme
@@ -20,6 +23,7 @@
 - MVS (Minimum Version Selection) algoritması
 
 #### Phase 0.3: Lock File & Build ✅
+
 - `vex update` - Paketleri güncelleme
 - `vex clean` - Cache temizleme
 - vex.lock dosyası (SHA-256 integrity)
@@ -27,6 +31,7 @@
 - `vex build --locked` - CI mode
 
 #### Phase 0.4: Platform-Specific Files ✅
+
 - `{file}.testing.vx` - Test/mock versiyonu
 - `{file}.{os}.{arch}.vx` - Platform-specific (linux.x64.vx)
 - `{file}.{arch}.vx` - Arch-specific (arm64.vx)
@@ -35,6 +40,7 @@
 - Öncelik sıralaması
 
 ### Kod İstatistikleri
+
 - **Toplam:** 2100+ satır Rust
 - **Modüller:** 11 modül
   - manifest.rs - vex.json parser
@@ -49,6 +55,7 @@
   - native_linker.rs - C library linking
 
 ### Test Durumu
+
 ✅ Tüm CLI komutları çalışıyor
 ✅ Git clone/checkout çalışıyor
 ✅ Cache sistemi çalışıyor
@@ -62,6 +69,7 @@
 ### FFI Runtime Entegrasyonu - ✅ WORKING
 
 #### C Runtime Kütüphaneleri (vex-runtime/c/)
+
 ```
 ✅ vex_io.c        - IO operations (print, println)
 ✅ vex_file.c      - File system (BUGÜN EKLENDİ)
@@ -75,6 +83,7 @@
 ```
 
 #### Build Sistemi
+
 - ✅ build.rs tüm C dosyalarını derliyor
 - ✅ libvex_runtime.a oluşturuluyor
 - ✅ Linker args vex CLI'a geçiyor
@@ -82,31 +91,33 @@
 
 ### Modül Durumu
 
-| Modül | Kod | FFI | Import | Durum |
-|-------|-----|-----|--------|-------|
-| **io** | 50 satır | ✅ | ✅ | WORKING |
-| **math** | 250 satır | ✅ | ❌ | PARTIAL |
-| **fs** | 200 satır | ✅ | ❌ | PARTIAL |
-| **path** | 300 satır | 📝 | ❌ | NOT TESTED |
-| **env** | 70 satır | 📝 | ❌ | NOT TESTED |
-| **process** | 60 satır | 📝 | ❌ | NOT TESTED |
-| **time** | ✅ | ✅ | 📝 | EXISTS |
-| **testing** | ✅ | ✅ | 📝 | EXISTS |
-| **collections** | ✅ | ✅ | 📝 | EXISTS |
-| **crypto** | ✅ | 📝 | 📝 | C LIB READY |
-| **encoding** | ✅ | 📝 | 📝 | C LIB READY |
-| **net** | ✅ | 📝 | 📝 | C LIB READY |
-| **db** | ✅ | 📝 | 📝 | C LIB READY |
+| Modül           | Kod       | FFI | Import | Durum       |
+| --------------- | --------- | --- | ------ | ----------- |
+| **io**          | 50 satır  | ✅  | ✅     | WORKING     |
+| **math**        | 250 satır | ✅  | ❌     | PARTIAL     |
+| **fs**          | 200 satır | ✅  | ❌     | PARTIAL     |
+| **path**        | 300 satır | 📝  | ❌     | NOT TESTED  |
+| **env**         | 70 satır  | 📝  | ❌     | NOT TESTED  |
+| **process**     | 60 satır  | 📝  | ❌     | NOT TESTED  |
+| **time**        | ✅        | ✅  | 📝     | EXISTS      |
+| **testing**     | ✅        | ✅  | 📝     | EXISTS      |
+| **collections** | ✅        | ✅  | 📝     | EXISTS      |
+| **crypto**      | ✅        | 📝  | 📝     | C LIB READY |
+| **encoding**    | ✅        | 📝  | 📝     | C LIB READY |
+| **net**         | ✅        | 📝  | 📝     | C LIB READY |
+| **db**          | ✅        | 📝  | 📝     | C LIB READY |
 
 ### ✅ Çalışan Özellikler
 
 **1. IO Module - TAM DESTEK**
+
 ```vex
 import { println } from "io";  // ✅ ÇALIŞIYOR
 println("Hello, World!");
 ```
 
 **2. Math Module - FFI Seviyesi**
+
 ```vex
 extern "C" {
     fn sin(x: f64): f64;  // ✅ ÇALIŞIYOR
@@ -115,6 +126,7 @@ let y: f64 = sin(1.0);
 ```
 
 **3. FS Module - FFI Seviyesi**
+
 ```vex
 extern "C" {
     fn vex_file_exists(path: *u8): bool;  // ✅ ÇALIŞIYOR
@@ -126,22 +138,26 @@ extern "C" {
 #### Sorun #1: Import Borrow Checker Hatası (YÜKSEK ÖNCELİK)
 
 **Problem:**
+
 ```vex
 import { sin_f64 } from "math";
 let y: f64 = sin_f64(1.0);  // ❌ error[E0597]: out of scope
 ```
 
 **Hata:**
+
 ```
 error[E0597]: use of variable `sin_f64` after it has gone out of scope
 ```
 
 **Geçici Çözüm:**
+
 ```vex
 extern "C" { fn sin(x: f64): f64; }  // ✅ Bu çalışıyor
 ```
 
 **Etkilenen Testler:**
+
 - ❌ examples/stdlib_integration_demo.vx
 - ❌ examples/stdlib_integration_comprehensive.vx
 - ❌ vex-libs/std/math/tests/basic_test.vx
@@ -156,12 +172,14 @@ extern "C" { fn sin(x: f64): f64; }  // ✅ Bu çalışıyor
 ## 📊 Test Sonuçları
 
 ### Ana Test Suite
+
 ```
 ✅ Success: 252/258 (97.7%)
 ❌ Failed:  6/258
 ```
 
 ### Başarısız Testler
+
 1. ❌ crypto_self_signed_cert - Crypto modül import
 2. ❌ native_demo/src/main - Native library import
 3. ❌ stdlib_integration_comprehensive - Import borrow checker
@@ -170,6 +188,7 @@ extern "C" { fn sin(x: f64): f64; }  // ✅ Bu çalışıyor
 6. ❌ test_lsp_diagnostics - LSP test
 
 ### Stdlib FFI Testleri
+
 ```bash
 # Manuel testler oluşturuldu ve çalıştırıldı:
 ✅ test_stdlib_verify.vx - IO module
@@ -183,16 +202,19 @@ extern "C" { fn sin(x: f64): f64; }  // ✅ Bu çalışıyor
 ## 🎯 Sonraki Adımlar
 
 ### Acil (Bu Hafta)
+
 1. **Borrow checker import fix** - Import edilen fonksiyonların scope sorunu
 2. **StdlibResolver test** - Module resolution debug
 3. **Import lifetime management** - Fonksiyon import'ları için lifetime
 
 ### Kısa Vadeli (1-2 Hafta)
+
 4. **Env/Process modül testi** - FFI seviyesinde test
 5. **Crypto modül entegrasyonu** - OpenSSL binding test
 6. **Encoding modül entegrasyonu** - Base64/UUID test
 
 ### Orta Vadeli (1 Ay)
+
 7. **Module import system v2** - Tam import desteği
 8. **Stdlib API stabilization** - Public API freeze
 9. **Comprehensive test suite** - Her modül için test
@@ -202,13 +224,17 @@ extern "C" { fn sin(x: f64): f64; }  // ✅ Bu çalışıyor
 ## 💡 Öneriler
 
 ### Package Manager İçin
+
 ✅ **Phase 0 Complete** - Temel özellikler hazır
+
 - Nexus mirror (Phase 1) - Merkezi paket registry
 - Workspace support (Phase 2) - Monorepo desteği
 - Binary caching (Phase 3) - Build cache
 
 ### Stdlib İçin
+
 ⚠️ **Import fix gerekli** - FFI çalışıyor ama module import bozuk
+
 - Borrow checker'ı import edilen fonksiyonlar için düzelt
 - Module resolution'ı iyileştir
 - Test coverage'ı artır
@@ -218,6 +244,7 @@ extern "C" { fn sin(x: f64): f64; }  // ✅ Bu çalışıyor
 ## 📈 İlerleme Özeti
 
 ### Package Manager: %100 (Phase 0)
+
 - ✅ Proje yönetimi
 - ✅ Dependency resolution
 - ✅ Lock file
@@ -225,6 +252,7 @@ extern "C" { fn sin(x: f64): f64; }  // ✅ Bu çalışıyor
 - ✅ Build integration
 
 ### Standard Library: %60
+
 - ✅ C runtime integration (100%)
 - ✅ FFI bindings (100%)
 - ✅ IO module import (100%)
@@ -232,6 +260,7 @@ extern "C" { fn sin(x: f64): f64; }  // ✅ Bu çalışıyor
 - 📝 Module tests (30% - import blocked)
 
 ### Genel Durum: Production-Ready with Limitations
+
 - **Package Manager:** READY ✅
 - **Stdlib FFI:** READY ✅
 - **Stdlib Import:** BLOCKED ❌

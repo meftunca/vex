@@ -1,0 +1,24 @@
+// Test: Multi-Value Tuple Variants
+// Check if we can have multiple values in enum tuple variants
+
+enum IpAddr {
+    V4(u8, u8, u8, u8),
+    V6(string),
+}
+
+fn main(): i32 {
+    let ip = IpAddr.V4(127, 0, 0, 1);
+    
+    match ip {
+        IpAddr.V4(a, b, c, d) => {
+            println("IPv4: ");
+            // Would need to print these separately
+        },
+        IpAddr.V6(s) => {
+            println("IPv6: ");
+            println(s);
+        },
+    };
+    
+    return 0;
+}

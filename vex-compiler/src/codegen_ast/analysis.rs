@@ -1,6 +1,5 @@
 // src/codegen/analysis.rs
 use super::*;
-use vex_ast::*;
 use std::collections::{HashMap, HashSet};
 
 impl<'ctx> ASTCodeGen<'ctx> {
