@@ -29,6 +29,7 @@ fn main() {
         c_dir.join("vex_string_type.c"), // String type implementation
         c_dir.join("vex_strconv.c"), // String<->Number conversions (to_string, parse)
         c_dir.join("vex_file.c"),   // File system operations
+        c_dir.join("vex_display.c"), // Display trait - type to string conversions
     ];
 
     // Detect platform and add appropriate poller

@@ -18,7 +18,7 @@ fn main(): i32 {
         IpAddr.V6(addr) => {
             println("IPv6 address");
         },
-    };
+    }
     
     match google {
         IpAddr.V4(a, b, c, d) => {
@@ -27,7 +27,7 @@ fn main(): i32 {
         IpAddr.V6(addr) => {
             println("IPv6 address");
         },
-    };
+    }
     
     return 0;
 }

@@ -1,0 +1,43 @@
+// Comprehensive Display trait test
+
+import { Display, i32_to_string, f64_to_string, bool_to_string } from "fmt";
+
+struct Point impl Display {
+    x: i32,
+    y: i32,
+    
+    fn to_string(): str {
+        // TODO: String concatenation not working yet
+        // Would be: "Point(" + i32_to_string(self.x) + ", " + i32_to_string(self.y) + ")"
+        return "Point(x, y)";
+    }
+}
+
+// Generic debug function - works with any type implementing Display
+fn debug<T: Display>(value: T) {
+    let s = value.to_string();
+    print(s);
+    println("");
+}
+
+fn main(): i32 {
+    // Test helper functions
+    print("i32: ");
+    print(i32_to_string(42));
+    println("");
+    
+    print("f64: ");
+    print(f64_to_string(3.14159));
+    println("");
+    
+    print("bool: ");
+    print(bool_to_string(false));
+    println("");
+    
+    // Test struct with Display
+    let p = Point { x: 10, y: 20 };
+    print("struct: ");
+    debug(p);
+    
+    return 0;
+}

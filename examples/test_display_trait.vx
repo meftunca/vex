@@ -1,0 +1,24 @@
+// Test Display trait definition and basic usage
+
+import { Display } from "fmt";
+
+struct Point impl Display {
+    x: i32,
+    y: i32,
+    
+    fn to_string(): str {
+        return "Point(10, 20)";  // Simplified - string concat not working yet
+    }
+}
+
+fn print_value<T: Display>(value: T) {
+    // Generic print using Display trait
+    let s = value.to_string();
+    print(s);
+}
+
+fn main(): i32 {
+    let p = Point { x: 10, y: 20 };
+    print_value(p);  // Should work - Point implements Display
+    return 0;
+}

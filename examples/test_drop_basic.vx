@@ -1,0 +1,47 @@
+// Test Drop trait - Basic RAII pattern
+// Variables implementing Drop should have drop() called automatically
+
+import { Drop } from "core";
+
+extern "C" {
+    fn vex_i32_to_string(value: i32): str;
+}
+
+struct Resource impl Drop {
+    id: i32,
+    
+    fn drop() {
+        // This should be called automatically on scope exit
+        print("Dropping resource ");
+        print(vex_i32_to_string(self.id));
+        println("");
+    }
+}
+
+fn test_basic_drop() {
+    let r = Resource { id: 1 };
+    // r.drop() should be called here automatically
+}
+
+fn test_nested_scope() {
+    let r1 = Resource { id: 10 };
+    let r2 = Resource { id: 20 };
+    // r2.drop() and r1.drop() should be called here (LIFO order)
+}
+
+fn main(): i32 {
+    test_basic_drop();
+    println("After basic drop");
+    
+    test_nested_scope();
+    println("After nested scope");
+    
+    return 0;
+}
+
+// Expected output:
+// Dropping resource 1
+// After basic drop
+// Dropping resource 20
+// Dropping resource 10
+// After nested scope

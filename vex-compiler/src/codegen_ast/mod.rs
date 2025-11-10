@@ -21,6 +21,7 @@ use vex_ast::*;
 // Sub-modules containing impl blocks for ASTCodeGen
 pub mod builtins; // Now a directory module
 mod constants;
+mod drop_trait; // Drop trait automatic cleanup (RAII)
 mod expressions;
 mod ffi;
 mod ffi_bridge;
@@ -273,6 +274,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
     /// Push a new scope for automatic cleanup tracking
     pub(crate) fn push_scope(&mut self) {
         self.scope_stack.push(Vec::new());
+        self.push_drop_scope(); // Also push Drop trait scope
     }
 
     /// Register built-in types that implement Destructor trait
@@ -297,6 +299,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
     /// Pop scope and emit cleanup calls for types implementing Destructor trait
     pub(crate) fn pop_scope(&mut self) -> Result<(), String> {
+        // Call Drop trait drops first
+        self.pop_drop_scope()?;
+
         if let Some(scope_vars) = self.scope_stack.pop() {
             // Emit cleanup calls in reverse order (LIFO - last allocated, first freed)
             for (var_name, type_name) in scope_vars.iter().rev() {

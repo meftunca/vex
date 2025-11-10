@@ -154,22 +154,22 @@ fn test_option_generic(): i32 {
                 println("❌ FAILED: Expected 42, got {}", x);
                 return 1;
             }
-        }
+        },
         None => {
             println("❌ FAILED: Expected Some, got None");
             return 1;
-        }
-    };
+        },
+    }
     
     match none_val {
         Some(x) => {
             println("❌ FAILED: Expected None, got Some({})", x);
             return 1;
-        }
+        },
         None => {
             println("Option.None matched");
-        }
-    };
+        },
+    }
     
     println("✅ PASSED");
     return 0;

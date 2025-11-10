@@ -775,11 +775,29 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 eprintln!("  ✅ Tracking as builtin type: {}", type_name);
                 self.variable_struct_names
                     .insert(name.clone(), type_name.clone());
+
+                // Track Drop trait implementations
+                if self.type_implements_drop(&type_name) {
+                    if let Some(scope) = self.scope_stack.last_mut() {
+                        eprintln!("  📋 Adding {} to Drop scope (type: {})", name, type_name);
+                        scope.push((name.clone(), type_name.clone()));
+                    }
+                }
+
                 Type::Named(type_name)
             } else if self.struct_defs.contains_key(&type_name) {
                 eprintln!("  ✅ Tracking as struct: {}", type_name);
                 self.variable_struct_names
                     .insert(name.clone(), type_name.clone());
+
+                // Track Drop trait implementations
+                if self.type_implements_drop(&type_name) {
+                    if let Some(scope) = self.scope_stack.last_mut() {
+                        eprintln!("  📋 Adding {} to Drop scope (type: {})", name, type_name);
+                        scope.push((name.clone(), type_name.clone()));
+                    }
+                }
+
                 Type::Named(type_name)
             } else if self.enum_ast_defs.contains_key(&type_name) {
                 eprintln!("  ✅ Tracking as enum: {} = {}", name, type_name);

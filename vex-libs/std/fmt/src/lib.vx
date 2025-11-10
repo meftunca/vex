@@ -1,8 +1,52 @@
 // Fmt Module
-// Formatting utilities
+// Formatting utilities and Display trait
 //
 // Usage:
-//   import { format, printf } from "fmt";
+//   import { Display, format, printf } from "fmt";
+
+// Display trait - for user-facing string formatting
+// Types implementing Display can be converted to human-readable strings
+export trait Display {
+    fn to_string(): str;
+}
+
+// Debug trait - for debugging output (more verbose than Display)
+export trait Debug {
+    fn debug_string(): str;
+}
+
+// External C functions for primitive type conversions
+extern "C" {
+    fn vex_i32_to_string(value: i32): str;
+    fn vex_i64_to_string(value: i64): str;
+    fn vex_i8_to_string(value: i8): str;
+    fn vex_i16_to_string(value: i16): str;
+    fn vex_u32_to_string(value: u32): str;
+    fn vex_u64_to_string(value: u64): str;
+    fn vex_u8_to_string(value: u8): str;
+    fn vex_u16_to_string(value: u16): str;
+    fn vex_f32_to_string(value: f32): str;
+    fn vex_f64_to_string(value: f64): str;
+    fn vex_bool_to_string(value: bool): str;
+}
+
+// Helper functions for primitive types
+// These wrap the extern C functions with a more ergonomic API
+export fn i32_to_string(value: i32): str {
+    return vex_i32_to_string(value);
+}
+
+export fn i64_to_string(value: i64): str {
+    return vex_i64_to_string(value);
+}
+
+export fn f64_to_string(value: f64): str {
+    return vex_f64_to_string(value);
+}
+
+export fn bool_to_string(value: bool): str {
+    return vex_bool_to_string(value);
+}
 
 // Simple format function (placeholder implementation)
 export fn format(template: str): str {

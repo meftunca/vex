@@ -1,52 +1,412 @@
-// Testing Module (Minimal - No FFI for now)
-// Basic test utilities without C runtime dependency
-//
-// Usage:
-//   import { assert_true, assert_false, assert_eq_i32 } from "testing";
+// Vex Testing Module - TAP/JUnit Test Harness with Benchmarking
+// Wraps vex_testing.c (Go-like testing framework)
+// Version 0.1.2 (matches Vex language v0.1.2)
 
-import { println } from "io";
+// ============================================================================
+// Types and Structures
+// ============================================================================
 
-// Assert true
-export fn assert_true(condition: bool, message: string) {
-    if !condition {
-        println("ASSERTION FAILED: ");
-        println(message);
-    }
+// Test function signature
+type TestFn = fn() void
+
+// Benchmark function signature
+type BenchFn = fn(*BenchContext) void
+
+// Test case entry
+struct TestCase {
+    name: String
+    fn: TestFn
 }
 
-// Assert false
-export fn assert_false(condition: bool, message: string) {
-    if condition {
-        println("ASSERTION FAILED: ");
-        println(message);
-    }
+// Test result
+struct TestResult {
+    name: String
+    errors: i32
+    passed: bool
+    skipped: bool
+    log: String
 }
 
-// Assert equality for i32
-export fn assert_eq_i32(left: i32, right: i32, message: string) {
-    if left != right {
-        println("ASSERTION FAILED: ");
-        println(message);
-    }
+// Fixture lifecycle callbacks
+struct Fixture {
+    setup_all: ?fn() void
+    teardown_all: ?fn() void
+    setup_each: ?fn() void
+    teardown_each: ?fn() void
 }
 
-// Assert equality for i64
-export fn assert_eq_i64(left: i64, right: i64, message: string) {
-    if left != right {
-        println("ASSERTION FAILED: ");
-        println(message);
-    }
+// Benchmark configuration
+struct BenchConfig {
+    name: String
+    iters: u64
+    time_ns: u64
+    warmup_iters: u64
+    warmup_ns: u64
+    pin_cpu: i32
+    repeats: i32
+    report_json: bool
+    auto_calibrate: bool
+    bytes_per_op: u64
 }
 
-// Assert equality for bool
-export fn assert_eq_bool(left: bool, right: bool, message: string) {
-    if left != right {
-        println("ASSERTION FAILED: ");
-        println(message);
-    }
+// Benchmark results
+struct BenchResult {
+    name: String
+    ns_per_op: f64
+    cycles_per_op: f64
+    mb_per_s: f64
+    elapsed_ns: u64
+    elapsed_cycles: u64
+    iters_done: u64
+    samples: i32
+    min_ns: f64
+    median_ns: f64
+    mean_ns: f64
+    max_ns: f64
+    p90_ns: f64
+    p95_ns: f64
+    p99_ns: f64
 }
 
-// Log message
-export fn log(message: string) {
-    println(message);
+// Benchmark timer context
+struct BenchContext {
+    name: String
+    bytes_per_op: u64
+}
+
+// Reporter type
+enum ReporterKind {
+    TAP
+    JUNIT
+    TEXT
+}
+
+// ============================================================================
+// FFI Bindings to vex_testing.c
+// ============================================================================
+
+extern "C" {
+    // Memory utilities
+    fn vex_aligned_alloc(alignment: u64, size: u64) *u8
+    fn vex_aligned_free(ptr: *u8) void
+
+    // Time utilities  
+    fn vex_monotonic_ns() u64
+    fn vex_read_cycles() u64
+    fn vex_fence_seqcst() void
+
+    // Expect/Assume
+    fn vex_expect(x: i32, expected: i32) i32
+    fn vex_assume(cond: bool) void
+
+    // CPU utilities
+    fn vex_pin_to_cpu(cpu: i32) void
+    fn vex_set_realtime_hint() void
+
+    // Black box (prevent compiler optimization)
+    fn vex_black_box_i64(x: i64) i64
+    fn vex_black_box_u64(x: u64) u64
+    fn vex_black_box_f64(x: f64) f64
+    fn vex_black_box_ptr(p: *u8) *u8
+
+    // Logging
+    fn vex_test_log(msg: String) void
+    fn vex_test_logf(fmt: String, args: *u8) void
+
+    // Assertions (conditional test helpers)
+    fn vex_assert_true(cond: bool, msg: String) void
+    fn vex_assert_false(cond: bool, msg: String) void
+    fn vex_assert_eq_i64(a: i64, b: i64, msg: String) void
+    fn vex_assert_eq_u64(a: u64, b: u64, msg: String) void
+    fn vex_assert_eq_f64(a: f64, b: f64, epsilon: f64, msg: String) void
+    fn vex_assert_neq_i64(a: i64, b: i64, msg: String) void
+    fn vex_assert_neq_u64(a: u64, b: u64, msg: String) void
+    fn vex_assert_neq_f64(a: f64, b: f64, epsilon: f64, msg: String) void
+    fn vex_assert_lt_i64(a: i64, b: i64, msg: String) void
+    fn vex_assert_le_i64(a: i64, b: i64, msg: String) void
+    fn vex_assert_gt_i64(a: i64, b: i64, msg: String) void
+    fn vex_assert_ge_i64(a: i64, b: i64, msg: String) void
+    fn vex_assert_lt_u64(a: u64, b: u64, msg: String) void
+    fn vex_assert_le_u64(a: u64, b: u64, msg: String) void
+    fn vex_assert_gt_u64(a: u64, b: u64, msg: String) void
+    fn vex_assert_ge_u64(a: u64, b: u64, msg: String) void
+    fn vex_assert_null(ptr: *u8, msg: String) void
+    fn vex_assert_not_null(ptr: *u8, msg: String) void
+
+    // Benchmark control
+    fn vex_bench_set_bytes(bytes_per_op: u64) void
+    fn vex_bench_reset_timer() void
+    fn vex_bench_start_timer() void
+    fn vex_bench_stop_timer() void
+    fn vex_bench_run(fn_ptr: BenchFn, ctx: *BenchContext, cfg: BenchConfig) BenchResult
+    fn vex_bench_report_text(r: *BenchResult) void
+    fn vex_bench_report_json(r: *BenchResult, buf: *u8, bufsz: u64) *u8
+
+    // Test registration and execution
+    fn vex_test_register(name: String, fn_ptr: TestFn) void
+    fn vex_run_tests(tests: *TestCase, count: u64) i32
+    fn vex_run_tests_with(suite_name: String, tests: *TestCase, count: u64, fx: *Fixture) i32
+    fn vex_run_tests_parallel(suite_name: String, tests: *TestCase, count: u64, fx: *Fixture, n_threads: i32) i32
+
+    // Fixtures
+    fn vex_fixture_all(setup_all: ?fn() void, teardown_all: ?fn() void) Fixture
+    fn vex_fixture_each(setup_each: ?fn() void, teardown_each: ?fn() void) Fixture
+    fn vex_fixture_full(setup_all: ?fn() void, teardown_all: ?fn() void, setup_each: ?fn() void, teardown_each: ?fn() void) Fixture
+
+    // Reporter selection
+    fn vex_pick_reporter() ReporterKind
+    fn vex_set_reporter(kind: ReporterKind) void
+
+    // Stats (internal)
+    fn vex_stats_from_samples(samples: *u64, n: i64, out: *BenchResult) void
+
+    // Property-based testing (QuickCheck-style)
+    fn vex_gen_i64(seed: u64, min: i64, max: i64) i64
+    fn vex_gen_u64(seed: u64, min: u64, max: u64) u64
+    fn vex_gen_f64(seed: u64, min: f64, max: f64) f64
+    fn vex_gen_bool(seed: u64) bool
+}
+
+// ============================================================================
+// High-Level Vex API (Go-style)
+// ============================================================================
+
+// assert_true asserts that condition is true
+fn assert_true(cond: bool, msg: String) void {
+    vex_assert_true(cond, msg)
+}
+
+// assert_false asserts that condition is false
+fn assert_false(cond: bool, msg: String) void {
+    vex_assert_false(cond, msg)
+}
+
+// assert_eq_i64 asserts that a == b (int64)
+fn assert_eq_i64(a: i64, b: i64, msg: String) void {
+    vex_assert_eq_i64(a, b, msg)
+}
+
+// assert_eq_u64 asserts that a == b (uint64)
+fn assert_eq_u64(a: u64, b: u64, msg: String) void {
+    vex_assert_eq_u64(a, b, msg)
+}
+
+// assert_eq_f64 asserts that a ≈ b (float64, with epsilon tolerance)
+fn assert_eq_f64(a: f64, b: f64, epsilon: f64, msg: String) void {
+    vex_assert_eq_f64(a, b, epsilon, msg)
+}
+
+// assert_neq_i64 asserts that a != b (int64)
+fn assert_neq_i64(a: i64, b: i64, msg: String) void {
+    vex_assert_neq_i64(a, b, msg)
+}
+
+// assert_neq_u64 asserts that a != b (uint64)
+fn assert_neq_u64(a: u64, b: u64, msg: String) void {
+    vex_assert_neq_u64(a, b, msg)
+}
+
+// assert_neq_f64 asserts that a ≠ b (float64, with epsilon tolerance)
+fn assert_neq_f64(a: f64, b: f64, epsilon: f64, msg: String) void {
+    vex_assert_neq_f64(a, b, epsilon, msg)
+}
+
+// assert_lt asserts that a < b (int64)
+fn assert_lt(a: i64, b: i64, msg: String) void {
+    vex_assert_lt_i64(a, b, msg)
+}
+
+// assert_le asserts that a <= b (int64)
+fn assert_le(a: i64, b: i64, msg: String) void {
+    vex_assert_le_i64(a, b, msg)
+}
+
+// assert_gt asserts that a > b (int64)
+fn assert_gt(a: i64, b: i64, msg: String) void {
+    vex_assert_gt_i64(a, b, msg)
+}
+
+// assert_ge asserts that a >= b (int64)
+fn assert_ge(a: i64, b: i64, msg: String) void {
+    vex_assert_ge_i64(a, b, msg)
+}
+
+// assert_null asserts that pointer is null
+fn assert_null(ptr: *u8, msg: String) void {
+    vex_assert_null(ptr, msg)
+}
+
+// assert_not_null asserts that pointer is not null
+fn assert_not_null(ptr: *u8, msg: String) void {
+    vex_assert_not_null(ptr, msg)
+}
+
+// log writes a test log message
+fn log(msg: String) void {
+    vex_test_log(msg)
+}
+
+// ============================================================================
+// Benchmark Functions (High-level)
+// ============================================================================
+
+// bench_run runs a benchmark with given configuration
+fn bench_run(bench_fn: BenchFn, ctx: *BenchContext, cfg: BenchConfig) BenchResult {
+    vex_bench_run(bench_fn, ctx, cfg)
+}
+
+// bench_report_text outputs benchmark results in human-readable format
+fn bench_report_text(r: *BenchResult) void {
+    vex_bench_report_text(r)
+}
+
+// bench_report_json outputs benchmark results in JSON format
+fn bench_report_json(r: *BenchResult, buf: *u8, bufsz: u64) String {
+    let ptr: *u8 = vex_bench_report_json(r, buf, bufsz)
+    // Convert pointer to String (view until null terminator)
+    // Note: This is a simplified wrapper - actual implementation depends on String type
+    ""
+}
+
+// ============================================================================
+// Test Harness Functions
+// ============================================================================
+
+// run_tests runs test cases with default settings
+fn run_tests(tests: *TestCase, count: u64) i32 {
+    vex_run_tests(tests, count)
+}
+
+// run_tests_with runs test cases with fixtures
+fn run_tests_with(suite_name: String, tests: *TestCase, count: u64, fx: *Fixture) i32 {
+    vex_run_tests_with(suite_name, tests, count, fx)
+}
+
+// run_tests_parallel runs tests in parallel across N threads
+fn run_tests_parallel(suite_name: String, tests: *TestCase, count: u64, fx: *Fixture, n_threads: i32) i32 {
+    vex_run_tests_parallel(suite_name, tests, count, fx, n_threads)
+}
+
+// fixture_all creates a fixture with only setup_all/teardown_all
+fn fixture_all(setup_all: fn() void, teardown_all: fn() void) Fixture {
+    vex_fixture_all(setup_all, teardown_all)
+}
+
+// fixture_each creates a fixture with only setup_each/teardown_each
+fn fixture_each(setup_each: fn() void, teardown_each: fn() void) Fixture {
+    vex_fixture_each(setup_each, teardown_each)
+}
+
+// fixture_full creates a fixture with all four lifecycle functions
+fn fixture_full(setup_all: fn() void, teardown_all: fn() void, setup_each: fn() void, teardown_each: fn() void) Fixture {
+    vex_fixture_full(setup_all, teardown_all, setup_each, teardown_each)
+}
+
+// ============================================================================
+// Memory Utilities
+// ============================================================================
+
+// aligned_alloc allocates memory with specified alignment (cache-line aware)
+fn aligned_alloc(alignment: u64, size: u64) *u8 {
+    vex_aligned_alloc(alignment, size)
+}
+
+// aligned_free frees memory allocated by aligned_alloc
+fn aligned_free(ptr: *u8) void {
+    vex_aligned_free(ptr)
+}
+
+// ============================================================================
+// Optimization Helpers
+// ============================================================================
+
+// black_box_i64 prevents compiler optimization (benchmark helper)
+fn black_box_i64(x: i64) i64 {
+    vex_black_box_i64(x)
+}
+
+// black_box_u64 prevents compiler optimization (benchmark helper)
+fn black_box_u64(x: u64) u64 {
+    vex_black_box_u64(x)
+}
+
+// black_box_f64 prevents compiler optimization (benchmark helper)
+fn black_box_f64(x: f64) f64 {
+    vex_black_box_f64(x)
+}
+
+// black_box_ptr prevents compiler optimization (benchmark helper)
+fn black_box_ptr(p: *u8) *u8 {
+    vex_black_box_ptr(p)
+}
+
+// ============================================================================
+// Property-Based Testing (QuickCheck-style)
+// ============================================================================
+
+// gen_i64 generates random int64 in range [min, max]
+fn gen_i64(seed: u64, min: i64, max: i64) i64 {
+    vex_gen_i64(seed, min, max)
+}
+
+// gen_u64 generates random uint64 in range [min, max]
+fn gen_u64(seed: u64, min: u64, max: u64) u64 {
+    vex_gen_u64(seed, min, max)
+}
+
+// gen_f64 generates random float64 in range [min, max]
+fn gen_f64(seed: u64, min: f64, max: f64) f64 {
+    vex_gen_f64(seed, min, max)
+}
+
+// gen_bool generates random boolean
+fn gen_bool(seed: u64) bool {
+    vex_gen_bool(seed)
+}
+
+// ============================================================================
+// Timing Utilities (for manual benchmarking)
+// ============================================================================
+
+// monotonic_ns returns monotonic time in nanoseconds
+fn monotonic_ns() u64 {
+    vex_monotonic_ns()
+}
+
+// read_cycles returns CPU cycle counter (x86 RDTSC)
+fn read_cycles() u64 {
+    vex_read_cycles()
+}
+
+// fence_seqcst performs a sequential consistency memory fence
+fn fence_seqcst() void {
+    vex_fence_seqcst()
+}
+
+// ============================================================================
+// CPU Utilities
+// ============================================================================
+
+// pin_to_cpu pins current thread to specified CPU (for benchmarking)
+fn pin_to_cpu(cpu: i32) void {
+    vex_pin_to_cpu(cpu)
+}
+
+// set_realtime_hint requests real-time scheduler priority
+fn set_realtime_hint() void {
+    vex_set_realtime_hint()
+}
+
+// ============================================================================
+// Reporter Functions
+// ============================================================================
+
+// pick_reporter returns current reporter (TAP/JUnit/TEXT)
+fn pick_reporter() ReporterKind {
+    vex_pick_reporter()
+}
+
+// set_reporter sets reporter kind (TAP/JUnit/TEXT)
+fn set_reporter(kind: ReporterKind) void {
+    vex_set_reporter(kind)
 }

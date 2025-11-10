@@ -1,10 +1,19 @@
 // Core Module
-// Essential types: Box, Vec, Option, Result
+// Essential types and traits: Box, Vec, Option, Result, Drop
 //
 // Usage:
-//   import { Box, Vec, Option, Result } from "core";
+//   import { Box, Vec, Option, Result, Drop } from "core";
 
-// External C functions
+// ===== Core Traits =====
+
+// Drop trait - Automatic cleanup on scope exit (RAII pattern)
+// Types implementing Drop will have drop() called automatically when going out of scope
+export trait Drop {
+    fn drop();  // Called automatically, no parameters
+}
+
+// ===== External C functions =====
+
 extern "C" {
     // Box operations
     fn vex_box_new(value: *u8, size: u64): *u8;
@@ -22,7 +31,7 @@ extern "C" {
 
 // Box<T> - Heap-allocated single value
 export struct Box<T> {
-    ptr: *const T,
+    ptr: *u8,
 }
 
 // Vec<T> - Dynamic array
