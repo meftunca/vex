@@ -8,6 +8,7 @@ use tower_lsp::{Client, LanguageServer};
 
 use crate::code_actions;
 use crate::document_cache::DocumentCache;
+use crate::refactorings;
 use vex_compiler::borrow_checker::BorrowChecker;
 
 pub struct VexBackend {
@@ -1611,6 +1612,13 @@ impl LanguageServer for VexBackend {
             for action in actions_for_diag {
                 actions.push(CodeActionOrCommand::CodeAction(action));
             }
+        }
+
+        // Add refactoring actions (extract variable, extract function)
+        let refactorings =
+            refactorings::generate_refactorings(uri, params.range, &text, cached_doc.ast.as_ref());
+        for refactoring in refactorings {
+            actions.push(CodeActionOrCommand::CodeAction(refactoring));
         }
 
         if actions.is_empty() {

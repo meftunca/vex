@@ -1,0 +1,21 @@
+// Test case for generic methods import bug
+// Expected: Should compile and run
+// Actual: Fails with "Method 'push' not found for struct 'Container_i32'"
+
+import { Container, new_container } from "./container.vx";
+
+fn main(): i32 {
+    println("Testing generic methods import...");
+    
+    // Create a container
+    let! container = new_container<i32>();
+    
+    // This should work but currently fails
+    container.push(42);
+    container.push(100);
+    
+    let len = container.len();
+    println("Container length: {}", len);
+    
+    return 0;
+}

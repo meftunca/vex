@@ -28,6 +28,19 @@ extern "C"
   typedef void *VexArray; // Opaque array type
 
   /**
+   * HashMap type - opaque SwissTable implementation
+   * Internal layout matches SwissMap in swisstable/vex_swisstable_v2.c
+   */
+  typedef struct
+  {
+    uint8_t *ctrl;
+    void *entries;
+    size_t capacity;
+    size_t len;
+    size_t max_load;
+  } VexMap;
+
+  /**
    * Range type for iteration: 0..10 (exclusive end)
    */
   typedef struct
@@ -774,13 +787,7 @@ extern "C"
    * - Open addressing with control bytes
    * - 1.4-1.8x faster than std::unordered_map
    */
-  typedef struct
-  {
-    uint8_t *ctrl;   // Control bytes (capacity + GROUP_PAD)
-    void **entries;  // Entry slots (hash, key, value)
-    size_t capacity; // Power-of-two
-    size_t len;      // Number of live entries
-  } VexMap;
+  // MAP OPERATIONS
 
   /**
    * Initialize a new hash map

@@ -1,0 +1,21 @@
+struct Point {
+    x: i32,
+    y: i32,
+}
+
+// External mutable method as per the contract
+// This should modify the point's x value.
+fn (self: &Point!) set_x(new_x: i32) {
+    self.x = new_x; // The contract states this assignment is currently bugged.
+}
+
+fn main(): i32 {
+    let! p = Point { x: 10, y: 20 };
+    p.set_x(100); // Call the external mutable method.
+
+    if p.x == 100 {
+        return 0; // Success
+    } else {
+        return 1; // Failure
+    }
+}

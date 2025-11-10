@@ -112,7 +112,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     None // Arrays don't have struct names, they're stack-allocated
                 }
                 Expression::Call {
-                    span_id: _, func, ..
+                    span_id: _,
+                    func,
+                    type_args,
+                    ..
                 } => {
                     eprintln!("  → Call expression");
                     if let Expression::Ident(func_name) = func.as_ref() {
@@ -159,7 +162,114 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                         "    → Found func_def, return_type: {:?}",
                                         func_def.return_type
                                     );
-                                    if let Some(Type::Named(s_name)) = &func_def.return_type {
+
+                                    // Check if this is a generic function with explicit type args
+                                    if !func_def.type_params.is_empty() && !type_args.is_empty() {
+                                        eprintln!("    → Generic function with explicit type args");
+
+                                        // Build mangled function name
+                                        let type_names: Vec<String> = type_args
+                                            .iter()
+                                            .map(|t| self.type_to_string(t))
+                                            .collect();
+                                        let mangled_func =
+                                            format!("{}_{}", func_name, type_names.join("_"));
+                                        eprintln!("    → Mangled func name: {}", mangled_func);
+
+                                        // Look up instantiated function
+                                        if let Some(inst_func_def) =
+                                            self.function_defs.get(&mangled_func)
+                                        {
+                                            eprintln!(
+                                                "    → Found instantiated func, return_type: {:?}",
+                                                inst_func_def.return_type
+                                            );
+
+                                            // Get struct name from return type
+                                            if let Some(Type::Named(s_name)) =
+                                                &inst_func_def.return_type
+                                            {
+                                                if self.struct_defs.contains_key(s_name) {
+                                                    eprintln!(
+                                                        "    ✅ Instantiated returns struct: {}",
+                                                        s_name
+                                                    );
+                                                    Some(s_name.clone())
+                                                } else {
+                                                    None
+                                                }
+                                            } else if let Some(Type::Generic {
+                                                name: gen_name,
+                                                type_args: gen_args,
+                                            }) = &inst_func_def.return_type
+                                            {
+                                                // Return type is still Generic (e.g., HashMap<str, i32>)
+                                                // Mangle it to get the instantiated struct name
+                                                if !gen_args.is_empty() {
+                                                    let gen_name_clone = gen_name.clone();
+                                                    let gen_args_clone = gen_args.clone();
+
+                                                    let arg_names: Vec<String> = gen_args
+                                                        .iter()
+                                                        .map(|t| self.type_to_string(t))
+                                                        .collect();
+                                                    let mangled_struct = format!(
+                                                        "{}_{}",
+                                                        gen_name,
+                                                        arg_names.join("_")
+                                                    );
+                                                    eprintln!(
+                                                        "    ✅ Generic return mangled to: {}",
+                                                        mangled_struct
+                                                    );
+
+                                                    // ⭐ Instantiate the generic struct with its methods
+                                                    if let Err(e) = self.instantiate_generic_struct(
+                                                        &gen_name_clone,
+                                                        &gen_args_clone,
+                                                    ) {
+                                                        eprintln!("    ⚠️  Failed to instantiate struct: {}", e);
+                                                    } else {
+                                                        eprintln!(
+                                                            "    ✅ Struct instantiated: {}",
+                                                            mangled_struct
+                                                        );
+                                                    }
+
+                                                    Some(mangled_struct)
+                                                } else {
+                                                    None
+                                                }
+                                            } else {
+                                                None
+                                            }
+                                        } else {
+                                            eprintln!("    ⚠️  Instantiated func not found yet (will be created during call)");
+
+                                            // Predict the mangled struct name from return type
+                                            if let Some(Type::Generic { name: gen_name, .. }) =
+                                                &func_def.return_type
+                                            {
+                                                eprintln!("    → Generic return: {}", gen_name);
+
+                                                // Mangle struct name with actual type args
+                                                let mangled_struct = format!(
+                                                    "{}_{}",
+                                                    gen_name,
+                                                    type_names.join("_")
+                                                );
+                                                eprintln!(
+                                                    "    → Predicted struct name: {}",
+                                                    mangled_struct
+                                                );
+
+                                                Some(mangled_struct)
+                                            } else {
+                                                None
+                                            }
+                                        }
+                                    } else if let Some(Type::Named(s_name)) = &func_def.return_type
+                                    {
                                         eprintln!("    → Named return type: {}", s_name);
                                         if self.struct_defs.contains_key(s_name) {
                                             eprintln!("    ✅ Struct: {}", s_name);
@@ -593,10 +703,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 self.enum_ast_defs.contains_key(&type_name)
             );
 
-            // Check for mangled generic types (Vec_i32, Box_String, etc.)
+            // Check for mangled generic types (Vec_i32, Box_String, HashMap_str_i32, etc.)
             let is_mangled_generic = type_name.starts_with("Vec_")
                 || type_name.starts_with("Box_")
                 || type_name.starts_with("Map_")
+                || type_name.starts_with("HashMap_")
+                || type_name.starts_with("HashSet_")
                 || type_name.starts_with("Set_");
 
             if type_name == "Vec"

@@ -222,23 +222,30 @@ Borrow Checker Error: Cannot assign to immutable variable 'x'
 
 ### Mutable References
 
-Variables and references have independent mutability:
+The mutability of a reference is independent of the mutability of the variable it points to. Vex uses a `!` marker to denote mutable references.
+
+**Syntax**:
+
+- Immutable Reference: `&T`
+- Mutable Reference: `&T!`
 
 ```vex
-let! x = 42;              // Mutable variable
-let ref_x: &i32 = &x;     // Immutable reference to mutable variable
+let! x = 42;             // Mutable variable
+let ref_x: &i32 = &x;    // Immutable reference to a mutable variable
 
 let! y = 100;
-let ref_y: &i32! = &y;    // Mutable reference (note: &i32! not &mut i32)
+let ref_y: &i32! = &y;   // Mutable reference to a mutable variable
 ```
 
 **Mutability Matrix**:
 
-| Variable | Reference | Can Read? | Can Write Variable? | Can Write Through Reference? |
-| -------- | --------- | --------- | ------------------- | ---------------------------- |
-| `let x`  | `&x`      | ✅        | ❌                  | ❌                           |
-| `let! x` | `&x`      | ✅        | ✅                  | ❌                           |
-| `let! x` | `&x!`     | ✅        | ✅                  | ✅                           |
+| Variable Declaration | Reference Type | Can Read? | Can Write to Variable Directly? | Can Write Through Reference? |
+| -------------------- | -------------- | --------- | ------------------------------- | ---------------------------- |
+| `let x` (immutable)  | `&x`           | ✅        | ❌                              | ❌                           |
+| `let! x` (mutable)   | `&x`           | ✅        | ✅                              | ❌                           |
+| `let! x` (mutable)   | `&x!`          | ✅        | ✅                              | ✅                           |
+
+This system provides fine-grained control over how data can be accessed and modified, forming a core part of Vex's safety guarantees.
 
 ---
 

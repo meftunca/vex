@@ -42,8 +42,8 @@ fn method_name(params): return_type { }
 **Rules:**
 
 - ✅ `self.field` allowed (read-only access)
-- ❌ `self!.field = x` **COMPILE ERROR**
-- ❌ `self!.mutable_method()` **COMPILE ERROR**
+- ❌ `self.field = x` **COMPILE ERROR**
+- ❌ `self.mutable_method()` **COMPILE ERROR**
 - Receiver type: `&T` (immutable reference)
 
 **Example:**
@@ -58,7 +58,7 @@ struct Point {
     }
 
     fn invalid() {
-        self!.x = 0;  // ❌ COMPILE ERROR: Cannot use self! in immutable method
+        self.x = 0;  // ❌ COMPILE ERROR: Cannot use self! in immutable method
     }
 }
 ```
@@ -77,8 +77,8 @@ fn method_name(params)! { }
 **Rules:**
 
 - ✅ `self.field` allowed (read access)
-- ✅ `self!.field = x` allowed (write access)
-- ✅ `self!.mutable_method()` allowed
+- ✅ `self.field = x` allowed (write access)
+- ✅ `self.mutable_method()` allowed
 - Receiver type: `&T!` (mutable reference)
 
 **Example:**
@@ -88,11 +88,11 @@ struct Counter {
     value: i32,
 
     fn increment()! {
-        self!.value = self!.value + 1;  // ✅ OK
+        self.value = self.value + 1;  // ✅ OK
     }
 
     fn add(x: i32)!: i32 {
-        self!.value = self!.value + x;  // ✅ OK (mutation)
+        self.value = self.value + x;  // ✅ OK (mutation)
         return self.value;              // ✅ OK (read also works)
     }
 }
@@ -170,7 +170,7 @@ struct User impl Display {
     }
 
     fn update()! {
-        self!.age = self!.age + 1;
+        self.age = self.age + 1;
     }
 }
 
@@ -229,7 +229,7 @@ struct FileStorage {
     }
 
     fn clear()! {                     // Mutable (explicit)
-        self!.buffer.clear();
+        self.buffer.clear();
     }
 }
 
@@ -259,11 +259,11 @@ struct Counter {
     }
 
     fn invalid() {          // ❌ Still immutable
-        self!.value = 0;    // ❌ COMPILE ERROR
+        self.value = 0;    // ❌ COMPILE ERROR
     }
 
     fn increment()! {       // ✅ Explicitly mutable
-        self!.value += 1;   // ✅ OK
+        self.value += 1;   // ✅ OK
     }
 }
 ```
@@ -371,7 +371,7 @@ struct FileLogger impl Logger {
     }
 
     fn clear()! {
-        self!.buffer.clear();
+        self.buffer.clear();
     }
 
     // ===== EXTRA METHODS (Optional here) =====
@@ -380,7 +380,7 @@ struct FileLogger impl Logger {
     }
 
     fn flush()! {                    // Mutable (explicit)
-        self!.buffer.clear();
+        self.buffer.clear();
     }
 }
 ```
@@ -504,7 +504,7 @@ struct Counter {
     value: i32,
 
     fn increment()! {
-        self!.value = self!.value + 1;
+        self.value = self.value + 1;
     }
 }
 
@@ -525,7 +525,7 @@ struct Data {
     x: i32,
 
     fn invalid() {
-        self!.x = 42;  // ❌ Should fail compilation
+        self.x = 42;  // ❌ Should fail compilation
     }
 }
 
@@ -546,7 +546,7 @@ struct Counter impl Resettable {
     value: i32,
 
     fn reset()! {
-        self!.value = 0;
+        self.value = 0;
     }
 }
 
@@ -703,11 +703,11 @@ struct Counter {
     }
 
     fn set(val: i32)! {
-        self!.value = val;
+        self.value = val;
     }
 
     fn increment()! {
-        self!.value = self!.value + 1;
+        self.value = self.value + 1;
     }
 }
 
@@ -740,7 +740,7 @@ struct Canvas impl Drawable {
     }
 
     fn clear()! {
-        self!.pixels.clear();
+        self.pixels.clear();
     }
 }
 
@@ -772,7 +772,7 @@ struct FileStorage impl Storage {
     }
 
     fn write(data: string)! {
-        self!.buffer.push(data);
+        self.buffer.push(data);
     }
 
     // Extra methods (in struct body)
@@ -781,7 +781,7 @@ struct FileStorage impl Storage {
     }
 
     fn clear()! {
-        self!.buffer.clear();
+        self.buffer.clear();
     }
 }
 
@@ -820,7 +820,7 @@ fn main(): i32 {
 
 ```vex
 fn increment() {
-    self!.value = self!.value + 1;
+    self.value = self.value + 1;
 }
 ```
 
@@ -828,7 +828,7 @@ fn increment() {
 
 ```vex
 fn increment()! {
-    self!.value = self!.value + 1;
+    self.value = self.value + 1;
 }
 ```
 

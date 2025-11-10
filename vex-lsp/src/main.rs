@@ -7,6 +7,7 @@ mod backend;
 mod code_actions;
 mod diagnostics;
 mod document_cache;
+mod refactorings;
 mod symbol_resolver;
 
 pub use backend::VexBackend;

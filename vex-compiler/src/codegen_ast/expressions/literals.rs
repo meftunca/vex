@@ -422,6 +422,21 @@ impl<'ctx> ASTCodeGen<'ctx> {
             // Need to instantiate the generic struct first
             self.instantiate_generic_struct(struct_name, type_args)?
         } else {
+            // Even if type_args is empty, this might be a generic struct reference
+            // Check if it's a known generic struct that needs instantiation
+            if let Some(_ast_def) = self.struct_ast_defs.get(struct_name) {
+                if !_ast_def.type_params.is_empty() {
+                    // This is a generic struct but no type args provided
+                    eprintln!(
+                        "⚠️  Generic struct '{}' used without type args in literal",
+                        struct_name
+                    );
+                    return Err(format!(
+                        "Generic struct '{}' requires type arguments",
+                        struct_name
+                    ));
+                }
+            }
             struct_name.to_string()
         };
 

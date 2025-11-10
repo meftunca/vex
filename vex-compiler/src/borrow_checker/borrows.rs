@@ -315,11 +315,7 @@ impl BorrowRulesChecker {
                 Ok(())
             }
 
-            Expression::Call {
-                span_id: _,
-                func,
-                args,
-            } => {
+            Expression::Call { func, args, .. } => {
                 // Skip checking builtin function names as variables
                 if let Expression::Ident(func_name) = func.as_ref() {
                     if !self.builtin_registry.is_builtin(func_name) {

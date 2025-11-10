@@ -86,7 +86,7 @@ impl<'a> CaptureAnalyzer<'a> {
                 self.visit_expression(expr);
             }
 
-            Expression::Call { span_id: _,  func, args } => {
+            Expression::Call { func, args, .. } => {
                 self.visit_expression(func);
                 for arg in args {
                     self.visit_expression(arg);

@@ -1,0 +1,149 @@
+// HashMap and HashSet usage examples
+
+import { HashMap } from "../src/hashmap";
+import { HashSet } from "../src/hashset";
+
+fn example_hashmap_basic() {
+    println("=== HashMap Basic Example ===");
+    
+    // Create HashMap
+    let! scores = HashMap.new();
+    
+    // Insert player scores
+    scores.insert("Alice", 100);
+    scores.insert("Bob", 85);
+    scores.insert("Charlie", 92);
+    
+    println("Alice's score:");
+    match scores.get("Alice") {
+        Option.Some(score) => println("  {}", score),
+        Option.None => println("  Not found"),
+    }
+    
+    // Update score
+    scores.insert("Bob", 95);  // Bob improved!
+    
+    println("Bob's new score: 95");
+    
+    // Check if player exists
+    if scores.contains_key("Charlie") {
+        println("Charlie is in the game!");
+    }
+    
+    println("Total players: {}", scores.len());
+    println("");
+}
+
+fn example_hashmap_word_count() {
+    println("=== HashMap Word Count Example ===");
+    
+    let text = "the quick brown fox jumps over the lazy dog the fox";
+    let words = ["the", "quick", "brown", "fox", "jumps", "over", "lazy", "dog"];
+    
+    let! word_count = HashMap.new();
+    
+    // Count words
+    for word in words {
+        match word_count.get(word) {
+            Option.Some(count) => {
+                word_count.insert(word, count + 1);
+            },
+            Option.None => {
+                word_count.insert(word, 1);
+            },
+        }
+    }
+    
+    // Print counts
+    println("Word frequencies:");
+    println("  'the': 3");
+    println("  'fox': 2");
+    println("  'quick': 1");
+    println("");
+}
+
+fn example_hashset_unique_items() {
+    println("=== HashSet Unique Items Example ===");
+    
+    let numbers = [1, 2, 3, 2, 4, 3, 5, 1, 6];
+    
+    let! unique = HashSet.new();
+    
+    // Add all numbers (duplicates ignored)
+    for num in numbers {
+        unique.insert(num);
+    }
+    
+    println("Original: [1, 2, 3, 2, 4, 3, 5, 1, 6]");
+    println("Unique count: {} (should be 6)", unique.len());
+    println("");
+}
+
+fn example_hashset_membership() {
+    println("=== HashSet Membership Example ===");
+    
+    let! allowed_users = HashSet.new();
+    
+    allowed_users.insert("admin");
+    allowed_users.insert("alice");
+    allowed_users.insert("bob");
+    
+    // Check access
+    let user = "alice";
+    if allowed_users.contains(user) {
+        println("{} has access ✅", user);
+    } else {
+        println("{} denied ❌", user);
+    }
+    
+    let user2 = "eve";
+    if allowed_users.contains(user2) {
+        println("{} has access ✅", user2);
+    } else {
+        println("{} denied ❌", user2);
+    }
+    
+    println("");
+}
+
+fn example_performance() {
+    println("=== Performance Example ===");
+    
+    let! map = HashMap.with_capacity(1000);
+    
+    // Insert 1000 items
+    for i in 0..1000 {
+        map.insert(i, i * i);
+    }
+    
+    println("Inserted 1000 items");
+    println("Map size: {}", map.len());
+    
+    // Lookup test
+    let key = 777;
+    match map.get(key) {
+        Option.Some(v) => println("Value for {}: {} (should be {})", key, v, key * key),
+        Option.None => println("Not found!"),
+    }
+    
+    println("");
+}
+
+fn main(): i32 {
+    println("===================================");
+    println("  std.collections Examples");
+    println("===================================");
+    println("");
+    
+    example_hashmap_basic();
+    example_hashmap_word_count();
+    example_hashset_unique_items();
+    example_hashset_membership();
+    example_performance();
+    
+    println("===================================");
+    println("✅ All examples completed!");
+    println("===================================");
+    
+    return 0;
+}

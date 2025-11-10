@@ -158,10 +158,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
             } => self.compile_unary_op(op, expr),
 
             Expression::Call {
-                span_id: _,
                 func,
+                type_args,
                 args,
-            } => self.compile_call(func, args),
+                ..
+            } => self.compile_call(func, type_args, args),
 
             Expression::MethodCall {
                 receiver,

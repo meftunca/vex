@@ -84,6 +84,14 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     return BasicTypeEnum::IntType(self.context.i8_type());
                 }
 
+                // ⚠️ CRITICAL FIX: "str" is a special type alias for String
+                // The parser treats `: str` as Type::Named("str"), but it should be a pointer
+                if name == "str" {
+                    return BasicTypeEnum::PointerType(
+                        self.context.ptr_type(inkwell::AddressSpace::default()),
+                    );
+                }
+
                 // Handle custom struct types
 
                 // Check if this struct is registered
@@ -230,12 +238,20 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
                     let struct_ty = self.context.struct_type(&field_types, false);
 
-                    // Return pointer to struct (zero-copy!)
-                    BasicTypeEnum::PointerType(struct_ty.ptr_type(inkwell::AddressSpace::default()))
+                    // ⭐ FIX: Return struct TYPE for generic structs (same as Named types)
+                    // This allows functions to return structs by value
+                    BasicTypeEnum::StructType(struct_ty)
                 } else {
-                    // Struct not yet monomorphized, return i32 placeholder
-                    // This shouldn't happen if instantiate_generic_struct was called first
-                    BasicTypeEnum::IntType(self.context.i32_type())
+                    // Struct not yet monomorphized
+                    // ⚠️ Instead of returning i32, try to use a forward-declared opaque struct
+                    // This prevents incorrect type mapping during early function declaration
+                    eprintln!(
+                        "⚠️  Generic struct {} not yet instantiated, using opaque pointer",
+                        mangled_name
+                    );
+                    BasicTypeEnum::PointerType(
+                        self.context.ptr_type(inkwell::AddressSpace::default()),
+                    )
                 }
             }
             Type::Union(types) => {
@@ -641,9 +657,28 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     .iter()
                     .map(|arg| self.substitute_type(arg, type_subst))
                     .collect();
-                Type::Generic {
-                    name: name.clone(),
-                    type_args: substituted_args,
+
+                // ⭐ NEW: If all type arguments are fully concrete (no Named type params),
+                // convert to a mangled Named type for instantiated structs
+                // Example: Generic { name: "HashMap", type_args: [Named("str"), I32] }
+                //       -> Named("HashMap_str_i32")
+                let all_concrete = substituted_args
+                    .iter()
+                    .all(|arg| !matches!(arg, Type::Named(n) if type_subst.contains_key(n)));
+
+                if all_concrete && !substituted_args.is_empty() {
+                    // Build mangled name: HashMap<str, i32> -> HashMap_str_i32
+                    let type_names: Vec<String> = substituted_args
+                        .iter()
+                        .map(|t| self.type_to_string(t))
+                        .collect();
+                    let mangled_name = format!("{}_{}", name, type_names.join("_"));
+                    Type::Named(mangled_name)
+                } else {
+                    Type::Generic {
+                        name: name.clone(),
+                        type_args: substituted_args,
+                    }
                 }
             }
 

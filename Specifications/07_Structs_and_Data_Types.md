@@ -316,88 +316,63 @@ ref_point.x = 30;  // OK: Write through mutable reference
 
 ## Methods on Structs
 
-### Method Mutability
+Vex uses a hybrid model for method mutability. See `05_Functions_and_Methods.md` for the full specification.
 
-**Immutable Methods** (default):
+### Inline Methods (in `struct` or `trait`)
 
-```vex
-fn method_name(): return_type {
-    // Read-only access: self.field ✅
-    // Cannot mutate: self!.field ❌
-}
-```
-
-**Mutable Methods** (with `!`):
-
-```vex
-fn method_name()!: return_type {
-    // Read access: self.field ✅
-    // Write access: self!.field ✅
-}
-```
-
-### Inline Methods
+- **Declaration**: `fn method_name()!` for mutable, `fn method_name()` for immutable.
+- **Behavior**: A mutable method can modify `self`.
+- **Call**: `object.method_name()` (no `!` at call site). The compiler ensures a mutable method is only called on a mutable (`let!`) variable.
 
 ```vex
 struct Rectangle {
     width: i32,
     height: i32,
 
-    // Immutable method (default)
+    // Immutable method
     fn area(): i32 {
         return self.width * self.height;
     }
 
-    // Immutable method (explicit)
-    fn perimeter(): i32 {
-        return 2 * (self.width + self.height);
-    }
-
-    // Mutable method (explicit !)
+    // Mutable method
     fn scale(factor: i32)! {
-        self!.width = self!.width * factor;
-        self!.height = self!.height * factor;
+        self.width = self.width * factor;
+        self.height = self.height * factor;
     }
 }
+
+// --- Calls ---
+let rect = Rectangle { width: 10, height: 20 };
+let a = rect.area(); // OK
+
+let! rect_mut = Rectangle { width: 10, height: 20 };
+rect_mut.scale(2); // OK
 ```
 
-### Golang-Style Methods (Extra Methods Only)
+### External Methods (Golang-Style)
+
+- **Declaration**: `fn (self: &MyType!) method_name()` for mutable, `fn (self: &MyType) method_name()` for immutable.
+- **Behavior**: A mutable method can modify `self`.
+- **Call**: `object.method_name()` (no `!` at call site).
 
 ```vex
 struct Circle {
     radius: f64,
 }
 
-// Extra methods (not in trait) can be external
-fn (c: &Circle) area(): f64 {
-    return 3.14159 * c.radius * c.radius;
-}
-
+// Immutable external method
 fn (c: &Circle) circumference(): f64 {
     return 2.0 * 3.14159 * c.radius;
 }
 
-// Mutable extra method
-fn (c: &Circle!) set_radius(new_radius: f64)! {
-    c!.radius = new_radius;
+// Mutable external method
+fn (c: &Circle!) set_radius(new_radius: f64) {
+    c.radius = new_radius;
 }
-```
 
-### Method Calls
-
-**Immutable method calls**:
-
-```vex
-let rect = Rectangle { width: 10, height: 20 };
-let a = rect.area();        // 200
-let p = rect.perimeter();   // 60
-```
-
-**Mutable method calls**:
-
-```vex
+// --- Calls ---
 let! circle = Circle { radius: 5.0 };
-circle.set_radius(10.0)!;   // ! required
+circle.set_radius(10.0);
 ```
 
 ### Trait Methods vs Extra Methods
@@ -420,8 +395,8 @@ struct Rectangle impl Shape {
     }
 
     fn scale(factor: f64)! {
-        self!.width = self!.width * factor;
-        self!.height = self!.height * factor;
+        self.width = self.width * factor;
+        self.height = self.height * factor;
     }
 }
 

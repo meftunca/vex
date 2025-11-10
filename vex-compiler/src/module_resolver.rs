@@ -37,13 +37,21 @@ impl ModuleResolver {
     /// Resolve all imports in a program
     pub fn resolve_imports(&mut self, program: &mut Program) -> Result<(), String> {
         for import in &program.imports {
-            self.load_module(&import.module)?;
+            self.load_module(&import.module, None)?;
         }
         Ok(())
     }
 
     /// Load a module from disk (with caching)
-    pub fn load_module(&mut self, module_path: &str) -> Result<&Program, String> {
+    ///
+    /// # Arguments
+    /// * `module_path` - The module path (e.g., "std/io", "./hashmap.vx", "../src/container.vx")
+    /// * `relative_to` - Optional source file path for resolving relative imports
+    pub fn load_module(
+        &mut self,
+        module_path: &str,
+        relative_to: Option<&str>,
+    ) -> Result<&Program, String> {
         // Check cache first
         if self.module_cache.contains_key(module_path) {
             return Ok(self.module_cache.get(module_path).unwrap());
@@ -56,7 +64,7 @@ impl ModuleResolver {
                 .map_err(|e| format!("Failed to resolve stdlib module {}: {}", module_path, e))?
         } else {
             // Fallback to old resolution for non-stdlib modules
-            self.module_path_to_file_path(module_path)?
+            self.module_path_to_file_path(module_path, relative_to)?
         };
 
         // Read source file
@@ -76,11 +84,67 @@ impl ModuleResolver {
     }
 
     /// Convert module path to filesystem path
-    fn module_path_to_file_path(&self, module_path: &str) -> Result<PathBuf, String> {
+    ///
+    /// # Arguments
+    /// * `module_path` - The module path
+    /// * `relative_to` - Optional source file path for resolving relative imports
+    fn module_path_to_file_path(
+        &self,
+        module_path: &str,
+        relative_to: Option<&str>,
+    ) -> Result<PathBuf, String> {
         // Handle different module path formats:
         // "std" -> vex-libs/std/mod.vx
         // "std::io" or "std/io" -> vex-libs/std/io/mod.vx
+        // "../src/hashmap.vx" -> relative path from source file (if relative_to provided)
+        // "./container.vx" -> relative path from source file (if relative_to provided)
         // "std::http::client" or "std/http/client" -> vex-libs/std/http/client/mod.vx
+
+        // Handle relative paths (starting with ../ or ./)
+        if module_path.starts_with("../") || module_path.starts_with("./") {
+            // If we have a source file, resolve relative to it
+            let base_dir = if let Some(source_file) = relative_to {
+                eprintln!("   📁 Resolving relative import from: {}", source_file);
+                let parent = Path::new(source_file)
+                    .parent()
+                    .ok_or_else(|| {
+                        format!(
+                            "Failed to get parent directory of source file: {}",
+                            source_file
+                        )
+                    })?
+                    .to_path_buf();
+                eprintln!("   📁 Base directory: {:?}", parent);
+                parent
+            } else {
+                // Fallback to CWD if no source file provided
+                let cwd = std::env::current_dir()
+                    .map_err(|e| format!("Failed to get current directory: {}", e))?;
+                eprintln!("   📁 No source file, using CWD: {:?}", cwd);
+                cwd
+            };
+
+            let file_path = base_dir.join(module_path);
+            eprintln!("   📁 Resolved path: {:?}", file_path);
+
+            // If path already ends with .vx, use it directly
+            if module_path.ends_with(".vx") {
+                if file_path.exists() {
+                    return Ok(file_path);
+                }
+                return Err(format!("Module file not found: {:?}", file_path));
+            }
+
+            // Otherwise try common module file names
+            for module_file in &["mod.vx", "lib.vx", "index.vx", "main.vx"] {
+                let candidate = file_path.join(module_file);
+                if candidate.exists() {
+                    return Ok(candidate);
+                }
+            }
+
+            return Err(format!("Module file not found: {:?}", file_path));
+        }
 
         // Normalize path: convert both :: and / separators to a common format
         let normalized_path = module_path.replace("::", "/");
@@ -159,11 +223,11 @@ mod tests {
         let resolver = ModuleResolver::new("vex-libs/std");
 
         // Test basic module path
-        let path = resolver.module_path_to_file_path("std").unwrap();
+        let path = resolver.module_path_to_file_path("std", None).unwrap();
         assert!(path.to_string_lossy().contains("std/mod.vx"));
 
         // Test nested module path
-        let path = resolver.module_path_to_file_path("std::io").unwrap();
+        let path = resolver.module_path_to_file_path("std::io", None).unwrap();
         assert!(path.to_string_lossy().contains("std/io/mod.vx"));
     }
 }

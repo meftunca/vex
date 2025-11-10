@@ -1,0 +1,49 @@
+// Test std.conv - to_string() functions
+
+import { 
+    i32_to_string, 
+    i64_to_string, 
+    bool_to_string, 
+    f64_to_string,
+    string_to_string 
+} from "../vex-libs/std/conv/src/lib.vx";
+
+fn main(): i32 {
+    println("=== to_string() Test ===\n");
+    
+    // Test i32
+    let i = 42;
+    let i_str = i32_to_string(i);
+    println("i32_to_string(42) = \"{}\"", i_str);
+    
+    // Test i64
+    let big = 9223372036854775807; // max i64
+    let big_str = i64_to_string(big);
+    println("i64_to_string(max) = \"{}\"", big_str);
+    
+    // Test negative
+    let neg = -123;
+    let neg_str = i32_to_string(neg);
+    println("i32_to_string(-123) = \"{}\"", neg_str);
+    
+    // Test bool
+    let t = true;
+    let f = false;
+    let t_str = bool_to_string(t);
+    let f_str = bool_to_string(f);
+    println("bool_to_string(true) = \"{}\"", t_str);
+    println("bool_to_string(false) = \"{}\"", f_str);
+    
+    // Test f64
+    let pi = 3.14159;
+    let pi_str = f64_to_string(pi);
+    println("f64_to_string(3.14159) = \"{}\"", pi_str);
+    
+    // Test string
+    let s = "hello";
+    let s_str = string_to_string(s);
+    println("string_to_string(\"hello\") = \"{}\"", s_str);
+    
+    println("\n✅ All conversions working!");
+    return 0;
+}

@@ -83,40 +83,62 @@ trait Comparable {
 
 ### Method Mutability in Traits
 
-Trait signatures specify mutability contracts:
+Trait method signatures define a contract for mutability. To declare a method that can mutate the implementing type's state, the `!` suffix is used.
+
+**Syntax**:
+
+- **Immutable Method**: `fn method_name(args...): ReturnType;`
+- **Mutable Method**: `fn method_name(args...)!;` or `fn method_name(args...)!: ReturnType;`
+
+The `!` indicates that the method requires a mutable reference to `self`, allowing for modifications.
 
 ```vex
+// Kural 1 (Inline) applies to trait definitions
 trait Logger {
-    fn log(msg: string);        // Immutable contract
-    fn clear()!;                // Mutable contract
+    // Immutable contract: cannot modify `self`
+    fn log(msg: string);
+
+    // Mutable contract: can modify `self`
+    fn clear()!;
 }
 ```
 
+This contract must be respected by all implementing types.
+
+---
+
+## Trait Implementation
+
 ### Inline Implementation
+
+Vex follows an "inline" implementation model, where methods for a trait are defined directly within the `struct` body that implements it.
+
+**Syntax**: `struct MyStruct impl MyTrait { ... methods ... }`
 
 ```vex
 struct ConsoleLogger impl Logger {
     prefix: string,
 
-    // Trait methods MUST be in struct body
+    // Implementation of the `log` method from the `Logger` trait.
     fn log(msg: string) {
-        print(self.prefix, ": ", msg);
+        println(self.prefix, ": ", msg);
     }
 
+    // Implementation of the mutable `clear` method.
+    // The `!` is required in the implementation as well.
     fn clear()! {
-        // Clear implementation
+        // This method can now mutate `self`.
+        // For example, if we had a mutable field:
+        // self.buffer = "";
+        println("Logger cleared.");
     }
 }
 ```
 
-**Critical Rule**: Trait methods MUST be implemented in struct body, not external.
+**Key Rules**:
 
-```vex
-// ❌ COMPILE ERROR: Trait method cannot be external
-fn (logger: &ConsoleLogger) log(msg: string) {
-    print(msg);
-}
-```
+- Trait methods **MUST** be implemented directly inside the `struct`'s body.
+- The method signatures in the implementation must match the trait definition, including the `!` for mutability.
 
 ### Multiple Traits (Future)
 

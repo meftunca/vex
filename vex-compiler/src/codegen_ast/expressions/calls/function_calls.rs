@@ -9,8 +9,14 @@ impl<'ctx> ASTCodeGen<'ctx> {
     pub(crate) fn compile_call(
         &mut self,
         func_expr: &Expression,
+        type_args: &[Type],
         args: &[Expression],
     ) -> Result<BasicValueEnum<'ctx>, String> {
+        eprintln!("🔵 compile_call: type_args.len()={}", type_args.len());
+        if !type_args.is_empty() {
+            eprintln!("  Type args: {:?}", type_args);
+        }
+
         // Compile arguments first
         let mut arg_vals: Vec<BasicMetadataValueEnum> = Vec::new();
         let mut arg_basic_vals: Vec<BasicValueEnum> = Vec::new();
@@ -94,12 +100,25 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 } else if let Some(func_def) = self.function_defs.get(func_name).cloned() {
                     // Check if it's a generic function
                     if !func_def.type_params.is_empty() {
-                        // Infer type arguments from arguments
-                        // For now, simple approach: use argument types
-                        let type_args = self.infer_type_args_from_call(&func_def, args)?;
+                        // Use explicit type arguments if provided, otherwise infer from call arguments
+                        let final_type_args = if !type_args.is_empty() {
+                            eprintln!(
+                                "  ✅ Using explicit type args for {}: {:?}",
+                                func_name, type_args
+                            );
+                            type_args.to_vec()
+                        } else {
+                            eprintln!("  ⚠️  Inferring type args for {} from arguments", func_name);
+                            self.infer_type_args_from_call(&func_def, args)?
+                        };
+
+                        eprintln!(
+                            "  🔧 Final type args for {}: {:?}",
+                            func_name, final_type_args
+                        );
 
                         // Instantiate generic function
-                        self.instantiate_generic_function(&func_def, &type_args)?
+                        self.instantiate_generic_function(&func_def, &final_type_args)?
                     } else {
                         return Err(format!("Function {} not declared", func_name));
                     }

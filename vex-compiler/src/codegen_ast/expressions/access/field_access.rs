@@ -86,26 +86,18 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 // CRITICAL FIX: After struct variable storage fix, self.variables[name] now holds
                 // the DIRECT pointer to the struct (not a pointer to a pointer variable).
                 // So we should use var_ptr directly, NOT load it!
-                let mut struct_ptr_val = var_ptr;
+                let struct_ptr_val = var_ptr;
 
-                // AUTO-DEREF: Check if var_ptr is a pointer to a pointer (Box<T> or &T)
-                // If so, auto-dereference it
-                if let Some(var_type) = self.variable_types.get(var_name) {
-                    if var_type.is_pointer_type() {
-                        // Check if this is a double pointer (Box<Struct> or &Struct)
-                        eprintln!("   🔄 Auto-deref: Variable is a pointer type");
-
-                        // Load the pointer value to get the actual struct pointer
-                        let loaded = self
-                            .builder
-                            .build_load(*var_type, var_ptr, &format!("{}_deref", var_name))
-                            .map_err(|e| format!("Failed to auto-deref: {}", e))?;
-
-                        if loaded.is_pointer_value() {
-                            struct_ptr_val = loaded.into_pointer_value();
-                            eprintln!("   ✅ Auto-dereferenced to struct pointer");
-                        }
-                    }
+                // AUTO-DEREF: Only for specific cases (Box<T>, external method receivers)
+                // NOT for regular struct variables on the stack
+                // Check if this variable is 'self' in an external method (which is already a pointer parameter)
+                let is_external_self = var_name == "self"; // 'self' is always a parameter, never needs deref
+                
+                if !is_external_self {
+                    // For non-self variables, check if we need auto-deref (Box<T> case)
+                    // This is complex, for now skip auto-deref for all non-self variables
+                    // TODO: Add proper AST type tracking to determine when to auto-deref
+                    eprintln!("   ℹ️  No auto-deref for variable '{}'", var_name);
                 }
 
                 // Get struct definition from registry

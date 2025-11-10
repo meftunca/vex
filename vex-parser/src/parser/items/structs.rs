@@ -142,10 +142,16 @@ impl<'a> Parser<'a> {
                 let ty = self.parse_type()?;
                 self.consume(&Token::RParen, "Expected ')' after receiver")?;
 
-                // Determine mutability from the type
+                // Determine mutability from the type.
+                // For external (Golang-style) methods, mutability is determined by the receiver's type.
+                // e.g., `fn (self: &MyType!)` is a mutable reference.
+                // The parser correctly sets the `is_mutable` flag on the `Type::Reference`.
+                // If the type is not a reference, it's considered immutable in this context.
                 let is_mutable = if let Type::Reference(_, is_mut) = &ty {
                     *is_mut
                 } else {
+                    // According to the contract, external methods use `&MyType!`.
+                    // A non-reference receiver `(self: MyType)` is not mutable.
                     false
                 };
 

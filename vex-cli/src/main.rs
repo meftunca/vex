@@ -271,8 +271,9 @@ fn main() -> Result<()> {
             println!("   ✅ Borrow check passed");
 
             let context = inkwell::context::Context::create();
-            let mut codegen =
-                vex_compiler::ASTCodeGen::new_with_span_map(&context, filename, span_map);
+            let mut codegen = vex_compiler::ASTCodeGen::new_with_source_file(
+                &context, filename, span_map, input_str,
+            );
 
             let compile_result = codegen.compile_program(&ast);
 
@@ -430,7 +431,9 @@ fn main() -> Result<()> {
                         .map(|s| s.to_string())
                         .ok_or_else(|| anyhow::anyhow!("Invalid input filename"))?;
                     let src = std::fs::read_to_string(&input_path)?;
-                    let parser_f = input_path.to_str().unwrap_or("unknown.vx").to_string();
+                    // Convert to absolute path for proper import resolution
+                    let abs_path = std::fs::canonicalize(input_path)?;
+                    let parser_f = abs_path.to_str().unwrap_or("unknown.vx").to_string();
                     (src, fname, parser_f)
                 } else {
                     anyhow::bail!("Either INPUT file or -c CODE must be provided");
@@ -486,7 +489,7 @@ fn main() -> Result<()> {
                     let module_path = &import.module;
                     eprintln!("🔄 Resolving import: '{}'", module_path);
 
-                    match resolver.load_module(module_path) {
+                    match resolver.load_module(module_path, Some(&parser_file)) {
                         Ok(module_ast) => {
                             match &import.kind {
                                 vex_ast::ImportKind::Named => {
@@ -698,8 +701,12 @@ fn main() -> Result<()> {
 
             // Codegen
             let context = Context::create();
-            let mut codegen =
-                vex_compiler::ASTCodeGen::new_with_span_map(&context, &filename, span_map);
+            let mut codegen = vex_compiler::ASTCodeGen::new_with_source_file(
+                &context,
+                &filename,
+                span_map,
+                &parser_file,
+            );
 
             // Register module namespaces with codegen
             for (module_name, imported_funcs) in module_namespaces {

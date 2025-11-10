@@ -2,7 +2,7 @@
 // Enforces let vs let! semantics
 
 use std::collections::HashSet;
-use vex_ast::{Expression, Program, Statement};
+use vex_ast::{Expression, Program, Statement, Type};
 
 use super::errors::{BorrowError, BorrowResult};
 
@@ -66,7 +66,17 @@ impl ImmutabilityChecker {
 
                 // ⭐ NEW: Handle method receiver (self)
                 if func.receiver.is_some() {
-                    if func.is_mutable {
+                    // ⭐ CRITICAL FIX: Check receiver type's mutability, not just func.is_mutable
+                    let receiver_is_mutable = func.is_mutable || {
+                        // Also check if receiver type itself is mutable reference
+                        if let Some(ref receiver) = func.receiver {
+                            receiver.is_mutable || matches!(&receiver.ty, Type::Reference(_, true))
+                        } else {
+                            false
+                        }
+                    };
+
+                    if receiver_is_mutable {
                         // Mutable method: self can be mutated
                         self.mutable_vars.insert("self".to_string());
                     } else {
@@ -106,7 +116,17 @@ impl ImmutabilityChecker {
 
                     // Handle method receiver (self)
                     // Methods always have implicit or explicit receiver
-                    if method.is_mutable {
+                    // ⭐ CRITICAL FIX: Check receiver type's mutability, not just method.is_mutable
+                    let receiver_is_mutable = method.is_mutable || {
+                        // Also check if receiver type itself is mutable reference
+                        if let Some(ref receiver) = method.receiver {
+                            receiver.is_mutable || matches!(&receiver.ty, Type::Reference(_, true))
+                        } else {
+                            false
+                        }
+                    };
+
+                    if receiver_is_mutable {
                         // Mutable method: self can be mutated
                         self.mutable_vars.insert("self".to_string());
                     } else {
@@ -360,11 +380,7 @@ impl ImmutabilityChecker {
                 Ok(())
             }
 
-            Expression::Call {
-                span_id: _,
-                func,
-                args,
-            } => {
+            Expression::Call { func, args, .. } => {
                 // Skip checking builtin function names as variables
                 if let Expression::Ident(func_name) = func.as_ref() {
                     if !self.builtin_registry.is_builtin(func_name) {

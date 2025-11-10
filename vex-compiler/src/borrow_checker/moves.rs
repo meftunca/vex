@@ -364,11 +364,7 @@ impl MoveChecker {
                 Ok(())
             }
 
-            Expression::Call {
-                span_id: _,
-                func,
-                args,
-            } => {
+            Expression::Call { func, args, .. } => {
                 // Skip builtin function check if func is an identifier
                 if let Expression::Ident(func_name) = func.as_ref() {
                     if !self.builtin_registry.is_builtin(func_name) {
@@ -622,6 +618,7 @@ mod tests {
         let call = Expression::Call {
             span_id: None,
             func: Box::new(Expression::Ident("foo".to_string())),
+            type_args: vec![],
             args: vec![Expression::Ident("s".to_string())],
         };
 

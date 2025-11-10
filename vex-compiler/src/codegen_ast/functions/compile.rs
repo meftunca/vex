@@ -21,22 +21,28 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let fn_name = if let Some(ref receiver) = func.receiver {
             let type_name = match &receiver.ty {
                 Type::Named(name) => name.clone(),
-                Type::Reference(inner, _) => {
-                    if let Type::Named(name) = &**inner {
-                        name.clone()
-                    } else {
+                Type::Generic { name, .. } => name.clone(), // Generic types like Container<T>
+                Type::Reference(inner, _) => match &**inner {
+                    Type::Named(name) => name.clone(),
+                    Type::Generic { name, .. } => name.clone(),
+                    _ => {
                         return Err(
                             "Receiver must be a named type or reference to named type".to_string()
                         );
                     }
-                }
+                },
                 _ => {
                     return Err(
                         "Receiver must be a named type or reference to named type".to_string()
                     )
                 }
             };
-            format!("{}_{}", type_name, func.name)
+            // Check if name is already mangled (imported methods)
+            if func.name.starts_with(&format!("{}_", type_name)) {
+                func.name.clone()
+            } else {
+                format!("{}_{}", type_name, func.name)
+            }
         } else {
             func.name.clone()
         };
@@ -62,13 +68,39 @@ impl<'ctx> ASTCodeGen<'ctx> {
             let param_val = fn_val
                 .get_nth_param(0)
                 .ok_or_else(|| "Receiver parameter not found".to_string())?;
-            let param_type = self.ast_type_to_llvm(&receiver.ty);
-            let alloca = self.create_entry_block_alloca("self", &receiver.ty, true)?;
-            self.builder
-                .build_store(alloca, param_val)
-                .map_err(|e| format!("Failed to store receiver: {}", e))?;
-            self.variables.insert("self".to_string(), alloca);
-            self.variable_types.insert("self".to_string(), param_type);
+            
+            // CRITICAL FIX: For external (Golang-style) methods with reference receivers,
+            // the parameter is already a pointer, so we DON'T need alloca+store
+            let is_reference_receiver = matches!(receiver.ty, Type::Reference(_, _));
+            
+            if is_reference_receiver {
+                // External method: fn (self: &Type!) - receiver is already a pointer
+                // Use it directly, no alloca needed
+                let receiver_llvm_ty = match &receiver.ty {
+                    Type::Reference(inner, _) => {
+                        // For &Type, the LLVM parameter is already a pointer
+                        self.ast_type_to_llvm(inner)
+                    }
+                    _ => unreachable!(),
+                };
+                
+                let self_ptr = param_val.into_pointer_value();
+                self.variables.insert("self".to_string(), self_ptr);
+                self.variable_types.insert("self".to_string(), receiver_llvm_ty);
+                
+                eprintln!("📌 External method receiver: using pointer directly (no alloca)");
+            } else {
+                // Inline method or non-reference receiver: allocate and store
+                let param_type = self.ast_type_to_llvm(&receiver.ty);
+                let alloca = self.create_entry_block_alloca("self", &receiver.ty, true)?;
+                self.builder
+                    .build_store(alloca, param_val)
+                    .map_err(|e| format!("Failed to store receiver: {}", e))?;
+                self.variables.insert("self".to_string(), alloca);
+                self.variable_types.insert("self".to_string(), param_type);
+                
+                eprintln!("📌 Inline method receiver: allocated and stored");
+            }
 
             let type_name = match &receiver.ty {
                 Type::Named(name) => Some(name.clone()),
@@ -82,13 +114,20 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 _ => None,
             };
 
+            eprintln!("📌 Receiver type_name extracted: {:?}", type_name);
+
             if let Some(struct_name) = type_name {
                 if self.struct_defs.contains_key(&struct_name)
                     || self.struct_ast_defs.contains_key(&struct_name)
                 {
+                    eprintln!("   ✅ Tracking 'self' as struct: {}", struct_name);
                     self.variable_struct_names
                         .insert("self".to_string(), struct_name);
+                } else {
+                    eprintln!("   ❌ Struct {} not found in defs", struct_name);
                 }
+            } else {
+                eprintln!("   ❌ No type name extracted from receiver");
             }
 
             param_offset = 1;

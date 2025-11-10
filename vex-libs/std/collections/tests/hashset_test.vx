@@ -1,0 +1,166 @@
+// HashSet comprehensive test suite
+
+import { new_hashset, with_capacity_hashset } from "../src/hashset";
+
+fn test_basic_set_operations(): i32 {
+    println("Test: Basic insert/contains/remove");
+    
+    let! set = new_hashset();
+    
+    // Insert
+    if !set.insert(42) {
+        println("❌ First insert should return true");
+        return 1;
+    }
+    
+    if set.insert(42) {
+        println("❌ Duplicate insert should return false");
+        return 1;
+    }
+    
+    set.insert(100);
+    set.insert(-5);
+    
+    // Contains
+    if !set.contains(42) {
+        println("❌ 42 should exist");
+        return 1;
+    }
+    
+    if set.contains(999) {
+        println("❌ 999 should not exist");
+        return 1;
+    }
+    
+    // Remove
+    if !set.remove(100) {
+        println("❌ Remove should return true");
+        return 1;
+    }
+    
+    if set.remove(100) {
+        println("❌ Second remove should return false");
+        return 1;
+    }
+    
+    if set.contains(100) {
+        println("❌ 100 should be removed");
+        return 1;
+    }
+    
+    println("✅ Basic set operations passed");
+    return 0;
+}
+
+fn test_set_len(): i32 {
+    println("Test: HashSet len()");
+    
+    let! set = new_hashset();
+    
+    if !set.is_empty() {
+        println("❌ New set should be empty");
+        return 1;
+    }
+    
+    set.insert(1);
+    set.insert(2);
+    set.insert(3);
+    
+    if set.len() != 3 {
+        println("❌ Expected len 3, got {}", set.len());
+        return 1;
+    }
+    
+    set.insert(1);  // Duplicate
+    
+    if set.len() != 3 {
+        println("❌ Duplicate insert should not increase len");
+        return 1;
+    }
+    
+    println("✅ HashSet len passed");
+    return 0;
+}
+
+fn test_set_uniqueness(): i32 {
+    println("Test: Set uniqueness (1000 items)");
+    
+    let! set = with_capacity_hashset(64);
+    
+    // Insert same values multiple times
+    for i in 0..10 {
+        for j in 0..100 {
+            set.insert(j);
+        }
+    }
+    
+    // Should only have 100 unique items
+    if set.len() != 100 {
+        println("❌ Expected len 100, got {}", set.len());
+        return 1;
+    }
+    
+    // Verify all items exist
+    for i in 0..100 {
+        if !set.contains(i) {
+            println("❌ Missing item {}", i);
+            return 1;
+        }
+    }
+    
+    println("✅ Set uniqueness passed");
+    return 0;
+}
+
+fn test_set_clear(): i32 {
+    println("Test: HashSet clear()");
+    
+    let! set = new_hashset();
+    
+    set.insert(10);
+    set.insert(20);
+    set.insert(30);
+    
+    set.clear();
+    
+    if !set.is_empty() {
+        println("❌ Set should be empty after clear");
+        return 1;
+    }
+    
+    if set.contains(10) {
+        println("❌ Should not contain 10 after clear");
+        return 1;
+    }
+    
+    // Can still use after clear
+    set.insert(999);
+    if !set.contains(999) {
+        println("❌ Should contain 999");
+        return 1;
+    }
+    
+    println("✅ HashSet clear passed");
+    return 0;
+}
+
+fn main(): i32 {
+    println("=== HashSet Test Suite ===");
+    println("");
+    
+    let! failed = 0;
+    
+    failed = failed + test_basic_set_operations();
+    failed = failed + test_set_len();
+    failed = failed + test_set_uniqueness();
+    failed = failed + test_set_clear();
+    
+    println("");
+    if failed == 0 {
+        println("✅ ALL HASHSET TESTS PASSED");
+        return 0;
+    } else {
+        println("❌ {} tests failed", failed);
+        return 1;
+    }
+}

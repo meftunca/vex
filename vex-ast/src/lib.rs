@@ -610,11 +610,12 @@ pub enum Expression {
         expr: Box<Expression>,
     },
 
-    /// Function call: foo(a, b)
+    /// Function call: foo(a, b) or foo<T>(a, b)
     Call {
         #[serde(skip)]
         span_id: Option<String>,
         func: Box<Expression>,
+        type_args: Vec<Type>, // Generic type arguments: foo<i32, str>()
         args: Vec<Expression>,
     },
 

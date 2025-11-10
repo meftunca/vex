@@ -52,17 +52,41 @@ p2.x = 10;         // OK: p2 is mutable
 
 ### Method Mutability
 
-Methods can be called on mutable or immutable receivers:
+Vex uses a hybrid model for method mutability.
+
+#### 1. Inline Methods (in `struct` or `trait`)
+
+- **Declaration**: `fn method_name()!`
+- **Behavior**: The method can mutate `self`.
+- **Call**: `object.method_name()` (no `!` at call site). The compiler ensures this is only called on a mutable (`let!`) variable.
 
 ```vex
-impl Point {
-    fn get_x(self: &Point): i32 {
-        return self.x;    // Immutable access
+struct Counter {
+    value: i32,
+    fn increment()! {
+        self.value = self.value + 1;
     }
+}
 
-    fn set_x(self: &Point!, x: i32) {
-        self.x = x;       // Mutable access
-    }
+let! c = Counter { value: 0 };
+c.increment(); // OK
+```
+
+#### 2. External Methods (Golang-style)
+
+- **Declaration**: `fn (self: &MyType!) method_name()`
+- **Behavior**: The method can mutate `self`.
+- **Call**: `object.method_name()` (no `!` at call site).
+
+```vex
+struct Point { x: i32, y: i32 }
+
+fn (p: &Point) get_x(): i32 {
+    return p.x;    // Immutable access
+}
+
+fn (p: &Point!) set_x(x: i32) {
+    p.x = x;       // Mutable access
 }
 
 let! p = Point { x: 1, y: 2 };

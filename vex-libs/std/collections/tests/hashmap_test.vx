@@ -1,0 +1,258 @@
+// HashMap comprehensive test suite
+
+import { HashMap, new_hashmap, with_capacity_hashmap } from "../src/hashmap.vx";
+
+fn test_basic_operations(): i32 {
+    println("Test: Basic insert/get/remove");
+    
+    let! map = new_hashmap<str, i32>();
+    
+    // Insert
+    map.insert("key1", 42);
+    map.insert("key2", 100);
+    map.insert("key3", -5);
+    
+    // Get
+    match map.get("key1") {
+        Some(v) => {
+            if v != 42 {
+                println("❌ Expected 42, got {}", v);
+                return 1;
+            }
+        },
+        None => {
+            println("❌ key1 not found");
+            return 1;
+        },
+    };
+    
+    // Contains
+    if !map.contains_key("key2") {
+        println("❌ key2 should exist");
+        return 1;
+    }
+    
+    if map.contains_key("nonexistent") {
+        println("❌ nonexistent should not exist");
+        return 1;
+    }
+    
+    // Remove
+    match map.remove("key2") {
+        Some(v) => {
+            if v != 100 {
+                println("❌ Expected 100, got {}", v);
+                return 1;
+            }
+        },
+        None => {
+            println("❌ key2 should exist");
+            return 1;
+        },
+    };
+    
+    // Verify removed
+    if map.contains_key("key2") {
+        println("❌ key2 should be removed");
+        return 1;
+    }
+    
+    println("✅ Basic operations passed");
+    return 0;
+}
+
+fn test_update_existing(): i32 {
+    println("Test: Update existing key");
+    
+    let! map = new_hashmap<str, i32>();
+    
+    // Insert
+    let first = map.insert("key", 10);
+    match first {
+        Some(_) => {
+            println("❌ First insert should return None");
+            return 1;
+        },
+        None => {},
+    };
+    
+    // Update
+    let second = map.insert("key", 20);
+    match second {
+        Some(old) => {
+            if old != 10 {
+                println("❌ Expected old value 10, got {}", old);
+                return 1;
+            }
+        },
+        None => {
+            println("❌ Update should return old value");
+            return 1;
+        },
+    };
+    
+    // Verify new value
+    match map.get("key") {
+        Some(v) => {
+            if v != 20 {
+                println("❌ Expected 20, got {}", v);
+                return 1;
+            }
+        },
+        None => {
+            println("❌ key not found");
+            return 1;
+        },
+    };
+    
+    println("✅ Update existing passed");
+    return 0;
+}
+
+fn test_len_and_empty(): i32 {
+    println("Test: len() and is_empty()");
+    
+    let! map = new_hashmap<str, i32>();
+    
+    // Empty check
+    if !map.is_empty() {
+        println("❌ New map should be empty");
+        return 1;
+    }
+    
+    if map.len() != 0 {
+        println("❌ Empty map len should be 0");
+        return 1;
+    }
+    
+    // Add items
+    map.insert("a", 1);
+    map.insert("b", 2);
+    map.insert("c", 3);
+    
+    if map.is_empty() {
+        println("❌ Map should not be empty");
+        return 1;
+    }
+    
+    if map.len() != 3 {
+        println("❌ Expected len 3, got {}", map.len());
+        return 1;
+    }
+    
+    // Remove one
+    map.remove("b");
+    
+    if map.len() != 2 {
+        println("❌ Expected len 2, got {}", map.len());
+        return 1;
+    }
+    
+    println("✅ len/empty passed");
+    return 0;
+}
+
+fn test_collision_handling(): i32 {
+    println("Test: Collision handling (1000 items)");
+    
+    let! map = with_capacity_hashmap<i32, i32>(64);
+    
+    // Insert 1000 items
+    for i in 0..1000 {
+        map.insert(i, i * 2);
+    }
+    
+    if map.len() != 1000 {
+        println("❌ Expected len 1000, got {}", map.len());
+        return 1;
+    }
+    
+    // Verify all items
+    for i in 0..1000 {
+        match map.get(i) {
+            Some(v) => {
+                if v != i * 2 {
+                    println("❌ Wrong value for key {}: expected {}, got {}", i, i * 2, v);
+                    return 1;
+                }
+            },
+            None => {
+                println("❌ Missing key {}", i);
+                return 1;
+            },
+        };
+    }
+    
+    println("✅ Collision handling passed");
+    return 0;
+}
+
+fn test_clear(): i32 {
+    println("Test: clear()");
+    
+    let! map = new_hashmap<str, i32>();
+    
+    // Add items
+    map.insert("x", 1);
+    map.insert("y", 2);
+    map.insert("z", 3);
+    
+    if map.len() != 3 {
+        println("❌ Expected len 3");
+        return 1;
+    }
+    
+    // Clear
+    map.clear();
+    
+    if !map.is_empty() {
+        println("❌ Map should be empty after clear");
+        return 1;
+    }
+    
+    if map.len() != 0 {
+        println("❌ Len should be 0 after clear");
+        return 1;
+    }
+    
+    // Can still use map after clear
+    map.insert("new", 999);
+    
+    match map.get("new") {
+        Some(v) => {
+            if v != 999 {
+                println("❌ Expected 999");
+                return 1;
+            }
+        },
+        None => {
+            println("❌ Should find new key");
+            return 1;
+        },
+    };
+    
+    println("✅ clear() passed");
+    return 0;
+}
+
+fn main(): i32 {
+    println("=== HashMap Test Suite ===");
+    println("");
+    
+    let! failed = 0;
+    
+    failed = failed + test_basic_operations();
+    failed = failed + test_update_existing();
+    failed = failed + test_len_and_empty();
+    failed = failed + test_collision_handling();
+    failed = failed + test_clear();
+    
+    println("");
+    if failed == 0 {
+        println("✅ ALL HASHMAP TESTS PASSED");
+        return 0;
+    } else {
+        println("❌ {} tests failed", failed);
+        return 1;
+    }
+}

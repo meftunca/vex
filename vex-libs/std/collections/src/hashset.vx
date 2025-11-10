@@ -1,0 +1,55 @@
+// HashSet<T> - Generic hash set
+// Built on HashMap<T, unit>
+
+import { HashMap, new_hashmap, with_capacity_hashmap } from "hashmap";
+
+// HashSet<T> - Generic hash set
+export struct HashSet<T> {
+    map: HashMap<T, unit>,  // Use unit type () for values
+}
+
+// Free functions for HashSet construction
+export fn new_hashset<T>(): HashSet<T> {
+    return HashSet { map: new_hashmap() };
+}
+
+export fn with_capacity_hashset<T>(cap: i64): HashSet<T> {
+    return HashSet { map: with_capacity_hashmap(cap) };
+}
+
+fn (self: &HashSet<T>!) create_new(): HashSet<T> {
+    return new_hashset();
+}
+
+// HashSet methods using Golang-style syntax
+fn (self: &HashSet<T>!) insert(value: T): bool {
+    let prev = self.map.insert(value, ());
+    return match prev {
+        Some(_) => false,  // Already existed
+        None => true,      // Newly inserted
+    };
+}
+
+fn (self: &HashSet<T>) contains(value: T): bool {
+    return self.map.contains_key(value);
+}
+
+fn (self: &HashSet<T>!) remove(value: T): bool {
+    let removed = self.map.remove(value);
+    return match removed {
+        Option.Some(_) => true,
+        Option.None => false,
+    };
+}
+
+fn (self: &HashSet<T>) len(): i64 {
+    return self.map.len();
+}
+
+fn (self: &HashSet<T>) is_empty(): bool {
+    return self.map.is_empty();
+}
+
+fn (self: &HashSet<T>!) clear() {
+    self.map.clear();
+}

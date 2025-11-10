@@ -1,0 +1,32 @@
+struct Counter {
+    value: i32,
+    
+    // Inline mutable method (simplified syntax)
+    // According to the contract, '!' suffix is optional at call site
+    fn increment()! {
+        self.value = self.value + 1;
+    }
+    
+    fn get_value(): i32 {
+        return self.value;
+    }
+}
+
+fn main(): i32 {
+    let! c = Counter { value: 0 };
+    
+    // Contract Rule 1: Inline methods can be called WITH or WITHOUT '!'
+    c.increment();  // Without '!' - should work (contract says it's optional)
+    
+    if c.get_value() != 1 {
+        return 1; // Failure
+    }
+    
+    c.increment();  // Call again
+    
+    if c.get_value() != 2 {
+        return 2; // Failure
+    }
+    
+    return 0; // Success
+}

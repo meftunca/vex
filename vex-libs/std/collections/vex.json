@@ -1,21 +1,15 @@
 {
-  "name": "collections",
-  "version": "0.9.1",
-  "description": "Collections - HashMap, Set",
-  "authors": [
-    "Vex Language Team"
-  ],
+  "name": "std.collections",
+  "version": "0.1.0",
+  "description": "Standard library - Collections (HashMap, HashSet)",
+  "authors": ["Vex Team"],
   "license": "MIT",
   "main": "src/lib.vx",
   "native": {
-    "libraries": [
-      "vex_runtime"
-    ],
-    "search_paths": [
-      "../../../vex-runtime/c"
-    ],
-    "include_dirs": [
-      "../../../vex-runtime/c"
-    ]
+    "sources": ["native/vex_swisstable_v2.c"],
+    "libraries": ["vex_runtime"],
+    "search_paths": ["../../../vex-runtime/c"],
+    "include_dirs": ["native/", "../../../vex-runtime/c/include/"],
+    "cflags": ["-O3", "-march=native", "-DUSE_SIMD", "-Wall"]
   }
 }

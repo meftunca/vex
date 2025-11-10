@@ -488,8 +488,26 @@ impl<'a> FormattingVisitor<'a> {
                 self.write(self.format_unary_op(op));
                 self.visit_expression(expr);
             }
-            Expression::Call { func, args, .. } => {
+            Expression::Call {
+                func,
+                type_args,
+                args,
+                ..
+            } => {
                 self.visit_expression(func);
+
+                // Print type arguments if present
+                if !type_args.is_empty() {
+                    self.write("<");
+                    for (i, ty) in type_args.iter().enumerate() {
+                        self.visit_type(ty);
+                        if i < type_args.len() - 1 {
+                            self.write(", ");
+                        }
+                    }
+                    self.write(">");
+                }
+
                 self.write("(");
                 for (i, arg) in args.iter().enumerate() {
                     self.visit_expression(arg);

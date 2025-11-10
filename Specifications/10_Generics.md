@@ -138,15 +138,23 @@ let pair = Pair<i32, string> {
 
 ### Generic Methods
 
+Methods on generic structs can operate on the generic types. Vex supports two styles for defining methods, both of which can be used with generic structs.
+
+#### Kural 1: Inline Methods
+
+Methods defined inside a `struct` or `trait` use the `!` suffix on the function signature to indicate mutability.
+
 ```vex
 struct Container<T> {
     value: T,
 
-    fn (self: &Container<T>) get(): T {
+    // Immutable method, returns a copy of the value.
+    fn get(): T {
         return self.value;
     }
 
-    fn (self: &Container<T>!) set(new_value: T) {
+    // Mutable method, modifies the internal state.
+    fn set(new_value: T)! {
         self.value = new_value;
     }
 }
@@ -156,8 +164,33 @@ struct Container<T> {
 
 ```vex
 let! container = Container<i32> { value: 42 };
-let val = container.get();      // 42
-container.set(100);
+let val = container.get();      // val is 42
+container.set(100)!;            // State is mutated
+// container.value is now 100
+```
+
+#### Kural 2: External Methods (Golang-style)
+
+Methods can also be defined outside the struct body, using an explicit `self` parameter. Mutability is declared on the receiver's type.
+
+```vex
+// This style is also valid for generic structs.
+fn (self: &Container<T>) get_external(): T {
+    return self.value;
+}
+
+fn (self: &Container<T>!) set_external(new_value: T) {
+    self.value = new_value;
+}
+```
+
+**Usage**:
+
+```vex
+let! container = Container<i32> { value: 42 };
+let val = container.get_external();      // val is 42
+container.set_external(100);             // State is mutated
+// container.value is now 100
 ```
 
 ### Nested Generics

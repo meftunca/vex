@@ -135,6 +135,9 @@ pub struct ASTCodeGen<'ctx> {
 
     // ⭐ NEW: Trait bounds checker for generic constraints
     pub(crate) trait_bounds_checker: Option<crate::trait_bounds_checker::TraitBoundsChecker>,
+
+    // ⭐ NEW: Source file path for resolving relative imports
+    pub(crate) source_file: String,
 }
 
 impl<'ctx> ASTCodeGen<'ctx> {
@@ -146,6 +149,15 @@ impl<'ctx> ASTCodeGen<'ctx> {
         context: &'ctx Context,
         module_name: &str,
         span_map: vex_diagnostics::SpanMap,
+    ) -> Self {
+        Self::new_with_source_file(context, module_name, span_map, module_name)
+    }
+
+    pub fn new_with_source_file(
+        context: &'ctx Context,
+        module_name: &str,
+        span_map: vex_diagnostics::SpanMap,
+        source_file: &str,
     ) -> Self {
         let module = context.create_module(module_name);
         let builder = context.create_builder();
@@ -188,6 +200,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             diagnostics: DiagnosticEngine::new(), // Initialize diagnostic engine
             span_map,                         // ⭐ NEW: Store span map from parser
             trait_bounds_checker: None,       // ⭐ NEW: Initialized in compile_program
+            source_file: source_file.to_string(), // ⭐ NEW: Store source file path
         };
 
         // Register Phase 0 builtin types (Vec, Option, Result, Box)

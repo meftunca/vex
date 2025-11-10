@@ -29,21 +29,42 @@ impl<'ctx> ASTCodeGen<'ctx> {
             Expression::FieldAccess { object, field } => {
                 // Get field pointer using similar logic to compile_field_access
                 if let Expression::Ident(var_name) = &**object {
-                    // Get struct name from tracking
-                    let struct_name = self
-                        .variable_struct_names
-                        .get(var_name)
-                        .ok_or_else(|| format!("Variable {} is not a struct", var_name))?
-                        .clone();
+                    // Special handling for 'self' in external mutable methods
+                    // In Golang-style methods with receiver (self: &Type!), 'self' is a parameter (reference)
+                    // and should be used directly for field access.
+                    let (struct_name, struct_ptr_val) = if var_name == "self" {
+                        // For 'self', get the struct name from method context
+                        // 'self' is already a parameter pointer, use it directly
+                        let self_ptr = *self
+                            .variables
+                            .get("self")
+                            .ok_or_else(|| "self not found in method context".to_string())?;
+                        
+                        // Get struct name from self's type tracking
+                        let struct_name = self
+                            .variable_struct_names
+                            .get("self")
+                            .ok_or_else(|| "self is not a struct".to_string())?
+                            .clone();
+                        
+                        (struct_name, self_ptr)
+                    } else {
+                        // Get struct name from tracking
+                        let struct_name = self
+                            .variable_struct_names
+                            .get(var_name)
+                            .ok_or_else(|| format!("Variable {} is not a struct", var_name))?
+                            .clone();
 
-                    // Get variable pointer
-                    let var_ptr = *self
-                        .variables
-                        .get(var_name)
-                        .ok_or_else(|| format!("Variable {} not found", var_name))?;
+                        // Get variable pointer
+                        let var_ptr = *self
+                            .variables
+                            .get(var_name)
+                            .ok_or_else(|| format!("Variable {} not found", var_name))?;
 
-                    // After struct variable storage fix, variables[name] now holds the DIRECT pointer.
-                    let struct_ptr_val = var_ptr;
+                        // After struct variable storage fix, variables[name] now holds the DIRECT pointer.
+                        (struct_name, var_ptr)
+                    };
 
                     // Get struct definition
                     let struct_def = self

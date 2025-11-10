@@ -303,6 +303,9 @@ impl<'a> Parser<'a> {
                 let args = self.parse_arguments()?;
                 self.consume(&Token::RParen, "Expected ')' after arguments")?;
 
+                // Extract pending type arguments (if any)
+                let type_args = pending_type_args.take().unwrap_or_default();
+
                 // Method syntax sugar: in method body, convert identifier calls to method calls
                 // EXCEPT for builtin functions (print, println, panic, etc.)
                 if self.in_method_body && matches!(expr, Expression::Ident(_)) {
@@ -335,6 +338,7 @@ impl<'a> Parser<'a> {
                             expr = Expression::Call {
                                 span_id: None,
                                 func: Box::new(expr),
+                                type_args,
                                 args,
                             };
                         } else {
@@ -351,10 +355,10 @@ impl<'a> Parser<'a> {
                     expr = Expression::Call {
                         span_id: None,
                         func: Box::new(expr),
+                        type_args,
                         args,
                     };
                 }
-                // Type args for function calls handled in codegen (not stored in AST yet)
             } else if self.check(&Token::LBrace) && matches!(expr, Expression::Ident(_)) {
                 // Struct literal: TypeName { field: value, ... } or Box<i32> { field: value }
                 // Lookahead to distinguish from block: check if next token after '{' is identifier followed by ':'

@@ -240,9 +240,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         );
 
                         // Compile as regular function call (without receiver)
-                        return self.compile_call(&Expression::Ident(method.to_string()), args);
+                        return self.compile_call(
+                            &Expression::Ident(method.to_string()),
+                            &[],
+                            args,
+                        );
                     }
-
                     return Err(format!(
                         "Method '{}' not found for struct '{}' (neither as struct method, trait method, nor default trait method)",
                         method, struct_name
@@ -251,36 +254,64 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }
         };
 
-        // ⭐ Validate call site mutability matches method declaration
-        // Check if the method is declared as mutable
-        let method_is_mutable = self
+        // ⭐ Contract-based mutability validation
+        // Check if the method is declared as mutable and if it's an external method
+        let (method_is_mutable, is_external_method) = self
             .function_defs
             .get(&final_method_name)
-            .map(|func| func.is_mutable)
-            .unwrap_or(false);
+            .map(|func| {
+                let is_external = func.receiver.as_ref().map_or(false, |r| {
+                    matches!(r.ty, Type::Reference(_, _))
+                });
+                (func.is_mutable, is_external)
+            })
+            .unwrap_or((false, false));
 
-        // Enforce: Mutable methods REQUIRE ! at call site
-        if method_is_mutable && !is_mutable_call {
-            return Err(format!(
-                "Mutable method '{}' requires '!' suffix at call site: {}.{}()!",
-                method,
-                match receiver {
-                    Expression::Ident(name) => name,
-                    _ => "object",
-                },
-                method
-            ));
-        }
-
-        if !method_is_mutable && is_mutable_call {
-            return Err(format!(
-                "Method '{}' is immutable, cannot use '!' suffix at call site",
-                method
-            ));
+        // CONTRACT RULES:
+        // 1. External methods (Golang-style with &Type! receiver): NO '!' at call site
+        // 2. Inline methods: '!' is OPTIONAL (compiler validates mutability at compile time)
+        
+        if is_external_method {
+            // External method: '!' suffix is FORBIDDEN
+            if is_mutable_call {
+                return Err(format!(
+                    "External method '{}' cannot use '!' suffix at call site (Golang-style methods don't use '!')",
+                    method
+                ));
+            }
+            // For external methods, ignore mutability check (receiver handles it)
+        } else {
+            // Inline method: '!' suffix is OPTIONAL but recommended for clarity
+            // We validate mutability at compile time regardless of '!' presence
+            if method_is_mutable && !is_mutable_call {
+                eprintln!(
+                    "ℹ️  Inline mutable method '{}' called without '!' suffix (allowed but not recommended)",
+                    method
+                );
+                // Don't error, just warn
+            }
+            
+            if !method_is_mutable && is_mutable_call {
+                return Err(format!(
+                    "Method '{}' is immutable, cannot use '!' suffix at call site",
+                    method
+                ));
+            }
         }
 
         // Compile receiver (this will be the first argument)
         let receiver_val = self.compile_expression(receiver)?;
+
+        eprintln!(
+            "🔧 Method call: {}.{}(), receiver_val.is_pointer={}",
+            if let Expression::Ident(name) = receiver {
+                name.as_str()
+            } else {
+                "<expr>"
+            },
+            method,
+            receiver_val.is_pointer_value()
+        );
 
         // Compile other arguments
         let mut arg_vals: Vec<BasicMetadataValueEnum> = vec![receiver_val.into()];

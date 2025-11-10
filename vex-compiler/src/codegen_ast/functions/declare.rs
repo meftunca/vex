@@ -11,22 +11,28 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let fn_name = if let Some(ref receiver) = func.receiver {
             let type_name = match &receiver.ty {
                 Type::Named(name) => name.clone(),
-                Type::Reference(inner, _) => {
-                    if let Type::Named(name) = &**inner {
-                        name.clone()
-                    } else {
+                Type::Generic { name, .. } => name.clone(), // Generic types like Container<T>
+                Type::Reference(inner, _) => match &**inner {
+                    Type::Named(name) => name.clone(),
+                    Type::Generic { name, .. } => name.clone(),
+                    _ => {
                         return Err(
                             "Receiver must be a named type or reference to named type".to_string()
                         );
                     }
-                }
+                },
                 _ => {
                     return Err(
                         "Receiver must be a named type or reference to named type".to_string()
                     );
                 }
             };
-            format!("{}_{}", type_name, func.name)
+            // Check if name is already mangled (imported methods)
+            if func.name.starts_with(&format!("{}_", type_name)) {
+                func.name.clone()
+            } else {
+                format!("{}_{}", type_name, func.name)
+            }
         } else {
             func.name.clone()
         };
@@ -65,7 +71,18 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 "🟢 Function {} return type: {:?} → LLVM: {:?}",
                 fn_name, ty, llvm_ret
             );
-            llvm_ret
+
+            // ⚠️ CRITICAL FIX: For String return type (Type::String), verify we have PointerType
+            if matches!(ty, Type::String) && !matches!(llvm_ret, BasicTypeEnum::PointerType(_)) {
+                eprintln!(
+                    "⚠️ WARNING: String return type should be PointerType, got {:?}",
+                    llvm_ret
+                );
+                eprintln!("   Forcing to pointer type for str return");
+                BasicTypeEnum::PointerType(self.context.ptr_type(inkwell::AddressSpace::default()))
+            } else {
+                llvm_ret
+            }
         } else {
             BasicTypeEnum::IntType(self.context.i32_type())
         };

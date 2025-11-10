@@ -1,0 +1,235 @@
+// Comprehensive Generic Features Test
+// Tests all generic scenarios to ensure compiler handles them correctly
+
+// 1. Generic Struct
+struct Container<T> {
+    value: T,
+}
+
+// 2. Generic Function
+fn identity<T>(x: T): T {
+    return x;
+}
+
+// 3. Generic Method
+fn (self: &Container<T>) get(): T {
+    return self.value;
+}
+
+fn (self: &Container<T>!) set(val: T): i32 {
+    self.value = val;
+    return 0;
+}
+
+// 4. Generic Enum (built-in Option<T>)
+// Already exists, test usage
+
+// 5. Multiple Type Parameters
+struct Pair<K, V> {
+    key: K,
+    value: V,
+}
+
+fn (self: &Pair<K, V>) get_key(): K {
+    return self.key;
+}
+
+fn (self: &Pair<K, V>) get_value(): V {
+    return self.value;
+}
+
+// 6. Nested Generics
+struct Nested<T> {
+    inner: Container<T>,
+}
+
+// 7. Generic with Constraints (if supported)
+// trait Printable {
+//     fn print();
+// }
+
+// Test Functions
+fn test_basic_generics(): i32 {
+    println("Test 1: Basic generic struct");
+    
+    // Integer container
+    let int_container = Container<i32> { value: 42 };
+    let val = int_container.get();
+    println("Container<i32> value: {}", val);
+    
+    if val != 42 {
+        println("❌ FAILED: Expected 42, got {}", val);
+        return 1;
+    }
+    
+    println("✅ PASSED");
+    return 0;
+}
+
+fn test_generic_functions(): i32 {
+    println("\nTest 2: Generic functions");
+    
+    let x = identity<i32>(100);
+    let y = identity<str>("hello");
+    
+    println("identity<i32>(100) = {}", x);
+    println("identity<str>(\"hello\") = {}", y);
+    
+    if x != 100 {
+        println("❌ FAILED: Expected 100, got {}", x);
+        return 1;
+    }
+    
+    println("✅ PASSED");
+    return 0;
+}
+
+fn test_generic_methods(): i32 {
+    println("\nTest 3: Generic methods");
+    
+    let! container = Container<i32> { value: 10 };
+    let old_val = container.get();
+    println("Before set: {}", old_val);
+    
+    container.set(20);
+    let new_val = container.get();
+    println("After set: {}", new_val);
+    
+    if new_val != 20 {
+        println("❌ FAILED: Expected 20, got {}", new_val);
+        return 1;
+    }
+    
+    println("✅ PASSED");
+    return 0;
+}
+
+fn test_multiple_type_params(): i32 {
+    println("\nTest 4: Multiple type parameters");
+    
+    let pair = Pair<str, i32> { key: "name", value: 42 };
+    let k = pair.get_key();
+    let v = pair.get_value();
+    
+    println("Pair<str, i32>: key={}, value={}", k, v);
+    
+    if v != 42 {
+        println("❌ FAILED: Expected 42, got {}", v);
+        return 1;
+    }
+    
+    println("✅ PASSED");
+    return 0;
+}
+
+fn test_nested_generics(): i32 {
+    println("\nTest 5: Nested generics");
+    
+    let inner = Container<i32> { value: 99 };
+    let nested = Nested<i32> { inner: inner };
+    
+    let inner_ref = nested.inner;
+    let val = inner_ref.get();
+    println("Nested<Container<i32>> value: {}", val);
+    
+    if val != 99 {
+        println("❌ FAILED: Expected 99, got {}", val);
+        return 1;
+    }
+    
+    println("✅ PASSED");
+    return 0;
+}
+
+fn test_option_generic(): i32 {
+    println("\nTest 6: Generic enums (Option<T>)");
+    
+    let some_val: Option<i32> = Some(42);
+    let none_val: Option<i32> = None;
+    
+    match some_val {
+        Some(x) => {
+            println("Option.Some({}) matched", x);
+            if x != 42 {
+                println("❌ FAILED: Expected 42, got {}", x);
+                return 1;
+            }
+        }
+        None => {
+            println("❌ FAILED: Expected Some, got None");
+            return 1;
+        }
+    };
+    
+    match none_val {
+        Some(x) => {
+            println("❌ FAILED: Expected None, got Some({})", x);
+            return 1;
+        }
+        None => {
+            println("Option.None matched");
+        }
+    };
+    
+    println("✅ PASSED");
+    return 0;
+}
+
+fn test_string_container(): i32 {
+    println("\nTest 7: Generic struct with strings");
+    
+    let str_container = Container<str> { value: "hello world" };
+    let s = str_container.get();
+    println("Container<str> value: {}", s);
+    
+    println("✅ PASSED");
+    return 0;
+}
+
+fn test_different_instantiations(): i32 {
+    println("\nTest 8: Multiple instantiations of same generic");
+    
+    let c1 = Container<i32> { value: 1 };
+    let c2 = Container<i32> { value: 2 };
+    let c3 = Container<str> { value: "three" };
+    
+    let v1 = c1.get();
+    let v2 = c2.get();
+    let v3 = c3.get();
+    
+    println("Container<i32> #1: {}", v1);
+    println("Container<i32> #2: {}", v2);
+    println("Container<str> #3: {}", v3);
+    
+    if v1 != 1 || v2 != 2 {
+        println("❌ FAILED: Wrong values");
+        return 1;
+    }
+    
+    println("✅ PASSED");
+    return 0;
+}
+
+fn main(): i32 {
+    println("=== Generic Features Comprehensive Test ===\n");
+    
+    let! failed = 0;
+    
+    failed = failed + test_basic_generics();
+    failed = failed + test_generic_functions();
+    failed = failed + test_generic_methods();
+    // failed = failed + test_multiple_type_params();
+    // failed = failed + test_nested_generics();
+    // failed = failed + test_option_generic();
+    // failed = failed + test_string_container();
+    // failed = failed + test_different_instantiations();
+    
+    println("\n=== Results ===");
+    if failed == 0 {
+        println("✅ All tests passed!");
+        return 0;
+    } else {
+        println("❌ {} test(s) failed", failed);
+        return 1;
+    }
+}

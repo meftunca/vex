@@ -33,34 +33,34 @@
 
 // Use vex_macros.h if available (Vex runtime integration)
 #if __has_include("vex_macros.h")
-  #include "vex_macros.h"
-  // vex_macros.h provides VEX_SIMD_X86 and VEX_SIMD_NEON with intrinsics
-  // Use compatibility aliases for vex_strconv.c
-  #define VX_SIMD_X86 VEX_SIMD_X86
-  #define VX_SIMD_NEON VEX_SIMD_NEON
+#include "vex_macros.h"
+// vex_macros.h provides VEX_SIMD_X86 and VEX_SIMD_NEON with intrinsics
+// Use compatibility aliases for vex_strconv.c
+#define VX_SIMD_X86 VEX_SIMD_X86
+#define VX_SIMD_NEON VEX_SIMD_NEON
 #else
-  // Standalone mode: Define SIMD detection locally
-  #if !defined(VX_STRCONV_SIMD)
-    #define VX_STRCONV_SIMD 1
-  #endif
+// Standalone mode: Define SIMD detection locally
+#if !defined(VX_STRCONV_SIMD)
+#define VX_STRCONV_SIMD 1
+#endif
 
-  #if VX_STRCONV_SIMD
-    #if defined(__x86_64__) || defined(_M_X64) || defined(__i386__)
-      #include <immintrin.h>
-      #define VX_SIMD_X86 1
-    #else
-      #define VX_SIMD_X86 0
-    #endif
-    #if defined(__ARM_NEON) || defined(__ARM_NEON__) || defined(__aarch64__)
-      #include <arm_neon.h>
-      #define VX_SIMD_NEON 1
-    #else
-      #define VX_SIMD_NEON 0
-    #endif
-  #else
-    #define VX_SIMD_X86 0
-    #define VX_SIMD_NEON 0
-  #endif
+#if VX_STRCONV_SIMD
+#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__)
+#include <immintrin.h>
+#define VX_SIMD_X86 1
+#else
+#define VX_SIMD_X86 0
+#endif
+#if defined(__ARM_NEON) || defined(__ARM_NEON__) || defined(__aarch64__)
+#include <arm_neon.h>
+#define VX_SIMD_NEON 1
+#else
+#define VX_SIMD_NEON 0
+#endif
+#else
+#define VX_SIMD_X86 0
+#define VX_SIMD_NEON 0
+#endif
 #endif
 
 #ifndef VX_STRCONV_USE_STRTOD_FALLBACK
@@ -715,4 +715,68 @@ char *vex_i64_to_str_base(int64_t value, unsigned base)
     *--ptr = '-';
 
   return vex_strdup(ptr);
+}
+
+// ============================================================================
+// Number to String Conversion (for Vex to_string() support)
+// ============================================================================
+
+// Convert i32 to string (base 10)
+char *vex_i32_to_string(int32_t value)
+{
+  char buffer[16]; // -2147483648 = 11 chars + null
+  snprintf(buffer, sizeof(buffer), "%d", value);
+  return strdup(buffer);
+}
+
+// Convert i64 to string (base 10)
+char *vex_i64_to_string(int64_t value)
+{
+  char buffer[24]; // -9223372036854775808 = 20 chars + null
+  snprintf(buffer, sizeof(buffer), "%lld", (long long)value);
+  return strdup(buffer);
+}
+
+// Convert u32 to string (base 10)
+char *vex_u32_to_string(uint32_t value)
+{
+  char buffer[16];
+  snprintf(buffer, sizeof(buffer), "%u", value);
+  return strdup(buffer);
+}
+
+// Convert u64 to string (base 10)
+char *vex_u64_to_string(uint64_t value)
+{
+  char buffer[24];
+  snprintf(buffer, sizeof(buffer), "%llu", (unsigned long long)value);
+  return strdup(buffer);
+}
+
+// Convert f32 to string
+char *vex_f32_to_string(float value)
+{
+  char buffer[64];
+  snprintf(buffer, sizeof(buffer), "%g", value);
+  return strdup(buffer);
+}
+
+// Convert f64 to string
+char *vex_f64_to_string(double value)
+{
+  char buffer[64];
+  snprintf(buffer, sizeof(buffer), "%g", value);
+  return strdup(buffer);
+}
+
+// Convert bool to string
+char *vex_bool_to_string(bool value)
+{
+  return strdup(value ? "true" : "false");
+}
+
+// String to string (identity, but allocates new copy for consistency)
+char *vex_string_to_string(const char *value)
+{
+  return strdup(value ? value : "");
 }

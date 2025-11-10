@@ -113,55 +113,58 @@ fn main(): i32 {
 
 ## Method Definitions
 
-Vex supports method-level mutability with `!` suffix and flexible location rules.
+Vex, metodun tanımlandığı bağlama göre değişen, esnek ve pragmatik bir mutasyon sözdizimi kullanır. Bu "Hibrit Model" olarak adlandırılır.
 
-### Method Mutability
+### Kural 1: Inline Metodlar (Struct ve Trait İçinde)
 
-**Immutable Methods** (default - no `!`):
+**Amaç:** Kod tekrarını önlemek ve `struct`/`trait` tanımlarını temiz tutmak.
 
-```vex
-fn method_name(): return_type {
-    // Can only read: self.field
-    // Cannot write: self!.field ❌
-}
-```
+- **Tanımlama:** Metodun `mutable` olduğu, imzanın sonuna eklenen `!` işareti ile belirtilir. Receiver (`self`) bu stilde implisittir ve yazılmaz.
+  - `fn method_name()!`
+- **Gövde Erişimi:** Metod gövdesinde, alanlara erişim ve atama doğrudan `self` üzerinden yapılır. `self!` **kullanılmaz**.
+  - `self.field = new_value`
+- **Çağrı:** `Mutable` metodlar, çağrı anında `!` **kullanılmadan** çağrılır. Derleyici, metodun sadece `let!` ile tanımlanmış `mutable` bir nesne üzerinde çağrıldığını compile-time'da kontrol eder.
+  - `object.method_name()`
 
-**Mutable Methods** (with `!`):
-
-```vex
-fn method_name()!: return_type {
-    // Can read: self.field ✅
-    // Can write: self!.field ✅
-}
-```
-
-### Method Location Rules
-
-**Trait Methods**: MUST be implemented in struct body
-
-**Extra Methods**: Can be in struct body OR external (golang-style)
-
-### 1. Inline Methods (Inside Struct)
+**Örnek:**
 
 ```vex
 struct Point {
     x: i32,
     y: i32,
 
-    // Immutable method (default)
-    fn distance_from_origin(): f32 {
+    // Immutable method (implicit self)
+    fn distance(): f64 {
         return sqrt(self.x * self.x + self.y * self.y);
     }
 
-    // Mutable method (explicit !)
+    // Mutable method (implicit self)
     fn move_to(new_x: i32, new_y: i32)! {
-        self!.x = new_x;
-        self!.y = new_y;
+        self.x = new_x;
+        self.y = new_y;
     }
 }
+
+// --- Çağrılar ---
+let p = Point { x: 10, y: 20 };
+let dist = p.distance();
+
+let! p_mut = Point { x: 0, y: 0 };
+p_mut.move_to(30, 40); // '!' yok
 ```
 
-### 2. Golang-Style Methods (Outside Struct)
+### Kural 2: External Metodlar (Golang-Style)
+
+**Amaç:** Metodun hangi veri tipi üzerinde çalıştığını ve `mutable` olup olmadığını receiver tanımında açıkça belirtmek.
+
+- **Tanımlama:** Metodun `mutable` olduğu, receiver tanımındaki `&Type!` ifadesi ile belirtilir. Metod imzasının sonunda `!` **kullanılmaz**.
+  - `fn (self: &MyType!) method_name()`
+- **Gövde Erişimi:** Metod gövdesinde, alanlara erişim ve atama doğrudan `self` üzerinden yapılır. `self!` **kullanılmaz**.
+  - `self.field = new_value`
+- **Çağrı:** Çağrı sırasında `!` işareti **kullanılmaz**.
+  - `object.method_name()`
+
+**Örnek:**
 
 ```vex
 struct Rectangle {
@@ -169,32 +172,23 @@ struct Rectangle {
     height: i32,
 }
 
-// Extra method (not in trait) - can be external
+// Immutable external method
 fn (r: &Rectangle) area(): i32 {
     return r.width * r.height;
 }
 
-// Mutable extra method
-fn (r: &Rectangle!) scale(factor: i32)! {
-    r!.width = r!.width * factor;
-    r!.height = r!.height * factor;
+// Mutable external method
+fn (r: &Rectangle!) scale(factor: i32) {
+    r.width = r.width * factor;
+    r.height = r.height * factor;
 }
-```
 
-### Method Calls
+// --- Çağrılar ---
+let rect = Rectangle { width: 10, height: 5 };
+let a = rect.area();
 
-**Immutable method call**:
-
-```vex
-let point = Point { x: 10, y: 20 };
-let dist = point.distance_from_origin();  // No ! needed
-```
-
-**Mutable method call**:
-
-```vex
-let! rect = Rectangle { width: 5, height: 10 };
-rect.scale(2)!;  // ! required for mutation
+let! rect_mut = Rectangle { width: 10, height: 5};
+rect_mut.scale(2); // '!' yok
 ```
 
 ### Trait Method Implementation
@@ -215,7 +209,7 @@ struct User impl Display {
     }
 
     fn update()! {
-        self!.age = self!.age + 1;
+        self.age = self.age + 1;
     }
 }
 ```

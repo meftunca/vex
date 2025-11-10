@@ -84,12 +84,25 @@ impl<'ctx> ASTCodeGen<'ctx> {
             let param_val = fn_val
                 .get_nth_param(0)
                 .ok_or("Missing receiver parameter")?;
-            let receiver_ty = self.ast_type_to_llvm(&receiver.ty);
+            
+            // CRITICAL FIX: For reference types, we need to get the inner type for LLVM
+            // because the parameter is already a pointer (C calling convention)
+            let receiver_llvm_ty = match &receiver.ty {
+                Type::Reference(inner, _) => {
+                    // For &Type, the LLVM parameter is already a pointer
+                    // so we need the inner type's LLVM representation
+                    self.ast_type_to_llvm(inner)
+                }
+                other => {
+                    // For non-reference types, use as-is
+                    self.ast_type_to_llvm(other)
+                }
+            };
 
             // Store receiver DIRECTLY (it's already a pointer, no need for alloca+store)
             let self_ptr = param_val.into_pointer_value();
             self.variables.insert("self".to_string(), self_ptr);
-            self.variable_types.insert("self".to_string(), receiver_ty);
+            self.variable_types.insert("self".to_string(), receiver_llvm_ty);
 
             let struct_name_opt = match &receiver.ty {
                 Type::Named(name) => Some(name.clone()),
@@ -106,6 +119,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
             eprintln!(
                 "🔧 compile_struct_method: struct={}, receiver.ty={:?}, struct_name_opt={:?}",
                 struct_name, receiver.ty, struct_name_opt
+            );
+            eprintln!(
+                "   receiver_llvm_ty={:?}, self_ptr={:?}",
+                receiver_llvm_ty, self_ptr
             );
 
             if let Some(name) = struct_name_opt {

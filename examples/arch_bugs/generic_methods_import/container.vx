@@ -1,0 +1,34 @@
+// Minimal generic container library
+// This file defines a generic Container<T> with methods
+
+export struct Container<T> {
+    data: *T,
+    size: i64,
+    capacity: i64,
+}
+
+// Generic method using Golang-style syntax
+fn (self: &Container<T>!) push(item: T) {
+    // Simplified implementation
+    self.size = self.size + 1;
+    println("Pushed item, size now: {}", self.size);
+}
+
+fn (self: &Container<T>) get(index: i64): T {
+    // Simplified - just return default
+    println("Getting item at index: {}", index);
+    return *(self.data);
+}
+
+fn (self: &Container<T>) len(): i64 {
+    return self.size;
+}
+
+// Constructor function
+export fn new_container<T>(): Container<T> {
+    return Container<T> {
+        data: 0 as *T,
+        size: 0,
+        capacity: 0,
+    };
+}

@@ -52,9 +52,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 self.collect_variables(expr, params, free_vars, visited);
             }
             Expression::Call {
-                span_id: _,
                 func,
                 args,
+                ..
             } => {
                 self.collect_variables(func, params, free_vars, visited);
                 for arg in args {

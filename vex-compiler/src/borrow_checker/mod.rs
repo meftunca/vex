@@ -287,9 +287,9 @@ impl BorrowChecker {
                 Ok(())
             }
             Expression::Call {
-                span_id: _,
                 func,
                 args,
+                ..
             } => {
                 self.analyze_expression_closures(func)?;
                 for arg in args {

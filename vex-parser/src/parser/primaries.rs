@@ -335,6 +335,7 @@ impl<'a> Parser<'a> {
                         };
 
                         return Ok(Expression::Call {
+                            type_args: Vec::new(),
                             span_id: None,
                             func: Box::new(Expression::Ident(func_name.to_string())),
                             args,
@@ -352,6 +353,7 @@ impl<'a> Parser<'a> {
                         self.consume(&Token::RParen, "Expected ')' after Box argument")?;
                         // Map to box_new(value) builtin call
                         return Ok(Expression::Call {
+                            type_args: Vec::new(),
                             span_id: None,
                             func: Box::new(Expression::Ident("box_new".to_string())),
                             args: vec![value],
@@ -369,6 +371,7 @@ impl<'a> Parser<'a> {
                         self.consume(&Token::RParen, "Expected ')' after Channel argument")?;
                         // Map to channel_new(capacity) builtin call
                         return Ok(Expression::Call {
+                            type_args: Vec::new(),
                             span_id: None,
                             func: Box::new(Expression::Ident("channel_new".to_string())),
                             args: vec![capacity],
@@ -401,6 +404,7 @@ impl<'a> Parser<'a> {
                         };
 
                         return Ok(Expression::Call {
+                            type_args: Vec::new(),
                             span_id: None,
                             func: Box::new(Expression::Ident(func_name.to_string())),
                             args,
@@ -417,6 +421,7 @@ impl<'a> Parser<'a> {
                         self.consume(&Token::RParen, "Expected ')' after Channel argument")?;
                         // Map to channel_new(capacity) builtin call
                         return Ok(Expression::Call {
+                            type_args: Vec::new(),
                             span_id: None,
                             func: Box::new(Expression::Ident("channel_new".to_string())),
                             args: vec![capacity],
@@ -475,6 +480,7 @@ impl<'a> Parser<'a> {
             };
 
             Ok(Expression::Call {
+                            type_args: Vec::new(),
                 span_id: None,
                 func: Box::new(Expression::Ident(func_name.to_string())),
                 args,
@@ -508,6 +514,7 @@ impl<'a> Parser<'a> {
             };
 
             Ok(Expression::Call {
+                            type_args: Vec::new(),
                 span_id: None,
                 func: Box::new(Expression::Ident(func_name.to_string())),
                 args,

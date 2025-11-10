@@ -1224,6 +1224,25 @@ char *vex_f64_to_string(double value)
     return buf;
 }
 
+/**
+ * Convert bool to string
+ * Returns heap-allocated string (caller must free)
+ */
+char *vex_bool_to_string(bool value)
+{
+    const char *str = value ? "true" : "false";
+    return vex_strdup(str);
+}
+
+/**
+ * String to string (identity function for consistency)
+ * Returns heap-allocated copy (caller must free)
+ */
+char *vex_string_to_string(const char *value)
+{
+    return vex_strdup(value ? value : "");
+}
+
 // ============================================================================
 // STRING INDEXING AND SLICING (v0.9.2)
 // ============================================================================
