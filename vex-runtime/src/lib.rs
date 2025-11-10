@@ -11,10 +11,6 @@ use thiserror::Error;
 
 pub mod async_runtime;
 
-// simdutf UTF-8/UTF-16 FFI (requires libsimdutf)
-#[cfg(feature = "simdutf")]
-pub mod simdutf_ffi;
-
 #[derive(Debug, Error)]
 pub enum RuntimeError {
     #[error("Failed to create runtime: {0}")]

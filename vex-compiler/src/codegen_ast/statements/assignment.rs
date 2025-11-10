@@ -39,14 +39,14 @@ impl<'ctx> ASTCodeGen<'ctx> {
                             .variables
                             .get("self")
                             .ok_or_else(|| "self not found in method context".to_string())?;
-                        
+
                         // Get struct name from self's type tracking
                         let struct_name = self
                             .variable_struct_names
                             .get("self")
                             .ok_or_else(|| "self is not a struct".to_string())?
                             .clone();
-                        
+
                         (struct_name, self_ptr)
                     } else {
                         // Get struct name from tracking

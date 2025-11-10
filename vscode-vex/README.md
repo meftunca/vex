@@ -2,7 +2,7 @@
 
 **Status:** ✅ Globally Installed  
 **Extension ID:** `meftunca.vex-language`  
-**Version:** 0.9.2
+**Version:** 0.1.2
 
 ## 🚀 Quick Start
 
@@ -36,9 +36,9 @@ Cmd+Shift+P → "Developer: Reload Window"
 
 ## ✨ Features
 
-### Current (v0.9.2)
+### Current (v0.1.2)
 
-- ✅ **Syntax Highlighting** - Full Vex v0.9.2 syntax with all new features
+- ✅ **Syntax Highlighting** - Full Vex v0.1.2 syntax with all new features
   - ✅ `unsafe` blocks for raw pointer operations
   - ✅ Trait bounds syntax (`<T: Display>`)
   - ✅ `interface` keyword support
@@ -68,7 +68,7 @@ Cmd+Shift+P → "Developer: Reload Window"
 
 ```bash
 # Extension location (symlink)
-~/.vscode/extensions/vex-language-0.9.2
+~/.vscode/extensions/vex-language-0.1.2
 → /Users/mapletechnologies/Desktop/big_projects/vex_lang/vscode-vex
 
 # LSP server
@@ -78,7 +78,7 @@ Cmd+Shift+P → "Developer: Reload Window"
 ✅ Extension globally installed
 ✅ TypeScript compiled (out/extension.js)
 ✅ LSP server built
-✅ All v0.9.2 features supported
+✅ All v0.1.2 features supported
 ✅ Trait bounds enforcement
 ✅ Unsafe block support
 ⏳ Waiting for .vx file to activate
@@ -205,7 +205,7 @@ cd client && npm run compile
 
 ## 📝 Version History
 
-### v0.9.1 (Current - January 2025)
+### v0.1.1 (Current - January 2025)
 
 - ✅ Extended primitive types (i128, u128, f16, error)
 - ✅ Collection types (Map, Set, Channel, Vec, Box)
@@ -214,7 +214,7 @@ cd client && npm run compile
 - ✅ Switch and defer statements
 - ✅ 50+ builtin functions (memory, strings, UTF-8, reflection, LLVM intrinsics, compiler hints)
 - ✅ Enhanced code snippets for all new features
-- ✅ Complete v0.9.1 language specification support
+- ✅ Complete v0.1.1 language specification support
 
 ### v0.2.0
 

@@ -1,6 +1,6 @@
 # Vex Stdlib Planning - Rust Stdlib Additions
 
-**Version:** 0.9.2
+**Version:** 0.1.2
 **Date:** November 9, 2025
 **Inspired by:** Rust Standard Library
 **Integration:** Extends Go-based planning with Rust-specific features
@@ -8,6 +8,7 @@
 ## 🎯 Rust Stdlib Integration Goals
 
 Rust'ın std kütüphanesinden Vex'e uygun olan özellikleri entegre et:
+
 - **Memory Safety:** Ownership ve borrowing modelini güçlendir
 - **Zero-Cost Abstractions:** Performans odaklı tasarım
 - **Traits System:** Generic programming için trait'ler
@@ -19,6 +20,7 @@ Rust'ın std kütüphanesinden Vex'e uygun olan özellikleri entegre et:
 ### Core Traits and Types (01_core_builtin.md'ya eklenecek)
 
 #### ops (Operator Overloading)
+
 **Status:** ❌ Missing (critical for Rust-like ergonomics)
 **Description:** Operator overloading traits
 
@@ -86,6 +88,7 @@ enum Ordering {
 ```
 
 #### convert (Type Conversion)
+
 **Status:** ❌ Missing (important for generic programming)
 **Description:** Type conversion traits
 
@@ -118,6 +121,7 @@ trait AsMut<T> {
 ```
 
 #### marker (Marker Traits)
+
 **Status:** ❌ Missing (critical for concurrency)
 **Description:** Special marker traits for type system
 
@@ -138,6 +142,7 @@ trait Drop {
 ```
 
 #### default (Default Values)
+
 **Status:** ❌ Missing (useful for initialization)
 **Description:** Default value generation
 
@@ -153,6 +158,7 @@ impl Default for str { fn default(): str { "" } }
 ```
 
 #### hash (Hashing)
+
 **Status:** Partial (SipHasher missing, basic hash exists)
 **C Code Status:** ❌ vex_hash.c missing (SipHasher implementation)
 **Description:** Hashing traits and utilities
@@ -181,6 +187,7 @@ fn hash<T: Hash>(value: &T): u64 {
 ### Memory Management (Yeni kategori - alloc)
 
 #### alloc (Memory Allocation)
+
 **Status:** Partial (Box exists, Rc/Arc missing)
 **C Code Status:** ✅ vex_box.c exists, ❌ vex_smartptr.c missing (Rc/Arc)
 **Description:** Heap allocation and collections
@@ -221,6 +228,7 @@ fn arc_clone<T>(arc: &Arc<T>): Arc<T>
 ### Collections Extensions (03_collections_algorithms.md'ye eklenecek)
 
 #### collections (Rust-style collections)
+
 **Status:** Partial (HashMap exists via swisstable, others missing)
 **C Code Status:** ✅ vex_swisstable.c (HashMap), ❌ vex_vecdeque.c, vex_linkedlist.c missing
 **Description:** Rust's advanced collections
@@ -275,6 +283,7 @@ struct Node<T> {
 ### String and Text Extensions (04_strings_text.md'ye eklenecek)
 
 #### regex (Regular Expressions)
+
 **Status:** ✅ Exists
 **C Code Status:** ✅ vex_regex.c exists
 **Description:** Regular expression matching
@@ -324,6 +333,7 @@ fn build(builder: RegexBuilder): Result<Regex, Error>
 ### System and OS Extensions (06_system_os.md'ye eklenecek)
 
 #### process (Process Management)
+
 **Status:** ✅ Exists
 **C Code Status:** ✅ vex_cmd.c exists
 **Description:** Process spawning and management
@@ -372,6 +382,7 @@ fn status(cmd: &Command): Result<ExitStatus, Error>
 ```
 
 #### thread (Thread Management)
+
 **Status:** ✅ Exists (basic threading)
 **C Code Status:** ✅ vex_testing.c, vex_cmd.c (threading functions)
 **Description:** Thread creation and management
@@ -397,6 +408,7 @@ fn available_parallelism(): usize
 ### Panic and Error Handling Extensions
 
 #### panic (Panic Handling)
+
 **Status:** ✅ Exists (basic panic)
 **C Code Status:** ✅ vex_panic functions in vex_array.c, vex_result.c, etc.
 **Description:** Panic handling and recovery
@@ -422,6 +434,7 @@ struct Location {
 ```
 
 #### backtrace (Stack Traces)
+
 **Status:** ❌ Missing
 **C Code Status:** ❌ vex_backtrace.c missing
 **Description:** Stack trace capture and printing
@@ -448,6 +461,7 @@ fn print(bt: &Backtrace, fmt: &mut fmt::Formatter) -> fmt::Result
 ### Iterator Extensions (Yeni kategori - iter)
 
 #### iter (Iterators)
+
 **Status:** ❌ Missing (Rust's powerful iterator system)
 **Description:** Iterator traits and utilities
 
@@ -492,6 +506,7 @@ fn product<P>(self: Self) -> P where P: Product<Self::Item>
 ## 🎯 Integration Strategy
 
 ### Phase 1: Core Traits (Priority 1.1)
+
 - `ops` - Operator overloading
 - `marker` - Send/Sync/Copy traits
 - `convert` - Type conversion
@@ -499,16 +514,19 @@ fn product<P>(self: Self) -> P where P: Product<Self::Item>
 - `hash` - Hashing infrastructure
 
 ### Phase 2: Memory Management (Priority 1.2)
+
 - `alloc` - Box, Rc, Arc
 - Extend existing collections with Rust-style APIs
 
 ### Phase 3: Advanced Features (Priority 1.3)
+
 - `iter` - Iterator system
 - `regex` - Regular expressions
 - `panic` - Panic handling
 - `backtrace` - Stack traces
 
 ### Phase 4: System Integration (Priority 1.4)
+
 - `process` - Process management
 - `thread` - Threading utilities
 
@@ -525,13 +543,15 @@ fn product<P>(self: Self) -> P where P: Product<Self::Item>
 Based on detailed analysis of vex-runtime/c/ directory:
 
 ### Required New C Files:
+
 1. **vex_hash.c** - SipHasher and other hash implementations
 2. **vex_smartptr.c** - Rc and Arc reference counting
-3. **vex_vecdeque.c** - Double-ended queue implementation  
+3. **vex_vecdeque.c** - Double-ended queue implementation
 4. **vex_linkedlist.c** - Doubly-linked list implementation
 5. **vex_backtrace.c** - Stack trace capture and printing
 
 ### Existing C Files (No new files needed):
+
 - **vex_swisstable.c** - HashMap implementation (already exists)
 - **vex_regex.c** - Regex engine (already exists)
 - **vex_cmd.c** - Process management (already exists)
@@ -540,6 +560,7 @@ Based on detailed analysis of vex-runtime/c/ directory:
 - **vex_panic functions** - Distributed across multiple files (already exists)
 
 ### Integration Notes:
+
 - HashMap uses swisstable implementation (4x faster than Rust std)
 - Threading functions exist in vex_testing.c and vex_cmd.c
 - Panic handling is implemented via vex_panic() calls in various files
@@ -548,13 +569,15 @@ Based on detailed analysis of vex-runtime/c/ directory:
 ## 📋 Missing Components
 
 ### Missing Native C Code Files:
+
 1. **vex_hash.c** - SipHasher and hash utilities
-2. **vex_smartptr.c** - Rc/Arc reference counting  
+2. **vex_smartptr.c** - Rc/Arc reference counting
 3. **vex_vecdeque.c** - VecDeque implementation
 4. **vex_linkedlist.c** - LinkedList implementation
 5. **vex_backtrace.c** - Stack trace functionality
 
 ### Missing Rust Language Features:
+
 - **Macros:** Declarative macros (derive, etc.)
 - **Async/Await:** Built-in async support
 - **Unsafe Code:** Unsafe blocks and raw pointers
@@ -573,4 +596,4 @@ Based on detailed analysis of vex-runtime/c/ directory:
 
 ---
 
-*This document extends the Go-based planning with Rust stdlib features that enhance Vex's systems programming capabilities.*
+_This document extends the Go-based planning with Rust stdlib features that enhance Vex's systems programming capabilities._

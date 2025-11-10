@@ -1,6 +1,6 @@
 # Change Log
 
-## [0.9.1] - 2025-01-07
+## [0.1.1] - 2025-01-07
 
 ### Added
 
@@ -32,7 +32,7 @@
 
 ### Syntax Features
 
-- All v0.9.1 language features fully supported
+- All v0.1.1 language features fully supported
 - LSP integration ready
 - Comprehensive builtin function highlighting
 
@@ -40,7 +40,7 @@
 
 ### Added
 
-- Initial release with Vex v0.9 syntax support
+- Initial release with Vex v0.1 syntax support
 - Syntax highlighting for all Vex keywords
 - Support for `let!` mutable variables
 - Support for `&T!` mutable references

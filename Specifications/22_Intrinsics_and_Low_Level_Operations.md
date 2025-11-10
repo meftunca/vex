@@ -1,6 +1,6 @@
 # Intrinsics and Low-Level Operations
 
-**Version:** 0.9.2
+**Version:** 0.1.2
 **Last Updated:** November 9, 2025
 
 This document describes Vex's support for low-level operations, compiler intrinsics, and platform-specific features.

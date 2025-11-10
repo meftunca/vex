@@ -27,6 +27,66 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 Ok(self.context.i32_type().const_int(*n as u64, false).into())
             }
 
+            Expression::BigIntLiteral(s) => {
+                // Parse large integer literals for i128/u128
+                // Remove any prefix (0x, 0b, 0o) and parse accordingly
+                if s.starts_with("0x") || s.starts_with("0X") {
+                    // Hexadecimal
+                    let hex_str = &s[2..];
+                    if u128::from_str_radix(hex_str, 16).is_ok() {
+                        Ok(self
+                            .context
+                            .i128_type()
+                            .const_int_from_string(
+                                hex_str,
+                                inkwell::types::StringRadix::Hexadecimal,
+                            )
+                            .unwrap()
+                            .into())
+                    } else {
+                        Err(format!("Invalid hexadecimal BigIntLiteral: {}", s))
+                    }
+                } else if s.starts_with("0b") || s.starts_with("0B") {
+                    // Binary
+                    let bin_str = &s[2..];
+                    if u128::from_str_radix(bin_str, 2).is_ok() {
+                        Ok(self
+                            .context
+                            .i128_type()
+                            .const_int_from_string(bin_str, inkwell::types::StringRadix::Binary)
+                            .unwrap()
+                            .into())
+                    } else {
+                        Err(format!("Invalid binary BigIntLiteral: {}", s))
+                    }
+                } else if s.starts_with("0o") || s.starts_with("0O") {
+                    // Octal
+                    let oct_str = &s[2..];
+                    if u128::from_str_radix(oct_str, 8).is_ok() {
+                        Ok(self
+                            .context
+                            .i128_type()
+                            .const_int_from_string(oct_str, inkwell::types::StringRadix::Octal)
+                            .unwrap()
+                            .into())
+                    } else {
+                        Err(format!("Invalid octal BigIntLiteral: {}", s))
+                    }
+                } else {
+                    // Decimal
+                    if s.parse::<u128>().is_ok() {
+                        Ok(self
+                            .context
+                            .i128_type()
+                            .const_int_from_string(s, inkwell::types::StringRadix::Decimal)
+                            .unwrap()
+                            .into())
+                    } else {
+                        Err(format!("Invalid decimal BigIntLiteral: {}", s))
+                    }
+                }
+            }
+
             Expression::FloatLiteral(f) => Ok(self.context.f64_type().const_float(*f).into()),
 
             Expression::BoolLiteral(b) => {
@@ -167,9 +227,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
             Expression::MethodCall {
                 receiver,
                 method,
+                type_args,
                 args,
                 is_mutable_call,
-            } => self.compile_method_call(receiver, method, args, *is_mutable_call),
+            } => self.compile_method_call(receiver, method, type_args, args, *is_mutable_call),
 
             Expression::Index { object, index } => self.compile_index(object, index),
 
@@ -634,6 +695,25 @@ impl<'ctx> ASTCodeGen<'ctx> {
             Expression::Range { start, end } => self.compile_range(start, end, false),
 
             Expression::RangeInclusive { start, end } => self.compile_range(start, end, true),
+
+            Expression::TypeConstructor {
+                type_name,
+                type_args: _,
+                args,
+            } => {
+                // Type constructor: Vec(), Point(10, 20)
+                // Desugar to static method call: Type.new(args)
+                let method_call = Expression::MethodCall {
+                    receiver: Box::new(Expression::Ident(type_name.clone())),
+                    method: "new".to_string(),
+                    type_args: vec![], // No generic args for simple constructor syntax
+                    args: args.clone(),
+                    is_mutable_call: false,
+                };
+
+                // Compile as static method call (handled in compile_method_call)
+                self.compile_expression(&method_call)
+            }
 
             _ => {
                 let expr_str = format!("{:?}", expr);

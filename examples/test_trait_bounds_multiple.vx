@@ -1,0 +1,32 @@
+// Test multiple trait bounds (T: Display + Clone pattern)
+// Note: Current parser might not support + syntax yet
+
+trait Display {
+    fn to_string(): string;
+}
+
+trait Clone {
+    fn clone(): Self;
+}
+
+struct Point impl Display {
+    x: i32,
+    y: i32,
+    
+    fn to_string(): string {
+        return "Point";
+    }
+}
+
+// Point implements Display but NOT Clone
+// This should fail if we had multiple bounds syntax
+
+fn debug_and_copy<T: Display>(value: T) {
+    // For now, just one bound
+}
+
+fn main(): i32 {
+    let p = Point { x: 10, y: 20 };
+    debug_and_copy(p);
+    return 0;
+}

@@ -87,7 +87,7 @@ Then reload VS Code (Cmd+Shift+P → "Developer: Reload Window")
 - No need to rebuild or reinstall after modifications
 - Icon is SVG for crisp display at any size
 
-## 🎯 Vex v0.9 Specific Features
+## 🎯 Vex v0.1 Specific Features
 
 ✅ **Correctly Highlights:**
 

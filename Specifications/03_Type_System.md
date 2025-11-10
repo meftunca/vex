@@ -1,6 +1,6 @@
 # Type System
 
-**Version:** 0.9.2  
+**Version:** 0.1.2  
 **Last Updated:** November 2025
 
 This document defines the complete type system of the Vex programming language.
@@ -249,11 +249,11 @@ let full_name = first_name + " " + last_name;
 // Length
 let len = str.len();  // Available via string methods
 
-// Character Indexing ✅ v0.9.2
+// Character Indexing ✅ v0.1.2
 let first_char = str[0];        // Returns byte at index
 let last_char = str[str.len() - 1];
 
-// String Slicing ✅ v0.9.2
+// String Slicing ✅ v0.1.2
 let substring = str[0..5];      // Slice from index 0 to 5 (exclusive)
 let from_start = str[..5];      // From beginning to index 5
 let to_end = str[7..];          // From index 7 to end
@@ -273,7 +273,7 @@ let slice = emoji[0..7];  // ✅ Safe: "Hello "
 let chars = emoji.chars();  // Iterator over characters (future)
 ```
 
-**Implementation Details** (v0.9.2):
+**Implementation Details** (v0.1.2):
 
 - **Indexing `str[i]`**: Returns `u8` byte at position `i`, bounds-checked at runtime
 - **Slicing `str[a..b]`**: Creates new string from bytes `a` to `b` (exclusive)
@@ -519,7 +519,7 @@ Borrowed pointers to values:
 **Syntax**:
 
 - `&Type` - Immutable reference
-- `&Type!` - Mutable reference (v0.9 syntax)
+- `&Type!` - Mutable reference (v0.1 syntax)
 
 ```vex
 let x = 42;
@@ -894,7 +894,7 @@ Union types allow a value to be one of several different types. They are impleme
 
 **Syntax**: `(Type1 | Type2 | ...)`
 
-**Implementation Status**: ✅ **COMPLETE** (v0.9.2)
+**Implementation Status**: ✅ **COMPLETE** (v0.1.2)
 
 ```vex
 type NumberOrString = (i32 | string);

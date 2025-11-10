@@ -1,0 +1,23 @@
+// Test trait-based automatic cleanup
+// Vec and Box should be cleaned up automatically at scope exit
+
+fn test_vec_cleanup() {
+    print("Creating Vec...\n");
+    let v = vec_new();
+    print("Vec created, will be cleaned up at end of function\n");
+    // vec_free(v) should be called automatically here
+}
+
+fn test_box_cleanup() {
+    print("Creating Box...\n");
+    let b = box_new(42);
+    print("Box created, will be cleaned up at end of function\n");
+    // box_free(b) should be called automatically here
+}
+
+fn main() {
+    test_vec_cleanup();
+    print("\n");
+    test_box_cleanup();
+    print("\nAll cleanup done!\n");
+}

@@ -38,25 +38,47 @@ impl<'a> Parser<'a> {
         }
 
         // Integer literals (decimal, hex, binary, octal)
-        if let Token::IntLiteral(n) = self.peek() {
-            let n = *n;
+        // Now stored as String in lexer to support i128/u128 range
+        if let Token::IntLiteral(s) = self.peek() {
+            let s = s.clone();
             self.advance();
-            return Ok(Expression::IntLiteral(n));
+            // Try to parse as i64 first
+            if let Ok(n) = s.parse::<i64>() {
+                return Ok(Expression::IntLiteral(n));
+            }
+            // Handle i64::MIN special case: 9223372036854775808 (will be negated)
+            if let Ok(u) = s.parse::<u64>() {
+                if u == 9223372036854775808 {
+                    return Ok(Expression::IntLiteral(i64::MIN));
+                }
+            }
+            // If it doesn't fit in i64, store as BigIntLiteral for i128/u128
+            return Ok(Expression::BigIntLiteral(s));
         }
-        if let Token::HexLiteral(n) = self.peek() {
-            let n = *n;
+        if let Token::HexLiteral(s) = self.peek() {
+            let s = s.clone();
             self.advance();
-            return Ok(Expression::IntLiteral(n));
+            if let Ok(n) = i64::from_str_radix(&s[2..], 16) {
+                return Ok(Expression::IntLiteral(n));
+            }
+            // Store as BigIntLiteral if too large
+            return Ok(Expression::BigIntLiteral(s));
         }
-        if let Token::BinaryLiteral(n) = self.peek() {
-            let n = *n;
+        if let Token::BinaryLiteral(s) = self.peek() {
+            let s = s.clone();
             self.advance();
-            return Ok(Expression::IntLiteral(n));
+            if let Ok(n) = i64::from_str_radix(&s[2..], 2) {
+                return Ok(Expression::IntLiteral(n));
+            }
+            return Ok(Expression::BigIntLiteral(s));
         }
-        if let Token::OctalLiteral(n) = self.peek() {
-            let n = *n;
+        if let Token::OctalLiteral(s) = self.peek() {
+            let s = s.clone();
             self.advance();
-            return Ok(Expression::IntLiteral(n));
+            if let Ok(n) = i64::from_str_radix(&s[2..], 8) {
+                return Ok(Expression::IntLiteral(n));
+            }
+            return Ok(Expression::BigIntLiteral(s));
         }
 
         // Float literal
@@ -296,140 +318,8 @@ impl<'a> Parser<'a> {
                         return Ok(Expression::Ident(name));
                     }
                 }
-                "Vec" => {
-                    // Vec() or Vec<T>() or Vec(capacity: 100): Create new Vec
-                    // Type-as-constructor pattern (like Rust, Swift, Kotlin)
-                    if self.check(&Token::LParen) {
-                        self.advance(); // consume '('
-
-                        // Parse arguments: empty or named param "capacity: N"
-                        let mut args = vec![];
-                        if !self.check(&Token::RParen) {
-                            // Check for named parameter: capacity
-                            if let Token::Ident(param_name) = self.peek() {
-                                if param_name == "capacity" {
-                                    self.advance(); // consume "capacity"
-                                    self.consume(
-                                        &Token::Colon,
-                                        "Expected ':' after capacity parameter",
-                                    )?;
-                                    let capacity_expr = self.parse_expression()?;
-                                    args.push(capacity_expr);
-                                } else {
-                                    // Regular expression argument
-                                    args.push(self.parse_expression()?);
-                                }
-                            } else {
-                                // Regular expression argument
-                                args.push(self.parse_expression()?);
-                            }
-                        }
-
-                        self.consume(&Token::RParen, "Expected ')' after Vec constructor")?;
-
-                        // Map to vec_new() or vec_with_capacity() builtin call
-                        let func_name = if args.is_empty() {
-                            "vec_new"
-                        } else {
-                            "vec_with_capacity"
-                        };
-
-                        return Ok(Expression::Call {
-                            type_args: Vec::new(),
-                            span_id: None,
-                            func: Box::new(Expression::Ident(func_name.to_string())),
-                            args,
-                        });
-                    } else {
-                        return Ok(Expression::Ident(name));
-                    }
-                }
-                "Box" => {
-                    // Box(value) or Box<T>(value): Create new Box
-                    // Type-as-constructor pattern
-                    if self.check(&Token::LParen) {
-                        self.advance(); // consume '('
-                        let value = self.parse_expression()?;
-                        self.consume(&Token::RParen, "Expected ')' after Box argument")?;
-                        // Map to box_new(value) builtin call
-                        return Ok(Expression::Call {
-                            type_args: Vec::new(),
-                            span_id: None,
-                            func: Box::new(Expression::Ident("box_new".to_string())),
-                            args: vec![value],
-                        });
-                    } else {
-                        return Ok(Expression::Ident(name));
-                    }
-                }
-                "Channel" => {
-                    // Channel(capacity) or Channel<T>(capacity): Create new Channel
-                    // Type-as-constructor pattern
-                    if self.check(&Token::LParen) {
-                        self.advance(); // consume '('
-                        let capacity = self.parse_expression()?;
-                        self.consume(&Token::RParen, "Expected ')' after Channel argument")?;
-                        // Map to channel_new(capacity) builtin call
-                        return Ok(Expression::Call {
-                            type_args: Vec::new(),
-                            span_id: None,
-                            func: Box::new(Expression::Ident("channel_new".to_string())),
-                            args: vec![capacity],
-                        });
-                    } else {
-                        return Ok(Expression::Ident(name));
-                    }
-                }
-                "String" => {
-                    // String() or String(str): Create new String
-                    // Type-as-constructor pattern - converts string literals to heap strings
-                    if self.check(&Token::LParen) {
-                        self.advance(); // consume '('
-
-                        // Empty String() or String(literal)
-                        let args = if self.check(&Token::RParen) {
-                            self.advance(); // consume ')'
-                            vec![]
-                        } else {
-                            let arg = self.parse_expression()?;
-                            self.consume(&Token::RParen, "Expected ')' after String argument")?;
-                            vec![arg]
-                        };
-
-                        // Map to string_new() or string_from() builtin call
-                        let func_name = if args.is_empty() {
-                            "string_new"
-                        } else {
-                            "string_from"
-                        };
-
-                        return Ok(Expression::Call {
-                            type_args: Vec::new(),
-                            span_id: None,
-                            func: Box::new(Expression::Ident(func_name.to_string())),
-                            args,
-                        });
-                    } else {
-                        return Ok(Expression::Ident(name));
-                    }
-                }
-                "Channel" => {
-                    // Channel<T>(capacity): Create new Channel
-                    if self.check(&Token::LParen) {
-                        self.advance(); // consume '('
-                        let capacity = self.parse_expression()?;
-                        self.consume(&Token::RParen, "Expected ')' after Channel argument")?;
-                        // Map to channel_new(capacity) builtin call
-                        return Ok(Expression::Call {
-                            type_args: Vec::new(),
-                            span_id: None,
-                            func: Box::new(Expression::Ident("channel_new".to_string())),
-                            args: vec![capacity],
-                        });
-                    } else {
-                        return Ok(Expression::Ident(name));
-                    }
-                }
+                // Generic type constructor handling - moved to end of match
+                // Removed hardcoded type constructors - now handled generically below
                 // Legacy lowercase syntax (deprecated, will be removed)
                 "vec" | "box" => {
                     return Err(self.error(&format!(
@@ -439,7 +329,47 @@ impl<'a> Parser<'a> {
                     )));
                 }
                 _ => {
-                    return Ok(Expression::Ident(name));
+                    // Generic type constructor: Type() or Type(args)
+                    // IMPORTANT: Check if this is actually a type constructor before parsing
+                    // Only treat Ident() as type constructor if the identifier starts with uppercase
+                    // (following PascalCase convention for types)
+                    let first_char = name.chars().next().unwrap_or('_');
+
+                    if self.check(&Token::LParen) && first_char.is_uppercase() {
+                        // Type(...) constructor call - PascalCase identifier
+
+                        // Check for generic type arguments: Vec<T>()
+                        let type_args = if self.check(&Token::Lt) {
+                            self.advance(); // consume <
+                            let mut args = Vec::new();
+                            loop {
+                                args.push(self.parse_type()?);
+                                if !self.match_token(&Token::Comma) {
+                                    break;
+                                }
+                            }
+                            self.consume_generic_close("Expected '>' after type arguments")?;
+                            args
+                        } else {
+                            vec![]
+                        };
+
+                        self.advance(); // consume '('
+                        let args = self.parse_arguments()?;
+                        self.consume(
+                            &Token::RParen,
+                            "Expected ')' after type constructor arguments",
+                        )?;
+
+                        return Ok(Expression::TypeConstructor {
+                            type_name: name,
+                            type_args,
+                            args,
+                        });
+                    } else {
+                        // Just an identifier (including lowercase function calls)
+                        return Ok(Expression::Ident(name));
+                    }
                 }
             }
         }
@@ -480,7 +410,7 @@ impl<'a> Parser<'a> {
             };
 
             Ok(Expression::Call {
-                            type_args: Vec::new(),
+                type_args: Vec::new(),
                 span_id: None,
                 func: Box::new(Expression::Ident(func_name.to_string())),
                 args,
@@ -514,7 +444,7 @@ impl<'a> Parser<'a> {
             };
 
             Ok(Expression::Call {
-                            type_args: Vec::new(),
+                type_args: Vec::new(),
                 span_id: None,
                 func: Box::new(Expression::Ident(func_name.to_string())),
                 args,

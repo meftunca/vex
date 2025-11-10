@@ -236,3 +236,4 @@ impl<'a> Parser<'a> {
         Ok(Pattern::Literal(expr))
     }
 }
+

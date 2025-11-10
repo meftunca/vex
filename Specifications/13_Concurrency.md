@@ -1,6 +1,6 @@
 # Concurrency
 
-**Version:** 0.9.2  
+**Version:** 0.1.2  
 **Last Updated:** November 2025
 
 This document defines concurrency features in the Vex programming language.

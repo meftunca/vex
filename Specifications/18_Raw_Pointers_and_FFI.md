@@ -1,6 +1,6 @@
 # Raw Pointers and FFI
 
-**Version:** 0.9.2
+**Version:** 0.1.2
 **Last Updated:** November 2025
 
 This document describes Vex's support for raw pointers and Foreign Function Interface (FFI) capabilities, including unsafe code blocks, extern declarations, and interoperability with C libraries.

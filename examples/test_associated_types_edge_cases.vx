@@ -1,0 +1,97 @@
+// Edge cases for associated types parsing (Self.Item syntax)
+
+// Edge Case 1: Multiple associated types in one trait
+trait KeyValue {
+    type Key;
+    type Value;
+    
+    fn get(key: Self.Key): Option<Self.Value>;
+    fn set(key: Self.Key, value: Self.Value);
+}
+
+// Edge Case 2: Associated types in generic contexts
+trait Container {
+    type Item;
+    
+    fn get_all(): Vec<Self.Item>;
+    fn get_first(): Option<Self.Item>;
+    fn get_many(): Result<Vec<Self.Item>, i32>;
+}
+
+// Edge Case 3: Associated types with references
+trait RefContainer {
+    type Item;
+    
+    fn borrow_item(): Option<Self.Item>;
+    fn get_slice(): Option<Self.Item>;
+}
+
+// Edge Case 4: Nested generics with associated types
+trait Processor {
+    type Input;
+    type Output;
+    type Error;
+    
+    fn process(input: Self.Input): Result<Self.Output, Self.Error>;
+    fn batch_process(inputs: Vec<Self.Input>): Vec<Result<Self.Output, Self.Error>>;
+}
+
+// Edge Case 5: Implementation with concrete types
+struct StringIntMap impl KeyValue {
+    type Key = i32;
+    type Value = i32;
+    
+    fn get(key: i32): Option<i32> {
+        return Some(42);
+    }
+    
+    fn set(key: i32, value: i32) {
+        // noop
+    }
+}
+
+// Edge Case 6: Associated type used in struct fields (should this work?)
+struct Counter impl Container {
+    type Item = i32;
+    count: i32,
+    
+    fn get_all(): Vec<i32> {
+        let! v = Vec.new();
+        return v;
+    }
+    
+    fn get_first(): Option<i32> {
+        return Some(self.count);
+    }
+    
+    fn get_many(): Result<Vec<i32>, i32> {
+        let! v = Vec.new();
+        return Ok(v);
+    }
+}
+
+// Edge Case 7: Function type with associated types
+trait Transformer {
+    type Input;
+    type Output;
+    
+    fn transform(): fn(Self.Input): Self.Output;
+}
+
+// Edge Case 8: Array of associated types
+trait ArrayContainer {
+    type Item;
+    
+    fn get_array(): Option<Self.Item>;
+}
+
+fn main(): i32 {
+    // Test instantiation
+    let! map = StringIntMap {};
+    let result = map.get(5);
+    
+    return match result {
+        Some(v) => v,
+        None => -1,
+    };
+}

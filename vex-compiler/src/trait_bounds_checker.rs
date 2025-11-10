@@ -184,9 +184,9 @@ impl TraitBoundsChecker {
             Type::U32 => "u32".to_string(),
             Type::U64 => "u64".to_string(),
             Type::U128 => "u128".to_string(),
+            Type::F16 => "f16".to_string(),
             Type::F32 => "f32".to_string(),
             Type::F64 => "f64".to_string(),
-            Type::F128 => "f128".to_string(),
             Type::Bool => "bool".to_string(),
             Type::String => "string".to_string(),
             Type::Byte => "byte".to_string(),
@@ -217,6 +217,8 @@ impl TraitBoundsChecker {
             }
             Type::Channel(inner) => format!("Channel<{}>", self.extract_type_name(inner)),
             Type::Typeof(_) => "typeof".to_string(), // Compile-time evaluated
+            Type::SelfType => "Self".to_string(),
+            Type::AssociatedType { name, .. } => name.clone(), // Return associated type name
         }
     }
 }

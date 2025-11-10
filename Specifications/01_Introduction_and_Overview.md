@@ -1,6 +1,6 @@
 # Vex Language - Introduction and Overview
 
-**Version:** 0.9.2  
+**Version:** 0.1.2  
 **Status:** Living Specification  
 **Last Updated:** November 2025
 
@@ -91,8 +91,8 @@ let c = a + b;  // Automatically vectorized!
 - **Compound Types**: Arrays, tuples, slices, references
 - **Collections**: Map<K,V>, Set<T>, Vec<T>, Box<T>, Channel<T>
 - **User-Defined Types**: Structs, enums, type aliases
-- **Advanced Types**: ✅ Union types `(T | U)` (v0.9.2), intersection types, conditional types
-- **Option/Result**: Builtin Some/None, Ok/Err constructors with `?` operator (v0.9.2)
+- **Advanced Types**: ✅ Union types `(T | U)` (v0.1.2), intersection types, conditional types
+- **Option/Result**: Builtin Some/None, Ok/Err constructors with `?` operator (v0.1.2)
 - **Policy System**: Metadata annotations with inheritance and composition
 - **Reflection**: typeof, type_id, is_int_type, is_float_type, is_pointer_type (runtime type information)
 
@@ -102,7 +102,7 @@ let c = a + b;  // Automatically vectorized!
   - ✅ Phase 1: Immutability checking
   - ✅ Phase 2: Move semantics
   - ✅ Phase 3: Borrow rules (1 mutable XOR N immutable references)
-  - ✅ Phase 4: Lifetime analysis (v0.9.2) - prevents dangling references
+  - ✅ Phase 4: Lifetime analysis (v0.1.2) - prevents dangling references
 - **No Garbage Collection**: Deterministic memory management
 - **Defer Statement**: Go-style resource cleanup (executes on function exit)
 - **Smart Pointers**: Box<T> (implemented), Rc, Arc (planned)
@@ -118,7 +118,7 @@ let c = a + b;  // Automatically vectorized!
 ### Pattern Matching
 
 - Exhaustive matching with `match` expressions
-- ✅ Struct destructuring `Point { x, y }` (v0.9.2)
+- ✅ Struct destructuring `Point { x, y }` (v0.1.2)
 - Enum variant matching with data extraction
 - Tuple and struct destructuring
 - OR patterns with SIMD optimization
@@ -169,7 +169,7 @@ let c = a + b;  // Automatically vectorized!
 - **Code Formatter (vex-formatter)**: Automatic code formatting with configurable rules
 - **Package Manager (vex-pm)**: Dependency management and project scaffolding
 
-## Syntax Highlights (v0.9.1)
+## Syntax Highlights (v0.1.1)
 
 ### Variable Declaration
 
@@ -183,7 +183,7 @@ const MAX_SIZE = 1000;   // Compile-time constant
 
 ```vex
 &T      // Immutable reference
-&T!     // Mutable reference (v0.9 syntax, not &mut T)
+&T!     // Mutable reference (v0.1 syntax, not &mut T)
 ```
 
 ### Functions
@@ -320,7 +320,7 @@ Source (.vx) → AST → Borrow Check → LLVM IR → Object File (.o) → Execu
 
 ## Development Status
 
-### Completed Features (v0.9)
+### Completed Features (v0.1)
 
 - ✅ Core type system with extended integer/float types (i128, u128, f16)
 - ✅ Functions and methods (both inline and golang-style)
@@ -337,11 +337,11 @@ Source (.vx) → AST → Borrow Check → LLVM IR → Object File (.o) → Execu
 - ✅ Policy system with metadata annotations and inheritance
 - ✅ Package manager (vex-pm) with dependency resolution
 - ✅ Code formatter (vex-formatter) with configurable rules
-- ✅ Error handling with Result/Option types and `?` operator (v0.9.2)
+- ✅ Error handling with Result/Option types and `?` operator (v0.1.2)
 - ✅ Foreign Function Interface (FFI) with raw pointers
-- ✅ Union types with tagged union implementation (v0.9.2)
-- ✅ Struct pattern matching and destructuring (v0.9.2)
-- ✅ Lifetime analysis Phase 4 - complete borrow checker (v0.9.2)
+- ✅ Union types with tagged union implementation (v0.1.2)
+- ✅ Struct pattern matching and destructuring (v0.1.2)
+- ✅ Lifetime analysis Phase 4 - complete borrow checker (v0.1.2)
 
 ### In Progress
 
@@ -468,13 +468,13 @@ This specification is organized into the following documents:
 
 ## Comparison with Rust and Go
 
-This section documents features available in Rust and Go but not yet implemented in Vex (v0.9.0).
+This section documents features available in Rust and Go but not yet implemented in Vex (v0.1.0).
 
 ### Features Rust Has (Vex Doesn't Yet)
 
 #### Language Features
 
-| Feature                             | Rust                          | Vex v0.9               | Notes                                |
+| Feature                             | Rust                          | Vex v0.1               | Notes                                |
 | ----------------------------------- | ----------------------------- | ---------------------- | ------------------------------------ |
 | **Closures/Lambdas**                | ✅ `\|x\| x + 1`              | ✅ Complete            | Full capture mode analysis           |
 | **Lifetime Annotations**            | ✅ `'a, 'static`              | ✅ Automatic (Phase 4) | Borrow checker handles automatically |
@@ -493,20 +493,20 @@ This section documents features available in Rust and Go but not yet implemented
 | **Pattern Guards**                  | ✅ `Some(x) if x > 0`         | ✅ Complete            | Fully working                        |
 | **Range Patterns**                  | ✅ `1..=10`                   | ✅ Complete            | .. and ..= operators                 |
 | **Slice Patterns**                  | ✅ `[first, .., last]`        | ✅ Complete            | Rest patterns with `...rest`         |
-| **Tuple Indexing**                  | ✅ `point.0`                  | ✅ Complete (v0.9.2)   | Numeric field access implemented     |
+| **Tuple Indexing**                  | ✅ `point.0`                  | ✅ Complete (v0.1.2)   | Numeric field access implemented     |
 | **Impl Trait**                      | ✅ `fn f() -> impl Trait`     | ❌ Not implemented     | Return type flexibility              |
 | **Existential Types**               | ✅ `type Foo = impl Trait;`   | ❌ Not implemented     | Advanced feature                     |
 | **GATs (Generic Associated Types)** | ✅ Stable                     | ❌ Not implemented     | Complex generics                     |
 
 #### Standard Library & Ecosystem
 
-| Feature                    | Rust                           | Vex v0.9             | Notes                                   |
+| Feature                    | Rust                           | Vex v0.1             | Notes                                   |
 | -------------------------- | ------------------------------ | -------------------- | --------------------------------------- |
 | **Collections**            | ✅ Vec, HashMap, HashSet, etc. | ✅ Implemented       | Vec, Map, Set, Box                      |
 | **Iterators**              | ✅ Full Iterator trait         | ✅ Complete          | Basic iteration working                 |
 | **Option Type**            | ✅ `Option<T>`                 | ✅ Complete          | Some/None constructors                  |
 | **Result Type**            | ✅ `Result<T, E>`              | ✅ Complete          | Ok/Err constructors                     |
-| **Error Handling**         | ✅ `?` operator                | ✅ Complete (v0.9.2) | Result unwrapping with auto-propagation |
+| **Error Handling**         | ✅ `?` operator                | ✅ Complete (v0.1.2) | Result unwrapping with auto-propagation |
 | **String Slicing**         | ✅ `&str[0..5]`                | ❌ Not implemented   | String operations limited               |
 | **Format Macro**           | ✅ `format!()`                 | ✅ F-strings         | F-string interpolation working          |
 | **Testing Framework**      | ✅ Built-in testing            | ✅ Basic framework   | Builtin testing module                  |
@@ -517,7 +517,7 @@ This section documents features available in Rust and Go but not yet implemented
 
 #### Tooling
 
-| Feature                     | Rust             | Vex v0.9           | Notes                      |
+| Feature                     | Rust             | Vex v0.1           | Notes                      |
 | --------------------------- | ---------------- | ------------------ | -------------------------- |
 | **Language Server**         | ✅ rust-analyzer | ✅ vex-lsp         | Full LSP support           |
 | **Formatter**               | ✅ rustfmt       | ✅ vex-formatter   | Configurable formatting    |
@@ -530,7 +530,7 @@ This section documents features available in Rust and Go but not yet implemented
 
 #### Language Features
 
-| Feature                        | Go                               | Vex v0.9                      | Notes                                   |
+| Feature                        | Go                               | Vex v0.1                      | Notes                                   |
 | ------------------------------ | -------------------------------- | ----------------------------- | --------------------------------------- |
 | **Goroutines**                 | ✅ `go func()`                   | ✅ Basic runtime              | Core goroutine runtime implemented      |
 | **Channels**                   | ✅ `make(chan T)`                | ✅ MPSC channels              | Multi-producer single-consumer          |
@@ -546,12 +546,12 @@ This section documents features available in Rust and Go but not yet implemented
 | **Named Return Values**        | ✅ `func f() (x int, err error)` | ❌ Not implemented            | Convenience feature                     |
 | **Init Functions**             | ✅ `func init()`                 | ❌ Not implemented            | Package initialization                  |
 | **Blank Identifier**           | ✅ `_` for unused                | ✅ In match and destructuring | Pattern matching wildcard               |
-| **Short Variable Declaration** | ✅ `:=` operator                 | ❌ Removed in v0.9            | Use `let` instead                       |
+| **Short Variable Declaration** | ✅ `:=` operator                 | ❌ Removed in v0.1            | Use `let` instead                       |
 | **Pointer Arithmetic**         | ✅ Via unsafe package            | ❌ Not implemented            | Low-level operations                    |
 
 #### Standard Library
 
-| Feature                 | Go                        | Vex v0.9             | Notes                                 |
+| Feature                 | Go                        | Vex v0.1             | Notes                                 |
 | ----------------------- | ------------------------- | -------------------- | ------------------------------------- |
 | **HTTP Server**         | ✅ `net/http`             | 🚧 Planned (Layer 3) | std lib incomplete                    |
 | **File I/O**            | ✅ `os.File`              | ✅ Basic I/O         | File operations working               |
@@ -566,7 +566,7 @@ This section documents features available in Rust and Go but not yet implemented
 
 #### Tooling & Ecosystem
 
-| Feature               | Go                          | Vex v0.9                 | Notes                       |
+| Feature               | Go                          | Vex v0.1                 | Notes                       |
 | --------------------- | --------------------------- | ------------------------ | --------------------------- |
 | **Go Modules**        | ✅ Built-in package manager | ✅ vex-pm                | Full dependency management  |
 | **go fmt**            | ✅ Standard formatter       | ✅ vex-formatter         | Configurable formatting     |
@@ -632,7 +632,7 @@ While Vex is missing many features, it combines aspects from both languages in n
 
 ### Current Limitations
 
-**Stability**: Vex is alpha software (v0.9.1). Core features stable, advanced features evolving.
+**Stability**: Vex is alpha software (v0.1.1). Core features stable, advanced features evolving.
 
 **Test Coverage**: 97.9% - 278/284 tests passing. Core functionality extensively tested.
 
@@ -648,7 +648,7 @@ While Vex is missing many features, it combines aspects from both languages in n
 
 ## Version History
 
-### v0.9.1 (January 2025)
+### v0.1.1 (January 2025)
 
 - **Type System Enhancements**:
 
@@ -689,7 +689,7 @@ While Vex is missing many features, it combines aspects from both languages in n
   - Comprehensive standard library builtins
   - Reference expressions (`&expr`, `*ptr`)
 
-### v0.9.0 (November 3, 2025)
+### v0.1.0 (November 3, 2025)
 
 - Unified variable system: `let` (immutable), `let!` (mutable)
 - Reference syntax: `&T!` instead of `&mut T`

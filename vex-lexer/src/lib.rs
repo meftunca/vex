@@ -13,8 +13,7 @@ pub enum Token {
     Struct,
     #[token("enum")]
     Enum,
-    #[token("interface")]
-    Interface,
+
     #[token("trait")]
     Trait,
     #[token("impl")]
@@ -140,23 +139,13 @@ pub enum Token {
     #[token("Set")]
     Set,
 
-    // Intrinsics
-    #[token("@vectorize")]
-    Vectorize,
-    #[token("@gpu")]
-    GpuIntrinsic,
+    // // Intrinsics
+    // #[token("@vectorize")]
+    // Vectorize,
+    // #[token("@gpu")]
+    // GpuIntrinsic,
 
-    // Operators
-    #[token("+")]
-    Plus,
-    #[token("-")]
-    Minus,
-    #[token("*")]
-    Star,
-    #[token("/")]
-    Slash,
-    #[token("%")]
-    Percent,
+    // Operators (base operators before compound assignments)
     #[token("=")]
     Eq,
     #[token("==")]
@@ -224,7 +213,7 @@ pub enum Token {
     #[token("...")]
     DotDotDot,
 
-    // Compound Assignment Operators
+    // Compound Assignment Operators (must come BEFORE single operators)
     #[token("+=")]
     PlusEq,
     #[token("-=")]
@@ -246,6 +235,18 @@ pub enum Token {
     #[token(">>=")]
     RShiftEq,
 
+    // Operators
+    #[token("+")]
+    Plus,
+    #[token("-")]
+    Minus,
+    #[token("*")]
+    Star,
+    #[token("/")]
+    Slash,
+    #[token("%")]
+    Percent,
+
     // Increment/Decrement (NOT SUPPORTED - use += 1 instead)
     #[token("++")]
     Increment,
@@ -254,29 +255,24 @@ pub enum Token {
 
     // Literals
     // Hex literal: 0x1A3F, 0xFF
-    #[regex(r"0[xX][0-9a-fA-F]+", |lex| {
-        let s = lex.slice();
-        i64::from_str_radix(&s[2..], 16).ok()
-    })]
-    HexLiteral(i64),
+    // Store as String to support i128/u128 range - parser will validate
+    #[regex(r"0[xX][0-9a-fA-F]+", |lex| lex.slice().to_string())]
+    HexLiteral(String),
 
     // Binary literal: 0b1010, 0B1111
-    #[regex(r"0[bB][01]+", |lex| {
-        let s = lex.slice();
-        i64::from_str_radix(&s[2..], 2).ok()
-    })]
-    BinaryLiteral(i64),
+    // Store as String to support i128/u128 range - parser will validate
+    #[regex(r"0[bB][01]+", |lex| lex.slice().to_string())]
+    BinaryLiteral(String),
 
     // Octal literal: 0o777, 0O123
-    #[regex(r"0[oO][0-7]+", |lex| {
-        let s = lex.slice();
-        i64::from_str_radix(&s[2..], 8).ok()
-    })]
-    OctalLiteral(i64),
+    // Store as String to support i128/u128 range - parser will validate
+    #[regex(r"0[oO][0-7]+", |lex| lex.slice().to_string())]
+    OctalLiteral(String),
 
     // Decimal integer (must come AFTER hex/binary/octal to avoid conflicts)
-    #[regex(r"[0-9]+", |lex| lex.slice().parse().ok())]
-    IntLiteral(i64),
+    // Store as String to support i128/u128 range - parser will validate range
+    #[regex(r"[0-9]+", |lex| lex.slice().to_string())]
+    IntLiteral(String),
 
     // Float literal with optional scientific notation: 3.14, 1.5e10, 2.0E-5
     #[regex(r"[0-9]+\.[0-9]+([eE][+-]?[0-9]+)?", |lex| lex.slice().parse().ok())]
@@ -309,7 +305,6 @@ pub enum Token {
     // Underscore wildcard - higher priority than Ident
     #[token("_", priority = 10)]
     Underscore,
-
     // Comments (skip)
     #[regex(r"//[^\n]*", logos::skip)]
     LineComment,
@@ -378,7 +373,10 @@ mod tests {
         let source = r#"42 3.14 "hello" f"world {x}""#;
         let mut lexer = Lexer::new(source);
 
-        assert_eq!(lexer.next().unwrap().unwrap().token, Token::IntLiteral(42));
+        assert_eq!(
+            lexer.next().unwrap().unwrap().token,
+            Token::IntLiteral("42".to_string())
+        );
         assert_eq!(
             lexer.next().unwrap().unwrap().token,
             Token::FloatLiteral(3.14)

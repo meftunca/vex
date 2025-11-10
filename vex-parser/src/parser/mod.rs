@@ -15,7 +15,7 @@ mod primaries;
 mod statements;
 mod types;
 
-// Re-export Parser as the main public interface
+// Re-export Parser as the main public
 pub struct Parser<'a> {
     pub tokens: Vec<TokenSpan>, // Make public for debugging
     pub(crate) current: usize,
@@ -98,8 +98,8 @@ impl<'a> Parser<'a> {
                 items.push(self.parse_type_alias()?);
             } else if self.check(&Token::Enum) {
                 items.push(self.parse_enum()?);
-            } else if self.check(&Token::Interface) || self.check(&Token::Trait) {
-                items.push(self.parse_interface_or_trait()?);
+            } else if self.check(&Token::Trait) {
+                items.push(self.parse_trait()?);
             } else if self.check(&Token::Impl) {
                 items.push(self.parse_trait_impl()?);
             } else if self.check(&Token::Policy) {
@@ -110,7 +110,7 @@ impl<'a> Parser<'a> {
             } else {
                 eprintln!("🔧 Parser: Unknown token: {:?}", self.peek());
                 return Err(self.error(
-                    "Expected top-level item (import, export, const, fn, struct, type, enum, interface, trait, impl, policy, extern)",
+                    "Expected top-level item (import, export, const, fn, struct, type, enum,  trait, impl, policy, extern)",
                 ));
             }
         }

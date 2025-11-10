@@ -1,2 +1,17 @@
 [build]
 target-dir = "./target"
+
+[target.aarch64-apple-darwin]
+rustflags = [
+    "-C", "link-arg=-L/opt/homebrew/opt/llvm@18/lib",
+    "-C", "link-arg=-Wl,-rpath,/opt/homebrew/opt/llvm@18/lib"
+]
+
+[target.x86_64-apple-darwin]
+rustflags = [
+    "-C", "link-arg=-L/opt/homebrew/opt/llvm@18/lib",
+    "-C", "link-arg=-Wl,-rpath,/opt/homebrew/opt/llvm@18/lib"
+]
+
+[env]
+LLVM_SYS_181_PREFIX = "/opt/homebrew/opt/llvm@18"

@@ -1,6 +1,6 @@
 # Policy System
 
-**Version:** 0.9.2
+**Version:** 0.1.2
 **Last Updated:** November 2025
 
 This document describes Vex's policy system, which provides metadata annotations for structs and fields, enabling features like serialization, validation, and code generation.

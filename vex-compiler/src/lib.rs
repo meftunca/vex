@@ -1,8 +1,9 @@
-pub mod borrow_checker; // v0.9: Borrow checker for safety
+pub mod borrow_checker; // v0.1: Borrow checker for safety
 pub mod codegen_ast; // Modular LLVM codegen
 pub mod module_resolver;
 pub mod resolver; // Platform detection & stdlib resolution
 pub mod trait_bounds_checker; // Trait bounds verification
+pub mod type_registry; // Builtin type name registry for O(1) lookup
 
 // Re-export diagnostics from vex-diagnostics crate
 pub use vex_diagnostics as diagnostics;

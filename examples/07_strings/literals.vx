@@ -5,7 +5,7 @@ fn main() : i32 {
     // String literals
     let greeting = "Hello";
     let name = "Vex";
-    let message = "Welcome to Vex v0.9";
+    let message = "Welcome to Vex v0.1";
     
     // Strings are stored as global constants
     // Compiled to i8* (null-terminated)

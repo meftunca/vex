@@ -17,7 +17,7 @@ Then in VS Code:
 
 ### Current (v0.2.0)
 
-- ✅ **Syntax Highlighting** - Full Vex v0.9 syntax
+- ✅ **Syntax Highlighting** - Full Vex v0.1 syntax
 - ✅ **Language Server** - Real-time diagnostics
 - ✅ **Code Snippets** - `main`, `fn`, `struct`, etc.
 - ✅ **Theme** - Vex Dark theme

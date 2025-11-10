@@ -65,16 +65,14 @@ impl ImmutabilityChecker {
                 }
 
                 // ⭐ NEW: Handle method receiver (self)
-                if func.receiver.is_some() {
-                    // ⭐ CRITICAL FIX: Check receiver type's mutability, not just func.is_mutable
-                    let receiver_is_mutable = func.is_mutable || {
-                        // Also check if receiver type itself is mutable reference
-                        if let Some(ref receiver) = func.receiver {
-                            receiver.is_mutable || matches!(&receiver.ty, Type::Reference(_, true))
-                        } else {
-                            false
-                        }
-                    };
+                if let Some(ref receiver) = func.receiver {
+                    // ⭐ CRITICAL FIX: Check receiver mutability from both:
+                    // 1. Inline methods: func.is_mutable (fn method()!)
+                    // 2. External methods: receiver.is_mutable (fn (self: &Type!))
+                    // 3. Reference type: Type::Reference(_, true) for &T!
+                    let receiver_is_mutable = func.is_mutable
+                        || receiver.is_mutable
+                        || matches!(&receiver.ty, Type::Reference(_, true));
 
                     if receiver_is_mutable {
                         // Mutable method: self can be mutated

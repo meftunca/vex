@@ -239,7 +239,7 @@ self.clear_deferred_statements();  // Clear for next function
 
 ## Comparison with Other Languages
 
-| Feature              | Vex (v0.9) | Go  | Rust    | C++     |
+| Feature              | Vex (v0.1) | Go  | Rust    | C++     |
 | -------------------- | ---------- | --- | ------- | ------- |
 | Defer keyword        | ✅         | ✅  | ❌      | ❌      |
 | LIFO execution       | ✅         | ✅  | N/A     | N/A     |

@@ -1,9 +1,0 @@
-fn test(): str {
-    return "hello";
-}
-
-fn main(): i32 {
-    let s = test();
-    println("Result: {}", s);
-    return 0;
-}

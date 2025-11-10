@@ -1,6 +1,6 @@
 # Control Flow
 
-**Version:** 0.9.0  
+**Version:** 0.1.0  
 **Last Updated:** November 3, 2025
 
 This document defines control flow constructs in the Vex programming language.
@@ -81,7 +81,7 @@ if age >= 18 {
 }
 ```
 
-### If-Elif-Else Chain (v0.9)
+### If-Elif-Else Chain (v0.1)
 
 Use `elif` for else-if chains:
 
@@ -112,7 +112,7 @@ if score >= 90 {
 }
 ```
 
-**Note**: `elif` keyword introduced in v0.9 (replaces older `else if` syntax)
+**Note**: `elif` keyword introduced in v0.1 (replaces older `else if` syntax)
 
 ### Nested If
 
@@ -219,7 +219,7 @@ match color {
 }
 ```
 
-### Or Patterns (v0.9)
+### Or Patterns (v0.1)
 
 Match multiple patterns with `|`:
 

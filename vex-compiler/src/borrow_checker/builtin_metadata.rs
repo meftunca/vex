@@ -284,13 +284,15 @@ impl BuiltinBorrowRegistry {
         ); // Takes &Slice, index
         registry.register("slice_len", vec![ParamEffect::BorrowsImmut]); // Takes &Slice
 
-        // Numeric to string conversions
+        // Primitive to string conversions
         registry.register("vex_i32_to_string", vec![ParamEffect::ReadOnly]);
         registry.register("vex_i64_to_string", vec![ParamEffect::ReadOnly]);
         registry.register("vex_u32_to_string", vec![ParamEffect::ReadOnly]);
         registry.register("vex_u64_to_string", vec![ParamEffect::ReadOnly]);
         registry.register("vex_f32_to_string", vec![ParamEffect::ReadOnly]);
         registry.register("vex_f64_to_string", vec![ParamEffect::ReadOnly]);
+        registry.register("vex_bool_to_string", vec![ParamEffect::ReadOnly]);
+        registry.register("vex_string_to_string", vec![ParamEffect::ReadOnly]);
 
         // Async runtime functions
         registry.register("runtime_create", vec![ParamEffect::ReadOnly]); // Creates runtime

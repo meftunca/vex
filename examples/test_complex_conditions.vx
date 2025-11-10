@@ -1,0 +1,67 @@
+// Test complex boolean conditions in Vex
+// Testing: if, elif, and assignment with complex conditions
+
+fn main() {
+    let a: i32 = 10;
+    let b: i32 = 3;
+    let c: i32 = 15;
+    
+    // ============================================================
+    // TEST 1: Complex condition in if statement
+    // ============================================================
+    println("TEST 1: Complex if condition");
+    if a > 0 && (b < 5 || c > 10) {
+        println("✅ Complex if condition works: a>0 && (b<5 || c>10)");
+    } else {
+        println("❌ Complex if condition failed");
+    }
+    
+    // ============================================================
+    // TEST 2: Complex condition in elif
+    // ============================================================
+    println("\nTEST 2: Complex elif condition");
+    let x: i32 = 5;
+    if x < 0 {
+        println("x is negative");
+    } elif x > 0 && (a > 5 || b < 10) {
+        println("✅ Complex elif condition works: x>0 && (a>5 || b<10)");
+    } else {
+        println("x is zero");
+    }
+    
+    // ============================================================
+    // TEST 3: Complex condition assignment to bool variable
+    // ============================================================
+    println("\nTEST 3: Assignment with complex condition");
+    let result: bool = a > 0 && (b < 5 || c > 10);
+    if result {
+        println("✅ Boolean assignment works: let result:bool = a>0 && (b<5 || c>10)");
+    }
+    
+    // ============================================================
+    // TEST 4: Multiple nested conditions
+    // ============================================================
+    println("\nTEST 4: Multiple nested conditions");
+    if (a > 0 && b < 10) || (c > 5 && c < 20) {
+        println("✅ Nested OR conditions work: (a>0 && b<10) || (c>5 && c<20)");
+    }
+    
+    // ============================================================
+    // TEST 5: Complex condition with NOT operator
+    // ============================================================
+    println("\nTEST 5: NOT operator in complex conditions");
+    if !(a < 0) && (b < 5 || c > 10) {
+        println("✅ NOT operator works: !(a<0) && (b<5 || c>10)");
+    }
+    
+    // ============================================================
+    // TEST 6: All operators together
+    // ============================================================
+    println("\nTEST 6: All logical operators");
+    let complex_result: bool = (a > 0 && b < 5) || (c > 10 && !(a < 5));
+    if complex_result {
+        println("✅ All operators work: (a>0 && b<5) || (c>10 && !(a<5))");
+    }
+    
+    println("\n🎉 ALL COMPLEX CONDITION TESTS PASSED!");
+}

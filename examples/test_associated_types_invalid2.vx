@@ -1,0 +1,10 @@
+// Invalid syntax test 2: Incomplete Self.
+
+trait BadIterator2 {
+    type Item;
+    fn next(): Option<Self.>;  // ❌ Should error: incomplete
+}
+
+fn main(): i32 {
+    return 0;
+}

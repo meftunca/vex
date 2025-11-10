@@ -520,12 +520,26 @@ impl<'a> FormattingVisitor<'a> {
             Expression::MethodCall {
                 receiver,
                 method,
+                type_args,
                 args,
                 is_mutable_call,
             } => {
                 self.visit_expression(receiver);
                 self.write(".");
                 self.write(method);
+
+                // Format generic type arguments: Vec<i32>.new()
+                if !type_args.is_empty() {
+                    self.write("<");
+                    for (i, ty) in type_args.iter().enumerate() {
+                        self.visit_type(ty);
+                        if i < type_args.len() - 1 {
+                            self.write(", ");
+                        }
+                    }
+                    self.write(">");
+                }
+
                 self.write("(");
                 for (i, arg) in args.iter().enumerate() {
                     self.visit_expression(arg);
@@ -552,6 +566,35 @@ impl<'a> FormattingVisitor<'a> {
                     }
                 }
                 self.write("]");
+            }
+            Expression::TypeConstructor {
+                type_name,
+                type_args,
+                args,
+            } => {
+                // Type constructor: Vec(), Point(10, 20), Vec<i32>()
+                self.write(type_name);
+
+                // Print type arguments if present
+                if !type_args.is_empty() {
+                    self.write("<");
+                    for (i, ty) in type_args.iter().enumerate() {
+                        self.visit_type(ty);
+                        if i < type_args.len() - 1 {
+                            self.write(", ");
+                        }
+                    }
+                    self.write(">");
+                }
+
+                self.write("(");
+                for (i, arg) in args.iter().enumerate() {
+                    self.visit_expression(arg);
+                    if i < args.len() - 1 {
+                        self.write(", ");
+                    }
+                }
+                self.write(")");
             }
             _ => {
                 self.write("/* expr */");
@@ -606,12 +649,14 @@ impl<'a> FormattingVisitor<'a> {
             Type::U32 => self.write("u32"),
             Type::U64 => self.write("u64"),
             Type::U128 => self.write("u128"),
+            Type::F16 => self.write("f16"),
             Type::F32 => self.write("f32"),
             Type::F64 => self.write("f64"),
-            Type::F128 => self.write("f128"),
             Type::Bool => self.write("bool"),
             Type::String => self.write("string"),
             Type::Byte => self.write("byte"),
+            Type::Nil => self.write("nil"),
+            Type::Error => self.write("error"),
             Type::Named(name) => {
                 self.write(name);
             }

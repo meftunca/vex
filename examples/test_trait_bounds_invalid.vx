@@ -1,0 +1,31 @@
+// Test trait bounds enforcement - SHOULD FAIL
+// Vector does NOT implement Display
+
+trait Display {
+    fn to_string(): string;
+}
+
+struct Point impl Display {
+    x: i32,
+    y: i32,
+    
+    fn to_string(): string {
+        return "Point";
+    }
+}
+
+struct Vector {
+    x: f64,
+    y: f64,
+    // NO Display implementation!
+}
+
+fn print_value<T: Display>(value: T) {
+    // Should only accept types that implement Display
+}
+
+fn main(): i32 {
+    let v = Vector { x: 1.0, y: 2.0 };
+    print_value(v);  // ❌ Should fail - Vector doesn't implement Display
+    return 0;
+}

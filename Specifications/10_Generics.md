@@ -1,6 +1,6 @@
 # Generics (Parametric Polymorphism)
 
-**Version:** 0.9.0  
+**Version:** 0.1.0  
 **Last Updated:** November 3, 2025
 
 This document defines the generic type system in Vex, enabling code reuse through parametric polymorphism.
@@ -389,7 +389,7 @@ fn compare_and_show<T: Comparable & Display>(a: T, b: T): i32 {
 
 **Syntax**: `T: Trait1 & Trait2 & ...`
 
-### Where Clauses ✅ COMPLETE (v0.9.2)
+### Where Clauses ✅ COMPLETE (v0.1.2)
 
 For complex constraints, use where clause for better readability:
 
@@ -784,7 +784,7 @@ fn create<T: Clone>(value: T): Container<T> {
 | Monomorphization    | Automatic          | ✅ Working | Zero runtime cost              |
 | Generic Enums       | `enum E<T> { }`    | ✅ Working | `Option<T>`, `Result<T,E>`     |
 | Trait Bounds        | `<T: Trait>`       | ✅ Working | Constrained types              |
-| Where Clauses       | `where T: Trait`   | ✅ v0.9.2  | Complex constraints            |
+| Where Clauses       | `where T: Trait`   | ✅ v0.1.2  | Complex constraints            |
 | Associated Types    | `type Item;`       | ✅ Working | Trait associated types working |
 | Higher-Kinded       | `F<T>`             | ❌ Future  | Generic over generics          |
 | Const Generics      | `[T; N]`           | ❌ Future  | Array size parameter           |

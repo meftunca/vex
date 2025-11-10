@@ -1,6 +1,6 @@
 # Pattern Matching
 
-**Version:** 0.9.0  
+**Version:** 0.1.0  
 **Last Updated:** November 3, 2025
 
 This document defines pattern matching and destructuring in the Vex programming language.
@@ -212,7 +212,7 @@ match triple {
 
 ### Struct Destructuring
 
-**Status**: ✅ **COMPLETE** (v0.9.2)
+**Status**: ✅ **COMPLETE** (v0.1.2)
 
 Extract struct fields in pattern matching:
 
@@ -718,7 +718,7 @@ match error_code {
 | Enum         | `Color::Red`           | ✅ Working           | Enum variant                 |
 | Or           | `1 \| 2 \| 3`          | ✅ Working           | Multiple patterns            |
 | Tuple        | `(x, y)`               | ✅ Working           | Destructure tuples           |
-| Struct       | `Point { x, y }`       | ✅ Complete (v0.9.2) | Destructure structs          |
+| Struct       | `Point { x, y }`       | ✅ Complete (v0.1.2) | Destructure structs          |
 | Array        | `[a, b, c]`            | ✅ Working           | Fixed-size arrays            |
 | Slice        | `[head, ...rest]`      | ✅ Working           | Rest patterns with `...`     |
 | Enum Data    | `Some(x)`              | ✅ Working           | Data-carrying enums working  |

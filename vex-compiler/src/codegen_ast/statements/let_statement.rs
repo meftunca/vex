@@ -14,14 +14,14 @@ impl<'ctx> ASTCodeGen<'ctx> {
         ty: Option<&Type>,
         value: &Expression,
     ) -> Result<(), String> {
-        // v0.9: is_mutable determines if variable is mutable (let vs let!)
+        // v0.1: is_mutable determines if variable is mutable (let vs let!)
         // FIRST: Determine struct name from expression BEFORE compiling
         // (because after compilation, we lose the expression structure)
-        eprintln!(
-            "🔷 Let statement: var={}, has_type_annotation={}",
-            name,
-            ty.is_some()
-        );
+        // eprintln!(
+        //     "🔷 Let statement: var={}, has_type_annotation={}",
+        //     name,
+        //     ty.is_some()
+        // );
         let struct_name_from_expr = if ty.is_none() {
             eprintln!("  → Type inference needed, analyzing expression...");
             match value {
@@ -30,7 +30,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     type_args,
                     ..
                 } => {
-                    eprintln!("  → StructLiteral: {}", s_name);
+                    // eprintln!("  → StructLiteral: {}", s_name);
 
                     // Handle generic struct literals: Box<i32> -> Box_i32
                     if !type_args.is_empty() {
@@ -48,46 +48,43 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 Expression::MethodCall {
                     receiver, method, ..
                 } => {
-                    eprintln!("  → MethodCall expression");
-                    eprintln!("    → Method: {}", method);
+                    // eprintln!("  → MethodCall expression");
+                    // eprintln!("    → Method: {}", method);
 
-                    // Special handling for builtin method calls that return specific types
-                    let builtin_return_type = if let Expression::Ident(var_name) = receiver.as_ref()
-                    {
-                        if let Some(struct_name) = self.variable_struct_names.get(var_name) {
-                            // Check for Vec.as_slice() -> Slice
-                            if struct_name == "Vec" && method == "as_slice" {
-                                eprintln!("    ✅ Vec.as_slice() -> Slice");
-                                Some("Slice".to_string())
-                            } else {
-                                None
-                            }
+                    // Check for static method calls: Type.new() -> Type
+                    if let Expression::Ident(potential_type_name) = receiver.as_ref() {
+                        // Check if this is a type name (PascalCase)
+                        let is_type_name = potential_type_name
+                            .chars()
+                            .next()
+                            .map(|c| c.is_uppercase())
+                            .unwrap_or(false);
+
+                        // Check if NOT a variable (static methods are on types)
+                        let is_not_variable = !self.variables.contains_key(potential_type_name);
+
+                        if is_type_name && is_not_variable {
+                            // Static method call like Vec.new(), Box.new()
+                            // Return the type name as the struct name
+                            // eprintln!("    ✅ Static method {}.{}() -> {}", potential_type_name, method, potential_type_name);
+                            Some(potential_type_name.clone())
                         } else {
                             None
                         }
                     } else {
                         None
-                    };
-
-                    if builtin_return_type.is_some() {
-                        builtin_return_type
-                    } else {
-                        // Get struct type from receiver
-                        let struct_name = if let Expression::Ident(var_name) = receiver.as_ref() {
-                            if var_name == "self" {
-                                self.variable_struct_names.get(var_name).cloned()
-                            } else {
-                                self.variable_struct_names.get(var_name).cloned()
-                            }
-                        } else {
-                            None
-                        };
-
-                        if let Some(struct_name) = struct_name {
-                            let method_func_name = format!("{}_{}", struct_name, method);
-                            if let Some(func_def) = self.function_defs.get(&method_func_name) {
-                                if let Some(Type::Named(s_name)) = &func_def.return_type {
-                                    Some(s_name.clone())
+                    }
+                    // If not a static method, continue with instance method logic
+                    .or_else(|| {
+                        // Special handling for builtin method calls that return specific types
+                        let builtin_return_type = if let Expression::Ident(var_name) =
+                            receiver.as_ref()
+                        {
+                            if let Some(struct_name) = self.variable_struct_names.get(var_name) {
+                                // Check for Vec.as_slice() -> Slice
+                                if struct_name == "Vec" && method == "as_slice" {
+                                    // eprintln!("    ✅ Vec.as_slice() -> Slice");
+                                    Some("Slice".to_string())
                                 } else {
                                     None
                                 }
@@ -96,19 +93,73 @@ impl<'ctx> ASTCodeGen<'ctx> {
                             }
                         } else {
                             None
+                        };
+
+                        if builtin_return_type.is_some() {
+                            builtin_return_type
+                        } else {
+                            // Get struct type from receiver
+                            let struct_name = if let Expression::Ident(var_name) = receiver.as_ref()
+                            {
+                                if var_name == "self" {
+                                    self.variable_struct_names.get(var_name).cloned()
+                                } else {
+                                    self.variable_struct_names.get(var_name).cloned()
+                                }
+                            } else {
+                                None
+                            };
+
+                            if let Some(struct_name) = struct_name {
+                                let method_func_name = format!("{}_{}", struct_name, method);
+                                if let Some(func_def) = self.function_defs.get(&method_func_name) {
+                                    if let Some(Type::Named(s_name)) = &func_def.return_type {
+                                        Some(s_name.clone())
+                                    } else {
+                                        None
+                                    }
+                                } else {
+                                    None
+                                }
+                            } else {
+                                None
+                            }
                         }
+                    })
+                }
+                Expression::TypeConstructor {
+                    type_name,
+                    type_args,
+                    ..
+                } => {
+                    // TypeConstructor: Vec(), Box(42), etc.
+                    // This desugars to Type.new() but we handle it here for type inference
+                    // eprintln!("  ✅ TypeConstructor: {} -> {}", type_name, type_name);
+
+                    // Handle generic type constructors: Vec<i32>() -> Vec_i32
+                    if !type_args.is_empty() {
+                        // Instantiate the generic type to get the mangled name
+                        if let Ok(mangled_name) =
+                            self.instantiate_generic_struct(type_name, type_args)
+                        {
+                            Some(mangled_name)
+                        } else {
+                            Some(type_name.clone())
+                        }
+                    } else {
+                        Some(type_name.clone())
                     }
                 }
                 Expression::Range { .. } => {
-                    eprintln!("  → Range expression (0..10)");
+                    // eprintln!("  → Range expression (0..10)");
                     Some("Range".to_string())
                 }
                 Expression::RangeInclusive { .. } => {
-                    eprintln!("  → RangeInclusive expression (0..=10)");
+                    // eprintln!("  → RangeInclusive expression (0..=10)");
                     Some("RangeInclusive".to_string())
                 }
                 Expression::Array(_) | Expression::ArrayRepeat(_, _) => {
-                    eprintln!("  → Array literal or repeat");
+                    // eprintln!("  → Array literal or repeat");
                     None // Arrays don't have struct names, they're stack-allocated
                 }
                 Expression::Call {
@@ -117,55 +168,55 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     type_args,
                     ..
                 } => {
-                    eprintln!("  → Call expression");
+                    // eprintln!("  → Call expression");
                     if let Expression::Ident(func_name) = func.as_ref() {
-                        eprintln!("    → Function: {}", func_name);
+                        // eprintln!("    → Function: {}", func_name);
 
                         // Phase 0.4b: Check for builtin constructors
                         match func_name.as_str() {
                             "vec_new" | "vec_with_capacity" => {
-                                eprintln!("    ✅ Builtin vec_new() -> Vec");
+                                // eprintln!("    ✅ Builtin vec_new() -> Vec");
                                 Some("Vec".to_string())
                             }
                             "box_new" => {
-                                eprintln!("    ✅ Builtin box_new() -> Box");
+                                // eprintln!("    ✅ Builtin box_new() -> Box");
                                 Some("Box".to_string())
                             }
                             "string_new" | "string_from" => {
-                                eprintln!("    ✅ Builtin string_new/string_from() -> String");
+                                // eprintln!("    ✅ Builtin string_new/string_from() -> String");
                                 Some("String".to_string())
                             }
                             "map_new" | "map_with_capacity" | "hashmap_new" => {
-                                eprintln!("    ✅ Builtin map_new() -> Map");
+                                // eprintln!("    ✅ Builtin map_new() -> Map");
                                 Some("Map".to_string())
                             }
                             "set_new" | "set_with_capacity" => {
-                                eprintln!("    ✅ Builtin set_new() -> Set");
+                                // eprintln!("    ✅ Builtin set_new() -> Set");
                                 Some("Set".to_string())
                             }
                             "range_new" => {
-                                eprintln!("    ✅ Builtin range_new() -> Range");
+                                // eprintln!("    ✅ Builtin range_new() -> Range");
                                 Some("Range".to_string())
                             }
                             "range_inclusive_new" => {
-                                eprintln!("    ✅ Builtin range_inclusive_new() -> RangeInclusive");
+                                // eprintln!("    ✅ Builtin range_inclusive_new() -> RangeInclusive");
                                 Some("RangeInclusive".to_string())
                             }
                             "channel_new" => {
-                                eprintln!("    ✅ Builtin channel_new() -> Channel");
+                                // eprintln!("    ✅ Builtin channel_new() -> Channel");
                                 Some("Channel".to_string())
                             }
                             _ => {
                                 // Regular function
                                 if let Some(func_def) = self.function_defs.get(func_name) {
-                                    eprintln!(
-                                        "    → Found func_def, return_type: {:?}",
-                                        func_def.return_type
-                                    );
+                                    // eprintln!(
+                                    //     "    → Found func_def, return_type: {:?}",
+                                    //     func_def.return_type
+                                    // );
 
                                     // Check if this is a generic function with explicit type args
                                     if !func_def.type_params.is_empty() && !type_args.is_empty() {
-                                        eprintln!("    → Generic function with explicit type args");
+                                        // eprintln!("    → Generic function with explicit type args");
 
                                         // Build mangled function name
                                         let type_names: Vec<String> = type_args
@@ -174,26 +225,26 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                             .collect();
                                         let mangled_func =
                                             format!("{}_{}", func_name, type_names.join("_"));
-                                        eprintln!("    → Mangled func name: {}", mangled_func);
+                                        // eprintln!("    → Mangled func name: {}", mangled_func);
 
                                         // Look up instantiated function
                                         if let Some(inst_func_def) =
                                             self.function_defs.get(&mangled_func)
                                         {
-                                            eprintln!(
-                                                "    → Found instantiated func, return_type: {:?}",
-                                                inst_func_def.return_type
-                                            );
+                                            // eprintln!(
+                                            //     "    → Found instantiated func, return_type: {:?}",
+                                            //     inst_func_def.return_type
+                                            // );
 
                                             // Get struct name from return type
                                             if let Some(Type::Named(s_name)) =
                                                 &inst_func_def.return_type
                                             {
                                                 if self.struct_defs.contains_key(s_name) {
-                                                    eprintln!(
-                                                        "    ✅ Instantiated returns struct: {}",
-                                                        s_name
-                                                    );
+                                                    // eprintln!(
+                                                    //     "    ✅ Instantiated returns struct: {}",
+                                                    //     s_name
+                                                    // );
                                                     Some(s_name.clone())
                                                 } else {
                                                     None
@@ -218,17 +269,17 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                                         gen_name,
                                                         arg_names.join("_")
                                                     );
-                                                    eprintln!(
-                                                        "    ✅ Generic return mangled to: {}",
-                                                        mangled_struct
-                                                    );
+                                                    // eprintln!(
+                                                    //     "    ✅ Generic return mangled to: {}",
+                                                    //     mangled_struct
+                                                    // );
 
                                                     // ⭐ Instantiate the generic struct with its methods
                                                     if let Err(e) = self.instantiate_generic_struct(
                                                         &gen_name_clone,
                                                         &gen_args_clone,
                                                     ) {
-                                                        eprintln!("    ⚠️  Failed to instantiate struct: {}", e);
+                                                        // eprintln!("    ⚠️  Failed to instantiate struct: {}", e);
                                                     } else {
                                                         eprintln!(
                                                             "    ✅ Struct instantiated: {}",
@@ -419,11 +470,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 }
             }
         } else {
-            eprintln!("  → Type annotation present, skipping inference");
+            // eprintln!("  → Type annotation present, skipping inference");
             None
         };
 
-        eprintln!("  → struct_name_from_expr: {:?}", struct_name_from_expr);
+        // eprintln!("  → struct_name_from_expr: {:?}", struct_name_from_expr);
 
         // Array size validation: if type annotation is [T; N], verify array literal has N elements
         if let Some(Type::Array(_, annotated_size)) = ty {

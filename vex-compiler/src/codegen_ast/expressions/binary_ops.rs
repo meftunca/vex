@@ -56,6 +56,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         return self.compile_method_call(
                             left,
                             method_name,
+                            &[], // No generic type args for operator overloading
                             &vec![right.clone()],
                             false,
                         );

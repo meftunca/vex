@@ -1,6 +1,6 @@
 # Lexical Structure
 
-**Version:** 0.9.0  
+**Version:** 0.1.0  
 **Last Updated:** November 3, 2025
 
 This document defines the lexical structure of the Vex programming language, including tokens, identifiers, literals, operators, and comments.
@@ -196,7 +196,7 @@ true        false
 
 ### Deprecated Keywords
 
-- `mut` - Removed in v0.9 (use `let!` for mutable variables)
+- `mut` - Removed in v0.1 (use `let!` for mutable variables)
 - `interface` - Use `trait` instead
 
 ---

@@ -113,13 +113,15 @@ impl LifetimeChecker {
             "vec_free",
             "box_new",
             "box_free",
-            // Phase 0.7: Numeric to string conversions
+            // Phase 0.7: Primitive to string conversions
             "vex_i32_to_string",
             "vex_i64_to_string",
             "vex_u32_to_string",
             "vex_u64_to_string",
             "vex_f32_to_string",
             "vex_f64_to_string",
+            "vex_bool_to_string",
+            "vex_string_to_string",
         ];
 
         for name in &builtins {
@@ -451,6 +453,12 @@ impl LifetimeChecker {
                     return Ok(());
                 }
 
+                // Skip builtin type names (Vec, Box, Map, etc.) - O(1) hash lookup
+                // These are used in static method calls like Vec.new()
+                if crate::type_registry::is_builtin_type(name) {
+                    return Ok(());
+                }
+
                 // Verify variable is in scope
                 if !self.in_scope.contains(name) {
                     // Collect available names for fuzzy matching
@@ -482,11 +490,7 @@ impl LifetimeChecker {
                 span_id: _, expr, ..
             } => self.check_expression(expr),
 
-            Expression::Call {
-                func,
-                args,
-                ..
-            } => {
+            Expression::Call { func, args, .. } => {
                 // Skip checking builtin function names as variables
                 if let Expression::Ident(func_name) = func.as_ref() {
                     if !self.builtin_registry.is_builtin(func_name) {
@@ -688,6 +692,16 @@ impl LifetimeChecker {
 
                 Ok(())
             }
+
+            Expression::TypeConstructor { args, .. } => {
+                // Check all constructor arguments
+                for arg in args {
+                    self.check_expression(arg)?;
+                }
+                Ok(())
+            }
+
+            Expression::BigIntLiteral(_) => Ok(()), // Literals are always valid
         }
     }
 

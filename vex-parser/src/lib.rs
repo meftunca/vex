@@ -17,6 +17,9 @@ pub enum ParseError {
 
     #[error("Lexer error: {0}")]
     LexerError(String),
+
+    #[error("{0}")]
+    Other(String),
 }
 
 impl ParseError {

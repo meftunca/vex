@@ -1,7 +1,7 @@
 # Vex Language Reference
 
-**Version:** 0.9.2  
-**Syntax Version:** 0.9.2  
+**Version:** 0.1.2  
+**Syntax Version:** 0.1.2  
 **Last Updated:** November 10, 2025
 
 This document is the comprehensive syntax reference for the Vex programming language. It is designed to be the authoritative source for AI agents and developers working with Vex.
@@ -110,7 +110,7 @@ where       extends     try
 
 **IMPORTANT:**
 
-- ❌ NO `mut` keyword (removed in v0.9)
+- ❌ NO `mut` keyword (removed in v0.1)
 - ❌ NO `interface` keyword (deprecated, use `trait`)
 - ✅ `trait` is the correct keyword for interfaces
 - ✅ `defer` is implemented (Go-style cleanup)
@@ -234,6 +234,8 @@ f32     // Single precision
 f64     // Double precision (default)
 ```
 
+**Note:** `f128` (quad precision) is not supported due to platform-specific linker limitations with compiler-rt intrinsics.
+
 #### Other Primitives
 
 ```vex
@@ -290,7 +292,7 @@ let boxed = Box.new(42);
 
 ### Advanced Types
 
-#### Union Types ✅ (v0.9.2)
+#### Union Types ✅ (v0.1.2)
 
 ```vex
 type Result = i32 | string | error;
@@ -802,7 +804,7 @@ enum HttpStatus {
 }
 ```
 
-### Tuple Variants ✅ (v0.9.2)
+### Tuple Variants ✅ (v0.1.2)
 
 **Verified: Expression::EnumLiteral has `data: Vec<Expression>`**
 
@@ -1516,20 +1518,18 @@ Vex supports **trait-based operator overloading**, allowing custom types to defi
 
 ```vex
 trait Add<Rhs, Output> {
-    fn add(self: &Self, rhs: Rhs): Output;
+    fn add(rhs: Rhs): Output;
 }
 
-struct Point {
+struct Point impl Add<Point, Point> {
     x: i32,
     y: i32,
-}
 
-impl Add<Point, Point> for Point {
-    fn add(self: &Point, rhs: Point): Point {
-        Point {
+    fn add(rhs: Point): Point {
+        return Point {
             x: self.x + rhs.x,
             y: self.y + rhs.y,
-        }
+        };
     }
 }
 
@@ -2025,8 +2025,8 @@ find src -name "*.vx" -exec vex format -i {} \;
 
 ### Version Information
 
-- **Language Version:** 0.9.2
-- **Syntax Version:** 0.9.2
+- **Language Version:** 0.1.2
+- **Syntax Version:** 0.1.2
 - **Last Verified:** November 10, 2025
 
 ### Sources

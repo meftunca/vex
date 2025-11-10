@@ -346,6 +346,7 @@ impl<'a> Parser<'a> {
                             expr = Expression::MethodCall {
                                 receiver: Box::new(Expression::Ident("self".to_string())),
                                 method: name.clone(),
+                                type_args: vec![], // No generic args for method body self calls
                                 args,
                                 is_mutable_call: false, // self calls don't use ! syntax
                             };
@@ -362,16 +363,18 @@ impl<'a> Parser<'a> {
             } else if self.check(&Token::LBrace) && matches!(expr, Expression::Ident(_)) {
                 // Struct literal: TypeName { field: value, ... } or Box<i32> { field: value }
                 // Lookahead to distinguish from block: check if next token after '{' is identifier followed by ':'
+                // OR if it's immediately '}'  (empty struct)
                 let checkpoint = self.current;
                 self.advance(); // consume '{'
 
-                let is_struct_literal = matches!(self.peek(), Token::Ident(_)) && {
-                    let temp_checkpoint = self.current;
-                    self.advance();
-                    let has_colon = self.check(&Token::Colon) || self.check(&Token::RBrace);
-                    self.current = temp_checkpoint;
-                    has_colon
-                };
+                let is_struct_literal = self.check(&Token::RBrace)
+                    || (matches!(self.peek(), Token::Ident(_)) && {
+                        let temp_checkpoint = self.current;
+                        self.advance();
+                        let has_colon = self.check(&Token::Colon) || self.check(&Token::RBrace);
+                        self.current = temp_checkpoint;
+                        has_colon
+                    });
 
                 if !is_struct_literal {
                     // Not a struct literal, backtrack
@@ -409,8 +412,8 @@ impl<'a> Parser<'a> {
                 // Field access, method call, tuple field access, or enum constructor
 
                 // Phase 0.8: Check for tuple field access (numeric field: .0, .1, .2, etc.)
-                if let Token::IntLiteral(index_val) = self.peek() {
-                    let field_index = index_val.to_string();
+                if let Token::IntLiteral(index_str) = self.peek() {
+                    let field_index = index_str.clone();
                     self.advance(); // consume the number
                     expr = Expression::FieldAccess {
                         object: Box::new(expr),
@@ -419,16 +422,38 @@ impl<'a> Parser<'a> {
                     continue;
                 }
 
-                let field_or_method = self.consume_identifier()?;
+                // Allow keywords as method/field names (new, free, etc.)
+                let field_or_method = self.consume_identifier_or_keyword()?;
 
                 if self.check(&Token::LParen) {
                     // Could be: method call obj.method(args) OR enum constructor Enum.Variant(data)
-                    // Only treat as enum if left side is PascalCase identifier (starts with uppercase)
+                    // Priority rules:
+                    // 1. If method name is lowercase (new, from, etc.) → ALWAYS method call (static methods)
+                    // 2. If Type.Variant(...) with both PascalCase → enum constructor
+                    // 3. Otherwise → method call
+
                     let is_potential_enum = if let Expression::Ident(name) = &expr {
-                        name.chars()
+                        let type_is_pascal = name
+                            .chars()
                             .next()
                             .map(|c| c.is_uppercase())
-                            .unwrap_or(false)
+                            .unwrap_or(false);
+                        let method_is_pascal = field_or_method
+                            .chars()
+                            .next()
+                            .map(|c| c.is_uppercase())
+                            .unwrap_or(false);
+
+                        // Special keywords like 'new' should ALWAYS be method calls, not enums
+                        let is_static_method_keyword = matches!(
+                            field_or_method.as_str(),
+                            "new" | "from" | "with_capacity" | "default"
+                        );
+
+                        // It's an enum only if:
+                        // - Both are PascalCase AND
+                        // - NOT a known static method keyword
+                        type_is_pascal && method_is_pascal && !is_static_method_keyword
                     } else {
                         false
                     };
@@ -465,6 +490,7 @@ impl<'a> Parser<'a> {
                         expr = Expression::MethodCall {
                             receiver: Box::new(expr),
                             method: field_or_method,
+                            type_args: pending_type_args.unwrap_or_default(), // ⭐ NEW: Generic static methods
                             args,
                             is_mutable_call,
                         };

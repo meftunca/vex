@@ -28,7 +28,7 @@ mod utf8; // Stdlib: testing module
 
 // Re-export all builtin implementations
 pub use array::*;
- // Async runtime functions
+// Async runtime functions
 pub use builtin_types::*; // Phase 0 builtin types
 pub use channel::*;
 pub use core::*;
@@ -195,7 +195,7 @@ impl<'ctx> BuiltinRegistry<'ctx> {
         registry.register("Channel.send", channel::builtin_channel_send);
         registry.register("Channel.recv", channel::builtin_channel_recv);
 
-        // Phase 0.7: Numeric to string conversions
+        // Phase 0.7: Primitive to string conversions
         registry.register(
             "vex_i32_to_string",
             builtin_types::builtin_vex_i32_to_string,
@@ -215,6 +215,18 @@ impl<'ctx> BuiltinRegistry<'ctx> {
         registry.register(
             "vex_f32_to_string",
             builtin_types::builtin_vex_f32_to_string,
+        );
+        registry.register(
+            "vex_f64_to_string",
+            builtin_types::builtin_vex_f64_to_string,
+        );
+        registry.register(
+            "vex_bool_to_string",
+            builtin_types::builtin_vex_bool_to_string,
+        );
+        registry.register(
+            "vex_string_to_string",
+            builtin_types::builtin_vex_string_to_string,
         );
 
         // ========================================================================
@@ -242,11 +254,6 @@ impl<'ctx> BuiltinRegistry<'ctx> {
             "testing::assert_ne",
             stdlib_testing::stdlib_testing_assert_ne,
         );
-        registry.register(
-            "vex_f64_to_string",
-            builtin_types::builtin_vex_f64_to_string,
-        );
-
         registry
     }
 

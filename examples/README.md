@@ -1,4 +1,4 @@
-# Vex Examples - v0.9
+# Vex Examples - v0.1
 
 Welcome to the Vex programming language examples! These examples demonstrate the core features of Vex that are currently implemented and working.
 
@@ -179,7 +179,7 @@ fn example(): i32 {
 
 **All algorithms are working and tested!** ✅
 
-## 🔧 v0.9 Syntax Guide
+## 🔧 v0.1 Syntax Guide
 
 ### Variables
 
@@ -352,7 +352,7 @@ echo $?  # Should print 120
 
 When adding new examples:
 
-1. Use v0.9 syntax (`let` vs `let!`)
+1. Use v0.1 syntax (`let` vs `let!`)
 2. Include comments explaining the feature
 3. Make examples self-contained
 4. Test that they compile and run
@@ -360,7 +360,7 @@ When adding new examples:
 
 ## 📝 Notes
 
-- All examples use v0.9 syntax (let/let! system)
+- All examples use v0.1 syntax (let/let! system)
 - Examples return values via exit codes for testing
 - IO operations commented out until std library is ready
 - Focus on features that actually work in the compiler
@@ -368,5 +368,5 @@ When adding new examples:
 ---
 
 **Compiler Version:** 0.2.0  
-**Syntax Version:** v0.9  
+**Syntax Version:** v0.1  
 **Last Updated:** 3 Kasım 2025

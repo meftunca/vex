@@ -1,0 +1,22 @@
+// Test Self.Item parsing (parser-only test)
+// Goal: Verify Type::SelfType and Type::AssociatedType are parsed
+
+trait Iterator {
+    type Item;
+    
+    fn next(): Option<Self.Item>;
+}
+
+struct Counter impl Iterator {
+    type Item = i32;
+    count: i32,
+    
+    fn next()!: Option<i32> {
+        self.count = self.count + 1;
+        return Some(self.count);
+    }
+}
+
+fn main(): i32 {
+    return 0;
+}

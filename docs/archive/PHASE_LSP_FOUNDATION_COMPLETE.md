@@ -1,7 +1,7 @@
-# Vex v0.9.2 - Error Messages & LSP Integration Complete! 🎉
+# Vex v0.1.2 - Error Messages & LSP Integration Complete! 🎉
 
 **Date**: November 7, 2025  
-**Version**: 0.9.2 (Error System + LSP Foundation)  
+**Version**: 0.1.2 (Error System + LSP Foundation)  
 **Status**: ✅ Phase 1 Complete - Ready for VS Code Testing
 
 ---
@@ -365,7 +365,7 @@ Cmd+Shift+P → "Vex: Restart Language Server"
 ## 📝 Commit Message
 
 ```
-feat: Add error system + LSP foundation (v0.9.2)
+feat: Add error system + LSP foundation (v0.1.2)
 
 - Implement Diagnostic system (Span, formatting, colors)
 - Create vex-lsp server (308 lines, tower-lsp)

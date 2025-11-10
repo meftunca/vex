@@ -43,7 +43,7 @@ impl<'a> Parser<'a> {
             self.parse_struct()
         } else if self.check(&Token::Trait) {
             // Pattern 2: export trait Foo {}
-            self.parse_interface_or_trait()
+            self.parse_trait()
         } else if self.check(&Token::Enum) {
             // Pattern 2: export enum Foo {}
             self.parse_enum()

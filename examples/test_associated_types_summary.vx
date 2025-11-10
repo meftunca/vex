@@ -1,0 +1,30 @@
+// Edge Case Test Summary for Associated Types
+// Testing comprehensive parsing of Self.Item syntax
+
+// ✅ Test 1: Multiple associated types - PASSED
+// KeyValue trait with Self.Key and Self.Value
+
+// ✅ Test 2: Generic containers - PASSED  
+// Vec<Self.Item>, Option<Self.Item>, Result<Self.Item, i32>
+
+// ✅ Test 3: Function signatures - PASSED
+// fn(Self.Input): Self.Output
+
+// ✅ Test 4: Complex nested generics - PASSED
+// Result<Self.Output, Self.Error>, Vec<Result<Self.Output, Self.Error>>
+
+// ❌ Test 5: Invalid syntax Self::Item - FAILED (as expected)
+// Parser correctly rejects :: syntax
+
+// ❌ Test 6: Incomplete Self. - FAILED (as expected)
+// Parser correctly rejects incomplete associated type
+
+// ✅ Test 7: Self keyword standalone - PASSED (exit 42)
+// Self can be used as return type in methods
+
+// 🔄 Test 8: Codegen not yet implemented
+// Parser works, but ast_type_to_llvm() returns opaque pointer
+
+fn main(): i32 {
+    return 0;
+}

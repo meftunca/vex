@@ -1,6 +1,6 @@
 # Package Manager
 
-**Version:** 0.9.2
+**Version:** 0.1.2
 **Last Updated:** November 2025
 
 This document describes Vex's package manager (`vex-pm`), which provides dependency management, project initialization, and build coordination for Vex projects.

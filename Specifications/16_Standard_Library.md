@@ -1,6 +1,6 @@
 # Standard Library
 
-**Version:** 0.9.2  
+**Version:** 0.1.2  
 **Last Updated:** November 2025
 
 This document provides an overview of the Vex standard library organization and API reference.

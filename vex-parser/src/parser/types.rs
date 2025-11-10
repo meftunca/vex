@@ -124,10 +124,12 @@ impl<'a> Parser<'a> {
             let elem_ty = self.parse_type()?;
             self.consume(&Token::Semicolon, "Expected ';' in array type")?;
 
-            let size = if let Token::IntLiteral(n) = self.peek() {
-                let n_val = *n;
+            let size = if let Token::IntLiteral(s) = self.peek() {
+                let s_val = s.clone();
                 self.advance();
-                n_val as usize
+                s_val
+                    .parse::<usize>()
+                    .map_err(|_| self.error(&format!("Array size out of range: {}", s_val)))?
             } else {
                 return Err(self.error("Expected array size"));
             };
@@ -178,6 +180,10 @@ impl<'a> Parser<'a> {
                 self.advance();
                 Type::U128
             }
+            Token::F16 => {
+                self.advance();
+                Type::F16
+            }
             Token::F32 => {
                 self.advance();
                 Type::F32
@@ -226,6 +232,22 @@ impl<'a> Parser<'a> {
             }
             Token::Ident(_) => {
                 let name = self.consume_identifier()?;
+
+                // ⭐ NEW: Check for Self type
+                if name == "Self" {
+                    // Check for associated type: Self.Item (Vex uses . not ::)
+                    if self.check(&Token::Dot) {
+                        self.advance(); // consume .
+                        let assoc_name = self.consume_identifier()?;
+
+                        return Ok(Type::AssociatedType {
+                            self_type: Box::new(Type::SelfType),
+                            name: assoc_name,
+                        });
+                    }
+
+                    return Ok(Type::SelfType);
+                }
 
                 // Check for builtin types (Phase 0: Option, Result, Vec, Box, Map)
                 // These are parsed specially to generate Type enum variants
@@ -437,7 +459,7 @@ impl<'a> Parser<'a> {
             return Ok(Type::Infer(name));
         }
 
-        // Reference type: &T or &T! (v0.9 syntax), or Slice type: &[T] or &[T]!
+        // Reference type: &T or &T! (v0.1 syntax), or Slice type: &[T] or &[T]!
         if self.check(&Token::Ampersand) {
             self.advance();
 
@@ -487,10 +509,12 @@ impl<'a> Parser<'a> {
             let elem_ty = self.parse_type_primary()?;
             self.consume(&Token::Semicolon, "Expected ';' in array type")?;
 
-            let size = if let Token::IntLiteral(n) = self.peek() {
-                let n_val = *n;
+            let size = if let Token::IntLiteral(s) = self.peek() {
+                let s_val = s.clone();
                 self.advance();
-                n_val as usize
+                s_val
+                    .parse::<usize>()
+                    .map_err(|_| self.error(&format!("Array size out of range: {}", s_val)))?
             } else {
                 return Err(self.error("Expected array size"));
             };
@@ -532,6 +556,18 @@ impl<'a> Parser<'a> {
             Token::U64 => {
                 self.advance();
                 Type::U64
+            }
+            Token::I128 => {
+                self.advance();
+                Type::I128
+            }
+            Token::U128 => {
+                self.advance();
+                Type::U128
+            }
+            Token::F16 => {
+                self.advance();
+                Type::F16
             }
             Token::F32 => {
                 self.advance();

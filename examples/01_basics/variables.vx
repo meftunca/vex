@@ -1,8 +1,8 @@
-// Basic Variables in Vex v0.9
+// Basic Variables in Vex v0.1
 // Demonstrates: let (immutable), let! (mutable), const
 
 fn main() : i32 {
-    // Immutable variable (default in v0.9)
+    // Immutable variable (default in v0.1)
     let x = 42;
     // x = 50;  // ❌ Error: cannot assign to immutable variable
     

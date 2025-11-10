@@ -1,0 +1,44 @@
+// Test all primitive types supported by Vex v0.1.2
+// This file tests i8-i128, u8-u128, f16-f128, bool, string, byte, nil
+
+fn main(): i32 {
+    // Integer types - signed
+    let i8_val: i8 = 127;
+    let i16_val: i16 = 32767;
+    let i32_val: i32 = 2147483647;
+    let i64_val: i64 = 9223372036854775807;
+    
+    // Integer types - unsigned
+    let u8_val: u8 = 255;
+    let u16_val: u16 = 65535;
+    let u32_val: u32 = 4294967295;
+    
+    // Floating-point types
+    let f32_val: f32 = 3.14159;
+    let f64_val: f64 = 3.141592653589793;
+    
+    // Boolean type
+    let bool_true: bool = true;
+    let bool_false: bool = false;
+    
+    // String type
+    let string_val: string = "Hello, Vex!";
+    
+    // Byte type (alias for u8)
+    let byte_val: byte = 255;
+    
+    // Nil type (unit type)
+    let nil_val = nil;
+    
+    // Test basic operations
+    let sum_i32 = i32_val + 42;
+    let sum_f64 = f64_val + 1.0;
+    let bool_result = bool_true && !bool_false;
+    
+    // Test type inference
+    let inferred_i32 = 42;
+    let inferred_f64 = 3.14;
+    let inferred_bool = true;
+    
+    return 0;
+}

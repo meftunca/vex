@@ -471,7 +471,7 @@ int vt_instant_isoweek(VexInstant t, int* iso_year) {
   /* Thursday is day 4, so weeks are determined by Thursday's date */
   
   /* Convert weekday: 0=Sunday -> 7, 1=Monday -> 1, ..., 6=Saturday -> 6 */
-  int iso_weekday = (weekday == 0) ? 7 : weekday;
+  (void)weekday;  /* Unused for now, but kept for future ISO week implementation */
   
   /* Find January 4 of this year (which is always in week 1) */
   struct tm tm_jan4;

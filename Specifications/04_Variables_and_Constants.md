@@ -1,9 +1,9 @@
 # Variables and Constants
 
-**Version:** 0.9.0  
+**Version:** 0.1.0  
 **Last Updated:** November 3, 2025
 
-This document defines the variable and constant declaration system in Vex, including the unified variable syntax introduced in v0.9.
+This document defines the variable and constant declaration system in Vex, including the unified variable syntax introduced in v0.1.
 
 ---
 
@@ -21,9 +21,9 @@ This document defines the variable and constant declaration system in Vex, inclu
 
 ## Variable Declarations
 
-### Syntax v0.9: Unified Variable System
+### Syntax v0.1: Unified Variable System
 
-Vex v0.9 unifies variable declarations with a single `let` keyword and explicit mutability markers:
+Vex v0.1 unifies variable declarations with a single `let` keyword and explicit mutability markers:
 
 ```vex
 let x = 42;              // Immutable (default, Rust-style)
@@ -34,7 +34,7 @@ let! counter = 0;        // Mutable (explicit with ! suffix)
 
 - ✅ `let` for immutable variables (default)
 - ✅ `let!` for mutable variables (explicit)
-- ❌ `mut` keyword **removed** (deprecated in v0.9)
+- ❌ `mut` keyword **removed** (deprecated in v0.1)
 - ❌ `:=` operator **removed** (use `let` instead)
 
 ### Immutable Variables
@@ -602,7 +602,7 @@ fn scoped_example(): i32 {
 
 ### Vex vs Rust
 
-| Vex v0.9  | Rust            | Description       |
+| Vex v0.1  | Rust            | Description       |
 | --------- | --------------- | ----------------- |
 | `let x`   | `let x`         | Immutable         |
 | `let! x`  | `let mut x`     | Mutable           |
@@ -611,7 +611,7 @@ fn scoped_example(): i32 {
 
 ### Vex vs Go
 
-| Vex v0.9       | Go             | Description          |
+| Vex v0.1       | Go             | Description          |
 | -------------- | -------------- | -------------------- |
 | `let x = 42`   | `x := 42`      | Variable declaration |
 | `let! x = 42`  | `var x = 42`   | Mutable variable     |
@@ -619,7 +619,7 @@ fn scoped_example(): i32 {
 
 ### Vex vs TypeScript
 
-| Vex v0.9       | TypeScript     | Description |
+| Vex v0.1       | TypeScript     | Description |
 | -------------- | -------------- | ----------- |
 | `let x = 42`   | `const x = 42` | Immutable   |
 | `let! x = 42`  | `let x = 42`   | Mutable     |

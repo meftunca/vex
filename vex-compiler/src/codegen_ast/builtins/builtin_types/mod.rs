@@ -31,13 +31,15 @@ pub fn register_builtin_types_phase0<'ctx>(codegen: &mut ASTCodeGen<'ctx>) {
     codegen.get_vex_result_unwrap();
     codegen.get_vex_result_is_ok();
 
-    // Phase 0.7: Numeric to string conversions
+    // Phase 0.7: Primitive to string conversions
     codegen.get_vex_i32_to_string();
     codegen.get_vex_i64_to_string();
     codegen.get_vex_u32_to_string();
     codegen.get_vex_u64_to_string();
     codegen.get_vex_f32_to_string();
     codegen.get_vex_f64_to_string();
+    codegen.get_vex_bool_to_string();
+    codegen.get_vex_string_to_string();
 }
 
 // ========== BUILTIN CONSTRUCTOR FUNCTIONS ==========

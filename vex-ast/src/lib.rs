@@ -245,29 +245,6 @@ pub struct ExternFunction {
     pub variadic_type: Option<Type>, // Type for variadic params: ...any, ...string
 }
 
-/// Interface definition (DEPRECATED in v1.3 - Use Trait instead)
-/// This is kept for backward compatibility during migration.
-/// Will be removed in future versions.
-#[deprecated(
-    since = "0.9.0",
-    note = "Use Trait instead. Interface keyword removed in v1.3"
-)]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Interface {
-    pub name: String,
-    pub type_params: Vec<String>,
-    pub methods: Vec<InterfaceMethod>,
-}
-
-/// Interface method signature (DEPRECATED - Use TraitMethod)
-#[deprecated(since = "0.9.0", note = "Use TraitMethod instead")]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct InterfaceMethod {
-    pub name: String,
-    pub params: Vec<Param>,
-    pub return_type: Option<Type>,
-}
-
 /// Trait definition (Vex v1.3: Required + default methods)
 /// Example: trait Logger { fn log(&Self!, msg); fn info(&Self!, msg) {...} }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -324,17 +301,16 @@ pub enum Type {
     U32,
     U64,
     U128,
-    // F16,
+    F16,
     F32,
     F64,
-    F128,
     Bool,
     String,
     Byte,
     Error,
     Nil,
 
-    /// Named type (struct, interface, or custom)
+    /// Named type (struct, trait, or custom)
     Named(String),
 
     /// Generic type with type arguments: Response<T>, Vec<String>
@@ -387,10 +363,20 @@ pub enum Type {
     /// Never type (!) - for diverging functions (panic, exit, infinite loop)
     Never,
 
+    /// Self type - used in trait definitions and implementations
+    SelfType,
+
     /// Raw pointer: *T or *const T (unsafe, for FFI/C interop)
     RawPtr {
         inner: Box<Type>,
         is_const: bool,
+    },
+
+    /// ⭐ NEW: Associated type reference: Self::Item, Self::Output
+    /// Used in trait definitions and implementations
+    AssociatedType {
+        self_type: Box<Type>, // Self or concrete type
+        name: String,         // "Item", "Output", etc.
     },
 
     // ============================================================
@@ -584,6 +570,8 @@ pub enum CompoundOp {
 pub enum Expression {
     /// Literals
     IntLiteral(i64),
+    /// Large integer literal (for i128/u128) stored as string, converted during codegen
+    BigIntLiteral(String),
     FloatLiteral(f64),
     StringLiteral(String),
     FStringLiteral(String), // f"..."
@@ -623,6 +611,7 @@ pub enum Expression {
     MethodCall {
         receiver: Box<Expression>,
         method: String,
+        type_args: Vec<Type>, // ⭐ NEW: Generic type arguments for static methods: Vec<i32>.new()
         args: Vec<Expression>,
         is_mutable_call: bool, // ⭐ NEW: Call site mutability (method()!)
     },
@@ -745,6 +734,14 @@ pub enum Expression {
         return_type: Option<Type>, // Optional return type annotation
         body: Box<Expression>,     // Body expression (can be Block)
         capture_mode: CaptureMode, // How closure captures variables
+    },
+
+    /// Type constructor: Vec(), Point(10, 20)
+    /// Desugars to new() method call if type implements trait with new()
+    TypeConstructor {
+        type_name: String,
+        type_args: Vec<Type>,  // Generic type arguments: Vec<i32>()
+        args: Vec<Expression>, // Constructor arguments
     },
 }
 

@@ -1,6 +1,6 @@
 # Method Mutability & Location - Final Architecture
 
-**Version:** v0.9.1  
+**Version:** v0.1.1  
 **Date:** 7 Kasım 2025  
 **Status:** 🟢 APPROVED - Ready for Implementation  
 **Decision:** Method-level mutability + Trait-based location rules
@@ -9,7 +9,7 @@
 
 ## 🎯 Executive Summary
 
-Vex v0.9.1 introduces **two critical features** that solve all method-related ambiguities:
+Vex v0.1.1 introduces **two critical features** that solve all method-related ambiguities:
 
 1. **Method-Level Mutability:** `fn method()!` declares mutation capability
 2. **Trait-Based Location Rules:** Trait methods in struct body, extras flexible
@@ -468,7 +468,7 @@ fn (logger: &FileLogger!) compress()! {   // Mutable
 - [ ] Update `VEX_SYNTAX_GUIDE.md` with examples
 - [ ] Update `VARIABLE_SYSTEM_V09.md` with method rules
 - [ ] Update trait documentation with location rules
-- [ ] Create migration guide from v0.9 to v0.9.1
+- [ ] Create migration guide from v0.1 to v0.1.1
 
 **Total Estimate:** ~10 hours (1-2 days)
 
@@ -812,11 +812,11 @@ fn main(): i32 {
 
 ---
 
-## 🚀 Migration Guide (v0.9 → v0.9.1)
+## 🚀 Migration Guide (v0.1 → v0.1.1)
 
 ### Step 1: Add `!` to Mutable Methods
 
-**Before (v0.9):**
+**Before (v0.1):**
 
 ```vex
 fn increment() {
@@ -824,7 +824,7 @@ fn increment() {
 }
 ```
 
-**After (v0.9.1):**
+**After (v0.1.1):**
 
 ```vex
 fn increment()! {
@@ -834,13 +834,13 @@ fn increment()! {
 
 ### Step 2: Update Call Sites
 
-**Before (v0.9):**
+**Before (v0.1):**
 
 ```vex
 counter.increment();
 ```
 
-**After (v0.9.1):**
+**After (v0.1.1):**
 
 ```vex
 counter.increment()!;
@@ -848,7 +848,7 @@ counter.increment()!;
 
 ### Step 3: Move Trait Methods to Struct Body
 
-**Before (v0.9):**
+**Before (v0.1):**
 
 ```vex
 struct User impl Display {
@@ -860,7 +860,7 @@ fn (u: &User) show() {
 }
 ```
 
-**After (v0.9.1):**
+**After (v0.1.1):**
 
 ```vex
 struct User impl Display {
@@ -874,7 +874,7 @@ struct User impl Display {
 
 ### Step 4: Update Trait Signatures
 
-**Before (v0.9):**
+**Before (v0.1):**
 
 ```vex
 trait Writable {
@@ -882,7 +882,7 @@ trait Writable {
 }
 ```
 
-**After (v0.9.1):**
+**After (v0.1.1):**
 
 ```vex
 trait Writable {

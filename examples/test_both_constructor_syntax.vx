@@ -1,0 +1,25 @@
+// Test both constructor syntaxes:
+// 1. Type.new() - static method (explicit)
+// 2. Type() - constructor syntax (sugar for Type.new())
+
+struct Point {
+    x: i32,
+    y: i32,
+}
+
+fn point_new(x: i32, y: i32): Point {
+    let result = Point { x: x, y: y };
+    return result;
+}
+
+fn main() {
+    // Syntax 1: Static method (explicit)
+    let p1 = Point.new(10, 20);
+    print("Point 1 created with Point.new()\n");
+    
+    // Syntax 2: Constructor (sugar)
+    let p2 = Point(30, 40);
+    print("Point 2 created with Point()\n");
+    
+    print("Both syntaxes work!\n");
+}

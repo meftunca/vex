@@ -1,0 +1,16 @@
+// Advanced edge case: Nested associated types (chaining)
+// This might not work yet, but let's test parsing
+
+trait NestedIterator {
+    type Item;
+    type Inner;
+    
+    fn get_nested(): Self.Item;  // Simple case
+}
+
+// Test if we can chain (probably won't work yet)
+// fn get_deep(): Self.Item.Value;  // Nested - future feature
+
+fn main(): i32 {
+    return 0;
+}

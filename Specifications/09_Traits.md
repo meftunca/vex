@@ -1,6 +1,6 @@
 # Traits
 
-**Version:** 0.9.0  
+**Version:** 0.1.0  
 **Last Updated:** November 3, 2025
 
 This document defines the trait system in the Vex programming language. Traits provide polymorphism through shared behavior definitions.
@@ -51,7 +51,7 @@ trait Greet {
 }
 ```
 
-**Note**: `interface` keyword is deprecated in v0.9, use `trait` instead.
+**Note**: `interface` keyword is deprecated in v0.1, use `trait` instead.
 
 ### Multiple Methods
 
@@ -314,7 +314,7 @@ fn compare_and_show<T: Comparable & Display>(a: T, b: T) {
 
 **Syntax**: `T: Trait1 & Trait2 & ...`
 
-### Where Clauses ✅ COMPLETE (v0.9.2)
+### Where Clauses ✅ COMPLETE (v0.1.2)
 
 Complex bounds use where clause for readability:
 
@@ -800,7 +800,7 @@ trait Ord {
 | Trait Bounds          | `<T: Trait>`           | ✅ Working | Generic constraints   |
 | Associated Types      | `type Item;`           | ✅ Working | Type members          |
 | Supertraits           | `trait T: U { }`       | ✅ Working | Trait inheritance     |
-| Where Clauses         | `where T: Trait`       | ✅ v0.9.2  | Complex bounds        |
+| Where Clauses         | `where T: Trait`       | ✅ v0.1.2  | Complex bounds        |
 
 ---
 

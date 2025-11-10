@@ -90,7 +90,7 @@
   - File: `vex-parser/src/parser/expressions.rs` (Index expression)
   - Test: `examples/test_string_index.vx`
 
-- [x] **String slicing** ✅ COMPLETE (v0.9.2 - November 2025)
+- [x] **String slicing** ✅ COMPLETE (v0.1.2 - November 2025)
 
   - Syntax: `text[0..5]`, `text[2..]`, `text[..3]`, `text[..]` ✅ All working
   - Return type: `string` (new string allocated by runtime)
@@ -105,11 +105,11 @@
   - UTF-8 safety: ✅ Prevents slicing in middle of multi-byte char, aborts on invalid UTF-8
   - File: `vex-compiler/src/codegen_ast/expressions/access/indexing.rs`
   - Test: `examples/test_string_slicing_comprehensive.vx` ✅ All tests pass
-  - Spec: ✅ Updated `Specifications/03_Type_System.md:220-280` - marked as v0.9.2
+  - Spec: ✅ Updated `Specifications/03_Type_System.md:220-280` - marked as v0.1.2
 
 - [x] **Spec update** ✅ COMPLETE
   - ✅ Updated `Specifications/03_Type_System.md`
-  - ✅ Moved from "Future" to "✅ Complete (v0.9.2)"
+  - ✅ Moved from "Future" to "✅ Complete (v0.1.2)"
   - ✅ Added syntax examples, UTF-8 notes
   - ✅ Updated `CHECK_FEATS.md` with implementation details
 
@@ -135,7 +135,7 @@ let full = s[..];          // "Hello, World!" ✅
 
 ---
 
-#### Sprint 2: Multi-Value Tuple Variants (2-3 days) - ✅ COMPLETE (v0.9.2)
+#### Sprint 2: Multi-Value Tuple Variants (2-3 days) - ✅ COMPLETE (v0.1.2)
 
 **Problem:** Can only have single-value tuple variants like `Some(T)`. Cannot do `V4(u8, u8, u8, u8)` for multiple values.
 
@@ -165,7 +165,7 @@ let full = s[..];          // "Hello, World!" ✅
 
 - [x] **Spec update** (0.5 days) ✅ COMPLETE
   - Updated `Specifications/08_Enums.md`
-  - Changed "Multi-Tuple" from 🚧 Future to ✅ v0.9.2
+  - Changed "Multi-Tuple" from 🚧 Future to ✅ v0.1.2
   - Added implementation details, memory layout, advanced examples
 
 **Deliverables:** ✅ ALL WORKING
@@ -749,7 +749,7 @@ vex list                    # List dependencies
 
 - Issue: `impl Trait for Struct { }` external syntax was accepted (should be rejected)
 - Root Cause: `parse_trait_impl()` allowed external trait implementations
-- Spec Violation: Vex v0.9+ requires trait methods in struct body: `struct S impl T { fn m() {} }`
+- Spec Violation: Vex v0.1+ requires trait methods in struct body: `struct S impl T { fn m() {} }`
 - Fixes Applied:
   1. **`traits.rs`**: `parse_trait_impl()` now rejects `impl T for S` with helpful error
   2. **Error Message**: "Use 'struct <Type> impl Trait' instead of 'impl Trait for <Type>'"
@@ -758,7 +758,7 @@ vex list                    # List dependencies
 - Test output: Clear parse error with migration guide
 - Impact: Enforces Vex syntax spec, prevents Rust-style external impls
 
-**Impact:** This enforces the **Vex v0.9 trait system specification** - all trait methods must be in struct body for clarity and simplicity.
+**Impact:** This enforces the **Vex v0.1 trait system specification** - all trait methods must be in struct body for clarity and simplicity.
 
 **Fix #6: Associated Types Implementation (16:30-17:00) 🆕**
 
@@ -800,7 +800,7 @@ vex list                    # List dependencies
 
 ---
 
-## 🚀 NEW ROADMAP (v0.9.2 - v1.0)
+## 🚀 NEW ROADMAP (v0.1.2 - v1.0)
 
 **Focus:** Developer Experience + Performance
 
@@ -1046,7 +1046,7 @@ let len = f32x4.length(v1);
 
 ---
 
-### Phase 5: Union Types (Type-safe `any` alternative) ✅ COMPLETE (v0.9.2)
+### Phase 5: Union Types (Type-safe `any` alternative) ✅ COMPLETE (v0.1.2)
 
 **Goal:** TypeScript-style union types for flexible yet type-safe APIs
 
@@ -1173,7 +1173,7 @@ let len = f32x4.length(v1);
 
 ---
 
-## 🎉 COMPLETED: Method Mutability (v0.9.1)
+## 🎉 COMPLETED: Method Mutability (v0.1.1)
 
 **Status:** ✅ **COMPLETE** - Parser + Borrow Checker + Call Site Enforcement  
 **Documentation:** `METHOD_MUTABILITY_IMPLEMENTATION_COMPLETE.md`
@@ -1260,7 +1260,7 @@ fn main(): i32 {
 - [ ] Update SYNTAX.md with method mutability + location rules
 - [ ] Update VEX_SYNTAX_GUIDE.md with comprehensive examples
 - [ ] Update trait system documentation
-- [ ] Create migration guide (v0.9 → v0.9.1)
+- [ ] Create migration guide (v0.1 → v0.1.1)
 - [ ] ✅ Created METHOD_MUTABILITY_FINAL.md (complete spec)
 - [ ] ✅ Removed METHOD_DEFINITION_ARCHITECTURE_DISCUSSION.md (old)
 

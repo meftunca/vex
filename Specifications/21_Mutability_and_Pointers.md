@@ -1,6 +1,6 @@
 # Mutability and Pointers
 
-**Version:** 0.9.2
+**Version:** 0.1.2
 **Last Updated:** November 2025
 
 This document provides a comprehensive guide to Vex's mutability system and pointer types, including raw pointers, references, and memory safety guarantees.

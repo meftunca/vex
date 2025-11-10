@@ -1,4 +1,4 @@
-// Type conversion runtime functions (numeric to string)
+// Type conversion runtime functions (primitive types to string)
 
 use crate::codegen_ast::ASTCodeGen;
 use inkwell::values::{BasicValueEnum, FunctionValue};
@@ -98,6 +98,37 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let str_ptr_type = self.context.i8_type().ptr_type(AddressSpace::default());
 
         let fn_type = str_ptr_type.fn_type(&[f64_type.into()], false);
+        self.module.add_function(fn_name, fn_type, None)
+    }
+
+    /// Get or declare vex_bool_to_string from runtime
+    pub fn get_vex_bool_to_string(&mut self) -> FunctionValue<'ctx> {
+        let fn_name = "vex_bool_to_string";
+
+        if let Some(func) = self.module.get_function(fn_name) {
+            return func;
+        }
+
+        // Declare: char* vex_bool_to_string(bool value)
+        let bool_type = self.context.bool_type();
+        let str_ptr_type = self.context.ptr_type(AddressSpace::default());
+
+        let fn_type = str_ptr_type.fn_type(&[bool_type.into()], false);
+        self.module.add_function(fn_name, fn_type, None)
+    }
+
+    /// Get or declare vex_string_to_string from runtime
+    pub fn get_vex_string_to_string(&mut self) -> FunctionValue<'ctx> {
+        let fn_name = "vex_string_to_string";
+
+        if let Some(func) = self.module.get_function(fn_name) {
+            return func;
+        }
+
+        // Declare: char* vex_string_to_string(const char* value)
+        let str_ptr_type = self.context.ptr_type(AddressSpace::default());
+
+        let fn_type = str_ptr_type.fn_type(&[str_ptr_type.into()], false);
         self.module.add_function(fn_name, fn_type, None)
     }
 }
@@ -247,4 +278,53 @@ pub fn builtin_vex_f64_to_string<'ctx>(
         .try_as_basic_value()
         .left()
         .ok_or_else(|| "vex_f64_to_string returned void".to_string())
+}
+
+/// Builtin: vex_bool_to_string(value: bool): *const u8
+pub fn builtin_vex_bool_to_string<'ctx>(
+    codegen: &mut ASTCodeGen<'ctx>,
+    args: &[BasicValueEnum<'ctx>],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if args.len() != 1 {
+        return Err(format!(
+            "vex_bool_to_string expects 1 argument, got {}",
+            args.len()
+        ));
+    }
+
+    let fn_val = codegen.get_vex_bool_to_string();
+    let call_site = codegen
+        .builder
+        .build_call(fn_val, &[args[0].into()], "bool_to_str")
+        .map_err(|e| format!("Failed to call vex_bool_to_string: {}", e))?;
+
+    call_site
+        .try_as_basic_value()
+        .left()
+        .ok_or_else(|| "vex_bool_to_string returned void".to_string())
+}
+
+/// Builtin: vex_string_to_string(value: *const u8): *const u8
+/// Returns a heap-allocated copy of the input string
+pub fn builtin_vex_string_to_string<'ctx>(
+    codegen: &mut ASTCodeGen<'ctx>,
+    args: &[BasicValueEnum<'ctx>],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if args.len() != 1 {
+        return Err(format!(
+            "vex_string_to_string expects 1 argument, got {}",
+            args.len()
+        ));
+    }
+
+    let fn_val = codegen.get_vex_string_to_string();
+    let call_site = codegen
+        .builder
+        .build_call(fn_val, &[args[0].into()], "string_to_str")
+        .map_err(|e| format!("Failed to call vex_string_to_string: {}", e))?;
+
+    call_site
+        .try_as_basic_value()
+        .left()
+        .ok_or_else(|| "vex_string_to_string returned void".to_string())
 }

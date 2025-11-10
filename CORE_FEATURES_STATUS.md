@@ -1,4 +1,4 @@
-# Vex v0.9.2 - Core Features Status
+# Vex v0.1.2 - Core Features Status
 
 **Last Updated:** November 9, 2025  
 **Test Status:** 278/284 passing (97.9%) 🎉🚀  
@@ -321,7 +321,7 @@
 
 ## 📈 Progress Metrics
 
-**Version:** 0.9.2  
+**Version:** 0.1.2  
 **Tests Passing:** 278/284 (97.9%)  
 **Core Features:** 69/69 (100%) ✅  
 **Production Ready:** YES ✅

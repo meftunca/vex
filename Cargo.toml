@@ -27,7 +27,7 @@ lalrpop = "0.22.2"
 lalrpop-util = "0.22.2"
 
 # LLVM Backend
-inkwell = { version = "0.6", features = ["llvm16-0"] }
+inkwell = { version = "0.6", features = ["llvm18-1"] }
 
 # SPIR-V Backend
 rspirv = "0.12"

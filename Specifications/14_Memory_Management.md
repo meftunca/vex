@@ -1,6 +1,6 @@
 # Memory Management
 
-**Version:** 0.9.2  
+**Version:** 0.1.2  
 **Last Updated:** November 2025
 
 This document defines memory management, ownership, and borrowing in the Vex programming language.
@@ -103,7 +103,7 @@ print_value(&value);
 
 ### Mutable Borrowing
 
-**Syntax**: `&T!` (v0.9 syntax)
+**Syntax**: `&T!` (v0.1 syntax)
 
 ```vex
 let! x = 42;
@@ -181,7 +181,7 @@ scale_rectangle(&r, 2);
 
 ## Borrow Checker
 
-### Four-Phase System (v0.9.2)
+### Four-Phase System (v0.1.2)
 
 Vex implements a **four-phase borrow checker**:
 
@@ -225,7 +225,7 @@ let r1: &i32! = &x;
 
 #### Phase 4: Lifetime Analysis ✅
 
-**Status**: ✅ **COMPLETE** (v0.9.2)
+**Status**: ✅ **COMPLETE** (v0.1.2)
 
 **Purpose**: Track reference validity across scopes and prevent dangling references
 
@@ -291,7 +291,7 @@ fn test_valid_reference_lifetime(): &i32 {
 - **Builtin registry**: Identifies builtin functions for special handling
 - **Test file**: `examples/test_lifetimes.vx`
 
-**Test Coverage**: 8+ tests passing (v0.9.2)
+**Test Coverage**: 8+ tests passing (v0.1.2)
 
 ### Borrow Checker Errors
 
@@ -566,7 +566,7 @@ fn process(s: &string!) {
 - **Phase 1 (Immutability)**: 7/7 tests passing ✅
 - **Phase 2 (Move Semantics)**: 5/5 tests passing ✅
 - **Phase 3 (Borrow Rules)**: 5/5 tests passing ✅
-- **Phase 4 (Lifetimes)**: 5/5 tests passing ✅ (v0.9.2)
+- **Phase 4 (Lifetimes)**: 5/5 tests passing ✅ (v0.1.2)
 - **Total**: 22/22 borrow checker tests passing (100%)
 
 ---

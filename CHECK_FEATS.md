@@ -13,7 +13,7 @@ This file lists features marked as "Not implemented" (❌) or "Planned" (🚧) i
 
 ### 1. String Slicing
 
-- **Status**: ✅ **IMPLEMENTED** (v0.9.2)
+- **Status**: ✅ **IMPLEMENTED** (v0.1.2)
 - **Spec Location**: `Specifications/07_Strings.md`, `Specifications/03_Type_System.md:220-280` (updated)
 - **Priority**: Complete
 - **Test**: `examples/test_string_slicing_comprehensive.vx` - all forms work:
@@ -28,7 +28,7 @@ This file lists features marked as "Not implemented" (❌) or "Planned" (🚧) i
   - Codegen: `vex-compiler/src/codegen_ast/expressions/access/indexing.rs` - detects Range in index, calls runtime
   - AST: `vex-ast/src/lib.rs` - `Range { start: Option<Box<Expression>>, end: Option<Box<Expression>> }`
 - **Verdict**: Feature IS fully implemented with UTF-8 safety and bounds checking.
-- **Action**: ✅ Updated spec docs (03_Type_System.md marked as v0.9.2).
+- **Action**: ✅ Updated spec docs (03_Type_System.md marked as v0.1.2).
 
 - [ ] **Tuple Variants** (Enums)
 
@@ -36,7 +36,7 @@ This file lists features marked as "Not implemented" (❌) or "Planned" (🚧) i
   - Spec: `08_Enums.md:823-824` - 🚧 Future (OUTDATED)
   - **Test**: `/examples/06_patterns/enum_data.vx` - `Some(T)` syntax works perfectly
   - **Verdict**: Feature IS implemented. Codegen shows full support.
-  - **Action**: Update spec to mark as ✅ COMPLETE (v0.9.2)
+  - **Action**: Update spec to mark as ✅ COMPLETE (v0.1.2)
 
 - [ ] **Struct Variants** (Enums)
 
@@ -52,7 +52,7 @@ This file lists features marked as "Not implemented" (❌) or "Planned" (🚧) i
 
   - Spec: `11_Pattern_Matching.md:736` - 🚧 Future
   - **NOTE:** We just implemented this! Update spec.
-  - Status: ✅ COMPLETE (v0.9.2)
+  - Status: ✅ COMPLETE (v0.1.2)
   - Test: `examples/test_struct_patterns.vx` exists
 
 - [x] **At-Patterns** (`p @ Point { }`) - **[VEX BUNU İSTEMİYOR]** ✅ REMOVED FROM SPECS
@@ -77,7 +77,7 @@ This file lists features marked as "Not implemented" (❌) or "Planned" (🚧) i
   - Spec: `09_Traits.md` - 🚧 Future (OUTDATED)
   - **Test**: `/examples/test_where_clause.vx` - Full parser + codegen support
   - **Verdict**: Feature IS implemented. `parse_where_clause()` exists, compiles successfully.
-  - **Action**: Update spec to mark as ✅ COMPLETE (v0.9.2)
+  - **Action**: Update spec to mark as ✅ COMPLETE (v0.1.2)
 
 - [x] **Separate impl blocks** (`impl Trait for Struct`) - **[VEX BUNU İSTEMİYOR]** ✅ REMOVED FROM SPECS
 
@@ -98,7 +98,7 @@ This file lists features marked as "Not implemented" (❌) or "Planned" (🚧) i
   - **Test**: `/examples/test_where_clause.vx` - Full parser + codegen support
   - **Code**: `parse_where_clause()` in `functions.rs:138`
   - **Verdict**: Feature IS implemented. Compiles and runs successfully.
-  - **Action**: Update spec to mark as ✅ COMPLETE (v0.9.2)
+  - **Action**: Update spec to mark as ✅ COMPLETE (v0.1.2)
 
 ---
 
@@ -208,8 +208,8 @@ These are intentionally not implemented or removed:
 - ❌ Inheritance (use composition and traits)
 - ❌ Function overloading (use generics)
 - ❌ `++`/`--` operators (use `+=` / `-=`)
-- ❌ `mut` keyword (removed in v0.9, use `let!`)
-- ❌ `:=` operator (removed in v0.9, use `let`)
+- ❌ `mut` keyword (removed in v0.1, use `let!`)
+- ❌ `:=` operator (removed in v0.1, use `let`)
 - ❌ `static` keyword (use `const`)
 - ❌ Attributes `#[derive]` (Vex uses `@intrinsic` only)
 
@@ -307,13 +307,13 @@ grep -r "enum Expression\|enum Statement\|enum Type" vex-ast/src/lib.rs
 
 1. ✅ Updated `Specifications/08_Enums.md`:
 
-   - Changed "Tuple Variants (Future)" → "Tuple Variants ✅ COMPLETE (v0.9.2)"
+   - Changed "Tuple Variants (Future)" → "Tuple Variants ✅ COMPLETE (v0.1.2)"
    - Added implementation details and test path
    - Clarified multi-value tuples still future
 
 2. ✅ Updated `Specifications/09_Traits.md`:
 
-   - Changed "Where Clauses (Future)" → "Where Clauses ✅ COMPLETE (v0.9.2)"
+   - Changed "Where Clauses (Future)" → "Where Clauses ✅ COMPLETE (v0.1.2)"
    - Added parser location and AST structure
    - Noted struct method limitation
 

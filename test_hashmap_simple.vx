@@ -1,6 +1,0 @@
-// Simple HashMap test without generics
-
-fn main(): i32 {
-    println("HashMap test");
-    return 0;
-}

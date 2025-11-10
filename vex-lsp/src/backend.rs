@@ -1016,14 +1016,7 @@ impl LanguageServer for VexBackend {
                             });
                         }
                     }
-                    vex_ast::Item::Trait(t) => {
-                        items.push(CompletionItem {
-                            label: t.name.clone(),
-                            kind: Some(CompletionItemKind::INTERFACE),
-                            detail: Some(format!("trait {}", t.name)),
-                            ..Default::default()
-                        });
-                    }
+
                     vex_ast::Item::Const(c) => {
                         let ty_str = if let Some(ty) = &c.ty {
                             self.type_to_string(ty)
@@ -1306,23 +1299,7 @@ impl LanguageServer for VexBackend {
                         });
                     }
                 }
-                vex_ast::Item::Trait(t) => {
-                    if let Some(range) =
-                        self.find_pattern_in_source(&text, &format!("trait {}", t.name))
-                    {
-                        #[allow(deprecated)]
-                        symbols.push(DocumentSymbol {
-                            name: t.name.clone(),
-                            detail: Some("trait".to_string()),
-                            kind: SymbolKind::INTERFACE,
-                            tags: None,
-                            deprecated: None,
-                            range,
-                            selection_range: range,
-                            children: None,
-                        });
-                    }
-                }
+
                 vex_ast::Item::Const(c) => {
                     if let Some(range) =
                         self.find_pattern_in_source(&text, &format!("const {}", c.name))

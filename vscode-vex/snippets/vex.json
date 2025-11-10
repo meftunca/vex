@@ -47,17 +47,6 @@
     "body": ["trait ${1:Name} {", "\tfn${2:method}() : ${3:i32};", "}"],
     "description": "Trait declaration"
   },
-  "Impl Trait": {
-    "prefix": "impl",
-    "body": [
-      "impl ${1:Trait} for ${2:Type} {",
-      "\tfn (self: &${2:Type})${3:method}() : ${4:i32} {",
-      "\t\t$0",
-      "\t}",
-      "}"
-    ],
-    "description": "Separate trait implementation"
-  },
   "Golang Method": {
     "prefix": "method",
     "body": [
@@ -75,6 +64,16 @@
       "}"
     ],
     "description": "Golang-style mutable method"
+  },
+  "Inline Method": {
+    "prefix": "inlinemethod",
+    "body": ["fn ${1:method_name}(${2:params}): ${3:i32} {", "\t$0", "}"],
+    "description": "Inline method (inside struct)"
+  },
+  "Inline Mutable Method": {
+    "prefix": "inlinemethodmut",
+    "body": ["fn ${1:method_name}(${2:params})!: ${3:i32} {", "\t$0", "}"],
+    "description": "Inline mutable method (inside struct, use ! after params)"
   },
   "Let Immutable": {
     "prefix": "let",

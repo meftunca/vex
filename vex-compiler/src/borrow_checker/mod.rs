@@ -286,11 +286,7 @@ impl BorrowChecker {
                 self.analyze_expression_closures(expr)?;
                 Ok(())
             }
-            Expression::Call {
-                func,
-                args,
-                ..
-            } => {
+            Expression::Call { func, args, .. } => {
                 self.analyze_expression_closures(func)?;
                 for arg in args {
                     self.analyze_expression_closures(arg)?;
@@ -415,6 +411,7 @@ impl BorrowChecker {
             }
             // Literals and identifiers have no nested closures
             Expression::IntLiteral(_)
+            | Expression::BigIntLiteral(_)
             | Expression::FloatLiteral(_)
             | Expression::StringLiteral(_)
             | Expression::FStringLiteral(_)
@@ -425,6 +422,14 @@ impl BorrowChecker {
             Expression::Typeof(expr) => {
                 // Check nested closures in typeof expression
                 self.analyze_expression_closures(expr)
+            }
+
+            Expression::TypeConstructor { args, .. } => {
+                // Check nested closures in constructor arguments
+                for arg in args {
+                    self.analyze_expression_closures(arg)?;
+                }
+                Ok(())
             }
         }
     }

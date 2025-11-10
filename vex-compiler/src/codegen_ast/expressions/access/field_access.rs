@@ -92,7 +92,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 // NOT for regular struct variables on the stack
                 // Check if this variable is 'self' in an external method (which is already a pointer parameter)
                 let is_external_self = var_name == "self"; // 'self' is always a parameter, never needs deref
-                
+
                 if !is_external_self {
                     // For non-self variables, check if we need auto-deref (Box<T> case)
                     // This is complex, for now skip auto-deref for all non-self variables
@@ -258,12 +258,24 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     .iter()
                     .map(|ty| match ty {
                         Type::Named(n) => n.clone(),
+                        Type::I8 => "i8".to_string(),
+                        Type::I16 => "i16".to_string(),
                         Type::I32 => "i32".to_string(),
                         Type::I64 => "i64".to_string(),
+                        Type::I128 => "i128".to_string(),
+                        Type::U8 => "u8".to_string(),
+                        Type::U16 => "u16".to_string(),
+                        Type::U32 => "u32".to_string(),
+                        Type::U64 => "u64".to_string(),
+                        Type::U128 => "u128".to_string(),
+                        Type::F16 => "f16".to_string(),
                         Type::F32 => "f32".to_string(),
                         Type::F64 => "f64".to_string(),
                         Type::Bool => "bool".to_string(),
                         Type::String => "string".to_string(),
+                        Type::Byte => "byte".to_string(),
+                        Type::Nil => "nil".to_string(),
+                        Type::Error => "error".to_string(),
                         Type::Generic {
                             name: gn,
                             type_args: gta,

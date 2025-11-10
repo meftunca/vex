@@ -1,0 +1,21 @@
+// Test nil and error primitive types
+
+fn test_nil() {
+    let val_nil = nil;
+    println("✅ nil type works");
+}
+
+fn test_error(): error {
+    // Error type represents error codes
+    let err: error = 1;
+    return err;
+}
+
+fn main() {
+    test_nil();
+    
+    let result: error = test_error();
+    println("✅ error type works");
+    
+    println("🎉 All special primitive types (nil, error) work!");
+}

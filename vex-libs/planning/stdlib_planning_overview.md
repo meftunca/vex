@@ -1,6 +1,6 @@
 # Vex Standard Library Planning - Overview
 
-**Version:** 0.9.2
+**Version:** 0.1.2
 **Date:** November 9, 2025
 **Inspired by:** Go Standard Library + Rust Standard Library (comprehensive systems programming coverage with memory safety)
 
@@ -23,18 +23,21 @@ Create a complete standard library for Vex that matches **Go's stdlib comprehens
 ## 🔄 Implementation Phases
 
 ### Phase 1: Core Infrastructure (Priority 1-4)
+
 - Core types and reflection
 - I/O and formatting
 - Collections and algorithms
 - Strings and text processing
 
 ### Phase 2: System Integration (Priority 5-8)
+
 - Math and random
 - OS and filesystem
 - Time handling
 - Concurrency primitives
 
 ### Phase 3: Advanced Features (Priority 9-13)
+
 - Networking
 - Cryptography
 - Encoding/serialization
@@ -60,6 +63,7 @@ Create a complete standard library for Vex that matches **Go's stdlib comprehens
 ## ⚠️ Known Issues and Blockers
 
 ### Language Feature Issues
+
 - **Import Borrow Checker Bug:** ✅ FIXED - Imports are properly handled in borrow checker
 - **Generic Constraints:** Trait bounds limited, complex generic code difficult
 - **Unsafe Operations:** `unsafe` keyword missing, raw pointer operations manual
@@ -67,6 +71,7 @@ Create a complete standard library for Vex that matches **Go's stdlib comprehens
 - **Macro System:** Code generation macros weak
 
 ### Missing Critical Packages
+
 - **errors:** Structured error handling (Go'nun errors paketi) - PARTIALLY: Result/Option exist
 - **context:** Request-scoped values and cancellation
 - **reflect:** Runtime type reflection - NOT IMPLEMENTED
@@ -87,6 +92,7 @@ Create a complete standard library for Vex that matches **Go's stdlib comprehens
 - **plugin:** Plugin system
 
 ### Architecture Decisions Needed
+
 - **Error Handling:** Go-style multiple return vs Result enum consistency
 - **String Type:** UTF-8 vs ASCII vs custom string type
 - **Memory Management:** Zero-copy vs copy-on-write tradeoffs
@@ -132,4 +138,4 @@ This planning document is split into multiple files:
 
 ---
 
-*This planning document will be updated as implementation progresses.*
+_This planning document will be updated as implementation progresses._

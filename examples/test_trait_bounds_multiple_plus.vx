@@ -1,0 +1,47 @@
+// Test multiple trait bounds with + syntax
+
+trait Display {
+    fn to_string(): string;
+}
+
+trait Clone {
+    fn clone(): Self;
+}
+
+struct Point impl Display, Clone {
+    x: i32,
+    y: i32,
+    
+    fn to_string(): string {
+        return "Point";
+    }
+    
+    fn clone(): Point {
+        return Point { x: self.x, y: self.y };
+    }
+}
+
+struct Vector impl Display {
+    x: f64,
+    y: f64,
+    
+    fn to_string(): string {
+        return "Vector";
+    }
+    // NO Clone implementation!
+}
+
+// Multiple bounds: must implement both Display AND Clone
+fn debug_and_copy<T: Display + Clone>(value: T): T {
+    return value.clone();
+}
+
+fn main(): i32 {
+    let p = Point { x: 10, y: 20 };
+    let! p2 = debug_and_copy(p);  // ✅ OK - Point implements both
+    
+    // let v = Vector { x: 1.0, y: 2.0 };
+    // let v2 = debug_and_copy(v);  // ❌ Should fail - Vector lacks Clone
+    
+    return 10;
+}

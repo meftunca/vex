@@ -1,9 +1,8 @@
 {
   "name": "fmt",
-  "version": "0.9.1",
+  "version": "0.1.1",
   "description": "Formatting utilities",
   "authors": ["Vex Language Team"],
   "license": "MIT",
   "main": "src/lib.vx"
 }
-

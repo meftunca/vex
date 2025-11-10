@@ -1,0 +1,25 @@
+// Test generic static methods: Vec<i32>.new(), Point.new()
+
+struct Point {
+    x: i32,
+    y: i32,
+}
+
+fn Point_new(x: i32, y: i32): Point {
+    return Point { x: x, y: y };
+}
+
+fn Point_origin(): Point {
+    return Point { x: 0, y: 0 };
+}
+
+fn main(): i32 {
+    // User-defined static method: Point.new(x, y)
+    let p1 = Point.new(5, 10);
+    let p2 = Point.origin();
+    
+    // Test values
+    let sum = p1.x + p1.y + p2.x + p2.y;  // 5 + 10 + 0 + 0 = 15
+    
+    return sum;  // Expected: 15
+}

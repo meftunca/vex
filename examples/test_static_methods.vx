@@ -1,0 +1,28 @@
+// Test static method syntax: Type.new()
+// Static methods are called on type names, not instances
+
+struct Point {
+    x: i32,
+    y: i32,
+}
+
+// Static constructor function (standalone)
+fn point_new(x: i32, y: i32): Point {
+    let result = Point { x: x, y: y };
+    return result;
+}
+
+// Note: In the future, this will be:
+// impl Point {
+//     fn new(x: i32, y: i32): Self {
+//         Point { x: x, y: y }
+//     }
+// }
+
+fn main() {
+    // Static method call: Type.new(args)
+    // Should call: point_new(args)
+    let p = Point.new(10, 20);
+    
+    print("Point created successfully!\n");
+}

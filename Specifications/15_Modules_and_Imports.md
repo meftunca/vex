@@ -1,6 +1,6 @@
 # Modules and Imports
 
-**Version:** 0.9.2  
+**Version:** 0.1.2  
 **Last Updated:** November 2025
 
 This document defines the module system and import/export mechanism in Vex.
@@ -122,7 +122,7 @@ import * from "io";
 
 ## Export Declarations
 
-### Export Keyword (v0.9)
+### Export Keyword (v0.1)
 
 Make declarations public:
 
@@ -177,7 +177,7 @@ export trait Display {
 
 ```vex
 export const MAX_SIZE: i32 = 1024;
-export const VERSION: string = "0.9.0";
+export const VERSION: string = "0.1.0";
 ```
 
 ### Export Policies
@@ -450,7 +450,7 @@ import "std::json";  // ❌ Wrong!
 | --------------------- | -------------- | ------------------------------------------------- |
 | **Named Import**      | ✅ Working     | `import { println } from "io"`                    |
 | **Import with Alias** | ✅ Working     | `import * as io from "io"`                        |
-| **Export**            | ✅ v0.9        | `export fn name()`                                |
+| **Export**            | ✅ v0.1        | `export fn name()`                                |
 | **Module Resolution** | ✅ Working     | Loads from `vex-libs/std/`                        |
 | **Nested Modules**    | ✅ Working     | `import { get } from "net/http"`                  |
 | **Re-exports**        | ✅ Working     | `export { x } from "mod"`                         |

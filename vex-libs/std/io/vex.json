@@ -1,30 +1,17 @@
 {
   "name": "io",
-  "version": "0.9.1",
+  "version": "0.1.1",
   "description": "I/O operations - print, println, file operations",
-  "authors": [
-    "Vex Language Team"
-  ],
+  "authors": ["Vex Language Team"],
   "license": "MIT",
   "main": "src/lib.vx",
   "targets": {
     "default": "x64",
-    "supported": [
-      "x64",
-      "arm64",
-      "wasm",
-      "wasi"
-    ]
+    "supported": ["x64", "arm64", "wasm", "wasi"]
   },
   "native": {
-    "libraries": [
-      "vex_runtime"
-    ],
-    "search_paths": [
-      "../../../vex-runtime/c"
-    ],
-    "include_dirs": [
-      "../../../vex-runtime/c"
-    ]
+    "libraries": ["vex_runtime"],
+    "search_paths": ["../../../vex-runtime/c"],
+    "include_dirs": ["../../../vex-runtime/c"]
   }
 }

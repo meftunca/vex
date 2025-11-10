@@ -121,11 +121,15 @@ impl<'ctx> FFIBridge<'ctx> {
             Type::U128 => Ok(self.context.i128_type().into()),
 
             // Float types
+            Type::F16 => Ok(self.context.f16_type().into()),
             Type::F32 => Ok(self.context.f32_type().into()),
             Type::F64 => Ok(self.context.f64_type().into()),
 
-            // Boolean
+            // Boolean and other primitives
             Type::Bool => Ok(self.context.bool_type().into()),
+            Type::Byte => Ok(self.context.i8_type().into()),
+            Type::Nil => Ok(self.context.i8_type().into()),
+            Type::Error => Ok(self.context.i32_type().into()),
 
             // Raw pointer: *T or *const T (for FFI)
             Type::RawPtr {

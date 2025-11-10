@@ -1,4 +1,4 @@
-// Item parsing (struct, enum, function, interface, const, import, export)
+// Item parsing (struct, enum, function, trait, const, import, export)
 
 mod aliases;
 mod consts;

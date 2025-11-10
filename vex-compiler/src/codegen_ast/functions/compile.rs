@@ -68,11 +68,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
             let param_val = fn_val
                 .get_nth_param(0)
                 .ok_or_else(|| "Receiver parameter not found".to_string())?;
-            
+
             // CRITICAL FIX: For external (Golang-style) methods with reference receivers,
             // the parameter is already a pointer, so we DON'T need alloca+store
             let is_reference_receiver = matches!(receiver.ty, Type::Reference(_, _));
-            
+
             if is_reference_receiver {
                 // External method: fn (self: &Type!) - receiver is already a pointer
                 // Use it directly, no alloca needed
@@ -83,11 +83,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     }
                     _ => unreachable!(),
                 };
-                
+
                 let self_ptr = param_val.into_pointer_value();
                 self.variables.insert("self".to_string(), self_ptr);
-                self.variable_types.insert("self".to_string(), receiver_llvm_ty);
-                
+                self.variable_types
+                    .insert("self".to_string(), receiver_llvm_ty);
+
                 eprintln!("📌 External method receiver: using pointer directly (no alloca)");
             } else {
                 // Inline method or non-reference receiver: allocate and store
@@ -98,7 +99,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     .map_err(|e| format!("Failed to store receiver: {}", e))?;
                 self.variables.insert("self".to_string(), alloca);
                 self.variable_types.insert("self".to_string(), param_type);
-                
+
                 eprintln!("📌 Inline method receiver: allocated and stored");
             }
 

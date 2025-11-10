@@ -1,0 +1,14 @@
+// Edge case: Self used outside trait context
+
+struct NoTrait {
+    value: i32,
+    
+    fn test(): Self {  // ✅ Should work - Self = NoTrait
+        return NoTrait { value: 42 };
+    }
+}
+
+fn main(): i32 {
+    let obj = NoTrait.test();
+    return obj.value;
+}

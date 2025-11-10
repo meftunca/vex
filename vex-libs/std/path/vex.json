@@ -1,21 +1,13 @@
 {
   "name": "path",
-  "version": "0.9.1",
+  "version": "0.1.1",
   "description": "Path operations - join, normalize, exists",
-  "authors": [
-    "Vex Language Team"
-  ],
+  "authors": ["Vex Language Team"],
   "license": "MIT",
   "main": "src/lib.vx",
   "native": {
-    "libraries": [
-      "vex_runtime"
-    ],
-    "search_paths": [
-      "../../../vex-runtime/c"
-    ],
-    "include_dirs": [
-      "../../../vex-runtime/c"
-    ]
+    "libraries": ["vex_runtime"],
+    "search_paths": ["../../../vex-runtime/c"],
+    "include_dirs": ["../../../vex-runtime/c"]
   }
 }

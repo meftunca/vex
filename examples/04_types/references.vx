@@ -1,4 +1,4 @@
-// References (v0.9)
+// References (v0.1)
 // Demonstrates: &T (immutable), &T! (mutable) syntax
 
 fn main() : i32 {
@@ -7,7 +7,7 @@ fn main() : i32 {
     // let ref_x: &i32 = &x;
     // let value = *ref_x;
     
-    // Mutable reference (v0.9 syntax)
+    // Mutable reference (v0.1 syntax)
     let! y = 10;
     // let ref_y: &i32! = &y!;
     // *ref_y = 20;

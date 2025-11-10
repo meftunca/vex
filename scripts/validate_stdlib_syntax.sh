@@ -1,13 +1,13 @@
 #!/bin/bash
 # Vex Standard Library Syntax Validation
-# Checks all stdlib packages for deprecated v0.9 syntax
+# Checks all stdlib packages for deprecated v0.1 syntax
 
 set -e
 
 STDLIB_ROOT="vex-libs/std"
 ERRORS_FOUND=0
 
-echo "🔍 Validating Vex Standard Library Syntax (v0.9)"
+echo "🔍 Validating Vex Standard Library Syntax (v0.1)"
 echo "=================================================="
 echo ""
 

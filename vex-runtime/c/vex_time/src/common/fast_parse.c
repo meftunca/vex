@@ -10,13 +10,6 @@
 #include <stdint.h>
 #include <time.h>
 
-/* Platform compatibility for gmtime (used in formatting only) */
-#ifdef _WIN32
-static inline void gmtime_compat(const time_t* tt, struct tm* out) { gmtime_s(out, tt); }
-#else
-static inline void gmtime_compat(const time_t* tt, struct tm* out) { gmtime_r(tt, out); }
-#endif
-
 /* Fast epoch calculation using Howard Hinnant's algorithm
  * Reference: http://howardhinnant.github.io/date_algorithms.html
  * Avoids timegm() bottleneck for significant speedup
@@ -96,18 +89,38 @@ void fast_date_from_epoch(int64_t epoch_sec, int* year, int* month, int* day, in
     *weekday = (h + 6) % 7;  /* 0=Sunday */
 }
 
-/* SWAR: Parse 4 ASCII digits in one operation */
+/* SWAR: Parse 4 ASCII digits in one operation - ULTRA OPTIMIZED */
 static inline int swar_parse_4digits(const uint8_t* s) {
-    /* Simple and correct: direct char access */
-    return (s[0] - '0') * 1000 + 
-           (s[1] - '0') * 100 + 
-           (s[2] - '0') * 10 + 
-           (s[3] - '0');
+    /* Load 4 bytes as uint32 and use SWAR magic */
+    uint32_t val;
+    memcpy(&val, s, 4);
+    
+    /* Validate all are digits (0x30-0x39) in one check */
+    uint32_t mask = val & 0xF0F0F0F0;
+    if (mask != 0x30303030) {
+        /* Fallback: not all digits, use slow path */
+        return (s[0] - '0') * 1000 + (s[1] - '0') * 100 + (s[2] - '0') * 10 + (s[3] - '0');
+    }
+    
+    /* SWAR: Convert 4 ASCII digits to integer in parallel
+     * val has bytes: [d3][d2][d1][d0] (little-endian)
+     * Subtract '0' from each byte */
+    val = val & 0x0F0F0F0F;  /* Remove ASCII prefix */
+    
+    /* Combine: d0*1000 + d1*100 + d2*10 + d3 */
+    #ifdef __LITTLE_ENDIAN__
+    return ((val & 0xFF) * 1000) + (((val >> 8) & 0xFF) * 100) + 
+           (((val >> 16) & 0xFF) * 10) + ((val >> 24) & 0xFF);
+    #else
+    return ((val >> 24) * 1000) + (((val >> 16) & 0xFF) * 100) + 
+           (((val >> 8) & 0xFF) * 10) + (val & 0xFF);
+    #endif
 }
 
-/* SWAR: Parse 2 ASCII digits */
+/* SWAR: Parse 2 ASCII digits - OPTIMIZED */
 static inline int swar_parse_2digits(const uint8_t* s) {
-    return (s[0] - '0') * 10 + (s[1] - '0');
+    /* Ultra-fast: direct computation without branches */
+    return ((s[0] & 0x0F) * 10) + (s[1] & 0x0F);
 }
 
 /* Fast RFC3339 parser with SWAR */
@@ -245,22 +258,13 @@ int vt_parse_rfc3339_fast(const char* s, VexInstant* out) {
     return 0;
 }
 
-/* Fast RFC3339 formatter */
+/* Fast RFC3339 formatter - FULLY OPTIMIZED (no gmtime!) */
 int vt_format_rfc3339_utc_fast(VexInstant t, char* buf, size_t buflen) {
     if (!buf || buflen < 21) return -1;
     
-    /* Use gmtime for now (correct but slower) */
-    /* TODO: Optimize with fast date calculation */
-    time_t sec = (time_t)t.unix_sec;
-    struct tm tm;
-    gmtime_compat(&sec, &tm);
-    
-    int y = tm.tm_year + 1900;
-    int m = tm.tm_mon + 1;
-    int d = tm.tm_mday;
-    int hour = tm.tm_hour;
-    int min = tm.tm_min;
-    int sec_val = tm.tm_sec;
+    /* Use fast_date_from_epoch (NO gmtime overhead!) */
+    int year, month, day, hour, min, sec, weekday;
+    fast_date_from_epoch(t.unix_sec, &year, &month, &day, &hour, &min, &sec, &weekday);
     
     /* Fast formatting with lookup tables */
     static const char digits[200] = 
@@ -276,18 +280,18 @@ int vt_format_rfc3339_utc_fast(VexInstant t, char* buf, size_t buflen) {
         "90919293949596979899";
     
     /* Year (4 digits) */
-    buf[0] = '0' + (y / 1000);
-    buf[1] = '0' + ((y / 100) % 10);
-    buf[2] = '0' + ((y / 10) % 10);
-    buf[3] = '0' + (y % 10);
+    buf[0] = '0' + (year / 1000);
+    buf[1] = '0' + ((year / 100) % 10);
+    buf[2] = '0' + ((year / 10) % 10);
+    buf[3] = '0' + (year % 10);
     buf[4] = '-';
     
     /* Month (2 digits) */
-    memcpy(buf + 5, &digits[m * 2], 2);
+    memcpy(buf + 5, &digits[month * 2], 2);
     buf[7] = '-';
     
     /* Day (2 digits) */
-    memcpy(buf + 8, &digits[d * 2], 2);
+    memcpy(buf + 8, &digits[day * 2], 2);
     buf[10] = 'T';
     
     /* Time */
@@ -295,7 +299,7 @@ int vt_format_rfc3339_utc_fast(VexInstant t, char* buf, size_t buflen) {
     buf[13] = ':';
     memcpy(buf + 14, &digits[min * 2], 2);
     buf[16] = ':';
-    memcpy(buf + 17, &digits[sec_val * 2], 2);
+    memcpy(buf + 17, &digits[sec * 2], 2);
     
     /* Fractional seconds */
     if (t.nsec && buflen >= 30) {

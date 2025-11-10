@@ -1,6 +1,6 @@
 # Error Handling
 
-**Version:** 0.9.2
+**Version:** 0.1.2
 **Last Updated:** November 2025
 
 This document describes Vex's error handling system, including the `Result<T, E>` and `Option<T>` types, pattern matching for error handling, and best practices.
@@ -206,7 +206,7 @@ fn complex_operation_manual(): Result<i32, String> {
 
 Vex supports the `?` operator for concise error propagation, similar to Rust.
 
-**Implementation Status**: ✅ **COMPLETE** (v0.9.2)
+**Implementation Status**: ✅ **COMPLETE** (v0.1.2)
 
 ### The `?` Operator
 

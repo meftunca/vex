@@ -1,6 +1,6 @@
 # Vex Programming Language
 
-**Version:** 0.9.2 (Syntax v0.9.2)  
+**Version:** 0.1.2 (Syntax v0.1.2)  
 **Status:** PRODUCTION READY 🚀  
 **Test Coverage:** 262/262 tests passing (100%) ✅  
 **Last Updated:** November 9, 2025
@@ -130,7 +130,7 @@ fn main(): i32 {
 - **References**: `&T`, `&T!` with lifetime tracking
 - **User Types**: Structs, enums, type aliases
 - **Generics**: `<T, U, ...>` with trait bounds
-- **Traits**: Interface definitions with associated types
+- **Traits**: Trait definitions with associated types
 - **Operator Overloading**: Trait-based custom operators
 - **Pattern Matching**: Exhaustive matching with guards
 

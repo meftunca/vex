@@ -67,7 +67,7 @@ mkdir -p "$DOCS_DIR"
 cat > "$DOCS_DIR/PROJECT_STATUS.md" << EOF
 # Vex Language - Project Status
 
-**Version:** $VERSION (Syntax v0.9.2)
+**Version:** $VERSION (Syntax v0.1.2)
 **Last Updated:** $(date '+%B %-d, %Y')
 **Test Status:** $TEST_COUNT/$TEST_COUNT passing (100%) ✅🎉 - PRODUCTION READY!
 
@@ -97,7 +97,7 @@ echo "✅ docs/PROJECT_STATUS.md updated"
 cat > "$DOCS_DIR/PROJECT_PROGRESS.md" << 'EOF'
 # Vex Language - Project Progress Report
 
-**Version:** 0.9.2 (Syntax v0.9.2)
+**Version:** 0.1.2 (Syntax v0.1.2)
 **Status:** PRODUCTION READY 🚀
 **Test Coverage:** 262/262 tests passing (100%) ✅
 **Last Updated:** November 9, 2025
@@ -408,7 +408,7 @@ Source (.vx) → Lexer → Parser → AST → Borrow Check → LLVM IR → Binar
 
 | Category | Status | Completion | Notes |
 |----------|--------|------------|-------|
-| **Core Language** | ✅ Complete | 100% | All syntax v0.9.2 features |
+| **Core Language** | ✅ Complete | 100% | All syntax v0.1.2 features |
 | **Memory Safety** | ✅ Complete | 100% | 4-phase borrow checker |
 | **Type System** | ✅ Complete | 100% | Advanced types, generics, traits |
 | **Concurrency** | ✅ Complete | 95% | Channels + async/await |
@@ -444,7 +444,7 @@ cat > "$GITHUB_DIR/copilot-instructions.md" << EOF
 # Vex Language Compiler - AI Agent Instructions
 
 **Project:** Vex - Modern systems programming language
-**Version:** 0.9.2 (Syntax v0.9.2)
+**Version:** 0.1.2 (Syntax v0.1.2)
 **Last Updated:** November 9, 2025
 
 ## 🎯 Core Principles
@@ -456,7 +456,7 @@ cat > "$GITHUB_DIR/copilot-instructions.md" << EOF
 5. **⚠️ ABSOLUTE SILENCE RULE** - **DO NOT** engage in conversation, explanations, or discussions unless explicitly asked. Work completely silently. Only provide minimal status updates at the very end.
 6. **Minimal status format** - Final report MUST be: \`✅ [Task] → [Result] ([files changed])\` - Nothing more.
 7. **Use absolute paths** - Binary is at \`~/.cargo/target/debug/vex\`
-8. **Follow Vex syntax v0.9.2** - Not Rust syntax (no \`mut\`, \`->\`, \`::\`)
+8. **Follow Vex syntax v0.1.2** - Not Rust syntax (no \`mut\`, \`->\`, \`::\`)
 9. **⚠️ CRITICAL: NO \`::\` operator!** - Use \`. \` for all member access (\`Vec.new()\` not \`Vec::new()\`, \`Some(x)\` not \`Option::Some(x)\`)
 10. **⚠️ FILE SIZE LIMIT: 400 LINES MAX** - **MANDATORY** Rust files MUST NOT exceed 400 lines. Split logically into modules when approaching this limit.
 

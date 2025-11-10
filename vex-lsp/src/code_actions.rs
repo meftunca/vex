@@ -36,6 +36,11 @@ pub fn generate_code_actions(
     }
 
     // Check for mutable method call errors
+    // NOTE: Disabled as per new contract - '!' suffix rules are complex:
+    // - External methods (fn (self: &T!)) don't use '!' at call site
+    // - Inline methods (fn method()!) have optional '!' at call site
+    // LSP cannot reliably determine which type without full parsing
+    /*
     if diagnostic.message.contains("requires mutable receiver")
         || diagnostic.message.contains("mutable method")
     {
@@ -43,6 +48,7 @@ pub fn generate_code_actions(
             actions.push(action);
         }
     }
+    */
 
     actions
 }
@@ -197,6 +203,8 @@ fn suggest_import(uri: &Url, diagnostic: &Diagnostic, _document_text: &str) -> O
 }
 
 /// Fix mutable method call by adding `!` suffix
+/// DEPRECATED: Disabled as per new contract (see generate_code_actions)
+#[allow(dead_code)]
 fn fix_mutable_method_call(
     uri: &Url,
     diagnostic: &Diagnostic,
@@ -274,6 +282,7 @@ fn extract_symbol_from_not_found(message: &str) -> Option<String> {
 
 /// Extract method name from mutable method error
 /// "method 'push' requires mutable receiver" → Some("push")
+#[allow(dead_code)]
 fn extract_method_name(message: &str) -> Option<String> {
     let start = message.find('\'')?;
     let end = message[start + 1..].find('\'')?;

@@ -1,7 +1,7 @@
-# Vex Sözdizimi Kılavuzu (Syntax Guide) v0.9
+# Vex Sözdizimi Kılavuzu (Syntax Guide) v0.1
 
 **Sürüm:** 0.2.0  
-**Syntax Versiyonu:** v0.9  
+**Syntax Versiyonu:** v0.1  
 **Son Güncelleme:** 3 Kasım 2025
 
 Vex programlama dilinin tam sözdizimi referansı. Bu doküman, lexer, parser ve AST'den derlenen gerçek implementasyona dayanır.
@@ -89,7 +89,7 @@ counter += 1;            // ✅ OK (parsed, codegen pending)
 let! name: string = "Alice";
 name = "Bob";            // ✅ OK
 
-// v0.9'da artık kullanılmaz:
+// v0.1'da artık kullanılmaz:
 // let mut x = 10;  // ❌ HATA: 'mut' keyword removed
 ```
 
@@ -185,8 +185,8 @@ let (x, y) = point;  // Destructuring
 #### Reference (Referans)
 
 ```vex
-&T                 // Immutable reference (v0.9)
-&T!                // Mutable reference (v0.9, NOT &mut T)
+&T                 // Immutable reference (v0.1)
+&T!                // Mutable reference (v0.1, NOT &mut T)
 
 // Örnekler
 fn read(data: &string) { }
@@ -277,7 +277,7 @@ let y = identity<string>("hello");
 
 ### 4.3 Method Syntax (Receivers)
 
-**v0.9 Güncellemesi:** Üç method tanımlama yöntemi destekleniyor:
+**v0.1 Güncellemesi:** Üç method tanımlama yöntemi destekleniyor:
 
 #### 1. **Simplified Syntax (Struct İçinde - Önerilen)**
 
@@ -605,14 +605,14 @@ let coords: (i32, i32) = (100, 200);
 
 ### 7.1 Trait Tanımı
 
-**v0.9 Güncellemesi (Kasım 2025):** Trait method'ları artık **simplified syntax** kullanıyor:
+**v0.1 Güncellemesi (Kasım 2025):** Trait method'ları artık **simplified syntax** kullanıyor:
 
 - ✅ Yeni: `fn method(params): type;` (receiver yok)
 - ❌ Eski: `fn method(params): type;`
 - ⚠️ Trait method'ları **body içeremez** (sadece signature)
 
 ```vex
-// Basit trait (sadece required methods - v0.9 syntax)
+// Basit trait (sadece required methods - v0.1 syntax)
 trait Logger {
     fn log(level: string, msg: string);  // Simplified syntax
     fn info(msg: string);
@@ -654,14 +654,14 @@ trait Logger: Display, Debug {
 
 ### 7.3 Inline Trait Implementation (v1.3)
 
-**v0.9 Güncellemesi:** Struct method'ları da **simplified syntax** kullanıyor:
+**v0.1 Güncellemesi:** Struct method'ları da **simplified syntax** kullanıyor:
 
 - ✅ Yeni: `fn method(params) { ... }` (receiver yok - auto-generated)
 - ✅ Alternatif: `fn (self: &T!) method(params) { ... }` (golang-style - opsiyonel)
 - 📝 Not: Receiver parametresi **herhangi bir isim** olabilir: `(x: &T)`, `(this: &T)`, vb.
 
 ```vex
-// Struct implements trait inline (v0.9 simplified syntax)
+// Struct implements trait inline (v0.1 simplified syntax)
 struct FileLogger impl Logger {
     path: string,
 
@@ -794,7 +794,7 @@ x || y
 
 // Reference
 &value       // Immutable reference
-&value!      // Mutable reference (v0.9)
+&value!      // Mutable reference (v0.1)
 
 // Dereference
 *pointer
@@ -960,7 +960,7 @@ export fn public_api() {
 }
 
 // Export constant
-export const VERSION: string = "0.9.0";
+export const VERSION: string = "0.1.0";
 
 // Export struct
 export struct PublicStruct {
@@ -1149,9 +1149,9 @@ bool, string, byte, error, Map
 
 ---
 
-## 14. Syntax Özeti: v0.9 Değişiklikleri
+## 14. Syntax Özeti: v0.1 Değişiklikleri
 
-### ✅ Yeni Syntax (v0.9)
+### ✅ Yeni Syntax (v0.1)
 
 - `let!` - Mutable variables (replaces `let mut`)
 - `&T!` - Mutable references (replaces `&mut T`)
@@ -1191,7 +1191,7 @@ Tüm syntax örnekleri için `examples/` dizinine bakın:
 
 - **LANGUAGE_FEATURES.md** - Detaylı özellik listesi ve test durumları
 - **TODO.md** - Aktif geliştirme görevleri
-- **docs/VARIABLE_SYSTEM_V09.md** - v0.9 değişken sistemi detayları
+- **docs/VARIABLE_SYSTEM_V09.md** - v0.1 değişken sistemi detayları
 - **TRAIT_SYSTEM_MIGRATION_STATUS.md** - Trait sistemi implementasyonu
 - **examples/README.md** - Tüm örneklerin açıklaması
 

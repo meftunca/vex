@@ -1,0 +1,8 @@
+import { now, monotonic_now } from "time";
+
+fn main() {
+	let t = now();
+	let mono = monotonic_now();
+	// Simple sanity: monotonic should be >= 0
+	if mono >= 0 { print(mono); } else { print(0); }
+}

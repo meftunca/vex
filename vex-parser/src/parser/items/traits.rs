@@ -4,12 +4,8 @@ use vex_ast::*;
 use vex_lexer::Token;
 
 impl<'a> Parser<'a> {
-    pub(crate) fn parse_interface_or_trait(&mut self) -> Result<Item, ParseError> {
-        // Parse interface or trait keyword
-        let is_trait = self.match_token(&Token::Trait);
-        if !is_trait {
-            self.consume(&Token::Interface, "Expected 'interface' or 'trait'")?;
-        }
+    pub(crate) fn parse_trait(&mut self) -> Result<Item, ParseError> {
+        self.consume(&Token::Trait, "Expected 'trait'")?;
 
         let name = self.consume_identifier()?;
 
@@ -32,56 +28,49 @@ impl<'a> Parser<'a> {
             Vec::new()
         };
 
-        if is_trait {
-            // Parse trait methods (required or default implementations)
-            let mut trait_methods = Vec::new();
-            let mut associated_types = Vec::new();
-            let mut type_aliases = Vec::new();
+        // Parse trait methods (required or default implementations)
+        let mut trait_methods = Vec::new();
+        let mut associated_types = Vec::new();
+        let mut type_aliases = Vec::new();
 
-            while !self.check(&Token::RBrace) && !self.is_at_end() {
-                if self.check(&Token::Fn) {
-                    self.advance(); // consume 'fn'
-                    trait_methods.push(self.parse_trait_method_signature()?);
-                } else if self.check(&Token::Type) {
-                    // Parse associated type OR type alias
-                    self.advance(); // consume 'type'
-                    let type_name = self.consume_identifier()?;
+        while !self.check(&Token::RBrace) && !self.is_at_end() {
+            if self.check(&Token::Fn) {
+                self.advance(); // consume 'fn'
+                trait_methods.push(self.parse_trait_method_signature()?);
+            } else if self.check(&Token::Type) {
+                // Parse associated type OR type alias
+                self.advance(); // consume 'type'
+                let type_name = self.consume_identifier()?;
 
-                    // Check if this is a type alias (type Iter = Iterator;) or associated type (type Item;)
-                    if self.match_token(&Token::Eq) {
-                        // Type alias: type Iter = Iterator;
-                        let aliased_type = self.parse_type()?;
-                        self.consume(&Token::Semicolon, "Expected ';' after type alias")?;
-                        type_aliases.push(TraitTypeAlias {
-                            name: type_name,
-                            ty: aliased_type,
-                        });
-                    } else {
-                        // Associated type: type Item;
-                        self.consume(&Token::Semicolon, "Expected ';' after associated type")?;
-                        associated_types.push(type_name);
-                    }
+                // Check if this is a type alias (type Iter = Iterator;) or associated type (type Item;)
+                if self.match_token(&Token::Eq) {
+                    // Type alias: type Iter = Iterator;
+                    let aliased_type = self.parse_type()?;
+                    self.consume(&Token::Semicolon, "Expected ';' after type alias")?;
+                    type_aliases.push(TraitTypeAlias {
+                        name: type_name,
+                        ty: aliased_type,
+                    });
                 } else {
-                    return Err(self.error("Expected method or associated type in trait"));
+                    // Associated type: type Item;
+                    self.consume(&Token::Semicolon, "Expected ';' after associated type")?;
+                    associated_types.push(type_name);
                 }
+            } else {
+                return Err(self.error("Expected method or associated type in trait"));
             }
-
-            self.consume(&Token::RBrace, "Expected '}'")?;
-
-            Ok(Item::Trait(Trait {
-                name,
-                type_params,
-                super_traits,
-                associated_types,
-                type_aliases,
-                methods: trait_methods,
-            }))
-        } else {
-            // Interface keyword is deprecated - treat as trait
-            return Err(self.error(
-                "The 'interface' keyword is deprecated. Use 'trait' instead (Vex v1.3 specification)",
-            ));
         }
+
+        self.consume(&Token::RBrace, "Expected '}'")?;
+
+        Ok(Item::Trait(Trait {
+            name,
+            type_params,
+            super_traits,
+            associated_types,
+            type_aliases,
+            methods: trait_methods,
+        }))
     }
 
     pub(crate) fn parse_trait_impl(&mut self) -> Result<Item, ParseError> {
@@ -97,7 +86,7 @@ impl<'a> Parser<'a> {
 
         // Check if this is the deprecated 'impl Trait for Type' syntax
         if self.check(&Token::For) {
-            // ❌ REJECT: External trait implementations are not allowed in Vex v0.9+
+            // ❌ REJECT: External trait implementations are not allowed in Vex v0.1+
             return Err(self.error(&format!(
                 "External trait implementations are not allowed. Use 'struct <Type> impl {} {{ ... }}' instead of 'impl {} for <Type>'.\n\
                 Vex requires trait methods to be defined inside the struct body for clarity.",

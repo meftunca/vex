@@ -1,6 +1,6 @@
 # Vex Generic System Referans Dokümanı
 
-**Versiyon:** 0.2.0 (Syntax v0.9)  
+**Versiyon:** 0.2.0 (Syntax v0.1)  
 **Son Güncelleme:** 6 Kasım 2025  
 **Test Durumu:** 143/146 test geçiyor (%97.9)
 
@@ -161,7 +161,7 @@ fn (self: &Container<T>) get(): T {
     return self.value;
 }
 
-// Mutable method (v0.9 syntax: &Container<T>!)
+// Mutable method (v0.1 syntax: &Container<T>!)
 fn (self: &Container<T>!) set(new_value: T) {
     self.value = new_value;
 }

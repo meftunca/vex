@@ -323,6 +323,12 @@ impl MoveChecker {
                     return Ok(());
                 }
 
+                // Skip builtin type names (Vec, Box, Map, etc.) - O(1) hash lookup
+                // These are used in static method calls like Vec.new()
+                if crate::type_registry::is_builtin_type(name) {
+                    return Ok(());
+                }
+
                 // Check if this variable has been moved
                 if self.moved_vars.contains(name) {
                     let used_at = self
@@ -535,9 +541,9 @@ impl MoveChecker {
             | Type::U32
             | Type::U64
             | Type::U128
+            | Type::F16
             | Type::F32
             | Type::F64
-            | Type::F128
             | Type::Bool
             | Type::Byte => false,
 
@@ -581,6 +587,10 @@ impl MoveChecker {
 
             // Typeof is compile-time only, treated as Copy
             Type::Typeof(_) => false,
+
+            // Self type and associated types - resolve at compile time
+            Type::SelfType => true, // Conservative: treat as Move until resolved
+            Type::AssociatedType { .. } => true, // Conservative: treat as Move until resolved
         }
     }
 }

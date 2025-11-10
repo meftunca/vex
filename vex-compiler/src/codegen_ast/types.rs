@@ -20,11 +20,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
             Type::U32 => BasicTypeEnum::IntType(self.context.i32_type()),
             Type::U64 => BasicTypeEnum::IntType(self.context.i64_type()),
             Type::U128 => BasicTypeEnum::IntType(self.context.i128_type()),
-            // Type::F16 => BasicTypeEnum::FloatType(self.context.f16_type()),
+            Type::F16 => BasicTypeEnum::FloatType(self.context.f16_type()),
             Type::F32 => BasicTypeEnum::FloatType(self.context.f32_type()),
             Type::F64 => BasicTypeEnum::FloatType(self.context.f64_type()),
-            Type::F128 => BasicTypeEnum::FloatType(self.context.f128_type()),
             Type::Bool => BasicTypeEnum::IntType(self.context.bool_type()),
+            Type::Byte => BasicTypeEnum::IntType(self.context.i8_type()),
             Type::String => {
                 // String as ptr (C-style string pointer)
                 BasicTypeEnum::PointerType(self.context.ptr_type(inkwell::AddressSpace::default()))
@@ -33,6 +33,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 // Nil as void/i8 (placeholder)
                 // In LLVM, we use i8 as a minimal type
                 BasicTypeEnum::IntType(self.context.i8_type())
+            }
+            Type::Error => {
+                // Error type as i32 (error code)
+                BasicTypeEnum::IntType(self.context.i32_type())
             }
             Type::Array(elem_ty, size) => {
                 let elem_llvm = self.ast_type_to_llvm(elem_ty);
@@ -388,6 +392,27 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 BasicTypeEnum::StructType(result_struct)
             }
 
+            Type::SelfType => {
+                // Self type - needs to be resolved in context
+                // For now, treat as opaque pointer
+                // TODO: Resolve to actual type from impl context
+                eprintln!("⚠️  Self type encountered, needs resolution");
+                BasicTypeEnum::PointerType(self.context.ptr_type(inkwell::AddressSpace::default()))
+            }
+
+            Type::AssociatedType { self_type, name } => {
+                // Associated type: Self.Item, Self.Output
+                // Needs to be resolved from trait impl context
+                eprintln!(
+                    "⚠️  Associated type {}.{} encountered, needs resolution",
+                    self.type_to_string(self_type),
+                    name
+                );
+                // For now, return opaque pointer
+                // TODO: Implement resolve_associated_type()
+                BasicTypeEnum::PointerType(self.context.ptr_type(inkwell::AddressSpace::default()))
+            }
+
             Type::Slice(_elem_ty, _is_mutable) => {
                 // Slice<T> layout: { i8*, i64, i64 }
                 // Fields: data_ptr, len, elem_size
@@ -482,10 +507,15 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 }
             }
             BasicTypeEnum::FloatType(float_ty) => {
-                // Check if f32 or f64 based on LLVM representation
-                if float_ty == self.context.f32_type() {
+                // Check float type based on LLVM representation
+                if float_ty == self.context.f16_type() {
+                    Ok(Type::F16)
+                } else if float_ty == self.context.f32_type() {
                     Ok(Type::F32)
+                } else if float_ty == self.context.f64_type() {
+                    Ok(Type::F64)
                 } else {
+                    // Fallback to f64 if unknown
                     Ok(Type::F64)
                 }
             }
@@ -520,6 +550,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
     pub(crate) fn infer_expression_type(&self, expr: &Expression) -> Result<Type, String> {
         let result = match expr {
             Expression::IntLiteral(_) => Ok(Type::I32),
+            Expression::BigIntLiteral(_) => Ok(Type::I128), // Large integers default to i128
             Expression::FloatLiteral(_) => Ok(Type::F64),
             Expression::StringLiteral(_) => Ok(Type::String),
             Expression::FStringLiteral(_) => Ok(Type::String),
@@ -604,11 +635,14 @@ impl<'ctx> ASTCodeGen<'ctx> {
             Type::U32 => "u32".to_string(),
             Type::U64 => "u64".to_string(),
             Type::U128 => "u128".to_string(),
+            Type::F16 => "f16".to_string(),
             Type::F32 => "f32".to_string(),
             Type::F64 => "f64".to_string(),
-            Type::F128 => "f128".to_string(),
             Type::Bool => "bool".to_string(),
+            Type::Byte => "byte".to_string(),
             Type::String => "string".to_string(),
+            Type::Nil => "nil".to_string(),
+            Type::Error => "error".to_string(),
             Type::Named(name) => name.clone(),
             Type::Generic { name, type_args } => {
                 // Recursive mangling for nested generics: Box<Box<i32>> => Box_Box_i32

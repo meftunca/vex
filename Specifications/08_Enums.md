@@ -1,6 +1,6 @@
 # Enums (Enumerated Types)
 
-**Version:** 0.9.0  
+**Version:** 0.1.0  
 **Last Updated:** November 3, 2025
 
 This document defines enumerated types (enums) in the Vex programming language.
@@ -154,7 +154,7 @@ enum Message {
 }
 ```
 
-### Tuple Variants ✅ COMPLETE (v0.9.2)
+### Tuple Variants ✅ COMPLETE (v0.1.2)
 
 Enum variants can carry data in tuple form:
 
@@ -175,7 +175,7 @@ let x = Option.Some(42);
 let result = Result.Ok("success");
 ```
 
-**Multi-Value Tuple Variants** ✅ NEW (v0.9.2):
+**Multi-Value Tuple Variants** ✅ NEW (v0.1.2):
 
 ```vex
 enum IpAddr {
@@ -921,7 +921,7 @@ match status {
 | Inline Methods  | Inside enum body     | ✅ Working  | Methods on enums         |
 | Golang Methods  | Outside enum         | ✅ Working  | Separate definition      |
 | Data-Carrying   | `Some(T), None`      | ✅ Complete | Option/Result work fully |
-| Tuple Variants  | `Some(T)` (single)   | ✅ v0.9.2   | Single value tuples      |
+| Tuple Variants  | `Some(T)` (single)   | ✅ v0.1.2   | Single value tuples      |
 | Multi-Tuple     | `V4(u8, u8, u8, u8)` | 🚧 Future   | Multiple values          |
 | Struct Variants | `Move { x, y }`      | 🚧 Future   | Named fields             |
 | Generic Enums   | `Option<T>`          | ✅ Complete | Type parameters working  |

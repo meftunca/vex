@@ -1,6 +1,6 @@
 # Functions and Methods
 
-**Version:** 0.9.0  
+**Version:** 0.1.0  
 **Last Updated:** November 3, 2025
 
 This document defines functions, methods, and related concepts in the Vex programming language.

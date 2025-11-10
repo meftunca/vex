@@ -9,6 +9,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         &mut self,
         receiver: &Expression,
         method: &str,
+        type_args: &[Type], // ⭐ NEW: Generic type arguments for static methods
         args: &[Expression],
         is_mutable_call: bool,
     ) -> Result<BasicValueEnum<'ctx>, String> {
@@ -69,7 +70,113 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }
         }
 
-        // Get struct type from receiver (for actual method calls)
+        // Check if this is a static method call: Type.method() where Type is PascalCase
+        // Static methods don't have a receiver instance - they're called on the type itself
+        if let Expression::Ident(potential_type_name) = receiver {
+            // Check if this looks like a type name (PascalCase - starts with uppercase)
+            let is_type_name = potential_type_name
+                .chars()
+                .next()
+                .map(|c| c.is_uppercase())
+                .unwrap_or(false);
+
+            // Check if this is NOT a variable (static methods called on types, not instances)
+            let is_not_variable = !self.variables.contains_key(potential_type_name);
+
+            if is_type_name && is_not_variable {
+                // This is a static method call: Type.method(args) or Vec<i32>.new()
+
+                // ⭐ NEW: Handle generic static methods: Vec<i32>.new()
+                // Mangle function name with type arguments
+                let base_method_name = if !type_args.is_empty() {
+                    // Generic static method: Vec<i32>.new() → vec_i32_new
+                    let mut mangled = potential_type_name.to_lowercase();
+                    for ty in type_args {
+                        mangled.push('_');
+                        mangled.push_str(&self.type_to_string(ty));
+                    }
+                    mangled.push('_');
+                    mangled.push_str(method);
+                    mangled
+                } else {
+                    // Non-generic: Vec.new() → vec_new
+                    format!("{}_{}", potential_type_name.to_lowercase(), method)
+                };
+
+                // Try builtin registry first
+                if let Some(builtin_fn) = self.builtins.get(&base_method_name) {
+                    let mut arg_vals: Vec<BasicValueEnum> = vec![];
+                    for arg in args {
+                        let val = self.compile_expression(arg)?;
+                        arg_vals.push(val);
+                    }
+
+                    return builtin_fn(self, &arg_vals);
+                }
+
+                // Check if the function exists in LLVM module
+                if !self.functions.contains_key(&base_method_name) {
+                    // Try PascalCase version: TypeName_method or Vec_i32_new
+                    let pascal_method_name = if !type_args.is_empty() {
+                        let mut mangled = potential_type_name.to_string();
+                        for ty in type_args {
+                            mangled.push('_');
+                            mangled.push_str(&self.type_to_string(ty));
+                        }
+                        mangled.push('_');
+                        mangled.push_str(method);
+                        mangled
+                    } else {
+                        format!("{}_{}", potential_type_name, method)
+                    };
+
+                    if !self.functions.contains_key(&pascal_method_name) {
+                        return Err(format!(
+                            "Static method {}.{}() not found. Expected function: {} or {}",
+                            potential_type_name, method, base_method_name, pascal_method_name
+                        ));
+                    }
+
+                    // Use PascalCase version
+                    let mut arg_vals: Vec<BasicMetadataValueEnum> = vec![];
+                    for arg in args {
+                        let val = self.compile_expression(arg)?;
+                        arg_vals.push(val.into());
+                    }
+
+                    let fn_val = *self.functions.get(&pascal_method_name).unwrap();
+                    let call_site = self
+                        .builder
+                        .build_call(fn_val, &arg_vals, "static_method_call")
+                        .map_err(|e| format!("Failed to build static method call: {}", e))?;
+
+                    return call_site
+                        .try_as_basic_value()
+                        .left()
+                        .ok_or_else(|| "Static method returned void".to_string());
+                }
+
+                // Call lowercase version from LLVM module
+                let mut arg_vals: Vec<BasicMetadataValueEnum> = vec![];
+                for arg in args {
+                    let val = self.compile_expression(arg)?;
+                    arg_vals.push(val.into());
+                }
+
+                let fn_val = *self.functions.get(&base_method_name).unwrap();
+                let call_site = self
+                    .builder
+                    .build_call(fn_val, &arg_vals, "static_method_call")
+                    .map_err(|e| format!("Failed to build static method call: {}", e))?;
+
+                return call_site
+                    .try_as_basic_value()
+                    .left()
+                    .ok_or_else(|| "Static method returned void".to_string());
+            }
+        }
+
+        // Get struct type from receiver (for instance method calls)
         let struct_name = if let Expression::Ident(var_name) = receiver {
             self.variable_struct_names
                 .get(var_name)
@@ -260,9 +367,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
             .function_defs
             .get(&final_method_name)
             .map(|func| {
-                let is_external = func.receiver.as_ref().map_or(false, |r| {
-                    matches!(r.ty, Type::Reference(_, _))
-                });
+                let is_external = func
+                    .receiver
+                    .as_ref()
+                    .map_or(false, |r| matches!(r.ty, Type::Reference(_, _)));
                 (func.is_mutable, is_external)
             })
             .unwrap_or((false, false));
@@ -270,7 +378,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         // CONTRACT RULES:
         // 1. External methods (Golang-style with &Type! receiver): NO '!' at call site
         // 2. Inline methods: '!' is OPTIONAL (compiler validates mutability at compile time)
-        
+
         if is_external_method {
             // External method: '!' suffix is FORBIDDEN
             if is_mutable_call {
@@ -290,7 +398,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 );
                 // Don't error, just warn
             }
-            
+
             if !method_is_mutable && is_mutable_call {
                 return Err(format!(
                     "Method '{}' is immutable, cannot use '!' suffix at call site",

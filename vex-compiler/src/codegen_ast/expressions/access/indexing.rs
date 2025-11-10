@@ -12,26 +12,85 @@ impl<'ctx> ASTCodeGen<'ctx> {
         object: &Expression,
         index: &Expression,
     ) -> Result<BasicValueEnum<'ctx>, String> {
-        // Get variable name
-        let var_name = if let Expression::Ident(name) = object {
-            name
-        } else {
-            return Err("Complex indexing expressions not yet supported".to_string());
+        // Handle complex object expressions (e.g., self.field[index])
+        let (base_ptr, var_type, struct_name_opt) = match object {
+            Expression::Ident(name) => {
+                // Simple variable: arr[i]
+                let var_ptr = *self
+                    .variables
+                    .get(name)
+                    .ok_or_else(|| format!("Variable {} not found", name))?;
+                let var_ty = *self
+                    .variable_types
+                    .get(name)
+                    .ok_or_else(|| format!("Type for {} not found", name))?;
+                let struct_name = self.variable_struct_names.get(name).cloned();
+                (var_ptr, var_ty, struct_name)
+            }
+            Expression::FieldAccess {
+                object: inner_obj,
+                field,
+            } => {
+                // Field access: self.field[index] or obj.field[index]
+                let field_ptr = self.get_field_pointer(inner_obj, field)?;
+
+                // Get the field type by examining the struct definition
+                let struct_name_key = if let Expression::Ident(name) = inner_obj.as_ref() {
+                    self.variable_struct_names.get(name).cloned()
+                } else {
+                    None
+                };
+
+                if let Some(struct_name) = struct_name_key {
+                    if let Some(struct_def) = self.struct_defs.get(&struct_name) {
+                        // Find field in struct definition to get its type
+                        let field_ast_type = struct_def
+                            .fields
+                            .iter()
+                            .find(|f| f.0 == *field)
+                            .map(|f| &f.1)
+                            .ok_or_else(|| {
+                                format!("Field {} not found in struct {}", field, struct_name)
+                            })?;
+
+                        let field_llvm_type = self.ast_type_to_llvm(field_ast_type);
+
+                        // Load the field value (it should be an array)
+                        let field_val = self
+                            .builder
+                            .build_load(field_llvm_type, field_ptr, "field_load")
+                            .map_err(|e| format!("Failed to load field: {}", e))?;
+
+                        // Store in a temporary for indexing
+                        let temp_alloca = self
+                            .builder
+                            .build_alloca(field_llvm_type, "temp_array")
+                            .map_err(|e| format!("Failed to allocate temp: {}", e))?;
+                        self.builder
+                            .build_store(temp_alloca, field_val)
+                            .map_err(|e| format!("Failed to store temp: {}", e))?;
+
+                        (temp_alloca, field_llvm_type, None)
+                    } else {
+                        return Err(format!("Struct definition {} not found", struct_name));
+                    }
+                } else {
+                    return Err("Cannot index field of non-struct object".to_string());
+                }
+            }
+            _ => {
+                return Err("Complex indexing expressions not yet fully supported".to_string());
+            }
         };
 
         // Check if this is a Map
-        if let Some(struct_name) = self.variable_struct_names.get(var_name) {
+        if let Some(ref struct_name) = struct_name_opt {
             if struct_name == "Map" {
                 // Map indexing: map[key] -> map.get(key)
-                let map_ptr_var = *self
-                    .variables
-                    .get(var_name)
-                    .ok_or_else(|| format!("Map {} not found", var_name))?;
-
                 let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
                 let map_ptr = self
                     .builder
-                    .build_load(ptr_type, map_ptr_var, &format!("{}_ptr", var_name))
+                    .build_load(ptr_type, base_ptr, "map_ptr")
                     .map_err(|e| format!("Failed to load map pointer: {}", e))?;
 
                 // Compile key expression
@@ -54,8 +113,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }
         }
 
-        // Check if this is string indexing (v0.9.2)
-        if let Some(var_type) = self.variable_types.get(var_name) {
+        // Check if this is string indexing (v0.1.2) - only for simple variables
+        if let Expression::Ident(var_name) = object {
             if let BasicTypeEnum::PointerType(_) = var_type {
                 // Could be string - check if it's actually a string variable
                 // For now, assume pointer + integer index = string indexing
@@ -75,20 +134,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
         }
 
         // Array indexing
-        let array_ptr = *self
-            .variables
-            .get(var_name)
-            .ok_or_else(|| format!("Array {} not found", var_name))?;
-        let array_type = *self
-            .variable_types
-            .get(var_name)
-            .ok_or_else(|| format!("Type for array {} not found", var_name))?;
-
         // Get element type from array type
-        let elem_type = if let BasicTypeEnum::ArrayType(arr_ty) = array_type {
+        let elem_type = if let BasicTypeEnum::ArrayType(arr_ty) = var_type {
             arr_ty.get_element_type()
         } else {
-            return Err(format!("{} is not an array", var_name));
+            return Err("Indexing target is not an array".to_string());
         };
 
         // Compile index expression
@@ -106,7 +156,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         unsafe {
             let element_ptr = self
                 .builder
-                .build_in_bounds_gep(array_type, array_ptr, &[zero, index_int], "arrayidx")
+                .build_in_bounds_gep(var_type, base_ptr, &[zero, index_int], "arrayidx")
                 .map_err(|e| format!("Failed to build GEP: {}", e))?;
 
             // Load the element value

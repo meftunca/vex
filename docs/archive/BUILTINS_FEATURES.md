@@ -1,6 +1,6 @@
 # Vex Builtin Types & Functions - Feature Status
 
-**Version:** 0.2.0 (Syntax v0.9)  
+**Version:** 0.2.0 (Syntax v0.1)  
 **Last Updated:** November 6, 2025  
 **Test Status:** 143/146 passing (97.9%)
 

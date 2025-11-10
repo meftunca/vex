@@ -78,6 +78,11 @@ pub struct ASTCodeGen<'ctx> {
     // Trait implementations: (trait_name, type_name) -> Vec<Function>
     pub(crate) trait_impls: HashMap<(String, String), Vec<Function>>,
 
+    // ⭐ NEW: Destructor trait tracking
+    // Types that implement Destructor trait and need cleanup at scope exit
+    // Maps type_name -> cleanup_function_name (e.g., "Vec" -> "vec_free")
+    pub(crate) destructor_impls: HashMap<String, String>,
+
     // Policy definitions: policy_name -> Policy
     pub(crate) policy_defs: HashMap<String, vex_ast::Policy>,
 
@@ -184,6 +189,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             generic_instantiations: HashMap::new(),
             trait_defs: HashMap::new(),
             trait_impls: HashMap::new(),
+            destructor_impls: HashMap::new(), // ⭐ NEW: Destructor trait tracking
             policy_defs: HashMap::new(),
             struct_metadata: HashMap::new(),
             module_namespaces: HashMap::new(),
@@ -209,6 +215,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Register stdlib runtime functions (logger, fs, time, testing)
         builtins::register_stdlib_runtime(&mut codegen);
+
+        // ⭐ NEW: Register built-in destructor implementations
+        codegen.register_builtin_destructors();
 
         codegen
     }
@@ -266,24 +275,57 @@ impl<'ctx> ASTCodeGen<'ctx> {
         self.scope_stack.push(Vec::new());
     }
 
-    /// Pop scope and emit cleanup calls for Vec/Box types
+    /// Register built-in types that implement Destructor trait
+    fn register_builtin_destructors(&mut self) {
+        // Built-in types that need cleanup at scope exit
+        self.destructor_impls
+            .insert("Vec".to_string(), "vec_free".to_string());
+        self.destructor_impls
+            .insert("Box".to_string(), "box_free".to_string());
+        self.destructor_impls
+            .insert("String".to_string(), "vex_string_free".to_string());
+        self.destructor_impls
+            .insert("Map".to_string(), "vex_map_free".to_string());
+        self.destructor_impls
+            .insert("Set".to_string(), "vex_map_free".to_string()); // Set uses Map backend
+
+        eprintln!(
+            "📝 Registered {} built-in destructor implementations",
+            self.destructor_impls.len()
+        );
+    }
+
+    /// Pop scope and emit cleanup calls for types implementing Destructor trait
     pub(crate) fn pop_scope(&mut self) -> Result<(), String> {
         if let Some(scope_vars) = self.scope_stack.pop() {
-            // Emit cleanup calls in reverse order (LIFO)
+            // Emit cleanup calls in reverse order (LIFO - last allocated, first freed)
             for (var_name, type_name) in scope_vars.iter().rev() {
-                match type_name.as_str() {
-                    "Vec" => {
-                        // Call vec_free(var)
-                        if let Some(var_ptr) = self.variables.get(var_name) {
-                            eprintln!("🧹 Auto-cleanup: vec_free({})", var_name);
+                // Check if this type implements Destructor trait (has a registered cleanup function)
+                if let Some(cleanup_func_name) = self.destructor_impls.get(type_name) {
+                    eprintln!(
+                        "🧹 Auto-cleanup: {}({}) [trait-based]",
+                        cleanup_func_name, var_name
+                    );
 
+                    // Get variable pointer
+                    let var_ptr = match self.variables.get(var_name) {
+                        Some(ptr) => *ptr,
+                        None => {
+                            eprintln!("⚠️  Variable {} not found, skipping cleanup", var_name);
+                            continue;
+                        }
+                    };
+
+                    // Call the appropriate cleanup function based on type
+                    match type_name.as_str() {
+                        "Vec" => {
                             let vec_opaque_type = self.context.opaque_struct_type("vex_vec_s");
                             let vec_ptr_type =
                                 vec_opaque_type.ptr_type(inkwell::AddressSpace::default());
 
                             let vec_value = self
                                 .builder
-                                .build_load(vec_ptr_type, *var_ptr, "vec_cleanup_load")
+                                .build_load(vec_ptr_type, var_ptr, "vec_cleanup_load")
                                 .map_err(|e| format!("Failed to load vec for cleanup: {}", e))?;
 
                             let vec_free_fn = self.get_vex_vec_free();
@@ -291,13 +333,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                 .build_call(vec_free_fn, &[vec_value.into()], "vec_auto_free")
                                 .map_err(|e| format!("Failed to call vec_free: {}", e))?;
                         }
-                    }
-                    "Box" => {
-                        // Call box_free(box_ptr) - load the box pointer and pass it
-                        if let Some(var_ptr) = self.variables.get(var_name).copied() {
-                            eprintln!("🧹 Auto-cleanup: box_free({})", var_name);
-
-                            // Load the box pointer from the variable
+                        "Box" => {
                             let box_ptr_type = self
                                 .context
                                 .struct_type(
@@ -322,19 +358,13 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                 .build_call(box_free_fn, &[box_value.into()], "box_auto_free")
                                 .map_err(|e| format!("Failed to call box_free: {}", e))?;
                         }
-                    }
-                    "String" => {
-                        // Call vex_string_free(vex_string_t*)
-                        if let Some(var_ptr) = self.variables.get(var_name).copied() {
-                            eprintln!("🧹 Auto-cleanup: vex_string_free({})", var_name);
-
+                        "String" => {
                             let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
                             let string_value = self
                                 .builder
                                 .build_load(ptr_type, var_ptr, "string_cleanup_load")
                                 .map_err(|e| format!("Failed to load string for cleanup: {}", e))?;
 
-                            // Declare void vex_string_free(vex_string_t*)
                             let void_fn_type =
                                 self.context.void_type().fn_type(&[ptr_type.into()], false);
                             let string_free_fn =
@@ -349,12 +379,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                 )
                                 .map_err(|e| format!("Failed to call vex_string_free: {}", e))?;
                         }
-                    }
-                    "Map" | "Set" => {
-                        // Call vex_map_free(map_ptr) / vex_set_free(set_ptr) - both use map backend
-                        if let Some(var_ptr) = self.variables.get(var_name).copied() {
-                            eprintln!("🧹 Auto-cleanup: vex_map_free({})", var_name);
-
+                        "Map" | "Set" => {
                             let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
                             let map_value = self
                                 .builder
@@ -363,7 +388,6 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                     format!("Failed to load map/set for cleanup: {}", e)
                                 })?;
 
-                            // Declare void vex_map_free(vex_map_t*)
                             let void_fn_type =
                                 self.context.void_type().fn_type(&[ptr_type.into()], false);
                             let map_free_fn =
@@ -373,24 +397,35 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                 .build_call(map_free_fn, &[map_value.into()], "map_auto_free")
                                 .map_err(|e| format!("Failed to call vex_map_free: {}", e))?;
                         }
+                        _ => {
+                            eprintln!("⚠️  Cleanup for type {} not yet implemented", type_name);
+                        }
                     }
-                    _ => {
-                        // Other types don't need cleanup (yet)
-                    }
+                } else {
+                    // Type doesn't implement Destructor trait - no cleanup needed
+                    eprintln!("  → Type {} has no destructor, skipping cleanup", type_name);
                 }
             }
         }
         Ok(())
     }
 
-    /// Register a variable for automatic cleanup
+    /// Register a variable for automatic cleanup (if it implements Destructor trait)
     pub(crate) fn register_for_cleanup(&mut self, var_name: String, type_name: String) {
-        if let Some(current_scope) = self.scope_stack.last_mut() {
-            // Only register Vec and Box for now
-            if type_name == "Vec" || type_name == "Box" {
-                eprintln!("📝 Register for cleanup: {} ({})", var_name, type_name);
+        // Check if this type implements Destructor trait
+        if self.destructor_impls.contains_key(&type_name) {
+            if let Some(current_scope) = self.scope_stack.last_mut() {
+                eprintln!(
+                    "📝 Register for cleanup: {} ({}) [trait-based]",
+                    var_name, type_name
+                );
                 current_scope.push((var_name, type_name));
             }
+        } else {
+            eprintln!(
+                "  → Type {} has no destructor, not registering for cleanup",
+                type_name
+            );
         }
     }
 
@@ -483,7 +518,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             .build_alloca(llvm_type, name)
             .map_err(|e| format!("Failed to create alloca: {}", e))?;
 
-        // v0.9: Mark immutable variables as readonly (optimization hint for LLVM)
+        // v0.1: Mark immutable variables as readonly (optimization hint for LLVM)
         // Mutable variables (let!) remain writable
         if !is_mutable {
             // TODO: Add LLVM metadata to mark as readonly/constant
@@ -715,6 +750,16 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     } else {
                         Ok(None)
                     }
+                } else {
+                    Ok(None)
+                }
+            }
+            // Type constructor: treat like function call
+            Expression::TypeConstructor { type_name, .. } => {
+                // Type_new() might return the type itself
+                // Check if it's a struct
+                if self.struct_defs.contains_key(type_name) {
+                    Ok(Some(type_name.clone()))
                 } else {
                     Ok(None)
                 }

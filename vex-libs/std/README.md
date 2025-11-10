@@ -156,7 +156,7 @@ fn test_with_subtests() {
     subtest("case1", fn() {
         assert(true, "Should pass");
     });
-    
+
     subtest("case2", fn() {
         log("Running case 2");
         assert_eq(10, 10, "Equal check");
@@ -167,9 +167,9 @@ fn test_with_subtests() {
 fn bench_string_ops() {
     let data = "x".repeat(1024);
     set_bytes(1024);  // For throughput calculation
-    
+
     reset_timer();  // Exclude setup time
-    
+
     for i in 0..1000 {
         let _ = data.len();
     }
@@ -266,7 +266,7 @@ Platform-specific implementasyonlar dosya adı ile belirlenir:
 
 Standard library versiyonu Vex compiler versiyonu ile senkronize edilir:
 
-- `vex v0.9.1` → `std v0.9.1`
+- `vex v0.1.1` → `std v0.1.1`
 - No dependency declaration needed in `vex.json`
 - Built-in, always available
 
@@ -285,7 +285,7 @@ mkdir -p vex-libs/std/mymodule/{src,tests}
 ```json
 {
   "name": "mymodule",
-  "version": "0.9.1",
+  "version": "0.1.1",
   "description": "My module description",
   "authors": ["Vex Language Team"],
   "license": "MIT",

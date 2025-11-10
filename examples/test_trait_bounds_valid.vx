@@ -1,0 +1,26 @@
+// Test trait bounds enforcement
+// This should compile successfully - Point implements Display
+
+trait Display {
+    fn to_string(): string;
+}
+
+struct Point impl Display {
+    x: i32,
+    y: i32,
+    
+    fn to_string(): string {
+        return "Point";
+    }
+}
+
+// Generic function with trait bound
+fn print_value<T: Display>(value: T) {
+    // Should only accept types that implement Display
+}
+
+fn main(): i32 {
+    let p = Point { x: 10, y: 20 };
+    print_value(p);  // ✅ Should work - Point implements Display
+    return 0;
+}

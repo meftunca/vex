@@ -138,6 +138,7 @@ static int append_char(char** buf, size_t* remain, char c) {
 }
 
 /* Helper: get weekday from date */
+__attribute__((unused))
 static int get_weekday(int year, int month, int day) {
     /* Zeller's congruence for Gregorian calendar */
     if (month < 3) {
@@ -152,9 +153,81 @@ static int get_weekday(int year, int month, int day) {
     return (h + 6) % 7;  /* Convert to 0=Sunday */
 }
 
+/* Fast path for RFC1123Z: "Mon, 02 Jan 2006 15:04:05 -0700" */
+static int format_rfc1123z_fast(VexInstant wall, int tz_offset, char* buf, size_t buflen) {
+    if (buflen < 32) return -1;
+    
+    int year, month, day, hour, minute, second, weekday;
+    fast_date_from_epoch(wall.unix_sec, &year, &month, &day, &hour, &minute, &second, &weekday);
+    
+    /* Format: "Thu, 07 Nov 2024 12:34:56 +0000" */
+    char* p = buf;
+    
+    /* Weekday abbr */
+    memcpy(p, weekday_abbr[weekday], 3);
+    p += 3;
+    *p++ = ',';
+    *p++ = ' ';
+    
+    /* Day (02) */
+    *p++ = '0' + (day / 10);
+    *p++ = '0' + (day % 10);
+    *p++ = ' ';
+    
+    /* Month abbr */
+    memcpy(p, month_abbr[month - 1], 3);
+    p += 3;
+    *p++ = ' ';
+    
+    /* Year (2006) */
+    *p++ = '0' + (year / 1000);
+    *p++ = '0' + ((year / 100) % 10);
+    *p++ = '0' + ((year / 10) % 10);
+    *p++ = '0' + (year % 10);
+    *p++ = ' ';
+    
+    /* Hour (15) */
+    *p++ = '0' + (hour / 10);
+    *p++ = '0' + (hour % 10);
+    *p++ = ':';
+    
+    /* Minute (04) */
+    *p++ = '0' + (minute / 10);
+    *p++ = '0' + (minute % 10);
+    *p++ = ':';
+    
+    /* Second (05) */
+    *p++ = '0' + (second / 10);
+    *p++ = '0' + (second % 10);
+    *p++ = ' ';
+    
+    /* Timezone offset (-0700) */
+    if (tz_offset < 0) {
+        *p++ = '-';
+        tz_offset = -tz_offset;
+    } else {
+        *p++ = '+';
+    }
+    
+    int tz_hours = tz_offset / 3600;
+    int tz_mins = (tz_offset % 3600) / 60;
+    *p++ = '0' + (tz_hours / 10);
+    *p++ = '0' + (tz_hours % 10);
+    *p++ = '0' + (tz_mins / 10);
+    *p++ = '0' + (tz_mins % 10);
+    
+    *p = '\0';
+    return (int)(p - buf);
+}
+
 /* Main layout formatter */
 int vt_format_layout(VexTime t, const char* layout, char* buf, size_t buflen) {
     if (!layout || !buf || buflen == 0) return -1;
+    
+    /* Fast path for RFC1123Z */
+    if (strcmp(layout, "Mon, 02 Jan 2006 15:04:05 -0700") == 0) {
+        return format_rfc1123z_fast(t.wall, 0, buf, buflen);
+    }
     
     char* start = buf;
     size_t remain = buflen;

@@ -1244,7 +1244,7 @@ char *vex_string_to_string(const char *value)
 }
 
 // ============================================================================
-// STRING INDEXING AND SLICING (v0.9.2)
+// STRING INDEXING AND SLICING (v0.1.2)
 // ============================================================================
 
 #include <stdlib.h> // For abort()

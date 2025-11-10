@@ -442,7 +442,11 @@ impl<'a> Parser<'a> {
             });
         }
 
-        if !self.check(&Token::LBrace) {
+        // Match expressions don't require semicolons when used as statements
+        // (they already have braces that make them unambiguous)
+        let needs_semicolon = !matches!(expr, Expression::Match { .. });
+
+        if needs_semicolon && !self.check(&Token::LBrace) {
             // Don't consume semicolon if it's for loop post
             self.consume(&Token::Semicolon, "Expected ';' after expression")?;
         }

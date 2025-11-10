@@ -37,6 +37,11 @@ impl<'a> Parser<'a> {
                 self.advance();
                 Ok("type".to_string())
             }
+            Token::New => {
+                // Allow 'new' as identifier in method/field names (for Type.new() pattern)
+                self.advance();
+                Ok("new".to_string())
+            }
             _ => Err(self.error("Expected identifier or keyword")),
         }
     }
