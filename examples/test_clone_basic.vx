@@ -1,0 +1,39 @@
+// Test Clone trait - Basic usage
+// Test explicit cloning with .clone()
+
+import { Clone } from "core";
+
+struct Point impl Clone {
+    x: i32,
+    y: i32,
+    
+    fn clone(): Point {
+        return Point { x: self.x, y: self.y };
+    }
+}
+
+fn main(): i32 {
+    let p1 = Point { x: 10, y: 20 };
+    let p2 = p1.clone();
+    
+    println("Original: ({}, {})", p1.x, p1.y);
+    println("Clone: ({}, {})", p2.x, p2.y);
+    
+    if p2.x != 10 {
+        println("❌ FAILED: Clone x mismatch");
+        return 1;
+    }
+    
+    if p2.y != 20 {
+        println("❌ FAILED: Clone y mismatch");
+        return 1;
+    }
+    
+    println("✅ PASSED");
+    return 0;
+}
+
+// Expected output:
+// Original: (10, 20)
+// Clone: (10, 20)
+// ✅ PASSED

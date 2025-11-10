@@ -1,0 +1,8 @@
+// Minimal test - no match, just construct
+import { Option } from "core";
+
+fn main(): i32 {
+    let result = Some(42);
+    println("Created Some(42)");
+    return 0;
+}

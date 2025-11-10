@@ -1001,6 +1001,129 @@ struct CustomLogger impl Logger {
 }
 ```
 
+### Core Traits (Standard Library)
+
+The Vex standard library provides essential traits in `std/core`:
+
+#### Drop Trait - Automatic Cleanup
+
+```vex
+trait Drop {
+    fn drop()!;  // Called automatically when value goes out of scope
+}
+
+struct File impl Drop {
+    handle: i32,
+
+    fn drop()! {
+        // Cleanup logic - close file handle
+        close_file(self.handle);
+    }
+}
+```
+
+#### Clone Trait - Deep Copy
+
+```vex
+trait Clone {
+    fn clone(): Self;  // Create deep copy
+}
+
+struct Point impl Clone {
+    x: i32,
+    y: i32,
+
+    fn clone(): Point {
+        return Point { x: self.x, y: self.y };
+    }
+}
+
+let p1 = Point { x: 10, y: 20 };
+let p2 = p1.clone();  // Deep copy
+```
+
+#### Eq/Ord Traits - Comparison
+
+```vex
+trait Eq {
+    fn eq(other: Self): bool;
+}
+
+trait Ord {
+    fn cmp(other: Self): i32;  // Returns -1, 0, or 1
+}
+
+struct Person impl Eq, Ord {
+    name: string,
+    age: i32,
+
+    fn eq(other: Person): bool {
+        return self.age == other.age;
+    }
+
+    fn cmp(other: Person): i32 {
+        if self.age < other.age { return -1; }
+        if self.age > other.age { return 1; }
+        return 0;
+    }
+}
+```
+
+#### Iterator Trait - Lazy Iteration
+
+```vex
+trait Iterator {
+    type Item;  // Associated type
+
+    fn next()!: Option<Self.Item>;  // Returns next element or None
+}
+
+struct Counter impl Iterator {
+    count: i32,
+    limit: i32,
+
+    type Item = i32;
+
+    fn next()!: Option<i32> {
+        if self.count < self.limit {
+            let current = self.count;
+            self.count = self.count + 1;
+            return Some(current);
+        }
+        return None;
+    }
+}
+
+// Usage
+let! counter = Counter { count: 0, limit: 5 };
+match counter.next() {
+    Some(v) => print(v),
+    None => print("Done"),
+}
+```
+
+### Associated Types
+
+Traits can declare associated types for type-level abstraction:
+
+```vex
+trait Container {
+    type Item;  // Associated type
+
+    fn get(index: i32): Option<Self.Item>;
+}
+
+struct IntVec impl Container {
+    data: Vec<i32>,
+
+    type Item = i32;  // Concrete type for Item
+
+    fn get(index: i32): Option<i32> {
+        // Implementation
+    }
+}
+```
+
 ### Trait Bounds (Future)
 
 ```vex

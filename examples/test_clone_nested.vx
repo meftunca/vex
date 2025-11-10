@@ -1,0 +1,58 @@
+// Test Clone trait - Nested structs (deep copy)
+// Test that clone() properly copies nested structures
+
+import { Clone } from "core";
+
+struct Inner impl Clone {
+    value: i32,
+    
+    fn clone(): Inner {
+        return Inner { value: self.value };
+    }
+}
+
+struct Outer impl Clone {
+    inner: Inner,
+    id: i32,
+    
+    fn clone(): Outer {
+        // Manual deep copy (field access on self works)
+        let cloned_inner = Inner { value: self.inner.value };
+        return Outer { 
+            inner: cloned_inner,
+            id: self.id 
+        };
+    }
+}
+
+fn main(): i32 {
+    let inner1 = Inner { value: 42 };
+    let outer1 = Outer { inner: inner1, id: 1 };
+    
+    let outer2 = outer1.clone();
+    
+    println("Original outer.id: {}", outer1.id);
+    println("Original inner.value: {}", outer1.inner.value);
+    println("Cloned outer.id: {}", outer2.id);
+    println("Cloned inner.value: {}", outer2.inner.value);
+    
+    if outer2.id != 1 {
+        println("❌ FAILED: outer.id mismatch");
+        return 1;
+    }
+    
+    if outer2.inner.value != 42 {
+        println("❌ FAILED: inner.value mismatch");
+        return 1;
+    }
+    
+    println("✅ PASSED");
+    return 0;
+}
+
+// Expected output:
+// Original outer.id: 1
+// Original inner.value: 42
+// Cloned outer.id: 1
+// Cloned inner.value: 42
+// ✅ PASSED

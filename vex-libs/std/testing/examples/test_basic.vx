@@ -1,0 +1,32 @@
+// Basic Test Example
+// Demonstrates trait-based testing framework
+
+import {T, run_test} from "testing";
+
+fn test_addition(t: *T) {
+    let result: i64 = 2 + 2;
+    if result != 4 {
+        t.error("2 + 2 should equal 4");
+    }
+}
+
+fn test_multiplication(t: *T) {
+    let result: i64 = 3 * 4;
+    if result != 12 {
+        t.error("3 * 4 should equal 12");
+    }
+}
+
+fn test_skipped(t: *T) {
+    t.skip("Not implemented yet");
+}
+
+fn main() {
+    print("=== Running Tests ===\n");
+    
+    run_test("Addition", test_addition);
+    run_test("Multiplication", test_multiplication);
+    run_test("Skipped", test_skipped);
+    
+    print("\nDone\n");
+}

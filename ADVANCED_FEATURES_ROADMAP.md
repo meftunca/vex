@@ -24,10 +24,10 @@ Bu dokuman, Vex dilinin ileri seviye özelliklerinin implementasyon planını i�
 | **2. Iterator Trait**            | CRITICAL | 5-7 days  | Associated Types | For-in loop for collections    |             |
 | **3. Trait Bounds Enforcement**  | HIGH     | 4-5 days  | None             | Generic type safety            | ✅ COMPLETE |
 | **4. Display Trait**             | HIGH     | 2-3 days  | None             | Debug/print standardization    | ✅ COMPLETE |
-| **5. Associated Types Codegen**  | HIGH     | 5-6 days  | None             | Advanced trait usage           | ✅ PARSER   |
+| **5. Associated Types Codegen**  | HIGH     | 5-6 days  | None             | Advanced trait usage           | ✅ COMPLETE |
 | **6. Drop Trait (Auto-cleanup)** | MEDIUM   | 6-8 days  | Static Methods   | RAII destructors               | ✅ COMPLETE |
-| **7. Clone Trait**               | MEDIUM   | 2-3 days  | None             | Explicit copying               |             |
-| **8. Eq/Ord Traits**             | MEDIUM   | 3-4 days  | None             | Generic comparison             |             |
+| **7. Clone Trait**               | MEDIUM   | 2-3 days  | None             | Explicit copying               | ✅ COMPLETE |
+| **8. Eq/Ord Traits**             | MEDIUM   | 3-4 days  | None             | Generic comparison             | ✅ COMPLETE |
 
 **Total Estimated Time:** 30-44 days
 
@@ -634,7 +634,69 @@ fn debug<T: Display>(value: T) {
 
 ## 🚀 PHASE 2: Advanced Traits (Week 3-4)
 
-### Feature 4: Associated Types Codegen ✅ PARSER COMPLETE
+### Feature 5: Associated Types Codegen ✅ COMPLETE
+
+**Priority:** HIGH  
+**Estimated Time:** 5-6 days  
+**Status:** ✅ COMPLETE (November 11, 2025)
+
+#### ✅ COMPLETED (Nov 11, 2025):
+
+**Parser (100%):**
+
+- [x] Type::SelfType and Type::AssociatedType AST variants
+- [x] Parser support for `Self.Item` syntax (uses `.` not `::`)
+- [x] Pattern match updates in borrow_checker and trait_bounds_checker
+- [x] Comprehensive edge case testing - 8 test files
+
+**Codegen (100%):**
+
+- [x] `resolve_associated_type()` implementation
+- [x] `associated_type_bindings` HashMap tracking
+- [x] `register_associated_type_bindings()` method
+- [x] `substitute_associated_types()` for type substitution
+- [x] Integration with struct registration
+- [x] ast_type_to_llvm() resolution (no longer returns opaque pointer)
+
+**Files Modified:**
+
+- `vex-compiler/src/codegen_ast/mod.rs` - Added associated_type_bindings field
+- `vex-compiler/src/codegen_ast/associated_types.rs` - NEW FILE with resolution logic
+- `vex-compiler/src/codegen_ast/types.rs` - Updated AssociatedType handling
+- `vex-compiler/src/codegen_ast/registry.rs` - Register bindings on struct registration
+
+**Tests:**
+
+- ✅ `examples/test_associated_types_impl.vx` - Basic implementation (Exit 0)
+- ✅ 8 parser edge case tests (6 passing, 2 correctly rejecting invalid syntax)
+
+**Example:**
+
+```vex
+trait Container {
+    type Item;
+    fn get_value(): i32;
+}
+
+struct IntBox impl Container {
+    type Item = i32;  // Binds Self.Item to i32
+    value: i32,
+
+    fn get_value(): i32 {
+        return self.value;
+    }
+}
+```
+
+**Notes:**
+
+- Associated types now resolve to concrete types
+- Struct registration automatically registers bindings
+- Ready for Iterator trait implementation
+
+---
+
+### Feature 5: Associated Types Codegen - ORIGINAL PLAN
 
 **Priority:** HIGH  
 **Estimated Time:** 5-6 days  
@@ -1450,7 +1512,58 @@ fn process_file(path: string): i32 {
 
 ---
 
-### Feature 7: Clone Trait 🔧 MEDIUM
+### Feature 7: Clone Trait ✅ COMPLETE
+
+**Priority:** MEDIUM  
+**Estimated Time:** 2-3 days  
+**Dependencies:** None  
+**Status:** ✅ COMPLETE (November 11, 2025)
+
+**Implementation Details:**
+
+- ✅ Clone trait defined in `vex-libs/std/core/src/lib.vx`
+- ✅ `fn clone(): Self` method signature
+- ✅ Struct cloning working (user-defined implementations)
+- ✅ Multiple clones from same source work correctly
+
+**Files Modified:**
+
+- `vex-libs/std/core/src/lib.vx` - Clone trait definition
+
+**Tests:**
+
+- ✅ `examples/test_clone_basic.vx` - Basic struct cloning
+- ✅ `examples/test_clone_multiple.vx` - Multiple clones (Exit 0)
+
+**Example Usage:**
+
+```vex
+import { Clone } from "core";
+
+struct Point impl Clone {
+    x: i32,
+    y: i32,
+
+    fn clone(): Point {
+        return Point { x: self.x, y: self.y };
+    }
+}
+
+fn main(): i32 {
+    let p1 = Point { x: 10, y: 20 };
+    let p2 = p1.clone();  // Explicit copy
+    return 0;
+}
+```
+
+**Notes:**
+
+- Nested method calls (self.field.clone()) not yet supported
+- Manual field copying works: `Inner { value: self.inner.value }`
+
+---
+
+### Feature 7: Clone Trait - ORIGINAL PLAN
 
 **Priority:** MEDIUM  
 **Estimated Time:** 2-3 days  
@@ -1502,7 +1615,61 @@ fn duplicate<T: Clone>(value: T): (T, T) {
 
 ---
 
-### Feature 8: Eq/Ord Traits 🔧 MEDIUM
+### Feature 8: Eq/Ord Traits ✅ COMPLETE
+
+**Priority:** MEDIUM  
+**Estimated Time:** 3-4 days  
+**Dependencies:** None  
+**Status:** ✅ COMPLETE (November 11, 2025)
+
+**Implementation Details:**
+
+- ✅ Eq trait defined: `fn equals(other: Self): bool`
+- ✅ Ord trait defined: `fn compare(other: Self): i32` (-1, 0, 1)
+- ✅ Struct implementations working
+- ✅ Trait bounds with Eq/Ord work correctly
+
+**Files Modified:**
+
+- `vex-libs/std/core/src/lib.vx` - Eq and Ord trait definitions
+
+**Tests:**
+
+- ✅ `examples/test_eq_trait.vx` - Equality comparison (Exit 0)
+- ✅ `examples/test_ord_trait.vx` - Ordering comparison (Exit 0)
+- ✅ `examples/test_ord_generic.vx` - Trait bounds usage (Exit 0)
+
+**Example Usage:**
+
+```vex
+import { Eq, Ord } from "core";
+
+struct Point impl Eq {
+    x: i32,
+    y: i32,
+
+    fn equals(other: Point): bool {
+        return self.x == other.x && self.y == other.y;
+    }
+}
+
+struct Version impl Ord {
+    major: i32,
+    minor: i32,
+
+    fn compare(other: Version): i32 {
+        if self.major < other.major { return -1; }
+        if self.major > other.major { return 1; }
+        if self.minor < other.minor { return -1; }
+        if self.minor > other.minor { return 1; }
+        return 0;
+    }
+}
+```
+
+---
+
+### Feature 8: Eq/Ord Traits - ORIGINAL PLAN
 
 **Priority:** MEDIUM  
 **Estimated Time:** 3-4 days  

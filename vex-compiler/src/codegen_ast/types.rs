@@ -402,15 +402,30 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
             Type::AssociatedType { self_type, name } => {
                 // Associated type: Self.Item, Self.Output
-                // Needs to be resolved from trait impl context
-                eprintln!(
-                    "⚠️  Associated type {}.{} encountered, needs resolution",
-                    self.type_to_string(self_type),
-                    name
-                );
-                // For now, return opaque pointer
-                // TODO: Implement resolve_associated_type()
-                BasicTypeEnum::PointerType(self.context.ptr_type(inkwell::AddressSpace::default()))
+                // Try to resolve from trait impl context
+                match self.resolve_associated_type(self_type, name) {
+                    Ok(concrete_type) => {
+                        eprintln!(
+                            "✅ Resolved associated type {}.{} → {:?}",
+                            self.type_to_string(self_type),
+                            name,
+                            concrete_type
+                        );
+                        return self.ast_type_to_llvm(&concrete_type);
+                    }
+                    Err(e) => {
+                        eprintln!(
+                            "⚠️  Failed to resolve {}.{}: {}",
+                            self.type_to_string(self_type),
+                            name,
+                            e
+                        );
+                        // Fall back to opaque pointer for now
+                        BasicTypeEnum::PointerType(
+                            self.context.ptr_type(inkwell::AddressSpace::default()),
+                        )
+                    }
+                }
             }
 
             Type::Slice(_elem_ty, _is_mutable) => {

@@ -594,11 +594,17 @@ impl<'ctx> ASTCodeGen<'ctx> {
         variant: &str,
         data: &Vec<Expression>,
     ) -> Result<BasicValueEnum<'ctx>, String> {
+        eprintln!(
+            "📗 compile_builtin_enum_literal: {}::{}, data.len={}",
+            enum_name,
+            variant,
+            data.len()
+        );
         match enum_name {
             "Option" => {
                 // Option<T> = { i32 tag, T value }
-                // None = tag=0, Some(x) = tag=1
-                let tag_value = if variant == "None" { 0 } else { 1 };
+                // Some(x) = tag=0, None = tag=1
+                let tag_value = if variant == "Some" { 0 } else { 1 };
                 let tag = self.context.i32_type().const_int(tag_value, false);
 
                 if variant == "None" {
@@ -685,6 +691,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         .build_load(option_struct_type, option_ptr, "option_value")
                         .map_err(|e| format!("Failed to load Option: {}", e))?;
 
+                    eprintln!("📗 Returning Some(...) as struct: {:?}", option_value);
                     Ok(option_value)
                 }
             }

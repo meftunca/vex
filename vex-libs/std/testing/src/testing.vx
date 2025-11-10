@@ -1,0 +1,178 @@
+// Vex Testing Framework - Modern trait-based design
+// Version 1.0.0 - Golang-style DX with Vex traits & methods
+// Zero C FFI, pure Vex implementation
+
+import {monotonic_now} from "time";
+
+// ============================================================================
+// Core Traits - Testing interface contracts
+// ============================================================================
+
+// Testable defines the interface for test contexts
+trait Testable {
+    fn error(msg: String);
+    fn skip(msg: String);
+    fn log(msg: String);
+    fn failed(): bool;
+}
+
+// Benchmarkable defines the interface for benchmark contexts
+trait Benchmarkable {
+    fn reset_timer();
+    fn start_timer();
+    fn stop_timer();
+    fn ns_per_op(): i64;
+    fn ops_per_sec(): i64;
+    fn set_bytes(bytes: i64);
+}
+
+// ============================================================================
+// Test Context - Modern struct with trait implementation
+// ============================================================================
+
+export struct T impl Testable {
+    name: String,
+    failed: bool,
+    skipped: bool,
+    
+    // Report test failure
+    export fn error(msg: String)! {
+        self.failed = true;
+        print("[FAIL] ");
+        print(self.name);
+        print(": ");
+        print(msg);
+        print("\n");
+    }
+    
+    // Skip test with reason
+    export fn skip(msg: String)! {
+        self.skipped = true;
+        print("[SKIP] ");
+        print(self.name);
+        print(": ");
+        print(msg);
+        print("\n");
+    }
+    
+    // Log message
+    export fn log(msg: String) {
+        print("[LOG] ");
+        print(msg);
+        print("\n");
+    }
+    
+    // Check if test failed
+    export fn failed(): bool {
+        return self.failed;
+    }
+}
+
+// ============================================================================
+// Benchmark Context - Modern struct with trait implementation
+// ============================================================================
+
+export struct B impl Benchmarkable {
+    name: String,
+    n: i64,
+    elapsed_ns: i64,
+    bytes: i64,
+    timer_running: bool,
+    start_time: i64,
+    
+    // Reset benchmark timer
+    export fn reset_timer()! {
+        self.elapsed_ns = 0;
+        self.start_time = monotonic_now() as i64;
+        self.timer_running = true;
+    }
+    
+    // Start timing (if stopped)
+    export fn start_timer()! {
+        if !self.timer_running {
+            self.start_time = monotonic_now() as i64;
+            self.timer_running = true;
+        }
+    }
+    
+    // Stop timing
+    export fn stop_timer()! {
+        if self.timer_running {
+            let now: i64 = monotonic_now() as i64;
+            self.elapsed_ns = now - self.start_time;
+            self.timer_running = false;
+        }
+    }
+    
+    // Set bytes processed per operation (for MB/s)
+    export fn set_bytes(bytes: i64)! {
+        self.bytes = bytes;
+    }
+    
+    // Calculate nanoseconds per operation
+    export fn ns_per_op(): i64 {
+        if self.n == 0 {
+            return 0;
+        }
+        return self.elapsed_ns / self.n;
+    }
+    
+    // Calculate operations per second
+    export fn ops_per_sec(): i64 {
+        if self.elapsed_ns == 0 {
+            return 0;
+        }
+        return (self.n * 1000000000) / self.elapsed_ns;
+    }
+}
+
+// ============================================================================
+// Helper Functions - Golang-style test runners
+// ============================================================================
+
+// Run a test function
+export fn run_test(name: String, test_fn: fn(*T)) {
+    let! t: T = T {
+        name: name,
+        failed: false,
+        skipped: false,
+    };
+    
+    test_fn(&t);
+    
+    if !t.failed && !t.skipped {
+        print("[PASS] ");
+        print(name);
+        print("\n");
+    }
+}
+
+// Run a benchmark
+export fn run_benchmark(name: String, n: i64, bench_fn: fn(*B)) {
+    let start_ns: i64 = monotonic_now() as i64;
+    let! b: B = B {
+        name: name,
+        n: n,
+        elapsed_ns: 0,
+        bytes: 0,
+        timer_running: true,
+        start_time: start_ns,
+    };
+    
+    bench_fn(&b);
+    
+    // Auto-stop if still running
+    if b.timer_running {
+        b.stop_timer();
+    }
+    
+    // Print results
+    print(name);
+    print("-1\t");
+    print(b.n);
+    print("\t");
+    print(b.ns_per_op());
+    print(" ns/op\t");
+    print(b.ops_per_sec());
+    print(" ops/sec\n");
+}

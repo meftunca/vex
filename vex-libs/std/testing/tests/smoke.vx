@@ -1,5 +1,0 @@
-// Smoke test for std/testing module
-
-fn main() {
-    print("testing module smoke test")
-}

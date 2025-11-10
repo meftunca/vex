@@ -1,0 +1,17 @@
+// Test simple int match (no enums)
+fn main(): i32 {
+    let x = 42;
+    
+    match x {
+        42 => {
+            println("Matched 42");
+            return 0;
+        },
+        _ => {
+            println("Not 42");
+            return 1;
+        },
+    }
+    
+    return 0;
+}

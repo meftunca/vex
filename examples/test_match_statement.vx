@@ -1,0 +1,13 @@
+// Match as statement, not last expression
+fn main(): i32 {
+    match 42 {
+        42 => {
+            return 0;
+        },
+        _ => {
+            return 1;
+        },
+    }
+    
+    return 99;  // Should never reach here
+}

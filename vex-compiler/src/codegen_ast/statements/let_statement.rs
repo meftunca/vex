@@ -464,6 +464,15 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         None
                     }
                 }
+                Expression::EnumLiteral { enum_name, .. } => {
+                    eprintln!("  → EnumLiteral expression: {}", enum_name);
+                    // For Option, Result, etc. - track as struct
+                    if enum_name == "Option" || enum_name == "Result" {
+                        Some(enum_name.clone())
+                    } else {
+                        None
+                    }
+                }
                 _ => {
                     eprintln!("  → Other expression type");
                     None
@@ -698,6 +707,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         || type_name == "Slice"
                     {
                         eprintln!("  ✅ Tracking as builtin type: {}", type_name);
+                        self.variable_struct_names
+                            .insert(name.clone(), type_name.clone());
+                        Type::Named(type_name.clone())
+                    } else if type_name == "Option" || type_name == "Result" {
+                        eprintln!("  ✅ Tracking as builtin enum: {}", type_name);
                         self.variable_struct_names
                             .insert(name.clone(), type_name.clone());
                         Type::Named(type_name.clone())
@@ -967,10 +981,21 @@ impl<'ctx> ASTCodeGen<'ctx> {
             || (matches!(&final_var_type, Type::Named(name) if name.starts_with("Vec_") || name.starts_with("Box_")));
 
         let is_struct_or_tuple = if let Type::Named(type_name) = &final_var_type {
-            type_name == "Tuple" || self.struct_defs.contains_key(type_name)
+            type_name == "Tuple"
+                || self.struct_defs.contains_key(type_name)
+                || type_name == "Option"
+                || type_name == "Result"
         } else {
             is_tuple_literal
         };
+
+        eprintln!(
+            "🔹 Let var={}, is_struct_or_tuple={}, is_builtin_pointer={}, val_type={:?}",
+            name,
+            is_struct_or_tuple,
+            is_builtin_pointer,
+            val.get_type()
+        );
 
         if is_struct_or_tuple || is_builtin_pointer {
             // value is either:
@@ -998,10 +1023,16 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 // Case 2: Struct returned by value (from function/method)
                 // Need to allocate storage and store the value
                 eprintln!("📦 Allocating storage for struct value returned from function");
+                eprintln!(
+                    "📦 final_llvm_type: {:?}, val.get_type(): {:?}",
+                    final_llvm_type,
+                    val.get_type()
+                );
                 let alloca = self.create_entry_block_alloca(name, &final_var_type, is_mutable)?;
                 self.build_store_aligned(alloca, val)?;
                 self.variables.insert(name.clone(), alloca);
-                self.variable_types.insert(name.clone(), final_llvm_type);
+                // Use actual struct type from value, not inferred type (which might be wrong)
+                self.variable_types.insert(name.clone(), val.get_type());
             } else {
                 return Err(format!(
                     "Struct/Tuple literal should return pointer or struct value, got {:?}",

@@ -1,0 +1,15 @@
+// Debug: Print actual tag value in Option
+import { Option } from "core";
+
+extern "C" {
+    fn printf(format: *u8, ...): i32;
+}
+
+fn main(): i32 {
+    let result = Some(42);
+    
+    // Access the struct directly to see tag value
+    // Option<i32> is { i32 tag, i32 data }
+    
+    return 0;
+}

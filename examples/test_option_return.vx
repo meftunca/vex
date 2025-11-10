@@ -1,0 +1,29 @@
+// Test that Option enum returns data correctly
+import { Option } from "core";
+
+fn test_option(): Option<i32> {
+    println("Returning Some(42)");
+    return Some(42);
+}
+
+fn main(): i32 {
+    let result = test_option();
+    println("Got result from function");
+    
+    match result {
+        Some(v) => {
+            println("✅ Got Some({})", v);
+            if v == 42 {
+                return 0;
+            }
+            println("❌ Wrong value: expected 42, got {}", v);
+            return 1;
+        },
+        None => {
+            println("❌ Got None instead of Some(42)");
+            return 1;
+        },
+    }
+    
+    return 0;
+}

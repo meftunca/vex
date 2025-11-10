@@ -1,0 +1,22 @@
+// Test direct enum constructor (no methods)
+import { Option } from "core";
+
+fn main(): i32 {
+    let result = Some(42);
+    
+    match result {
+        Some(v) => {
+            println("✅ Direct constructor: Got Some({})", v);
+            if v == 42 {
+                return 0;
+            }
+            return 1;
+        },
+        None => {
+            println("❌ Direct constructor: Got None");
+            return 1;
+        },
+    }
+    
+    return 0;
+}

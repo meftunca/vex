@@ -1,0 +1,90 @@
+// Test Iterator trait - Basic implementation
+// Test that Iterator trait with associated types works
+
+import { Iterator, Option } from "core";
+
+struct Counter impl Iterator {
+    type Item = i32;
+    current: i32,
+    max: i32,
+    
+    fn next()!: Option<i32> {
+        if self.current >= self.max {
+            return None;
+        }
+        
+        let value = self.current;
+        self.current = self.current + 1;
+        return Some(value);
+    }
+}
+
+fn counter_new(max: i32): Counter {
+    return Counter { current: 0, max: max };
+}
+
+fn main(): i32 {
+    let! counter = Counter.new(3);
+    
+    // First iteration
+    let result1 = counter.next();
+    match result1 {
+        Some(v) => {
+            if v != 0 {
+                println("❌ FAILED: Expected 0, got {}", v);
+                return 1;
+            }
+        },
+        None => {
+            println("❌ FAILED: Expected Some(0), got None");
+            return 1;
+        },
+    }
+    
+    // Second iteration
+    let result2 = counter.next();
+    match result2 {
+        Some(v) => {
+            if v != 1 {
+                println("❌ FAILED: Expected 1, got {}", v);
+                return 1;
+            }
+        },
+        None => {
+            println("❌ FAILED: Expected Some(1), got None");
+            return 1;
+        },
+    }
+    
+    // Third iteration
+    let result3 = counter.next();
+    match result3 {
+        Some(v) => {
+            if v != 2 {
+                println("❌ FAILED: Expected 2, got {}", v);
+                return 1;
+            }
+        },
+        None => {
+            println("❌ FAILED: Expected Some(2), got None");
+            return 1;
+        },
+    }
+    
+    // Fourth iteration - should be None
+    let result4 = counter.next();
+    match result4 {
+        Some(v) => {
+            println("❌ FAILED: Expected None, got Some({})", v);
+            return 1;
+        },
+        None => {
+            println("✅ PASSED: Iterator trait works correctly");
+        },
+    }
+    
+    return 0;
+}
+
+// Expected output:
+// ✅ PASSED: Iterator trait works correctly

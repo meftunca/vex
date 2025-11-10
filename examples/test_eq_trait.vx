@@ -1,0 +1,41 @@
+// Test Eq trait - Basic equality comparison
+// Test custom equality with .equals()
+
+import { Eq } from "core";
+
+struct Point impl Eq {
+    x: i32,
+    y: i32,
+    
+    fn equals(other: Point): bool {
+        if self.x != other.x {
+            return false;
+        }
+        if self.y != other.y {
+            return false;
+        }
+        return true;
+    }
+}
+
+fn main(): i32 {
+    let p1 = Point { x: 10, y: 20 };
+    let p2 = Point { x: 10, y: 20 };
+    let p3 = Point { x: 5, y: 15 };
+    
+    if !p1.equals(p2) {
+        println("❌ FAILED: p1 should equal p2");
+        return 1;
+    }
+    
+    if p1.equals(p3) {
+        println("❌ FAILED: p1 should not equal p3");
+        return 1;
+    }
+    
+    println("✅ PASSED: Eq trait works correctly");
+    return 0;
+}
+
+// Expected output:
+// ✅ PASSED: Eq trait works correctly

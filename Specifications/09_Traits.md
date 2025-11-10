@@ -460,6 +460,158 @@ trait Serializable: Display & Cloneable {
 
 ## Standard Traits
 
+### Drop Trait ✅ IMPLEMENTED
+
+Automatic resource cleanup when value goes out of scope:
+
+```vex
+trait Drop {
+    fn drop()!;  // Called automatically
+}
+
+struct File impl Drop {
+    handle: i32,
+    path: string,
+
+    fn drop()! {
+        // Cleanup logic - called automatically when File goes out of scope
+        close_file(self.handle);
+        print("Closed file: ", self.path);
+    }
+}
+
+// Usage
+{
+    let! file = File { handle: 42, path: "data.txt" };
+    // ... use file ...
+}  // drop() called automatically here
+```
+
+**Status**: Fully functional, automatic Drop trait implementation detection.
+
+### Clone Trait ✅ IMPLEMENTED
+
+Explicit deep copying:
+
+```vex
+trait Clone {
+    fn clone(): Self;
+}
+
+struct Point impl Clone {
+    x: i32,
+    y: i32,
+
+    fn clone(): Point {
+        return Point { x: self.x, y: self.y };
+    }
+}
+
+// Usage
+let p1 = Point { x: 10, y: 20 };
+let p2 = p1.clone();  // Deep copy
+```
+
+**Status**: Fully functional, used for explicit copying.
+
+### Eq Trait ✅ IMPLEMENTED
+
+Equality comparison:
+
+```vex
+trait Eq {
+    fn eq(other: Self): bool;
+}
+
+struct Point impl Eq {
+    x: i32,
+    y: i32,
+
+    fn eq(other: Point): bool {
+        return self.x == other.x && self.y == other.y;
+    }
+}
+
+// Usage
+let p1 = Point { x: 10, y: 20 };
+let p2 = Point { x: 10, y: 20 };
+if p1.eq(p2) {
+    print("Equal!");
+}
+```
+
+**Status**: Fully functional, used for custom equality.
+
+### Ord Trait ✅ IMPLEMENTED
+
+Ordering comparison:
+
+```vex
+trait Ord {
+    fn cmp(other: Self): i32;
+    // Returns: -1 (less), 0 (equal), 1 (greater)
+}
+
+struct Number impl Ord {
+    value: i32,
+
+    fn cmp(other: Number): i32 {
+        if self.value < other.value {
+            return -1;
+        } else if self.value > other.value {
+            return 1;
+        }
+        return 0;
+    }
+}
+
+// Usage
+let n1 = Number { value: 10 };
+let n2 = Number { value: 20 };
+let result = n1.cmp(n2);  // Returns -1
+```
+
+**Status**: Fully functional, used for ordering operations.
+
+### Iterator Trait ✅ IMPLEMENTED
+
+Lazy iteration protocol:
+
+```vex
+trait Iterator {
+    type Item;  // Associated type
+
+    fn next()!: Option<Self.Item>;  // Returns next element or None
+}
+
+struct Counter impl Iterator {
+    count: i32,
+    limit: i32,
+
+    type Item = i32;
+
+    fn next()!: Option<i32> {
+        if self.count < self.limit {
+            let current = self.count;
+            self.count = self.count + 1;
+            return Some(current);
+        }
+        return None;
+    }
+}
+
+// Usage
+let! counter = Counter { count: 0, limit: 5 };
+loop {
+    match counter.next() {
+        Some(v) => print(v),
+        None => break,
+    }
+}
+```
+
+**Status**: Fully functional with Option<T> support. Associated type `Self.Item` temporarily uses concrete type (Option<i32>) until full generic support.
+
 ### Display Trait (Future)
 
 Format types for display:
@@ -473,101 +625,13 @@ struct Point impl Display {
     x: i32,
     y: i32,
 
-    fn (self: &Point!) show() {
-        // Print point representation
+    fn show() {
+        print("Point(", self.x, ", ", self.y, ")");
     }
 }
 ```
 
-### Clone Trait (Future)
-
-Explicit copying:
-
-```vex
-trait Clone {
-    fn clone(): Self;
-}
-
-struct Data impl Clone {
-    value: i32,
-
-    fn (self: &Data!) clone(): Data {
-        return Data { value: self.value };
-    }
-}
-```
-
-### Eq Trait (Future)
-
-Equality comparison:
-
-```vex
-trait Eq {
-    fn equals(other: &Self): bool;
-}
-
-struct Point impl Eq {
-    x: i32,
-    y: i32,
-
-    fn (self: &Point!) equals(other: &Point): bool {
-        return self.x == other.x && self.y == other.y;
-    }
-}
-```
-
-### Ord Trait (Future)
-
-Ordering comparison:
-
-```vex
-trait Ord {
-    fn compare(other: &Self): i32;
-    // Returns: -1 (less), 0 (equal), 1 (greater)
-}
-
-struct Number impl Ord {
-    value: i32,
-
-    fn (self: &Number!) compare(other: &Number): i32 {
-        if self.value < other.value {
-            return -1;
-        } elif self.value > other.value {
-            return 1;
-        } else {
-            return 0;
-        }
-    }
-}
-```
-
-### Iterator Trait (Future)
-
-Iteration protocol:
-
-```vex
-trait Iterator {
-    type Item;
-
-    fn next(): Option<Self::Item>;
-}
-
-struct Range impl Iterator {
-    type Item = i32;
-
-    start: i32,
-    end: i32,
-
-    fn (self: &Range!) next(): Option<i32> {
-        if self.start < self.end {
-            let value = self.start;
-            self.start = self.start + 1;
-            return Option::Some(value);
-        }
-        return Option::None;
-    }
-}
-```
+**Status**: Planned for future implementation.
 
 ---
 

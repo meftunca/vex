@@ -1,0 +1,9 @@
+// Ultra simple - no imports, no runtime
+fn main(): i32 {
+    let x = 0;
+    let y = match x {
+        0 => 42,
+        _ => 99,
+    };
+    return y;
+}

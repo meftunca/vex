@@ -1,0 +1,33 @@
+// Test Associated Types - Basic implementation
+// Test that associated types resolve to concrete types
+
+trait Container {
+    type Item;
+    
+    fn get_value(): i32;
+}
+
+struct IntBox impl Container {
+    type Item = i32;
+    value: i32,
+    
+    fn get_value(): i32 {
+        return self.value;
+    }
+}
+
+fn main(): i32 {
+    let int_box = IntBox { value: 42 };
+    let result = int_box.get_value();
+    
+    if result != 42 {
+        println("❌ FAILED: Expected 42, got {}", result);
+        return 1;
+    }
+    
+    println("✅ PASSED: Associated type binding works");
+    return 0;
+}
+
+// Expected output:
+// ✅ PASSED: Associated type binding works

@@ -1,0 +1,9 @@
+// Test Option constructor directly
+import { Option } from "core";
+
+fn main(): i32 {
+    let result = Some(42);
+    
+    // Just return 0 if we get here
+    return 0;
+}

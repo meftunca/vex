@@ -19,6 +19,7 @@ use std::path::Path;
 use vex_ast::*;
 
 // Sub-modules containing impl blocks for ASTCodeGen
+mod associated_types; // Associated types resolution
 pub mod builtins; // Now a directory module
 mod constants;
 mod drop_trait; // Drop trait automatic cleanup (RAII)
@@ -78,6 +79,11 @@ pub struct ASTCodeGen<'ctx> {
     pub(crate) trait_defs: HashMap<String, Trait>,
     // Trait implementations: (trait_name, type_name) -> Vec<Function>
     pub(crate) trait_impls: HashMap<(String, String), Vec<Function>>,
+
+    // ⭐ NEW: Associated type bindings for trait implementations
+    // Maps (type_name, assoc_type_name) -> concrete_type
+    // Example: ("Counter", "Item") -> Type::I32
+    pub(crate) associated_type_bindings: HashMap<(String, String), Type>,
 
     // ⭐ NEW: Destructor trait tracking
     // Types that implement Destructor trait and need cleanup at scope exit
@@ -190,7 +196,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
             generic_instantiations: HashMap::new(),
             trait_defs: HashMap::new(),
             trait_impls: HashMap::new(),
-            destructor_impls: HashMap::new(), // ⭐ NEW: Destructor trait tracking
+            associated_type_bindings: HashMap::new(), // ⭐ NEW: Associated type tracking
+            destructor_impls: HashMap::new(),         // ⭐ NEW: Destructor trait tracking
             policy_defs: HashMap::new(),
             struct_metadata: HashMap::new(),
             module_namespaces: HashMap::new(),

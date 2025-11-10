@@ -4,25 +4,7 @@
   "description": "Vex standard library testing module - TAP/JUnit test harness with benchmarking",
   "authors": ["Vex Language Team"],
   "license": "MIT",
-  "main": "src/lib.vx",
-  "native": {
-    "sources": [
-      "native/testing.c"
-    ],
-    "include_dirs": [],
-    "defines": [
-      "VEX_TESTING_STANDALONE=1",
-      "VEX_TEST_ENABLE_RDTSC=1",
-      "VEX_TEST_ENABLE_AFFINITY=1"
-    ],
-    "c_flags": [
-      "-O3",
-      "-Wall",
-      "-Wextra",
-      "-std=c17",
-      "-fPIC"
-    ]
-  },
+  "main": "src/testing.vx",
   "features": [
     "tap-reporter",
     "junit-reporter",

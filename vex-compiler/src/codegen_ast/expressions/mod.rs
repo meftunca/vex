@@ -145,14 +145,21 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         .get(name)
                         .ok_or_else(|| format!("Type for variable {} not found", name))?;
 
-                    if name == "t" {
-                        eprintln!("[DEBUG VAR LOAD] Variable 't' type: {:?}", ty);
+                    if name == "result" {
+                        eprintln!("[DEBUG result] Variable 'result' type: {:?}", ty);
+                        eprintln!(
+                            "[DEBUG result] Is in variable_struct_names: {}",
+                            self.variable_struct_names.contains_key(name)
+                        );
                     }
 
                     // IMPORTANT: For struct variables, return the pointer directly (zero-copy)
                     // Struct types in LLVM are already pointers (ast_type_to_llvm returns pointer for structs)
                     if self.variable_struct_names.contains_key(name) {
                         // This is a struct variable - return pointer without loading
+                        if name == "result" {
+                            eprintln!("[DEBUG result] Returning pointer without loading");
+                        }
                         return Ok((*ptr).into());
                     }
 
@@ -524,7 +531,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 data,
             } => {
                 // Phase 0.4: Handle builtin enums (Option, Result) specially
+                eprintln!("🟡 Compiling EnumLiteral: {}::{}", enum_name, variant);
                 if enum_name == "Option" || enum_name == "Result" {
+                    eprintln!("   → Calling compile_builtin_enum_literal");
                     return self.compile_builtin_enum_literal(enum_name, variant, data);
                 }
 

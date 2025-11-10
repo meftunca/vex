@@ -1,0 +1,38 @@
+// Test Iterator trait - Simplified debug version
+import { Iterator, Option } from "core";
+
+struct Counter impl Iterator {
+    type Item = i32;
+    current: i32,
+    max: i32,
+    
+    fn next()!: Option<i32> {
+        println("Counter.next() called: current={}, max={}", self.current, self.max);
+        
+        if self.current >= self.max {
+            println("  → Returning None");
+            return None;
+        }
+        
+        let value = self.current;
+        self.current = self.current + 1;
+        
+        println("  → Returning Some({})", value);
+        return Some(value);
+    }
+}
+
+fn counter_new(max: i32): Counter {
+    return Counter { current: 0, max: max };
+}
+
+fn main(): i32 {
+    println("=== Iterator Test ===");
+    let! counter = Counter.new(3);
+    
+    println("\n--- First call ---");
+    let result1 = counter.next();
+    println("Result type (should be Option): ???");
+    
+    return 0;
+}

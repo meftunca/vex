@@ -121,23 +121,40 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     "  🔍 Found struct variable: {} -> {}",
                     var_name, struct_name
                 );
+                eprintln!("  🔍 match_value type: {:?}", match_value.get_type());
                 eprintln!("  🔍 Is pointer: {}", match_value.is_pointer_value());
+                eprintln!("  🔍 Is struct: {}", match_value.is_struct_value());
                 // This variable holds a struct value, load it for pattern matching
                 if match_value.is_pointer_value() {
                     eprintln!("  → Loading struct from pointer...");
-                    // Build struct type from definition
-                    let struct_def = self
-                        .struct_defs
-                        .get(struct_name)
-                        .ok_or_else(|| format!("Struct '{}' not found", struct_name))?
-                        .clone();
 
-                    let field_types: Vec<_> = struct_def
-                        .fields
-                        .iter()
-                        .map(|(_, ty)| self.ast_type_to_llvm(ty))
-                        .collect();
-                    let struct_type = self.context.struct_type(&field_types, false);
+                    // Handle builtin enums (Option, Result) specially
+                    let struct_type = if struct_name == "Option" || struct_name == "Result" {
+                        eprintln!("  → Builtin enum {}, using stored type", struct_name);
+                        // Get type from variable_types (it's the struct type { i32, T })
+                        if let Some(stored_type) = self.variable_types.get(var_name) {
+                            *stored_type
+                        } else {
+                            return Err(format!(
+                                "Type not found for builtin enum variable {}",
+                                var_name
+                            ));
+                        }
+                    } else {
+                        // Build struct type from definition
+                        let struct_def = self
+                            .struct_defs
+                            .get(struct_name)
+                            .ok_or_else(|| format!("Struct '{}' not found", struct_name))?
+                            .clone();
+
+                        let field_types: Vec<_> = struct_def
+                            .fields
+                            .iter()
+                            .map(|(_, ty)| self.ast_type_to_llvm(ty))
+                            .collect();
+                        self.context.struct_type(&field_types, false).into()
+                    };
 
                     match_value = self
                         .builder
@@ -182,10 +199,22 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }
         }
 
+        // Store match value on stack to avoid consumption issues
+        // Each pattern check needs to access the value, but LLVM operations may consume it
+        let match_value_ptr = self
+            .builder
+            .build_alloca(match_value.get_type(), "match_value_storage")
+            .map_err(|e| format!("Failed to allocate match value storage: {}", e))?;
+        self.builder
+            .build_store(match_value_ptr, match_value)
+            .map_err(|e| format!("Failed to store match value: {}", e))?;
+
         // Create the merge block where all arms converge
+        eprintln!("🔵 Creating merge block...");
         let merge_block = self
             .context
             .append_basic_block(self.current_function.unwrap(), "match_merge");
+        eprintln!("🔵 Merge block created");
 
         // We'll create result_ptr in the function entry block (before any branching)
         // To infer the type, we need to peek at the first arm's body type
@@ -193,10 +222,20 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let mut result_type: Option<inkwell::types::BasicTypeEnum> = None;
 
         // Build chain of if-else blocks for each arm
+        eprintln!("🔵 Getting current insert block...");
         let mut current_block = self.builder.get_insert_block().unwrap();
+        eprintln!("🔵 Current block obtained");
 
+        eprintln!("🔵 Starting match arm iteration, {} arms total", arms.len());
         for (i, arm) in arms.iter().enumerate() {
+            eprintln!("🔵 Processing match arm {}/{}", i + 1, arms.len());
             self.builder.position_at_end(current_block);
+
+            // Load fresh copy of match value for this arm
+            let arm_match_value = self
+                .builder
+                .build_load(match_value.get_type(), match_value_ptr, "match_value_load")
+                .map_err(|e| format!("Failed to load match value for arm: {}", e))?;
 
             let is_last_arm = i == arms.len() - 1;
 
@@ -220,8 +259,21 @@ impl<'ctx> ASTCodeGen<'ctx> {
             let is_identifier = matches!(&arm.pattern, Pattern::Ident(_));
             let is_wildcard = matches!(&arm.pattern, Pattern::Wildcard);
 
-            // If this is the last arm and it's identifier/wildcard, no need to check
-            if (is_identifier || is_wildcard) && is_last_arm && arm.guard.is_none() {
+            // Check if this Ident is actually an enum variant (not a binding)
+            let is_enum_variant_ident = if let Pattern::Ident(name) = &arm.pattern {
+                self.enum_ast_defs
+                    .values()
+                    .any(|e| e.variants.iter().any(|v| v.name == *name))
+            } else {
+                false
+            };
+
+            // If this is the last arm and it's identifier/wildcard (but NOT enum variant), no need to check
+            if (is_identifier || is_wildcard)
+                && is_last_arm
+                && arm.guard.is_none()
+                && !is_enum_variant_ident
+            {
                 // Last arm is catch-all without guard, jump directly
                 self.builder
                     .build_unconditional_branch(then_block)
@@ -230,10 +282,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 self.builder.position_at_end(then_block);
 
                 // Do pattern binding ONLY (no check needed for last catch-all)
-                self.compile_pattern_binding(&arm.pattern, match_value)?;
+                self.compile_pattern_binding(&arm.pattern, arm_match_value)?;
             } else {
                 // For all other patterns, do conditional check WITHOUT binding
-                let matches = self.compile_pattern_check(&arm.pattern, match_value)?;
+                let matches = self.compile_pattern_check(&arm.pattern, arm_match_value)?;
 
                 // Check guard if present
                 let final_condition = if let Some(guard) = &arm.guard {
@@ -248,7 +300,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         self.builder.position_at_end(then_block);
 
                         // Bind the pattern
-                        self.compile_pattern_binding(&arm.pattern, match_value)?;
+                        self.compile_pattern_binding(&arm.pattern, arm_match_value)?;
 
                         // Evaluate guard
                         let guard_val = self.compile_expression(guard)?;
@@ -270,24 +322,35 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         // Skip the normal binding below since we already did it
                         let arm_result = self.compile_expression(&arm.body)?;
 
-                        if result_ptr.is_none() {
-                            let inferred_type = arm_result.get_type();
-                            result_type = Some(inferred_type);
-                            let ptr = self
-                                .builder
-                                .build_alloca(inferred_type, "match_result")
-                                .map_err(|e| {
-                                    format!("Failed to create match result variable: {}", e)
-                                })?;
-                            result_ptr = Some(ptr);
-                        }
+                        // Check if the current block is terminated
+                        let block_terminated =
+                            if let Some(current_bb) = self.builder.get_insert_block() {
+                                current_bb.get_terminator().is_some()
+                            } else {
+                                false
+                            };
 
-                        self.builder
-                            .build_store(result_ptr.unwrap(), arm_result)
-                            .map_err(|e| format!("Failed to store match result: {}", e))?;
-                        self.builder
-                            .build_unconditional_branch(merge_block)
-                            .map_err(|e| format!("Failed to branch to merge: {}", e))?;
+                        // Only store result and branch if block is not terminated
+                        if !block_terminated {
+                            if result_ptr.is_none() {
+                                let inferred_type = arm_result.get_type();
+                                result_type = Some(inferred_type);
+                                let ptr = self
+                                    .builder
+                                    .build_alloca(inferred_type, "match_result")
+                                    .map_err(|e| {
+                                        format!("Failed to create match result variable: {}", e)
+                                    })?;
+                                result_ptr = Some(ptr);
+                            }
+
+                            self.builder
+                                .build_store(result_ptr.unwrap(), arm_result)
+                                .map_err(|e| format!("Failed to store match result: {}", e))?;
+                            self.builder
+                                .build_unconditional_branch(merge_block)
+                                .map_err(|e| format!("Failed to branch to merge: {}", e))?;
+                        }
 
                         current_block = else_block;
                         continue; // Skip the normal arm body compilation below
@@ -308,48 +371,65 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     .build_conditional_branch(final_condition, then_block, else_block)
                     .map_err(|e| format!("Failed to build match branch: {}", e))?;
 
+                eprintln!(
+                    "🔵 Built conditional branch: condition={:?}, then={:?}, else={:?}",
+                    final_condition,
+                    then_block.get_name(),
+                    else_block.get_name()
+                );
+
                 self.builder.position_at_end(then_block);
 
                 // Now do the binding in then_block
-                self.compile_pattern_binding(&arm.pattern, match_value)?;
+                self.compile_pattern_binding(&arm.pattern, arm_match_value)?;
             }
 
             let arm_result = self.compile_expression(&arm.body)?;
 
-            // On first arm, infer the result type and create the result variable IN FUNCTION ENTRY
-            if result_ptr.is_none() {
-                let inferred_type = arm_result.get_type();
-                result_type = Some(inferred_type);
+            // Check if the current block is terminated (e.g., by a return statement)
+            let block_terminated = if let Some(current_bb) = self.builder.get_insert_block() {
+                current_bb.get_terminator().is_some()
+            } else {
+                false
+            };
 
-                // CRITICAL: Create alloca at the BEGINNING of function entry block
-                // This ensures it dominates all uses
-                let current_pos = self.builder.get_insert_block().unwrap();
-                let func = self.current_function.unwrap();
-                let func_entry = func.get_first_basic_block().unwrap();
+            // Only store result and branch if block is not terminated
+            if !block_terminated {
+                // On first arm, infer the result type and create the result variable IN FUNCTION ENTRY
+                if result_ptr.is_none() {
+                    let inferred_type = arm_result.get_type();
+                    result_type = Some(inferred_type);
 
-                // Position at the START of function entry block (before any instructions)
-                if let Some(first_instr) = func_entry.get_first_instruction() {
-                    self.builder.position_before(&first_instr);
-                } else {
-                    self.builder.position_at_end(func_entry);
+                    // CRITICAL: Create alloca at the BEGINNING of function entry block
+                    // This ensures it dominates all uses
+                    let current_pos = self.builder.get_insert_block().unwrap();
+                    let func = self.current_function.unwrap();
+                    let func_entry = func.get_first_basic_block().unwrap();
+
+                    // Position at the START of function entry block (before any instructions)
+                    if let Some(first_instr) = func_entry.get_first_instruction() {
+                        self.builder.position_before(&first_instr);
+                    } else {
+                        self.builder.position_at_end(func_entry);
+                    }
+
+                    let ptr = self
+                        .builder
+                        .build_alloca(inferred_type, "match_result")
+                        .map_err(|e| format!("Failed to create match result variable: {}", e))?;
+                    result_ptr = Some(ptr);
+
+                    // Restore position to current arm's then_block
+                    self.builder.position_at_end(current_pos);
                 }
 
-                let ptr = self
-                    .builder
-                    .build_alloca(inferred_type, "match_result")
-                    .map_err(|e| format!("Failed to create match result variable: {}", e))?;
-                result_ptr = Some(ptr);
-
-                // Restore position to current arm's then_block
-                self.builder.position_at_end(current_pos);
+                self.builder
+                    .build_store(result_ptr.unwrap(), arm_result)
+                    .map_err(|e| format!("Failed to store match result: {}", e))?;
+                self.builder
+                    .build_unconditional_branch(merge_block)
+                    .map_err(|e| format!("Failed to branch to merge: {}", e))?;
             }
-
-            self.builder
-                .build_store(result_ptr.unwrap(), arm_result)
-                .map_err(|e| format!("Failed to store match result: {}", e))?;
-            self.builder
-                .build_unconditional_branch(merge_block)
-                .map_err(|e| format!("Failed to branch to merge: {}", e))?;
 
             current_block = else_block;
             // CRITICAL: Position builder at else_block for next arm's check
@@ -358,9 +438,17 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Position at merge block and load result
         self.builder.position_at_end(merge_block);
-        self.builder
-            .build_load(result_type.unwrap(), result_ptr.unwrap(), "match_result")
-            .map_err(|e| format!("Failed to load match result: {}", e))
+
+        // If all arms did early return, result_ptr will be None
+        // In that case, return a dummy value (match expression was used for control flow only)
+        if let (Some(result_type), Some(result_ptr)) = (result_type, result_ptr) {
+            self.builder
+                .build_load(result_type, result_ptr, "match_result")
+                .map_err(|e| format!("Failed to load match result: {}", e))
+        } else {
+            // All arms did early return, return dummy i32
+            Ok(self.context.i32_type().const_int(0, false).into())
+        }
     }
 
     /// Check if a pattern matches a value (WITHOUT binding - no side effects)
@@ -401,11 +489,22 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         "🔵 Pattern::Ident as enum variant: {}, variant_index={}",
                         name, variant_index
                     );
-                    if !value.is_int_value() {
-                        return Ok(self.context.bool_type().const_int(0, false));
-                    }
 
-                    let enum_val = value.into_int_value();
+                    // Extract tag from value (could be struct or int)
+                    let enum_val = if value.is_struct_value() {
+                        // Data-carrying enum: extract tag from struct { tag, data }
+                        let struct_val = value.into_struct_value();
+                        self.builder
+                            .build_extract_value(struct_val, 0, "enum_tag")
+                            .map_err(|e| format!("Failed to extract enum tag: {}", e))?
+                            .into_int_value()
+                    } else if value.is_int_value() {
+                        // Unit enum: value is already the tag
+                        value.into_int_value()
+                    } else {
+                        return Ok(self.context.bool_type().const_int(0, false));
+                    };
+
                     let expected_tag = self
                         .context
                         .i32_type()
@@ -704,6 +803,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     .i32_type()
                     .const_int(variant_index as u64, false);
                 eprintln!(
+                    "🔵 Pattern::Enum check - expected_tag={}, actual_tag={:?}",
+                    variant_index, enum_val
+                );
+                eprintln!(
                     "🔵 Pattern::Enum check - expected_tag type: {:?}, enum_val type: {:?}",
                     expected_tag.get_type(),
                     enum_val.get_type()
@@ -933,7 +1036,27 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }
 
             Pattern::Ident(name) => {
+                // Check if this is an enum variant (unit variant like None, True, False)
+                // If so, no binding needed - it's just a match check
+                let mut is_enum_variant = false;
+                for (_enum_name, enum_def) in &self.enum_ast_defs {
+                    if enum_def.variants.iter().any(|v| v.name == *name) {
+                        is_enum_variant = true;
+                        break;
+                    }
+                }
+
+                if is_enum_variant {
+                    eprintln!("  ⚠️ Skipping binding for enum variant '{}'", name);
+                    return Ok(());
+                }
+
                 // Bind the value to the identifier
+                eprintln!(
+                    "🔵 Pattern::Ident binding: '{}', value_type={:?}",
+                    name,
+                    value.get_type()
+                );
                 let value_type = value.get_type();
                 let ptr = self
                     .builder
@@ -944,6 +1067,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     .map_err(|e| format!("Failed to store pattern binding: {}", e))?;
                 self.variables.insert(name.clone(), ptr);
                 self.variable_types.insert(name.clone(), value_type);
+                eprintln!("  ✅ Bound variable '{}' at {:?}", name, ptr);
                 Ok(())
             }
 

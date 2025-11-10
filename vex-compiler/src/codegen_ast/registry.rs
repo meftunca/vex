@@ -19,6 +19,14 @@ impl<'ctx> ASTCodeGen<'ctx> {
         self.struct_ast_defs
             .insert(struct_def.name.clone(), struct_def.clone());
 
+        // Register associated type bindings from struct
+        if !struct_def.associated_type_bindings.is_empty() {
+            self.register_associated_type_bindings(
+                &struct_def.name,
+                &struct_def.associated_type_bindings,
+            );
+        }
+
         if !struct_def.type_params.is_empty() {
             return Ok(());
         }

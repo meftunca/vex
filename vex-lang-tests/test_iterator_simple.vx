@@ -1,0 +1,47 @@
+// Test Iterator trait - simple counter implementation
+import { Iterator, Option } from "core";
+
+// Counter struct that iterates from 0 to limit
+struct Counter impl Iterator {
+    count: i32,
+    limit: i32,
+    
+    // Associated type for Iterator
+    type Item = i32;
+    
+    fn next()!: Option<i32> {
+        if self.count < self.limit {
+            let current = self.count;
+            self.count = self.count + 1;
+            return Some(current);
+        } else {
+            return None;
+        }
+    }
+}
+
+fn main(): i32 {
+    // Create counter from 0 to 5
+    let! counter = Counter { count: 0, limit: 5 };
+    
+    // Get first value (should be 0)
+    let first = match counter.next() {
+        Some(v) => v,
+        None => -1,
+    };
+    
+    // Get second value (should be 1)
+    let second = match counter.next() {
+        Some(v) => v,
+        None => -2,
+    };
+    
+    // Get third value (should be 2)
+    let third = match counter.next() {
+        Some(v) => v,
+        None => -3,
+    };
+    
+    // Return sum: 0 + 1 + 2 = 3
+    return first + second + third;
+}

@@ -1,8 +1,8 @@
 // Core Module
-// Essential types and traits: Box, Vec, Option, Result, Drop
+// Essential types and traits: Box, Vec, Option, Result, Drop, Clone, Eq, Ord, Iterator
 //
 // Usage:
-//   import { Box, Vec, Option, Result, Drop } from "core";
+//   import { Box, Vec, Option, Result, Drop, Clone, Eq, Ord, Iterator } from "core";
 
 // ===== Core Traits =====
 
@@ -10,6 +10,32 @@
 // Types implementing Drop will have drop() called automatically when going out of scope
 export trait Drop {
     fn drop();  // Called automatically, no parameters
+}
+
+// Clone trait - Explicit deep copying
+// Types implementing Clone can be duplicated with .clone()
+export trait Clone {
+    fn clone(): Self;  // Returns a copy of self
+}
+
+// Eq trait - Equality comparison
+// Types implementing Eq can be compared for equality
+export trait Eq {
+    fn equals(other: Self): bool;  // Returns true if self == other
+}
+
+// Ord trait - Ordering comparison
+// Types implementing Ord can be compared for ordering
+export trait Ord {
+    fn compare(other: Self): i32;  // Returns -1 (less), 0 (equal), 1 (greater)
+}
+
+// Iterator trait - Iteration over sequences
+// Types implementing Iterator can be iterated with for-in loops
+export trait Iterator {
+    type Item;  // Associated type for elements
+    
+    fn next()!: Option<i32>;  // Returns next element or None (mutable) - TEMPORARY: use i32 instead of Self.Item
 }
 
 // ===== External C functions =====

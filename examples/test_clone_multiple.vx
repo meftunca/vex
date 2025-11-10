@@ -1,0 +1,41 @@
+// Test Clone trait - Multiple clones
+// Test that multiple clones work independently
+
+import { Clone } from "core";
+
+struct Counter impl Clone {
+    count: i32,
+    
+    fn clone(): Counter {
+        return Counter { count: self.count };
+    }
+}
+
+fn main(): i32 {
+    let c1 = Counter { count: 1 };
+    let c2 = c1.clone();
+    let c3 = c1.clone();
+    
+    println("c1.count: {}", c1.count);
+    println("c2.count: {}", c2.count);
+    println("c3.count: {}", c3.count);
+    
+    if c2.count != 1 {
+        println("❌ FAILED: c2.count mismatch");
+        return 1;
+    }
+    
+    if c3.count != 1 {
+        println("❌ FAILED: c3.count mismatch");
+        return 1;
+    }
+    
+    println("✅ PASSED");
+    return 0;
+}
+
+// Expected output:
+// c1.count: 1
+// c2.count: 1
+// c3.count: 1
+// ✅ PASSED

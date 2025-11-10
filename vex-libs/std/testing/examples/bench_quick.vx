@@ -1,0 +1,66 @@
+// Quick Benchmark - Minimal test
+import {monotonic_now} from "time";
+
+trait Benchmarkable {
+    fn stop_timer();
+    fn ns_per_op(): i64;
+    fn ops_per_sec(): i64;
+}
+
+struct B impl Benchmarkable {
+    n: i64,
+    elapsed_ns: i64,
+    timer_running: bool,
+    start_time: i64,
+    
+    fn stop_timer()! {
+        if self.timer_running {
+            let now: i64 = monotonic_now() as i64;
+            self.elapsed_ns = now - self.start_time;
+            self.timer_running = false;
+        }
+    }
+    
+    fn ns_per_op(): i64 {
+        if self.n == 0 {
+            return 0;
+        }
+        return self.elapsed_ns / self.n;
+    }
+    
+    fn ops_per_sec(): i64 {
+        if self.elapsed_ns == 0 {
+            return 0;
+        }
+        return (self.n * 1000000000) / self.elapsed_ns;
+    }
+}
+
+fn main() {
+    print("Quick Benchmark\n");
+    
+    let start_ns: i64 = monotonic_now() as i64;
+    let! b: B = B { 
+        n: 10000,
+        elapsed_ns: 0,
+        timer_running: true,
+        start_time: start_ns,
+    };
+    
+    let! i: i64 = 0;
+    let! sum: i64 = 0;
+    while i < b.n {
+        sum = sum + i;
+        i = i + 1;
+    }
+    
+    b.stop_timer();
+    
+    print("n=");
+    print(b.n);
+    print(" ns/op=");
+    print(b.ns_per_op());
+    print(" ops/sec=");
+    print(b.ops_per_sec());
+    print("\n");
+}

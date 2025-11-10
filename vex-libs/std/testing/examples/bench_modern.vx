@@ -1,0 +1,162 @@
+// Modern Vex Benchmark Example
+// Demonstrates trait-based testing framework with struct impl pattern
+
+import {monotonic_now} from "time";
+
+// Benchmarkable trait - defines benchmark interface
+trait Benchmarkable {
+    fn stop_timer();
+    fn start_timer();
+    fn reset_timer();
+    fn ns_per_op(): i64;
+    fn ops_per_sec(): i64;
+}
+
+// Modern B struct with trait implementation
+struct B impl Benchmarkable {
+    name: String,
+    n: i64,
+    elapsed_ns: i64,
+    bytes: i64,
+    timer_running: bool,
+    start_time: i64,
+    
+    fn stop_timer()! {
+        if self.timer_running {
+            let now: i64 = monotonic_now() as i64;
+            self.elapsed_ns = now - self.start_time;
+            self.timer_running = false;
+        }
+    }
+    
+    fn start_timer()! {
+        if !self.timer_running {
+            self.start_time = monotonic_now() as i64;
+            self.timer_running = true;
+        }
+    }
+    
+    fn reset_timer()! {
+        self.elapsed_ns = 0;
+        self.start_time = monotonic_now() as i64;
+    }
+    
+    fn ns_per_op(): i64 {
+        if self.n == 0 {
+            return 0;
+        }
+        return self.elapsed_ns / self.n;
+    }
+    
+    fn ops_per_sec(): i64 {
+        if self.elapsed_ns == 0 {
+            return 0;
+        }
+        return (self.n * 1000000000) / self.elapsed_ns;
+    }
+}
+
+fn main() {
+    print("=== Modern Vex Benchmark Suite ===\n");
+    print("Using: struct impl trait pattern\n");
+    print("goos: vex\n");
+    print("goarch: native\n\n");
+    
+    bench_arithmetic();
+    bench_loops();
+    bench_bit_ops();
+    
+    print("\nPASS\n");
+}
+
+// Benchmark: Integer arithmetic
+fn bench_arithmetic() {
+    let start_ns: i64 = monotonic_now() as i64;
+    let! b: B = B { 
+        name: "Arithmetic",
+        n: 100000,
+        elapsed_ns: 0,
+        bytes: 0,
+        timer_running: true,
+        start_time: start_ns,
+    };
+    
+    // Run workload
+    let! i: i64 = 0;
+    let! result: i64 = 0;
+    while i < b.n {
+        result = (i * 13 + 7) / 3 - 2;
+        i = i + 1;
+    }
+    
+    b.stop_timer();
+    
+    // Print results
+    print("BenchmarkArithmetic-1\t");
+    print(b.n);
+    print("\t");
+    print(b.ns_per_op());
+    print(" ns/op\t");
+    print(b.ops_per_sec());
+    print(" ops/sec\n");
+}
+
+// Benchmark: Loop overhead
+fn bench_loops() {
+    let start_ns: i64 = monotonic_now() as i64;
+    let! b: B = B { 
+        name: "Loops",
+        n: 1000000,
+        elapsed_ns: 0,
+        bytes: 0,
+        timer_running: true,
+        start_time: start_ns,
+    };
+    
+    let! i: i64 = 0;
+    let! count: i64 = 0;
+    while i < b.n {
+        count = count + 1;
+        i = i + 1;
+    }
+    
+    b.stop_timer();
+    
+    print("BenchmarkLoops-1\t\t");
+    print(b.n);
+    print("\t");
+    print(b.ns_per_op());
+    print(" ns/op\t");
+    print(b.ops_per_sec());
+    print(" ops/sec\n");
+}
+
+// Benchmark: Bit operations
+fn bench_bit_ops() {
+    let start_ns: i64 = monotonic_now() as i64;
+    let! b: B = B { 
+        name: "BitOps",
+        n: 500000,
+        elapsed_ns: 0,
+        bytes: 0,
+        timer_running: true,
+        start_time: start_ns,
+    };
+    
+    let! i: i64 = 0;
+    let! result: i64 = 12345;
+    while i < b.n {
+        result = (result << 2) ^ (result >> 1) & 0xFF;
+        i = i + 1;
+    }
+    
+    b.stop_timer();
+    
+    print("BenchmarkBitOps-1\t\t");
+    print(b.n);
+    print("\t");
+    print(b.ns_per_op());
+    print(" ns/op\t");
+    print(b.ops_per_sec());
+    print(" ops/sec\n");
+}

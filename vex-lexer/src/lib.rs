@@ -1,5 +1,43 @@
 use logos::Logos;
 
+/// Helper function to unescape string literals
+fn unescape_string(s: &str) -> String {
+    let mut result = String::new();
+    let mut chars = s.chars();
+    
+    while let Some(ch) = chars.next() {
+        if ch == '\\' {
+            match chars.next() {
+                Some('n') => result.push('\n'),
+                Some('r') => result.push('\r'),
+                Some('t') => result.push('\t'),
+                Some('b') => result.push('\x08'),
+                Some('f') => result.push('\x0C'),
+                Some('"') => result.push('"'),
+                Some('\\') => result.push('\\'),
+                Some('u') => {
+                    // Unicode escape: \uXXXX
+                    let hex: String = chars.by_ref().take(4).collect();
+                    if let Ok(code) = u32::from_str_radix(&hex, 16) {
+                        if let Some(unicode_char) = char::from_u32(code) {
+                            result.push(unicode_char);
+                        }
+                    }
+                }
+                Some(c) => {
+                    result.push('\\');
+                    result.push(c);
+                }
+                None => result.push('\\'),
+            }
+        } else {
+            result.push(ch);
+        }
+    }
+    
+    result
+}
+
 /// Token types for the Vex programming language
 #[derive(Logos, Debug, Clone, PartialEq)]
 #[logos(skip r"[ \t\n\f]+")]
@@ -280,14 +318,14 @@ pub enum Token {
 
     #[regex(r#""([^"\\]|\\["\\bnfrt]|u[a-fA-F0-9]{4})*""#, |lex| {
         let s = lex.slice();
-        s[1..s.len()-1].to_string()
+        unescape_string(&s[1..s.len()-1])
     })]
     StringLiteral(String),
 
     // Formatted string (f"...")
     #[regex(r#"f"([^"\\]|\\["\\bnfrt]|u[a-fA-F0-9]{4})*""#, |lex| {
         let s = lex.slice();
-        s[2..s.len()-1].to_string()
+        unescape_string(&s[2..s.len()-1])
     })]
     FStringLiteral(String),
 
