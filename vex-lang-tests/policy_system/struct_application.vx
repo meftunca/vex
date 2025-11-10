@@ -1,0 +1,59 @@
+// Test file for Vex policy system: Struct Application
+// This file tests applying policies to structs
+
+policy APIModel {
+    id `json:"id" db:"pk"`,
+    name `json:"name" db:"name"`,
+    email `json:"email" db:"email"`,
+}
+
+policy BaseModel {
+    id `db:"id" indexed:"true"`,
+    created_at `db:"created_at"`,
+}
+
+struct User with APIModel {
+    id: u64,
+    name: string,
+    email: string,
+}
+
+struct Product with BaseModel {
+    id: u64,
+    created_at: string,
+    title: string,
+    price: f64,
+}
+
+struct Article with BaseModel, APIModel {
+    id: u64,
+    created_at: string,
+    name: string,
+    email: string,
+    content: string,
+}
+
+fn main(): i32 {
+    let user = User {
+        id: 12345,
+        name: "John Doe",
+        email: "john@example.com",
+    };
+
+    let product = Product {
+        id: 67890,
+        created_at: "2023-01-01",
+        title: "Widget",
+        price: 29.99,
+    };
+
+    let article = Article {
+        id: 11111,
+        created_at: "2023-06-01",
+        name: "Tech Article",
+        email: "author@example.com",
+        content: "Article content...",
+    };
+
+    return user.id as i32 + product.id as i32 + article.id as i32;
+}

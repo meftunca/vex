@@ -1,0 +1,29 @@
+// Test file for Vex concurrency: Goroutines
+// This file tests goroutine creation and execution
+
+fn worker(id: i32) {
+    // Simulate work
+    let result = id * 2;
+    // In real implementation, this would print or send to channel
+}
+
+fn named_worker(name: string, count: i32) {
+    // Another worker function
+    let result = count + 1;
+}
+
+fn main(): i32 {
+    // Spawn goroutines
+    go worker(1);
+    go worker(2);
+    go worker(3);
+
+    // Spawn with different function
+    go named_worker("alpha", 10);
+    go named_worker("beta", 20);
+
+    // Main continues executing
+    let main_result = 42;
+
+    return main_result;
+}

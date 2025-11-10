@@ -1,0 +1,148 @@
+// Test file for Vex control flow: Defer Statement
+// This file tests defer statements (Go-style cleanup)
+
+fn main(): i32 {
+    defer print("Main function ending\n");
+
+    let result = test_defer();
+    print("Result: " + result.to_string() + "\n");
+
+    return 0;
+}
+
+fn test_defer(): i32 {
+    defer print("First defer\n");
+    defer print("Second defer\n");
+    defer print("Third defer\n");
+
+    let! x = 10;
+
+    if x > 5 {
+        defer print("Conditional defer\n");
+        x = x * 2;
+    }
+
+    // Defers execute in LIFO order when function exits
+    return x;
+}
+
+fn resource_test(): i32 {
+    // Simulate resource acquisition
+    let resource = acquire_resource();
+    defer release_resource(resource);
+
+    // Use resource
+    let result = use_resource(resource);
+
+    if result < 0 {
+        // Resource still gets released even on early return
+        return -1;
+    }
+
+    return result;
+}
+
+fn acquire_resource(): i32 {
+    print("Acquiring resource\n");
+    return 42;  // Resource ID
+}
+
+fn release_resource(id: i32) {
+    print("Releasing resource " + id.to_string() + "\n");
+}
+
+fn use_resource(id: i32): i32 {
+    print("Using resource " + id.to_string() + "\n");
+    return 100;
+}
+
+// Test defer in loop
+fn loop_defer_test() {
+    for let i = 0; i < 3; i = i + 1 {
+        defer print("Defer in loop iteration " + i.to_string() + "\n");
+        print("Processing iteration " + i.to_string() + "\n");
+    }
+    // All defers execute after loop completes
+}
+
+// Edge cases for defer statements
+
+// Test many defers (stress test)
+fn many_defers_test(): i32 {
+    // Add many defers to test implementation limits
+    for let i = 0; i < 100; i = i + 1 {
+        defer print("Defer " + i.to_string() + "\n");
+    }
+    return 100;
+}
+
+// Test defer with complex expressions
+fn complex_defer_test(): i32 {
+    let! x = 10;
+    let! y = 20;
+    
+    defer {
+        let result = x + y * 2;
+        print("Complex defer result: " + result.to_string() + "\n");
+    };
+    
+    defer print("Simple defer after complex\n");
+    
+    x = 15;
+    y = 25;
+    
+    return x + y;
+}
+
+// Test defer in nested functions
+fn nested_defer_test(): i32 {
+    defer print("Outer defer\n");
+    
+    fn inner() {
+        defer print("Inner defer\n");
+        print("Inner function\n");
+    }
+    
+    inner();
+    return 42;
+}
+
+// Test defer with early return
+fn early_return_defer_test(): i32 {
+    defer print("Defer on early return\n");
+    
+    if true {
+        return 1;  // Defer should still execute
+    }
+    
+    return 0;
+}
+
+// Test defer in recursive function
+fn recursive_defer_test(n: i32): i32 {
+    if n <= 0 {
+        return 0;
+    }
+    
+    defer print("Defer at depth " + n.to_string() + "\n");
+    
+    return n + recursive_defer_test(n - 1);
+}
+
+// Test defer in loop with break
+fn loop_break_defer_test(): i32 {
+    let! count = 0;
+    
+    for let i = 0; i < 10; i = i + 1 {
+        defer {
+            count = count + 1;
+            print("Defer in loop " + i.to_string() + "\n");
+        };
+        
+        if i == 5 {
+            break;  // Test that defers execute even on break
+        }
+    }
+    
+    return count;  // Should be 6 (0 through 5)
+}

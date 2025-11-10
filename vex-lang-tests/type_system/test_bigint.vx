@@ -1,0 +1,16 @@
+// Test BigIntLiteral support (within Logos 19-char limit)
+
+fn main(): i32 {
+    // i128 max: 170141183460469231731687303715884105727 (39 chars - too long)
+    // u128 max: 340282366920938463463374607431768211455 (39 chars - too long)
+    
+    // Test with 19-digit numbers (Logos limit)
+    let big1: i128 = 1234567890123456789;  // 19 digits - OK
+    let big2: u128 = 9876543210987654321;  // 19 digits - OK
+    
+    // Smaller i128/u128 values
+    let i128_val: i128 = 123456789012;
+    let u128_val: u128 = 987654321098;
+    
+    return 0;
+}

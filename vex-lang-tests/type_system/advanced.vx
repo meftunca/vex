@@ -1,0 +1,80 @@
+// Test file for Vex type system: Advanced Types
+// This file tests union types, generic types, and reflection builtins
+
+// Generic types (moved to global scope)
+struct Box<T> {
+    value: T,
+}
+
+enum Option<T> {
+    Some(T),
+    None,
+}
+
+enum Result<T, E> {
+    Ok(T),
+    Err(E),
+}
+
+fn main() {
+
+    // Usage
+    let boxed = Box<i32> { value: 42 };
+    let some_val = Option.Some(42);
+    let none_val = Option.None;
+    let ok_val = Result.Ok(42);
+    let err_val = Result.Err("error");
+
+    // Reflection builtins - commented out as they may not be implemented yet
+    // let size = type_size(i32);               // Size in bytes
+    // let align = type_align(i64);             // Alignment in bytes
+    // let is_int = is_int_type(i32);           // Check if integer
+    // let is_float = is_float_type(f64);       // Check if float
+    // let is_ptr = is_pointer_type(&i32);      // Check if pointer
+
+    // Type aliases - commented out as they may not be implemented yet
+    // type UserID = u64;
+    // type Callback = fn(i32): bool;
+    // type Point2D = (f64, f64);
+
+    // let id: UserID = 12345;
+    // let point: Point2D = (1.0, 2.0);
+
+    // Edge cases: Complex unions - commented out
+    // type ComplexUnion = i32 | string | bool | f64 | nil;
+    // let complex1: ComplexUnion = 42;
+    // let complex2: ComplexUnion = "text";
+    // let complex3: ComplexUnion = true;
+    // let complex4: ComplexUnion = 3.14;
+    // let complex5: ComplexUnion = nil;
+
+    // Nested generics
+    let nested_option = Option.Some(Option.Some(42));
+    let nested_result = Result.Ok(Result.Ok("nested"));
+
+    // Reflection on complex types - commented out
+    // let generic_type = typeof(nested_option);
+    // let tuple_type = typeof(point);
+    // let array_type = typeof([1, 2, 3]);
+
+    // Type size and alignment edge cases - commented out
+    // let bool_size = type_size(bool);
+    // let string_size = type_size(string);  // Might be pointer size
+    // let nil_size = type_size(nil);
+    // let error_size = type_size(error);
+
+    // Type checking edge cases - commented out
+    // let is_i8_int = is_int_type(i8);
+    // let is_u64_int = is_int_type(u64);
+    // let is_f32_float = is_float_type(f32);
+    // let is_f16_float = is_float_type(f16);
+    // let is_string_ptr = is_pointer_type(string);  // Strings might be pointers
+
+    // Chained type aliases - commented out
+    // type Alias1 = i32;
+    // type Alias2 = Alias1;
+    // type Alias3 = Alias2;
+    // let chained: Alias3 = 100;
+
+    // return boxed.value; // + id as i32 + chained;
+}

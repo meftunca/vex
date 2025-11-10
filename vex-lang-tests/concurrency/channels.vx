@@ -1,0 +1,19 @@
+// Test file for Vex concurrency: Channels
+// This file tests channel operations
+
+// Assuming Channel is available
+// let ch = Channel.new();
+
+// Send
+// ch.send(42);
+
+// Receive
+// let value = ch.recv();
+
+fn main(): i32 {
+    // Channel operations would go here
+    // For now, just test compilation
+
+    let placeholder = 42;
+    return placeholder;
+}

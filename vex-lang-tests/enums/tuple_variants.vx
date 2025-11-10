@@ -1,0 +1,79 @@
+// Test file for Vex enums: Tuple Variants
+// This file tests tuple variants in enums
+
+enum IpAddr {
+    V4(u8, u8, u8, u8),
+    V6(string),
+}
+
+enum Message {
+    Quit,
+    Move(i32, i32),
+    Write(string),
+    ChangeColor(i32, i32, i32),
+}
+
+enum Result<T, E> {
+    Ok(T),
+    Err(E),
+}
+
+enum Shape {
+    Circle(f64),
+    Rectangle(f64, f64),
+    Triangle(f64, f64, f64),
+}
+
+fn main(): i32 {
+    // IPv4 addresses
+    let localhost = IpAddr.V4(127, 0, 0, 1);
+    let google = IpAddr.V4(8, 8, 8, 8);
+
+    // IPv6 address
+    let ipv6 = IpAddr.V6("::1");
+
+    // Messages
+    let quit = Message.Quit;
+    let move_msg = Message.Move(10, 20);
+    let write_msg = Message.Write("hello");
+    let color_msg = Message.ChangeColor(255, 0, 0);
+
+    // Results
+    let success = Result.Ok(42);
+    let failure = Result.Err("error message");
+
+    // Shapes
+    let circle = Shape.Circle(5.0);
+    let rectangle = Shape.Rectangle(10.0, 20.0);
+    let triangle = Shape.Triangle(3.0, 4.0, 5.0);
+
+    // Pattern matching on tuple variants
+    let ip_type = match localhost {
+        IpAddr.V4(a, b, c, d) => {
+            "IPv4: " + a.to_string() + "." + b.to_string() + "." + c.to_string() + "." + d.to_string()
+        }
+        IpAddr.V6(addr) => {
+            "IPv6: " + addr
+        }
+    };
+
+    let msg_desc = match move_msg {
+        Message.Quit => { "quit" }
+        Message.Move(x, y) => { "move to (" + x.to_string() + ", " + y.to_string() + ")" }
+        Message.Write(text) => { "write: " + text }
+        Message.ChangeColor(r, g, b) => { "change color to (" + r.to_string() + "," + g.to_string() + "," + b.to_string() + ")" }
+    };
+
+    let result_value = match success {
+        Result.Ok(value) => { value }
+        Result.Err(error) => { 0 }
+    };
+
+    let shape_area = match circle {
+        Shape.Circle(radius) => { (3.14159 * radius * radius) as i32 }
+        Shape.Rectangle(w, h) => { (w * h) as i32 }
+        Shape.Triangle(a, b, c) => { (a + b + c) as i32 }  // Simplified
+    };
+
+    return result_value + shape_area;
+}

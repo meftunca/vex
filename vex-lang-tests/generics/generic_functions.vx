@@ -1,0 +1,43 @@
+// Test file for Vex generics: Generic Functions
+// This file tests generic function definitions and usage
+
+fn identity<T>(x: T): T {
+    return x;
+}
+
+fn first_element<T>(arr: [T; 3]): T {
+    return arr[0];
+}
+
+fn swap<T, U>(a: T, b: U): (U, T) {
+    return (b, a);
+}
+
+fn create_pair<T, U>(first: T, second: U): (T, U) {
+    return (first, second);
+}
+
+fn main(): i32 {
+    // Test with different types
+    let int_id = identity<i32>(42);
+    let str_id = identity("hello");
+    let bool_id = identity(true);
+
+    // Test with arrays
+    let int_arr = [1, 2, 3];
+    let first_int = first_element(int_arr);
+
+    let str_arr = ["a", "b", "c"];
+    let first_str = first_element(str_arr);
+
+    // Test swap - returns tuple
+    let swapped = swap(42, "world");
+
+    // Test pair creation
+    let int_pair = create_pair(1, 2);
+
+    // Type inference
+    let inferred_id = identity(3.14);  // Should infer f64
+
+    return int_id + first_int;
+}

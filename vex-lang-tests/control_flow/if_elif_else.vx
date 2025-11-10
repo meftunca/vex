@@ -1,0 +1,121 @@
+// Test file for Vex control flow: If/Elif/Else
+// This file tests conditional statements
+
+fn main(): i32 {
+    let score = 85;
+    let! result = 0;
+
+    // Basic if-else
+    if score >= 60 {
+        result = 1;  // Pass
+    } else {
+        result = 0;  // Fail
+    }
+
+    // If-elif-else chain
+    let! grade = "";
+    if score >= 90 {
+        grade = "A";
+    } elif score >= 80 {
+        grade = "B";
+    } elif score >= 70 {
+        grade = "C";
+    } elif score >= 60 {
+        grade = "D";
+    } else {
+        grade = "F";
+    }
+
+    // Nested if statements
+    let! category = "";
+    if score >= 60 {
+        if score >= 90 {
+            category = "Excellent";
+        } elif score >= 80 {
+            category = "Good";
+        } else {
+            category = "Satisfactory";
+        }
+    } else {
+        category = "Needs Improvement";
+    }
+
+    // If with complex conditions
+    let x = 10;
+    let y = 20;
+    if x > 5 && y < 30 {
+        result = result + 10;
+    }
+
+    // If with function call
+    if is_positive(x) {
+        result = result + 100;
+    }
+
+    // Edge cases: Very long elif chain
+    let value = 75;
+    let! long_chain = "";
+    if value >= 95 {
+        long_chain = "A+";
+    } elif value >= 90 {
+        long_chain = "A";
+    } elif value >= 85 {
+        long_chain = "A-";
+    } elif value >= 80 {
+        long_chain = "B+";
+    } elif value >= 75 {
+        long_chain = "B";
+    } elif value >= 70 {
+        long_chain = "B-";
+    } elif value >= 65 {
+        long_chain = "C+";
+    } elif value >= 60 {
+        long_chain = "C";
+    } elif value >= 55 {
+        long_chain = "C-";
+    } elif value >= 50 {
+        long_chain = "D";
+    } else {
+        long_chain = "F";
+    }
+
+    // Deeply nested if statements
+    let! deep_result = 0;
+    if x > 0 {
+        if y > 0 {
+            if score > 0 {
+                if result > 0 {
+                    if value > 0 {
+                        deep_result = 1;
+                    }
+                }
+            }
+        }
+    }
+
+    // Complex boolean expressions
+    let a = true;
+    let b = false;
+    let c = true;
+    let complex_bool = (a && b) || (c && !b) && (x > 5 || y < 25);
+
+    if complex_bool {
+        result = result + 1000;
+    }
+
+    // If with side effects
+    let! side_effect = 0;
+    if increment_and_check(side_effect) {
+        side_effect = side_effect + 10;
+    }
+
+    return result + deep_result + side_effect;
+}
+
+fn is_positive(n: i32): bool {
+    return n > 0;
+}
+
+fn increment_and_check(n: i32): bool {
+    return n + 1 > 0;  // Always true for non-negative
+}

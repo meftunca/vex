@@ -1,0 +1,20 @@
+// Test file for Vex memory management: Raw Pointers
+// This file tests raw pointer operations
+
+fn main(): i32 {
+    let x = 42;
+    let y = 100;
+
+    unsafe {
+        let ptr = &x as *i32;  // Immutable raw pointer
+        let value = *ptr;      // Dereference
+
+        let mut_ptr = &y as *i32!;  // Mutable raw pointer (if supported)
+        // *mut_ptr = 200;       // Modify through mutable pointer
+    }
+
+    // Raw pointers are primarily used in unsafe blocks
+    // for FFI or low-level operations
+
+    return 42;
+}

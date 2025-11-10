@@ -1,6 +1,6 @@
 # Vex Language - Project Progress Report
 
-**Version:** 0.9.2 (Syntax v0.9.2)
+**Version:** 0.1.2 (Syntax v0.1.2)
 **Status:** PRODUCTION READY 🚀
 **Test Coverage:** 262/262 tests passing (100%) ✅
 **Last Updated:** November 9, 2025
@@ -311,7 +311,7 @@ Source (.vx) → Lexer → Parser → AST → Borrow Check → LLVM IR → Binar
 
 | Category | Status | Completion | Notes |
 |----------|--------|------------|-------|
-| **Core Language** | ✅ Complete | 100% | All syntax v0.9.2 features |
+| **Core Language** | ✅ Complete | 100% | All syntax v0.1.2 features |
 | **Memory Safety** | ✅ Complete | 100% | 4-phase borrow checker |
 | **Type System** | ✅ Complete | 100% | Advanced types, generics, traits |
 | **Concurrency** | ✅ Complete | 95% | Channels + async/await |

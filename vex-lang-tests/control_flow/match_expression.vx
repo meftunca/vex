@@ -1,0 +1,117 @@
+// Test file for Vex control flow: Match Expression
+// This file tests match expressions with various patterns
+
+enum Color {
+    Red,
+    Green,
+    Blue,
+}
+
+enum IpAddr {
+    V4(u8, u8, u8, u8),
+    V6(string),
+}
+
+enum Option<T> {
+    Some(T),
+    None,
+}
+
+fn main(): i32 {
+    // Literal patterns
+    let x = 42;
+    let literal_result = match x {
+        0 => { 0 }
+        1 => { 1 }
+        42 => { 42 }
+        _ => { -1 }
+    };
+
+    // Enum patterns (unit variants)
+    let color = Color.Red;
+    let color_name = match color {
+        Color.Red => { "red" }
+        Color.Green => { "green" }
+        Color.Blue => { "blue" }
+    };
+
+    // Tuple patterns
+    let point = (10, 20);
+    let quadrant = match point {
+        (0, 0) => { "origin" }
+        (x, 0) => { "x-axis" }
+        (0, y) => { "y-axis" }
+        (x, y) if x > 0 && y > 0 => { "first quadrant" }
+        (x, y) if x < 0 && y > 0 => { "second quadrant" }
+        (x, y) if x < 0 && y < 0 => { "third quadrant" }
+        (x, y) => { "fourth quadrant" }
+    };
+
+    // Or patterns
+    let day = 6;
+    let day_type = match day {
+        1 | 2 | 3 | 4 | 5 => { "weekday" }
+        6 | 7 => { "weekend" }
+        _ => { "invalid" }
+    };
+
+    // Complex enum patterns (tuple variants)
+    let localhost = IpAddr.V4(127, 0, 0, 1);
+    let google = IpAddr.V4(8, 8, 8, 8);
+    let ipv6 = IpAddr.V6("::1");
+
+    let addr_type = match localhost {
+        IpAddr.V4(a, b, c, d) => { "IPv4: " + a.to_string() + "." + b.to_string() + "." + c.to_string() + "." + d.to_string() }
+        IpAddr.V6(addr) => { "IPv6: " + addr }
+    };
+
+    // Match with Option
+
+    let opt = Option.Some(42);
+    let option_value = match opt {
+        Option.Some(value) => { value }
+        Option.None => { 0 }
+    };
+
+    // Edge cases: Complex destructuring
+    let nested_tuple = ((1, 2), (3, 4));
+    let nested_match = match nested_tuple {
+        ((a, b), (c, d)) => { a + b + c + d }
+    };
+
+    // Match with guards (if supported)
+    let guarded = match x {
+        n if n < 10 => { "small" }
+        n if n < 50 => { "medium" }
+        _ => { "large" }
+    };
+
+    // Exhaustive vs non-exhaustive
+    // This would be an error if not exhaustive:
+    // let non_exhaustive = match color {
+    //     Color.Red => { 1 }
+    //     Color.Green => { 2 }
+    //     // Missing Color.Blue - compile error
+    // };
+
+    // Overlapping patterns (first match wins)
+    let overlapping = match 5 {
+        1 | 2 | 3 => { "low" }
+        3 | 4 | 5 => { "high" }  // This matches, not the above
+        _ => { "other" }
+    };
+
+    // Match on complex expressions
+    let complex_match = match calculate_score(85) {
+        score if score >= 90 => { "A" }
+        score if score >= 80 => { "B" }
+        score if score >= 70 => { "C" }
+        _ => { "F" }
+    };
+
+    return literal_result + option_value + nested_match;
+}
+
+fn calculate_score(percentage: i32): i32 {
+    return percentage;
+}

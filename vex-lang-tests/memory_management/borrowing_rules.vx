@@ -1,0 +1,58 @@
+// Test file for Vex memory management: Borrowing Rules
+// This file tests borrowing rules and lifetimes
+
+struct Point {
+    x: i32,
+    y: i32,
+}
+
+fn multiple_immutable_borrows() {
+    let p = Point { x: 10, y: 20 };
+
+    let r1 = &p;  // First immutable borrow
+    let r2 = &p;  // Second immutable borrow - OK
+    let r3 = &p;  // Third immutable borrow - OK
+
+    let x1 = r1.x;
+    let x2 = r2.x;
+    let x3 = r3.x;
+}
+
+fn mutable_borrow_exclusive() {
+    let! p = Point { x: 10, y: 20 };
+
+    let r1 = &p;  // Mutable borrow
+    // let r2 = &p;  // ERROR: Cannot have another borrow while mutable borrow exists
+
+    r1.x = 30;
+}
+
+fn borrow_lifetimes() {
+    let p = Point { x: 10, y: 20 };
+
+    {
+        let r = &p;
+        let x = r.x;  // OK
+    }  // r goes out of scope
+
+    let y = p.y;  // OK, borrow ended
+}
+
+fn no_dangling_references() {
+    // This would be invalid if it compiled:
+    // let r;
+    // {
+    //     let p = Point { x: 1, y: 2 };
+    //     r = &p;
+    // }  // p goes out of scope
+    // let x = r.x;  // ERROR: r references dropped value
+}
+
+fn main(): i32 {
+    multiple_immutable_borrows();
+    mutable_borrow_exclusive();
+    borrow_lifetimes();
+    no_dangling_references();
+
+    return 42;
+}

@@ -1,0 +1,26 @@
+// Test file for Vex lexical structure: Identifiers
+// This file tests valid identifier patterns
+
+fn main(): i32 {
+    // Valid identifiers
+    let variable = 1;
+    let _private = 2;
+    let count_123 = 3;
+    let camelCase = 4;
+    let snake_case = 5;
+    let PascalCase = 6;
+    let UPPER_SNAKE_CASE = 7;
+    let a = 8;
+    let z = 9;
+    let A = 10;
+    let Z = 11;
+    //let _ = 12; // underscore alone
+
+    // Use them (just verify they can be used, don't return sum)
+    let total = variable + _private + count_123 + camelCase +
+                snake_case + PascalCase + UPPER_SNAKE_CASE +
+                a + z + A + Z ;
+
+    // Test successful - return 0
+    return 0;
+}

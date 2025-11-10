@@ -1,0 +1,56 @@
+// Test file for Vex policy system: Inline Metadata
+// This file tests inline metadata tags on struct fields
+
+struct User {
+    id: u64        `json:"id" db:"pk"`,
+    username: string `json:"username" db:"username" required:"true"`,
+    email: string   `json:"email" db:"email"`,
+    age: i32        `json:"age"`,
+    is_active: bool `json:"is_active" default:"true"`,
+    created_at: string `json:"created_at" db:"created_at"`,
+}
+
+struct Configuration {
+    host: string     `env:"HOST" default:"localhost"`,
+    port: i32        `env:"PORT" default:"8080"`,
+    debug: bool      `env:"DEBUG" default:"false"`,
+    timeout: i32     `env:"TIMEOUT" default:"30"`,
+    max_connections: i32 `env:"MAX_CONN" default:"100"`,
+}
+
+struct DatabaseConfig {
+    host: string     `db:"host" required:"true"`,
+    port: i32        `db:"port" default:"5432"`,
+    name: string     `db:"database" required:"true"`,
+    user: string     `db:"username" required:"true"`,
+    password: string `db:"password" required:"true"`,
+}
+
+fn main(): i32 {
+    let user = User {
+        id: 12345,
+        username: "johndoe",
+        email: "john@example.com",
+        age: 25,
+        is_active: true,
+        created_at: "2023-01-01T00:00:00Z",
+    };
+
+    let config = Configuration {
+        host: "api.example.com",
+        port: 443,
+        debug: false,
+        timeout: 60,
+        max_connections: 200,
+    };
+
+    let db_config = DatabaseConfig {
+        host: "localhost",
+        port: 5432,
+        name: "myapp",
+        user: "admin",
+        password: "secret",
+    };
+
+    return user.id as i32 + config.port + db_config.port;
+}

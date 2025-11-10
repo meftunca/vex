@@ -1,0 +1,58 @@
+// Test file for Vex error handling: Option and Result
+// This file tests Option<T> and Result<T, E> usage
+
+enum Option<T> {
+    Some(T),
+    None,
+}
+
+enum Result<T, E> {
+    Ok(T),
+    Err(E),
+}
+
+fn find_user(id: i32): Option<i32> {
+    if id == 42 {
+        return Option.Some(id);
+    }
+    return Option.None;
+}
+
+fn divide(a: i32, b: i32): Result<i32, string> {
+    if b == 0 {
+        return Result.Err("Division by zero");
+    }
+    return Result.Ok(a / b);
+}
+
+fn main(): i32 {
+    // Option usage
+    let found = find_user(42);
+    let not_found = find_user(999);
+
+    let user_id = match found {
+        Option.Some(id) => { id }
+        Option.None => { 0 }
+    };
+
+    let missing_id = match not_found {
+        Option.Some(id) => { id }
+        Option.None => { -1 }
+    };
+
+    // Result usage
+    let division_ok = divide(10, 2);
+    let division_err = divide(10, 0);
+
+    let quotient = match division_ok {
+        Result.Ok(value) => { value }
+        Result.Err(error) => { 0 }
+    };
+
+    let error_result = match division_err {
+        Result.Ok(value) => { value }
+        Result.Err(error) => { -1 }
+    };
+
+    return user_id + missing_id + quotient + error_result + 2;  // +2 to make positive
+}

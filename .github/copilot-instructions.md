@@ -1,7 +1,7 @@
 # Vex Language Compiler - AI Agent Instructions
 
 **Project:** Vex - Modern systems programming language
-**Version:** 0.9.2 (Syntax v0.9.2)
+**Version:** 0.1.2 (Syntax v0.1.2)
 **Last Updated:** November 9, 2025
 
 ## 🎯 Core Principles
@@ -13,7 +13,7 @@
 5. **⚠️ ABSOLUTE SILENCE RULE** - **DO NOT** engage in conversation, explanations, or discussions unless explicitly asked. Work completely silently. Only provide minimal status updates at the very end.
 6. **Minimal status format** - Final report MUST be: `✅ [Task] → [Result] ([files changed])` - Nothing more.
 7. **Use absolute paths** - Binary is at `~/.cargo/target/debug/vex`
-8. **Follow Vex syntax v0.9.2** - Not Rust syntax (no `mut`, `->`, `::`)
+8. **Follow Vex syntax v0.1.2** - Not Rust syntax (no `mut`, `->`, `::`)
 9. **⚠️ CRITICAL: NO `::` operator!** - Use `. ` for all member access (`Vec.new()` not `Vec::new()`, `Some(x)` not `Option::Some(x)`)
 10. **⚠️ FILE SIZE LIMIT: 400 LINES MAX** - **MANDATORY** Rust files MUST NOT exceed 400 lines. Split logically into modules when approaching this limit.
 

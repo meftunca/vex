@@ -1,0 +1,96 @@
+// Test file for Vex traits: Trait Implementation
+// This file tests trait implementation in structs
+
+trait Display {
+    fn show();
+}
+
+trait Logger {
+    fn log(msg: string)!;  // Make log mutable
+    fn clear()!;
+}
+
+trait Calculator {
+    fn add(x: i32, y: i32): i32;
+    fn multiply(x: i32, y: i32): i32;
+}
+
+// Struct implementing single trait
+struct ConsoleLogger impl Logger {
+    prefix: string,
+
+    // Must implement ALL trait methods
+    fn log(msg: string) {
+        // Implementation here
+    }
+
+    fn clear()! {
+        // Implementation here
+    }
+}
+
+// Struct implementing multiple traits
+struct AdvancedCalculator impl Calculator, Display {
+    name: string,
+
+    // Calculator methods
+    fn add(x: i32, y: i32): i32 {
+        return x + y;
+    }
+
+    fn multiply(x: i32, y: i32): i32 {
+        return x * y;
+    }
+
+    // Display method
+    fn show() {
+        // Implementation here
+    }
+}
+
+// Struct with additional methods beyond trait requirements
+struct FileLogger impl Logger {
+    file_path: string,
+    buffer: string,
+
+    // Required trait methods
+    fn log(msg: string) {
+        self.buffer = self.buffer + msg + "\n";
+    }
+
+    fn clear()! {
+        self.buffer = "";
+    }
+
+    // Additional methods
+    fn save_to_file()! {
+        // Save buffer to file
+    }
+
+    fn get_buffer_size(): i32 {
+        return self.buffer.len() as i32;
+    }
+}
+
+fn main(): i32 {
+    // Test implementations
+    let! console_logger = ConsoleLogger { prefix: "[INFO]" };
+    console_logger.log("Starting application");
+    console_logger.clear();
+
+    let! calc = AdvancedCalculator { name: "Basic Calc" };
+    let sum = calc.add(5, 3);
+    let product = calc.multiply(4, 7);
+    calc.show();
+
+    let! file_logger = FileLogger {
+        file_path: "log.txt",
+        buffer: "",
+    };
+    file_logger.log("First message");
+    file_logger.log("Second message");
+    let buffer_size = file_logger.get_buffer_size();
+    file_logger.clear();
+
+    return sum + product + buffer_size;
+}

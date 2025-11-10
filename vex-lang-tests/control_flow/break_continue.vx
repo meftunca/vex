@@ -1,0 +1,224 @@
+// Test file for Vex control flow: Break and Continue
+// This file tests break and continue statements
+
+fn main(): i32 {
+    let result1 = test_break();
+    let result2 = test_continue();
+    let result3 = test_nested_loops();
+
+    return result1 + result2 + result3;
+}
+
+fn test_break(): i32 {
+    let! sum = 0;
+
+    for let i = 0; i < 100; i = i + 1 {
+        sum = sum + i;
+        if sum > 50 {
+            break;  // Exit loop early
+        }
+    }
+
+    return sum;
+}
+
+fn test_continue(): i32 {
+    let! sum = 0;
+
+    for let i = 0; i < 10; i = i + 1 {
+        if i % 2 == 0 {
+            continue;  // Skip even numbers
+        }
+        sum = sum + i;
+    }
+
+    return sum;  // Should be 1 + 3 + 5 + 7 + 9 = 25
+}
+
+fn test_nested_loops(): i32 {
+    let! sum = 0;
+
+    for let i = 0; i < 5; i = i + 1 {
+        for let j = 0; j < 5; j = j + 1 {
+            if i == j {
+                continue;  // Skip when i == j
+            }
+            if sum > 20 {
+                break;  // Break inner loop
+            }
+            sum = sum + 1;
+        }
+        if sum > 15 {
+            break;  // Break outer loop
+        }
+    }
+
+    return sum;
+}
+
+fn while_break_continue(): i32 {
+    let! i = 0;
+    let! sum = 0;
+
+    while i < 20 {
+        i = i + 1;
+
+        if i % 3 == 0 {
+            continue;  // Skip multiples of 3
+        }
+
+        sum = sum + i;
+
+        if sum > 50 {
+            break;  // Exit when sum exceeds 50
+        }
+    }
+
+    return sum;
+}
+
+// Edge cases for break and continue
+
+// Test break in deeply nested loops
+fn deeply_nested_break(): i32 {
+    let! sum = 0;
+    
+    for let i = 0; i < 10; i = i + 1 {
+        for let j = 0; j < 10; j = j + 1 {
+            for let k = 0; k < 10; k = k + 1 {
+                sum = sum + 1;
+                if sum > 100 {
+                    break;  // Break innermost loop
+                }
+            }
+            if sum > 50 {
+                break;  // Break middle loop
+            }
+        }
+        if sum > 25 {
+            break;  // Break outer loop
+        }
+    }
+    
+    return sum;  // Should be 26 (breaks at different levels)
+}
+
+// Test continue in deeply nested loops
+fn deeply_nested_continue(): i32 {
+    let! sum = 0;
+    
+    for let i = 0; i < 5; i = i + 1 {
+        for let j = 0; j < 5; j = j + 1 {
+            for let k = 0; k < 5; k = k + 1 {
+                if (i + j + k) % 2 == 0 {
+                    continue;  // Skip even sums
+                }
+                sum = sum + 1;
+            }
+        }
+    }
+    
+    return sum;  // Should be 63 (half of 5^3 = 125)
+}
+
+// Test break in infinite loop
+fn infinite_loop_break(): i32 {
+    let! count = 0;
+    
+    while true {
+        count = count + 1;
+        if count >= 1000 {
+            break;  // Exit infinite loop
+        }
+    }
+    
+    return count;
+}
+
+// Test multiple breaks in same loop
+fn multiple_breaks(): i32 {
+    let! sum = 0;
+    
+    for let i = 0; i < 100; i = i + 1 {
+        if i < 10 {
+            sum = sum + i;
+        } elif i < 20 {
+            sum = sum + i * 2;
+            if sum > 100 {
+                break;  // First break condition
+            }
+        } else {
+            if i % 5 == 0 {
+                break;  // Second break condition
+            }
+            sum = sum + i;
+        }
+    }
+    
+    return sum;
+}
+
+// Test continue with side effects
+fn continue_with_side_effects(): i32 {
+    let! sum = 0;
+    let! counter = 0;
+    
+    for let i = 0; i < 20; i = i + 1 {
+        counter = counter + 1;  // Always executes
+        
+        if i % 3 == 0 {
+            continue;  // Skip sum increment
+        }
+        
+        sum = sum + i;
+    }
+    
+    return sum + counter;  // counter should be 20, sum should be sum of non-multiples of 3
+}
+
+// Test break in while loop with complex condition
+fn complex_while_break(): i32 {
+    let! x = 0;
+    let! y = 0;
+    
+    while x < 10 && y < 100 {
+        x = x + 1;
+        y = y + x * 2;
+        
+        if y > 50 && x > 5 {
+            break;
+        }
+    }
+    
+    return x + y;
+}
+
+// Test continue in for loop with range-like behavior
+fn continue_range_simulation(): i32 {
+    let! sum = 0;
+    
+    for let i = 0; i < 50; i = i + 1 {
+        if i < 10 {
+            continue;  // Skip first 10
+        }
+        if i >= 40 {
+            continue;  // Skip last 10
+        }
+        
+        sum = sum + i;
+    }
+    
+    return sum;  // Sum from 10 to 39 inclusive
+}
+
+// Test break when loop condition is false initially
+fn break_never_runs(): i32 {
+    let! executed = 0;
+    
+    for let i = 0; i < 0; i = i + 1 {  // Condition false initially
+        executed = 1;
+        break;  // This should never execute
+    }
+    
+    return executed;  // Should be 0
+}

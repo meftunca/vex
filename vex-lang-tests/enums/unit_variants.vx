@@ -1,0 +1,71 @@
+// Test file for Vex enums: Unit Variants and Discriminants
+// This file tests unit variants and discriminant values
+
+enum Color {
+    Red,
+    Green,
+    Blue,
+}
+
+enum HttpStatus {
+    OK = 200,
+    NotFound = 404,
+    ServerError = 500,
+}
+
+enum Direction {
+    North,
+    South,
+    East,
+    West,
+}
+
+enum Priority {
+    Low = 1,
+    Medium = 5,
+    High = 10,
+}
+
+fn main(): i32 {
+    // Unit variants
+    let red = Color.Red;
+    let green = Color.Green;
+    let blue = Color.Blue;
+
+    // Discriminant values
+    let ok = HttpStatus.OK;
+    let not_found = HttpStatus.NotFound;
+    let server_error = HttpStatus.ServerError;
+
+    // More unit variants
+    let north = Direction.North;
+    let high = Priority.High;
+
+    // Pattern matching on unit variants
+    let color_name = match red {
+        Color.Red => { "red" }
+        Color.Green => { "green" }
+        Color.Blue => { "blue" }
+    };
+
+    let status_code = match ok {
+        HttpStatus.OK => { 200 }
+        HttpStatus.NotFound => { 404 }
+        HttpStatus.ServerError => { 500 }
+    };
+
+    let direction_name = match north {
+        Direction.North => { "north" }
+        Direction.South => { "south" }
+        Direction.East => { "east" }
+        Direction.West => { "west" }
+    };
+
+    let priority_value = match high {
+        Priority.Low => { 1 }
+        Priority.Medium => { 5 }
+        Priority.High => { 10 }
+    };
+
+    return status_code + priority_value;
+}

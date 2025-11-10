@@ -1,0 +1,42 @@
+// Test file for Vex modules and imports: Export Declarations
+// This file tests export declarations
+
+// Private function (default)
+fn internal_helper(): i32 {
+    return 42;
+}
+
+// Public function
+export fn public_api(): i32 {
+    return internal_helper() * 2;
+}
+
+// Public struct
+export struct PublicStruct {
+    value: i32,
+}
+
+// Private struct
+struct PrivateStruct {
+    data: string,
+}
+
+// Public constant
+export const MAX_SIZE = 1024;
+
+// Private constant
+const INTERNAL_LIMIT = 100;
+
+// Public type alias
+export type PublicType = i32;
+
+// Private type alias
+type InternalType = string;
+
+fn main(): i32 {
+    let pub_result = public_api();
+    let pub_struct = PublicStruct { value: 10 };
+    let max = MAX_SIZE;
+
+    return pub_result + pub_struct.value + max;
+}

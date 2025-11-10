@@ -1,0 +1,39 @@
+// Test file for Vex concurrency: Async/Await
+// This file tests async functions and await expressions
+
+async fn fetch_data(url: string): string {
+    // Simulate async operation
+    return "data from " + url;
+}
+
+async fn process_data(data: string): i32 {
+    // Simulate processing
+    return data.len() as i32;
+}
+
+async fn complex_async_operation(x: i32): Result<i32, string> {
+    if x < 0 {
+        return Result.Err("Negative value");
+    }
+
+    let data = await fetch_data("api.example.com");
+    let processed = await process_data(data);
+
+    return Result.Ok(processed + x);
+}
+
+async fn main(): i32 {
+    // Simple async/await
+    let data = await fetch_data("https://api.example.com");
+    let length = await process_data(data);
+
+    // Complex async operation
+    let result = await complex_async_operation(10);
+
+    let final_value = match result {
+        Result.Ok(value) => { value }
+        Result.Err(error) => { 0 }
+    };
+
+    return length + final_value;
+}

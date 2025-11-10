@@ -1,0 +1,44 @@
+// Test file for Vex traits: Trait Definition
+// This file tests trait definitions and basic usage
+
+trait Display {
+    fn show();
+}
+
+trait Logger {
+    fn log(msg: string);     // Immutable contract
+    fn clear()!;             // Mutable contract
+}
+
+trait Calculator {
+    fn add(x: i32, y: i32): i32;
+    fn multiply(x: i32, y: i32): i32;
+}
+
+trait Drawable {
+    fn draw()!;              // Mutable
+    fn get_area(): f64;      // Immutable
+    fn set_position(x: f64, y: f64)!;  // Mutable with params
+}
+
+trait EmptyTrait {
+    // No methods - just for marking types
+}
+
+// Traits can be empty or have various method signatures
+trait ComplexTrait {
+    fn method1();
+    fn method2(param: i32): string;
+    fn method3(a: i32, b: string)!;
+    fn method4(): bool;
+}
+
+fn main(): i32 {
+    // Traits are just definitions, can't instantiate directly
+    // Implementation will be tested in trait_implementation.vx
+
+    // We can use traits as type bounds (future feature)
+    // For now, just test that they compile
+
+    return 42;
+}

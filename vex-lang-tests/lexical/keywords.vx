@@ -1,0 +1,25 @@
+// Test file for Vex lexical structure: Keywords
+// This file tests all keyword categories
+
+// Declaration keywords (global scope)
+struct TestStruct { value: i32 }
+enum TestEnum { Variant }
+trait TestTrait { fn method(); }
+type TestType = i32;
+policy TestPolicy {
+    id `json:"id"`,
+}
+
+// Functions
+fn test_fn() { }
+
+async fn async_test() {
+    // async function
+}
+
+fn main() {
+    // Simple main function
+}
+
+// Modifier keywords
+export fn exported() { }

@@ -1,0 +1,20 @@
+// Test file for Vex lexical structure: Comments
+// This file tests line comments and block comments
+
+fn main(): i32 {
+    // Line comment at start of line
+    let x = 42; // Line comment after code
+
+    /*
+     * Block comment
+     * Multi-line
+     * Test
+     */
+
+    let y = x + 1; /* Inline block comment */
+
+    /* Nested block comment */
+
+    // Comments should not affect execution
+    return 0;
+}

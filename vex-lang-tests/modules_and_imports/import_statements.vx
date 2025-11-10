@@ -1,0 +1,33 @@
+// Test file for Vex modules and imports: Import Statements
+// This file tests various import statement patterns
+
+// Note: Since we're testing language features only,
+// these imports would reference actual modules in a real project
+
+// Namespace import
+// import * as io from "io";
+
+// Named imports
+// import { println, readln } from "io";
+// import { get, post } from "net/http";
+
+// Nested modules
+// import * as http from "net/http";
+// import { TcpStream } from "net/tcp";
+
+// Import with alias
+// import { Vec as Vector } from "collections";
+
+fn main(): i32 {
+    // Use imported items (would work with real imports)
+    // io.println("Hello");
+    // println("Direct import");
+    // let response = http.get("url");
+    // let stream = TcpStream.new();
+    // let vec = Vector.new();
+
+    // Placeholder for compilation
+    let result = 42;
+
+    return result;
+}

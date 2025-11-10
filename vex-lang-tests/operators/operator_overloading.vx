@@ -1,0 +1,43 @@
+// Test file for Vex operators: Operator Overloading
+// This file tests trait-based operator overloading
+
+trait Add<Rhs, Output> {
+    fn add(self: &Self, rhs: Rhs): Output;
+}
+
+trait Sub<Rhs, Output> {
+    fn sub(self: &Self, rhs: Rhs): Output;
+}
+
+struct Point {
+    x: i32,
+    y: i32,
+}
+
+impl Add<Point, Point> for Point {
+    fn add(self: &Point, rhs: Point): Point {
+        Point {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+        }
+    }
+}
+
+impl Sub<Point, Point> for Point {
+    fn sub(self: &Point, rhs: Point): Point {
+        Point {
+            x: self.x - rhs.x,
+            y: self.y - rhs.y,
+        }
+    }
+}
+
+fn main(): i32 {
+    let p1 = Point { x: 1, y: 2 };
+    let p2 = Point { x: 3, y: 4 };
+
+    let p3 = p1 + p2;  // Uses overloaded +
+    let p4 = p2 - p1;  // Uses overloaded -
+
+    return p3.x + p3.y + p4.x + p4.y;
+}
