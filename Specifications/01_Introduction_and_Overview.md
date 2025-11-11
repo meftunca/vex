@@ -402,33 +402,13 @@ fn main(): i32 {
 }
 ```
 
-### Traits with Default Methods
-
-```vex
-trait Logger {
-    fn log(msg: string);
-
-    fn info(msg: string) {
-        self.log(msg);  // Default implementation
-    }
-}
-
-struct ConsoleLogger impl Logger {
-    prefix: string,
-
-    fn (self: &ConsoleLogger!) log(msg: string) {
-        // Implementation
-    }
-}
-```
-
 ## Getting Started
 
 ### Installation
 
 ```bash
-git clone https://github.com/meftunca/vex_lang
-cd vex_lang
+git clone https://github.com/meftunca/vex
+cd vex
 cargo build --release
 ```
 
@@ -645,68 +625,3 @@ While Vex is missing many features, it combines aspects from both languages in n
 **Production Readiness**: ✅ **BETA** - Core features complete (100%), suitable for real projects with caution.
 
 ---
-
-## Version History
-
-### v0.1.1 (January 2025)
-
-- **Type System Enhancements**:
-
-  - Extended integer types: i128, u128
-  - Extended float types: f16
-  - Collections: Map<K,V>, Set<T>, Vec<T>, Box<T>, Channel<T>
-  - Option/Result constructors: Some/None, Ok/Err
-
-- **Concurrency Features**:
-
-  - MPSC channels fully implemented (lock-free ring buffer)
-  - Async runtime with basic goroutine support
-  - Defer statement with LIFO execution
-  - Channel operations: new, send, recv, close
-
-- **Pattern Matching**:
-
-  - Pattern guards with `if` clauses
-  - Range patterns: `..` and `..=`
-  - Switch statements for integer matching
-
-- **Traits & Methods**:
-
-  - Default trait methods
-  - Trait inheritance with supertraits
-  - Golang-style method definitions
-  - Struct tags for metadata
-
-- **Borrow Checker**:
-
-  - Phases 1-3 complete
-  - Closure capture mode analysis
-  - Move semantics fully working
-
-- **Other Features**:
-  - Language Server Protocol (LSP) implementation
-  - Closures with automatic capture analysis
-  - Comprehensive standard library builtins
-  - Reference expressions (`&expr`, `*ptr`)
-
-### v0.1.0 (November 3, 2025)
-
-- Unified variable system: `let` (immutable), `let!` (mutable)
-- Reference syntax: `&T!` instead of `&mut T`
-- Removed `mut` keyword from lexer
-- Deprecated `interface` keyword (use `trait`)
-- Initial implementation of core features
-
-### v0.2.0 (Previous)
-
-- Initial compiler implementation
-- Basic type system
-- Function and struct support
-- Pattern matching foundations
-
----
-
-**Next Document**: [02_Lexical_Structure.md](./02_Lexical_Structure.md)
-
-**Maintained by**: Vex Language Team  
-**License**: MIT

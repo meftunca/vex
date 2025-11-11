@@ -1,6 +1,6 @@
 # Lexical Structure
 
-**Version:** 0.1.0  
+**Version:** 0.1.0 
 **Last Updated:** November 3, 2025
 
 This document defines the lexical structure of the Vex programming language, including tokens, identifiers, literals, operators, and comments.
@@ -9,14 +9,14 @@ This document defines the lexical structure of the Vex programming language, inc
 
 ## Table of Contents
 
-1. [Source Code Encoding](#source-code-encoding)
-2. [Comments](#comments)
-3. [Whitespace and Line Terminators](#whitespace-and-line-terminators)
-4. [Identifiers](#identifiers)
-5. [Keywords](#keywords)
-6. [Operators and Punctuation](#operators-and-punctuation)
-7. [Literals](#literals)
-8. [Token Types](#token-types)
+1. \1
+2. \1
+3. \1
+4. \1
+5. \1
+6. \1
+7. \1
+8. \1
 
 ---
 
@@ -39,7 +39,7 @@ Vex supports two types of comments that are ignored by the lexer:
 
 Begin with `//` and continue until the end of the line.
 
-```vex
+``````vex
 // This is a line comment
 let x = 42; // Inline comment after code
 ```
@@ -48,7 +48,7 @@ let x = 42; // Inline comment after code
 
 Begin with `/*` and end with `*/`. Can span multiple lines.
 
-```vex
+``````vex
 /*
  * This is a multi-line
  * block comment
@@ -90,7 +90,7 @@ Identifiers are names for variables, functions, types, and other program entitie
 
 ### Valid Identifiers
 
-```vex
+``````vex
 variable
 _private
 count_123
@@ -102,7 +102,7 @@ __double_underscore
 
 ### Invalid Identifiers
 
-```vex
+``````vex
 123start     // Cannot start with digit
 my-var       // Hyphen not allowed
 my.var       // Dot not allowed
@@ -113,14 +113,14 @@ fn           // Reserved keyword
 
 While not enforced by the compiler, the following conventions are recommended:
 
-| Entity                 | Convention       | Example           |
-| ---------------------- | ---------------- | ----------------- |
-| Variables              | snake_case       | `user_count`      |
-| Constants              | UPPER_SNAKE_CASE | `MAX_SIZE`        |
-| Functions              | snake_case       | `calculate_total` |
-| Types (Structs, Enums) | PascalCase       | `UserAccount`     |
-| Traits                 | PascalCase       | `Serializable`    |
-| Internal/Helper        | Prefix with `_`  | `_internal_fn`    |
+• Entity — Convention — Example
+• ---------------------- — ---------------- — -----------------
+| Variables | snake_case | `user_count` |
+| Constants | UPPER_SNAKE_CASE | `MAX_SIZE` |
+| Functions | snake_case | `calculate_total` |
+| Types (Structs, Enums) | PascalCase | `UserAccount` |
+| Traits | PascalCase | `Serializable` |
+| Internal/Helper | Prefix with `_` | `_internal_fn` |
 
 ---
 
@@ -205,58 +205,58 @@ true        false
 
 ### Arithmetic Operators
 
-| Operator       | Symbol | Description     | Example |
-| -------------- | ------ | --------------- | ------- |
-| Addition       | `+`    | Add two values  | `a + b` |
-| Subtraction    | `-`    | Subtract values | `a - b` |
-| Multiplication | `*`    | Multiply values | `a * b` |
-| Division       | `/`    | Divide values   | `a / b` |
-| Modulo         | `%`    | Remainder       | `a % b` |
+• Operator — Symbol — Description — Example
+• -------------- — ------ — --------------- — -------
+| Addition | `+` | Add two values | `a + b` |
+| Subtraction | `-` | Subtract values | `a - b` |
+| Multiplication | `*` | Multiply values | `a * b` |
+| Division | `/` | Divide values | `a / b` |
+| Modulo | `%` | Remainder | `a % b` |
 
 ### Comparison Operators
 
-| Operator         | Symbol | Description           |
-| ---------------- | ------ | --------------------- |
-| Equal            | `==`   | Equality test         |
-| Not Equal        | `!=`   | Inequality test       |
-| Less Than        | `<`    | Less than             |
-| Less or Equal    | `<=`   | Less than or equal    |
-| Greater Than     | `>`    | Greater than          |
-| Greater or Equal | `>=`   | Greater than or equal |
+• Operator — Symbol — Description
+• ---------------- — ------ — ---------------------
+| Equal | `==` | Equality test |
+| Not Equal | `!=` | Inequality test |
+| Less Than | `<` | Less than |
+| Less or Equal | `<=` | Less than or equal |
+| Greater Than | `>` | Greater than |
+| Greater or Equal | `>=` | Greater than or equal |
 
 ### Logical Operators
 
-| Operator    | Symbol | Description                 |
-| ----------- | ------ | --------------------------- |
-| Logical AND | `&&`   | Both conditions true        |
-| Logical OR  | `\|\|` | At least one condition true |
-| Logical NOT | `!`    | Negate condition            |
+• Operator — Symbol — Description
+• ----------- — ------ — ---------------------------
+| Logical AND | `&&` | Both conditions true |
+| Logical OR | `\|\|` | At least one condition true |
+| Logical NOT | `!` | Negate condition |
 
 ### Bitwise Operators (Future)
 
-| Operator    | Symbol | Description |
-| ----------- | ------ | ----------- |
-| Bitwise AND | `&`    | Bitwise AND |
-| Bitwise OR  | `\|`   | Bitwise OR  |
-| Bitwise XOR | `^`    | Bitwise XOR |
-| Left Shift  | `<<`   | Shift left  |
-| Right Shift | `>>`   | Shift right |
+• Operator — Symbol — Description
+• ----------- — ------ — -----------
+| Bitwise AND | `&` | Bitwise AND |
+| Bitwise OR | `\|` | Bitwise OR |
+| Bitwise XOR | `^` | Bitwise XOR |
+| Left Shift | `<<` | Shift left |
+| Right Shift | `>>` | Shift right |
 
 ### Assignment Operators
 
-| Operator        | Symbol | Description         |
-| --------------- | ------ | ------------------- |
-| Assign          | `=`    | Assignment          |
-| Add Assign      | `+=`   | Add and assign      |
-| Subtract Assign | `-=`   | Subtract and assign |
-| Multiply Assign | `*=`   | Multiply and assign |
-| Divide Assign   | `/=`   | Divide and assign   |
-| Modulo Assign   | `%=`   | Modulo and assign   |
-| Bitwise AND     | `&=`   | AND and assign      |
-| Bitwise OR      | `\|=`  | OR and assign       |
-| Bitwise XOR     | `^=`   | XOR and assign      |
-| Left Shift      | `<<=`  | Shift left assign   |
-| Right Shift     | `>>=`  | Shift right assign  |
+• Operator — Symbol — Description
+• --------------- — ------ — -------------------
+| Assign | `=` | Assignment |
+| Add Assign | `+=` | Add and assign |
+| Subtract Assign | `-=` | Subtract and assign |
+| Multiply Assign | `*=` | Multiply and assign |
+| Divide Assign | `/=` | Divide and assign |
+| Modulo Assign | `%=` | Modulo and assign |
+| Bitwise AND | `&=` | AND and assign |
+| Bitwise OR | `\|=` | OR and assign |
+| Bitwise XOR | `^=` | XOR and assign |
+| Left Shift | `<<=` | Shift left assign |
+| Right Shift | `>>=` | Shift right assign |
 
 **Answer**: ✅ Bitwise assignment operators eklenmeli (Medium Priority 🟡). Bitwise operatörler zaten planned olduğu için bunlar da eklenecek.
 
@@ -264,11 +264,11 @@ true        false
 
 ### Reference Operators
 
-| Operator    | Symbol | Description         | Example |
-| ----------- | ------ | ------------------- | ------- |
-| Reference   | `&`    | Take reference      | `&x`    |
-| Dereference | `*`    | Dereference pointer | `*ptr`  |
-| Mutable Ref | `!`    | Mutable marker      | `&x!`   |
+• Operator — Symbol — Description — Example
+• ----------- — ------ — ------------------- — -------
+| Reference | `&` | Take reference | `&x` |
+| Dereference | `*` | Dereference pointer | `*ptr` |
+| Mutable Ref | `!` | Mutable marker | `&x!` |
 
 **Answer**: Stack için `&` reference, heap allocation için `new` keyword kullanılacak (future). Raw pointer için `unsafe` blok içinde manual allocation gerekecek.
 
@@ -276,13 +276,13 @@ true        false
 
 ### Other Operators
 
-| Operator      | Symbol | Description            |
-| ------------- | ------ | ---------------------- |
-| Member Access | `.`    | Access field or method |
-| Range         | `..`   | Range operator         |
-| Variadic      | `...`  | Variadic arguments     |
-| Try           | `?`    | Error propagation      |
-| Pipe          | `\|`   | OR pattern in match    |
+• Operator — Symbol — Description
+• ------------- — ------ — ----------------------
+| Member Access | `.` | Access field or method |
+| Range | `..` | Range operator |
+| Variadic | `...` | Variadic arguments |
+| Try | `?` | Error propagation |
+| Pipe | `\|` | OR pattern in match |
 
 **Answer**: 🟡 Spread/Rest operators (Medium Priority)
 
@@ -292,22 +292,22 @@ true        false
 
 ### Delimiters
 
-| Symbol  | Name        | Usage                            |
-| ------- | ----------- | -------------------------------- |
+• Symbol — Name — Usage
+• ------- — ----------- — --------------------------------
 | `(` `)` | Parentheses | Function calls, grouping, tuples |
-| `{` `}` | Braces      | Blocks, struct literals          |
-| `[` `]` | Brackets    | Arrays, indexing                 |
-| `,`     | Comma       | Separate items                   |
-| `;`     | Semicolon   | Statement terminator             |
-| `:`     | Colon       | Type annotations                 |
-| `_`     | Underscore  | Wildcard pattern                 |
+| `{` `}` | Braces | Blocks, struct literals |
+| `[` `]` | Brackets | Arrays, indexing |
+| `,` | Comma | Separate items |
+| `;` | Semicolon | Statement terminator |
+| `:` | Colon | Type annotations |
+| `_` | Underscore | Wildcard pattern |
 
 ### Special Symbols
 
-| Symbol | Name      | Usage                             |
-| ------ | --------- | --------------------------------- |
-| `=>`   | Fat Arrow | Match arms, lambdas               |
-| `@`    | At        | Intrinsics (`@vectorize`, `@gpu`) |
+• Symbol — Name — Usage
+• ------ — --------- — ---------------------------------
+| `=>` | Fat Arrow | Match arms, lambdas |
+| `@` | At | Intrinsics (`@vectorize`, `@gpu`) |
 
 **Note**: Vex does NOT use Rust-style `#[attribute]` syntax. Attributes are not part of the language.
 
@@ -319,7 +319,7 @@ true        false
 
 Decimal integers without any prefix:
 
-```vex
+``````vex
 0           // Zero
 42          // Positive integer
 -100        // Negative integer (unary minus + literal)
@@ -340,7 +340,7 @@ Decimal integers without any prefix:
 
 Decimal numbers with a decimal point:
 
-```vex
+``````vex
 0.0
 3.14
 2.71828
@@ -358,7 +358,7 @@ Decimal numbers with a decimal point:
 
 ### Boolean Literals
 
-```vex
+``````vex
 true        // Boolean true
 false       // Boolean false
 ```
@@ -369,7 +369,7 @@ false       // Boolean false
 
 Enclosed in double quotes with escape sequences:
 
-```vex
+``````vex
 "Hello, World!"
 "Line 1\nLine 2"
 "Tab\tseparated"
@@ -383,22 +383,22 @@ Enclosed in double quotes with escape sequences:
 
 **Supported Escape Sequences**:
 
-| Sequence | Meaning                           |
-| -------- | --------------------------------- |
-| `\"`     | Double quote                      |
-| `\\`     | Backslash                         |
-| `\n`     | Newline (LF)                      |
-| `\r`     | Carriage return                   |
-| `\t`     | Tab                               |
-| `\b`     | Backspace                         |
-| `\f`     | Form feed                         |
+• Sequence — Meaning
+• -------- — ---------------------------------
+| `\"` | Double quote |
+| `\\` | Backslash |
+| `\n` | Newline (LF) |
+| `\r` | Carriage return |
+| `\t` | Tab |
+| `\b` | Backspace |
+| `\f` | Form feed |
 | `\uXXXX` | Unicode code point (4 hex digits) |
 
 ### F-String Literals (Interpolation)
 
 Strings with embedded expressions, prefixed with `f`:
 
-```vex
+``````vex
 let name = "Alice";
 let age = 30;
 let greeting = f"Hello, {name}! You are {age} years old.";
@@ -412,7 +412,7 @@ let greeting = f"Hello, {name}! You are {age} years old.";
 
 ### Nil Literal
 
-```vex
+``````vex
 nil         // Represents absence of value
 ```
 
@@ -422,7 +422,7 @@ nil         // Represents absence of value
 
 Metadata attached to struct fields, enclosed in backticks:
 
-```vex
+``````vex
 struct User {
     id: i64       `json:"id" db:"primary_key"`,
     name: string  `json:"name" validate:"required"`,
@@ -441,7 +441,7 @@ struct User {
 
 The lexer produces tokens in the following categories:
 
-#### 1. Keywords (67 tokens)
+### 1. Keywords (67 tokens)
 
 - Control flow: `if`, `else`, `elif`, `for`, `while`, `match`, `switch`, etc.
 - Declarations: `fn`, `let`, `const`, `struct`, `enum`, `trait`, `impl`
@@ -449,7 +449,7 @@ The lexer produces tokens in the following categories:
 - Concurrency: `async`, `await`, `go`, `gpu`
 - Other: `import`, `export`, `return`, `nil`, `true`, `false`
 
-#### 2. Operators (37 tokens)
+### 2. Operators (37 tokens)
 
 - Arithmetic: `+`, `-`, `*`, `/`, `%`
 - Comparison: `==`, `!=`, `<`, `<=`, `>`, `>=`
@@ -458,7 +458,7 @@ The lexer produces tokens in the following categories:
 - Reference: `&`, `*`
 - Other: `.`, `..`, `?`, `|`
 
-#### 3. Delimiters (15 tokens)
+### 3. Delimiters (15 tokens)
 
 - Parentheses: `(`, `)`
 - Braces: `{`, `}`
@@ -466,7 +466,7 @@ The lexer produces tokens in the following categories:
 - Separators: `,`, `;`, `:`
 - Special: `->`, `=>`, `_`, `#`, `...`
 
-#### 4. Literals (5 token types)
+### 4. Literals (5 token types)
 
 - `IntLiteral(i64)` - Integer values
 - `FloatLiteral(f64)` - Floating-point values
@@ -474,11 +474,11 @@ The lexer produces tokens in the following categories:
 - `FStringLiteral(String)` - Interpolated strings
 - `Tag(String)` - Struct field tags
 
-#### 5. Identifiers (1 token type)
+### 5. Identifiers (1 token type)
 
 - `Ident(String)` - User-defined names
 
-#### 6. Intrinsics (2 tokens)
+### 6. Intrinsics (2 tokens)
 
 - `@vectorize` - SIMD vectorization hint
 - `@gpu` - GPU kernel marker
@@ -489,7 +489,7 @@ The lexer produces tokens in the following categories:
 
 Internally, tokens are represented as:
 
-```rust
+``````rust
 pub struct TokenSpan {
     pub token: Token,
     pub span: std::ops::Range<usize>,
@@ -530,7 +530,7 @@ When multiple patterns match, the lexer uses the following rules:
 
 Invalid tokens produce a `LexError`:
 
-```rust
+``````rust
 pub enum LexError {
     InvalidToken { span: std::ops::Range<usize> }
 }
@@ -538,7 +538,7 @@ pub enum LexError {
 
 **Example Error**:
 
-```vex
+``````vex
 let x = @;  // '@' alone is invalid (only @vectorize, @gpu are valid)
 ```
 
@@ -569,7 +569,7 @@ Vex uses the **Logos** lexer generator for efficient tokenization:
 
 **Input**:
 
-```vex
+``````vex
 fn add(a: i32, b: i32): i32 {
     return a + b;
 }
@@ -577,34 +577,13 @@ fn add(a: i32, b: i32): i32 {
 
 **Tokens**:
 
-```
-Fn
-Ident("add")
-LParen
-Ident("a")
-Colon
-I32
-Comma
-Ident("b")
-Colon
-I32
-RParen
-Colon
-I32
-LBrace
-Return
-Ident("a")
-Plus
-Ident("b")
-Semicolon
-RBrace
-```
+[20 lines code: (unknown)]
 
 ### String Literals
 
 **Input**:
 
-```vex
+``````vex
 "Hello, \"World\"!\n"
 f"User: {name}, Age: {age}"
 `json:"user_id"`
@@ -620,7 +599,7 @@ Tag("json:\"user_id\"")
 
 ---
 
-**Previous**: [01_Introduction_and_Overview.md](./01_Introduction_and_Overview.md)  
-**Next**: [03_Type_System.md](./03_Type_System.md)
+**Previous**: \1 
+**Next**: \1
 
 **Maintained by**: Vex Language Team
