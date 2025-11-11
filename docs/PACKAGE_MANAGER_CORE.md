@@ -1,8 +1,10 @@
-# Vex Package Manager - Core Features
+# Vex Package Manager - Implementation Guide
 
 **Version:** 0.1.2  
 **Last Updated:** November 11, 2025  
 **Status:** MVP - Core functionality complete, remote packages planned
+
+> **Full Specification**: [Specifications/19_Package_Manager.md](../Specifications/19_Package_Manager.md)
 
 ---
 
@@ -11,19 +13,23 @@
 ### ✅ Completed (v0.1.2)
 
 1. **Manifest Parsing** (`manifest.rs`)
+
    - Full `vex.json` parsing with serde
    - Field validation (name, version, dependencies)
    - Native configuration support
    - Profile and target configuration
+   - Testing configuration support
    - Default value handling
 
 2. **Platform Detection** (`platform.rs`)
+
    - OS detection (Linux, macOS, Windows, FreeBSD, OpenBSD)
    - Architecture detection (x64, arm64, wasm, riscv64)
    - Platform-specific file selection with priority chain
    - Test file support (`.testing.vx`)
 
 3. **Native Linking** (`native_linker.rs`)
+
    - C/C++ source compilation
    - Static library linking
    - Dynamic library linking
@@ -31,6 +37,7 @@
    - Compiler flag handling
 
 4. **Build Integration** (`build.rs`)
+
    - Dependency resolution for build system
    - Source directory collection
    - Lock file validation
@@ -47,6 +54,7 @@
 - Package cache management
 - Parallel dependency downloads
 - Checksum verification
+- Test runner implementation
 
 ---
 
@@ -93,22 +101,22 @@ Build System
 
 ### Complete Field Reference
 
-| Field | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| `name` | string | ✅ | - | Package name |
-| `version` | string | ✅ | - | Semantic version |
-| `description` | string | ❌ | null | Package description |
-| `authors` | array | ❌ | null | Author list |
-| `license` | string | ❌ | null | License (MIT, Apache-2.0, etc.) |
-| `repository` | string | ❌ | null | Repository URL |
-| `dependencies` | object | ❌ | {} | Package dependencies |
-| `main` | string | ❌ | `src/lib.vx` | Entry point file |
-| `bin` | object | ❌ | null | Binary targets |
-| `testing` | object | ❌ | null | Test configuration |
-| `targets` | object | ❌ | null | Platform configuration |
-| `profiles` | object | ❌ | null | Build profiles |
-| `native` | object | ❌ | null | C/C++ integration |
-| `vex` | object | ❌ | null | Vex-specific settings |
+| Field          | Type   | Required | Default      | Description                     |
+| -------------- | ------ | -------- | ------------ | ------------------------------- |
+| `name`         | string | ✅       | -            | Package name                    |
+| `version`      | string | ✅       | -            | Semantic version                |
+| `description`  | string | ❌       | null         | Package description             |
+| `authors`      | array  | ❌       | null         | Author list                     |
+| `license`      | string | ❌       | null         | License (MIT, Apache-2.0, etc.) |
+| `repository`   | string | ❌       | null         | Repository URL                  |
+| `dependencies` | object | ❌       | {}           | Package dependencies            |
+| `main`         | string | ❌       | `src/lib.vx` | Entry point file                |
+| `bin`          | object | ❌       | null         | Binary targets                  |
+| `testing`      | object | ❌       | null         | Test configuration              |
+| `targets`      | object | ❌       | null         | Platform configuration          |
+| `profiles`     | object | ❌       | null         | Build profiles                  |
+| `native`       | object | ❌       | null         | C/C++ integration               |
+| `vex`          | object | ❌       | null         | Vex-specific settings           |
 
 ### Minimal Example
 
@@ -180,18 +188,82 @@ Build System
 
 ---
 
+## 🧪 Testing Configuration
+
+### Test Discovery
+
+Vex automatically discovers test files using the pattern specified in `vex.json`.
+
+**Default Pattern**: `**/*.test.vx` (searches from project root)
+
+**Configuration**:
+
+```json
+{
+  "testing": {
+    "dir": "tests", // Test directory (informational)
+    "pattern": "**/*.test.vx", // Glob pattern from project root
+    "timeout": 30, // Test timeout in seconds (optional)
+    "parallel": true // Run tests in parallel (default: true)
+  }
+}
+```
+
+**Test File Naming Convention**:
+
+- Test files MUST follow the `*.test.vx` pattern
+- Examples:
+  - `basic.test.vx` ✅
+  - `integration.test.vx` ✅
+  - `basic_test.vx` ❌ (missing .test before .vx)
+  - `test_basic.vx` ❌ (wrong position)
+
+**Directory Structure**:
+
+```
+my-project/
+├── vex.json
+├── src/
+│   └── lib.vx
+└── tests/
+    ├── basic.test.vx
+    ├── integration.test.vx
+    └── unit/
+        └── math.test.vx
+```
+
+**Running Tests**:
+
+```bash
+# Discover and run all tests
+vex test
+
+# Run specific test file
+vex test tests/basic.test.vx
+
+# Run with custom timeout
+vex test --timeout 60
+
+# Run sequentially (no parallel)
+vex test --no-parallel
+```
+
+> **See Also**: [TESTING_SYSTEM.md](./TESTING_SYSTEM.md) for comprehensive testing documentation.
+
+---
+
 ## 🔧 Native Configuration
 
 ### Field Descriptions
 
-| Field | Type | Description | Example |
-|-------|------|-------------|---------|
-| `sources` | array | C/C++ files to compile | `["native/src/impl.c"]` |
-| `libraries` | array | System libraries to link | `["m", "ssl", "crypto"]` |
-| `search_paths` | array | Library search directories | `["/usr/local/lib"]` |
-| `static_libs` | array | Static library files (.a) | `["./vendor/lib.a"]` |
-| `cflags` | array | C compiler flags | `["-O3", "-Wall"]` |
-| `include_dirs` | array | Header include paths | `["vendor/include"]` |
+| Field          | Type  | Description                | Example                  |
+| -------------- | ----- | -------------------------- | ------------------------ |
+| `sources`      | array | C/C++ files to compile     | `["native/src/impl.c"]`  |
+| `libraries`    | array | System libraries to link   | `["m", "ssl", "crypto"]` |
+| `search_paths` | array | Library search directories | `["/usr/local/lib"]`     |
+| `static_libs`  | array | Static library files (.a)  | `["./vendor/lib.a"]`     |
+| `cflags`       | array | C compiler flags           | `["-O3", "-Wall"]`       |
+| `include_dirs` | array | Header include paths       | `["vendor/include"]`     |
 
 ### Common Patterns
 
@@ -259,19 +331,8 @@ Build System
     "libraries": ["ssl", "crypto", "z"],
     "search_paths": ["/usr/local/lib", "/opt/homebrew/lib"],
     "static_libs": ["vendor/libcustom.a"],
-    "cflags": [
-      "-O3",
-      "-Wall",
-      "-Werror",
-      "-fPIC",
-      "-std=c11",
-      "-march=native"
-    ],
-    "include_dirs": [
-      "native/src",
-      "vendor/include",
-      "../../../vex-runtime/c"
-    ]
+    "cflags": ["-O3", "-Wall", "-Werror", "-fPIC", "-std=c11", "-march=native"],
+    "include_dirs": ["native/src", "vendor/include", "../../../vex-runtime/c"]
   }
 }
 ```
@@ -283,6 +344,7 @@ Build System
 ### Supported Platforms
 
 **Operating Systems:**
+
 - `linux` - Linux
 - `macos` - macOS
 - `windows` - Windows
@@ -290,6 +352,7 @@ Build System
 - `openbsd` - OpenBSD
 
 **Architectures:**
+
 - `x64` - x86-64
 - `arm64` - ARM64/AArch64
 - `wasm` - WebAssembly
@@ -318,6 +381,7 @@ src/
 ```
 
 **Resolution on macOS ARM64:**
+
 1. Checks `lib.testing.vx` (if test mode)
 2. Checks `lib.macos.arm64.vx` ❌
 3. Checks `lib.arm64.vx` ❌
@@ -379,11 +443,13 @@ Link Final Binary
 - ✅ All parts must be integers
 
 **Valid:**
+
 - `"1.0.0"`
 - `"v2.3.1"`
 - `"0.1.0"`
 
 **Invalid:**
+
 - `"1.0"` (missing patch)
 - `"1.0.0-alpha"` (pre-release not yet supported)
 - `"latest"` (reserved for dependency specs)
@@ -391,10 +457,12 @@ Link Final Binary
 ### Dependency Version Specs
 
 **Currently Supported:**
+
 - `"v1.2.3"` - Exact version
 - `"1.2.3"` - Exact version (no v prefix)
 
 **Planned:**
+
 - `"^1.2.0"` - Compatible with 1.x
 - `"~1.2.0"` - Compatible with 1.2.x
 - `"1.0.0..2.0.0"` - Version range
@@ -460,6 +528,7 @@ if let Some(native_config) = manifest.get_native() {
 ### Workarounds
 
 **Remote Dependencies:**
+
 ```bash
 # Manual workaround:
 git clone https://github.com/user/lib vendor/lib
@@ -467,12 +536,13 @@ git clone https://github.com/user/lib vendor/lib
 ```
 
 **Version Conflicts:**
+
 ```json
 // Only exact versions for now
 {
   "dependencies": {
-    "lib-a": "v1.2.0",  // Must be exact
-    "lib-b": "v2.0.0"   // No ranges yet
+    "lib-a": "v1.2.0", // Must be exact
+    "lib-b": "v2.0.0" // No ranges yet
   }
 }
 ```

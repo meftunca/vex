@@ -1,5 +1,7 @@
 # Vex Testing System
 
+> **Full Specification**: [Specifications/19_Package_Manager.md](../Specifications/19_Package_Manager.md) (Testing Section)
+
 **Version:** 0.1.2  
 **Last Updated:** November 11, 2025  
 **Status:** Specification complete, implementation planned
@@ -12,8 +14,8 @@ Vex's testing system provides automatic test discovery, parallel execution, and 
 
 ### Key Features
 
-- ✅ **Automatic Discovery**: Finds `*.test.vx` files automatically
-- ✅ **Pattern-Based**: Configurable test file patterns
+- ✅ **Automatic Discovery**: Pattern-based search from project root
+- ✅ **Pattern-Based**: Configurable test file patterns (default: `**/*.test.vx`)
 - ✅ **Parallel Execution**: Run tests concurrently by default
 - ✅ **Platform-Specific**: Support for OS/arch-specific tests
 - ✅ **Timeout Control**: Configurable per-test timeouts
@@ -56,9 +58,54 @@ You can configure custom patterns in `vex.json`:
 ```json
 {
   "testing": {
-    "pattern": "*.spec.vx"  // Use .spec.vx instead
+    "pattern": "*.spec.vx" // Use .spec.vx instead
   }
 }
+```
+
+---
+
+## 🔍 Test Discovery
+
+Vex automatically discovers test files using the pattern specified in `vex.json`.
+
+### How It Works
+
+1. **Read Configuration**: Vex reads `vex.json` from project root
+2. **Apply Pattern**: Uses glob pattern to search from project root
+3. **Match Files**: Finds all files matching `**/*.test.vx` (recursive)
+4. **Filter Platform**: Selects only platform-appropriate test files
+5. **Execute**: Runs discovered tests in parallel (default)
+
+### Important: Pattern Search Root
+
+**The pattern searches from the project root** (where `vex.json` is located), NOT from the `dir` field.
+
+**Default Configuration**:
+
+```json
+{
+  "testing": {
+    "dir": "tests", // Informational/organizational
+    "pattern": "**/*.test.vx", // Searches from PROJECT ROOT
+    "timeout": 30, // 30 seconds per test
+    "parallel": true // Parallel execution enabled
+  }
+}
+```
+
+**Example**:
+
+```
+my-project/              ← vex.json here (PROJECT ROOT - search starts here)
+├── vex.json
+├── src/
+│   └── lib.vx
+└── tests/               ← dir field points here (organizational)
+    ├── basic.test.vx           ✅ Found by pattern **/*.test.vx
+    ├── integration.test.vx     ✅ Found
+    └── unit/
+        └── math.test.vx        ✅ Found (recursive **)
 ```
 
 ---
@@ -101,7 +148,7 @@ my-project/
 ```json
 {
   "testing": {
-    "dir": "test"  // Use "test" instead of "tests"
+    "dir": "test" // Use "test" instead of "tests"
   }
 }
 ```
@@ -115,22 +162,22 @@ my-project/
 ```json
 {
   "testing": {
-    "dir": "tests",           // Test directory (relative to vex.json)
+    "dir": "tests", // Test directory (relative to vex.json)
     "pattern": "**/*.test.vx", // Glob pattern (searches from root)
-    "timeout": 30,            // Timeout per test (seconds)
-    "parallel": true          // Run in parallel
+    "timeout": 30, // Timeout per test (seconds)
+    "parallel": true // Run in parallel
   }
 }
 ```
 
 ### Field Descriptions
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `dir` | string | `"tests"` | Test directory (relative to vex.json) |
-| `pattern` | string | `"**/*.test.vx"` | Glob pattern (searches from project root) |
-| `timeout` | number | none | Max execution time per test (seconds) |
-| `parallel` | boolean | `true` | Run tests concurrently |
+| Field      | Type    | Default          | Description                               |
+| ---------- | ------- | ---------------- | ----------------------------------------- |
+| `dir`      | string  | `"tests"`        | Test directory (relative to vex.json)     |
+| `pattern`  | string  | `"**/*.test.vx"` | Glob pattern (searches from project root) |
+| `timeout`  | number  | none             | Max execution time per test (seconds)     |
+| `parallel` | boolean | `true`           | Run tests concurrently                    |
 
 ### Minimal Configuration
 
@@ -143,6 +190,7 @@ my-project/
 ```
 
 Defaults to:
+
 - Directory: `tests/`
 - Pattern: `**/*.test.vx` (searches from project root)
 - Parallel: `true`
@@ -154,7 +202,7 @@ Defaults to:
 {
   "testing": {
     "dir": "spec",
-    "pattern": "**/*.spec.vx",  // Searches from project root
+    "pattern": "**/*.spec.vx", // Searches from project root
     "timeout": 60,
     "parallel": false
   }
@@ -266,52 +314,120 @@ fn main(): i32 {
 
 ## 🌍 Platform-Specific Tests
 
+Vex supports platform-specific test files using OS and architecture suffixes.
+
 ### File Naming
 
-Tests support platform-specific variants:
+Tests support platform-specific variants using the same suffix rules as regular source files:
 
 ```
 tests/
-├── io.test.vx              # Generic tests
-├── io.test.macos.vx        # macOS-specific
-├── io.test.linux.vx        # Linux-specific
-└── io.test.x64.vx          # x64-specific
+├── io.test.vx                    # Generic tests (always included)
+├── io.test.macos.vx              # macOS-specific tests
+├── io.test.linux.vx              # Linux-specific tests
+├── io.test.x64.vx                # x64-specific tests
+├── io.test.macos.arm64.vx        # macOS ARM64-specific tests
+└── io.test.linux.x64.vx          # Linux x64-specific tests
 ```
 
-### Priority Chain
+### Platform Selection Priority
 
-When running tests, Vex selects files in this order:
+When running `vex test`, the system selects test files using this priority order:
 
-1. `{name}.test.{os}.{arch}.vx` (e.g., `io.test.macos.arm64.vx`)
-2. `{name}.test.{arch}.vx` (e.g., `io.test.arm64.vx`)
-3. `{name}.test.{os}.vx` (e.g., `io.test.macos.vx`)
-4. `{name}.test.vx` (generic fallback)
+1. **OS-Architecture**: `{name}.test.{os}.{arch}.vx` (e.g., `io.test.macos.arm64.vx`)
+2. **OS-Only**: `{name}.test.{os}.vx` (e.g., `io.test.macos.vx`)
+3. **Architecture-Only**: `{name}.test.{arch}.vx` (e.g., `io.test.arm64.vx`)
+4. **Generic**: `{name}.test.vx` (fallback)
+
+**Only the highest-priority matching file is selected** for execution.
+
+### Supported Platforms
+
+| Operating System | Suffix     | Example              |
+| ---------------- | ---------- | -------------------- |
+| Linux            | `.linux`   | `io.test.linux.vx`   |
+| macOS            | `.macos`   | `io.test.macos.vx`   |
+| Windows          | `.windows` | `io.test.windows.vx` |
+| FreeBSD          | `.freebsd` | `io.test.freebsd.vx` |
+
+| Architecture | Suffix   | Example            |
+| ------------ | -------- | ------------------ |
+| x86-64       | `.x64`   | `io.test.x64.vx`   |
+| ARM64        | `.arm64` | `io.test.arm64.vx` |
+| WebAssembly  | `.wasm`  | `io.test.wasm.vx`  |
 
 ### Example: Cross-Platform I/O Tests
 
 **Generic tests** (`io.test.vx`):
+
 ```vex
 // Tests that work on all platforms
+import { assert_eq } from "testing";
+
 fn test_file_exists() {
-    // ...
+    let path = "test_data.txt";
+    let exists = File.exists(path);
+    assert_eq(exists, true);
+}
+
+fn main(): i32 {
+    test_file_exists();
+    return 0;
 }
 ```
 
-**macOS-specific** (`io.test.macos.vx`):
+**macOS-specific tests** (`io.test.macos.vx`):
+
 ```vex
 // Tests using macOS-specific APIs
+import { assert } from "testing";
+
 fn test_kqueue() {
-    // ...
+    // Test kqueue event notification mechanism
+    let kq = kqueue();
+    assert(kq >= 0, "Failed to create kqueue");
+}
+
+fn main(): i32 {
+    test_kqueue();
+    return 0;
 }
 ```
 
-**Linux-specific** (`io.test.linux.vx`):
+**Linux-specific tests** (`io.test.linux.vx`):
+
 ```vex
 // Tests using Linux-specific APIs
+import { assert } from "testing";
+
 fn test_epoll() {
-    // ...
+    // Test epoll event notification mechanism
+    let epfd = epoll_create1(0);
+    assert(epfd >= 0, "Failed to create epoll instance");
+}
+
+fn main(): i32 {
+    test_epoll();
+    return 0;
 }
 ```
+
+### Running Platform-Specific Tests
+
+```bash
+# Automatically runs tests for current platform
+vex test
+
+# Example on macOS ARM64:
+# Runs: io.test.macos.vx (if exists)
+# Skips: io.test.linux.vx, io.test.windows.vx
+
+# On Linux x64:
+# Runs: io.test.linux.x64.vx (if exists), else io.test.linux.vx
+# Skips: io.test.macos.vx, io.test.windows.vx
+```
+
+> **Full Specification**: See [Specifications/19_Package_Manager.md](../Specifications/19_Package_Manager.md) for complete platform-specific file selection rules.
 
 ---
 
@@ -326,6 +442,7 @@ vex test  # Runs all tests concurrently
 ```
 
 **Benefits**:
+
 - ✅ Faster execution
 - ✅ Better CPU utilization
 - ✅ Ideal for unit tests
@@ -333,6 +450,7 @@ vex test  # Runs all tests concurrently
 ### Sequential Execution
 
 Disable parallel execution for:
+
 - Integration tests that share state
 - Tests that access same resources
 - Debugging test failures
@@ -354,6 +472,7 @@ Or in `vex.json`:
 ### Per-Test Isolation
 
 Each test file runs in its own process:
+
 - ✅ No shared state between tests
 - ✅ Test failures are isolated
 - ✅ Clean environment per test
@@ -369,7 +488,7 @@ Set maximum execution time for all tests:
 ```json
 {
   "testing": {
-    "timeout": 30  // 30 seconds per test
+    "timeout": 30 // 30 seconds per test
   }
 }
 ```
@@ -385,7 +504,7 @@ vex test --timeout 60  # 60 seconds
 ```json
 {
   "testing": {
-    "timeout": null  // No timeout
+    "timeout": null // No timeout
   }
 }
 ```
@@ -435,6 +554,7 @@ vex test --verbose
 ```
 
 Shows:
+
 - Test discovery process
 - Individual test function results
 - Execution times
@@ -482,6 +602,7 @@ tests/
 ### Naming Conventions
 
 **Good**:
+
 ```
 ✅ user_auth.test.vx       # Clear purpose
 ✅ api_get_user.test.vx    # Specific functionality
@@ -489,6 +610,7 @@ tests/
 ```
 
 **Bad**:
+
 ```
 ❌ test1.test.vx           # Unclear
 ❌ stuff.test.vx           # Vague
@@ -568,6 +690,24 @@ tests/
 
 ## 🎯 Go-Inspired Advanced Features
 
+> **Note**: The following features are Go-inspired extensions beyond the core testing specification.
+> They are planned for future implementation and are not part of the current v0.1.2 specification.
+>
+> **Core Testing Specification**: See [Specifications/19_Package_Manager.md](../Specifications/19_Package_Manager.md) for the current specification.
+
+### Feature Overview
+
+| Feature                | Status     | Description                                       |
+| ---------------------- | ---------- | ------------------------------------------------- |
+| **Benchmarking**       | 🔄 Planned | Performance testing with `*.bench.vx` files       |
+| **Table-Driven Tests** | 🔄 Planned | Data-driven test patterns                         |
+| **Subtests**           | 🔄 Planned | Hierarchical test organization with `t.run()`     |
+| **Fuzzing**            | 🔄 Planned | Automated input generation for robustness testing |
+| **Coverage**           | 🔄 Planned | Code coverage tracking and reporting              |
+| **Test Helpers**       | 🔄 Planned | `t.Helper()` for better error reporting           |
+
+---
+
 ### 1. Benchmarking
 
 **Pattern**: `*.bench.vx` files
@@ -591,6 +731,7 @@ fn bench_factorial(b: *B) {
 ```
 
 **CLI**:
+
 ```bash
 vex bench                    # Run all benchmarks
 vex bench --time 10s         # Run for 10 seconds
@@ -599,6 +740,7 @@ vex bench --benchmem         # Include memory stats
 ```
 
 **Output**:
+
 ```
 BenchmarkFibonacci-8    1000000    1234 ns/op    512 B/op    10 allocs/op
 BenchmarkFactorial-8    5000000     245 ns/op    128 B/op     2 allocs/op
@@ -638,6 +780,7 @@ fn test_square(t: *T) {
 ```
 
 **Output**:
+
 ```
 === RUN   test_square
 === RUN   test_square/zero
@@ -664,7 +807,7 @@ fn test_user_validation(t: *T) {
         t.run("valid", fn(t: *T) {
             assert(validate_email("user@example.com"));
         });
-        
+
         t.run("invalid", fn(t: *T) {
             assert(!validate_email("invalid-email"));
         });
@@ -674,7 +817,7 @@ fn test_user_validation(t: *T) {
         t.run("strong", fn(t: *T) {
             assert(validate_password("Str0ng!Pass"));
         });
-        
+
         t.run("weak", fn(t: *T) {
             assert(!validate_password("weak"));
         });
@@ -683,6 +826,7 @@ fn test_user_validation(t: *T) {
 ```
 
 **Run specific subtests**:
+
 ```bash
 vex test --run test_user_validation/email        # Only email tests
 vex test --run test_user_validation/email/valid  # Only valid email test
@@ -724,6 +868,7 @@ fn example_unordered() {
 ```
 
 **Benefits**:
+
 - Serves as documentation
 - Auto-verified by tests
 - Appears in generated docs
@@ -746,7 +891,7 @@ fn fuzz_json_parser(f: *F) {
     f.fuzz(fn(t: *T, data: []byte) {
         // Parser should never crash on any input
         let result = parse_json(data);
-        
+
         // If valid JSON, re-serializing should match
         if result.is_ok() {
             let serialized = serialize_json(result.unwrap());
@@ -757,12 +902,14 @@ fn fuzz_json_parser(f: *F) {
 ```
 
 **CLI**:
+
 ```bash
 vex test --fuzz FuzzJsonParser              # Run fuzzer
 vex test --fuzz FuzzJsonParser --fuzztime 1m # Fuzz for 1 minute
 ```
 
 **Auto-saves crash inputs to**:
+
 ```
 testdata/fuzz/FuzzJsonParser/crash-input-1
 testdata/fuzz/FuzzJsonParser/crash-input-2
@@ -778,7 +925,7 @@ testdata/fuzz/FuzzJsonParser/crash-input-2
 // helpers.vx
 fn assert_user_valid(t: *T, user: User) {
     t.helper();  // Errors report caller's line, not this line
-    
+
     if user.email.is_empty() {
         t.error("User email is empty");
     }
@@ -803,7 +950,7 @@ fn test_create_user(t: *T) {
 ```vex
 fn test_database_operations(t: *T) {
     let db = open_database("test.db");
-    
+
     t.cleanup(fn() {
         db.close();
         remove_file("test.db");
@@ -812,7 +959,7 @@ fn test_database_operations(t: *T) {
     // Test operations
     db.insert("key", "value");
     assert_eq(db.get("key"), "value");
-    
+
     // cleanup() runs automatically even if test fails
 }
 ```
@@ -826,7 +973,7 @@ fn test_database_operations(t: *T) {
 ```vex
 fn test_concurrent_safe(t: *T) {
     t.parallel();  // Run concurrently with other parallel tests
-    
+
     // Independent test that doesn't share state
     let result = expensive_computation();
     assert_eq(result, 42);
@@ -843,6 +990,7 @@ fn test_another_concurrent(t: *T) {
 ### 9. Test Coverage
 
 **CLI**:
+
 ```bash
 vex test --coverage                    # Show coverage %
 vex test --coverprofile=coverage.out   # Generate profile
@@ -850,12 +998,14 @@ vex tool cover --html=coverage.out     # HTML report
 ```
 
 **Output**:
+
 ```
 PASS    coverage: 85.2% of statements
 ok      myproject    0.123s
 ```
 
 **Coverage Modes**:
+
 - `--covermode=set`: Line coverage (covered or not)
 - `--covermode=count`: Count executions per line
 - `--covermode=atomic`: Thread-safe count
@@ -871,7 +1021,7 @@ fn test_linux_only(t: *T) {
     if !is_linux() {
         t.skip("Linux-only test");
     }
-    
+
     // Linux-specific test
 }
 
@@ -879,12 +1029,13 @@ fn test_slow_integration(t: *T) {
     if testing.short() {
         t.skip("Skipping slow test in short mode");
     }
-    
+
     // Expensive integration test
 }
 ```
 
 **CLI**:
+
 ```bash
 vex test --short  # Skip slow tests
 ```
@@ -903,14 +1054,14 @@ fn test_main(m: *M) {
     // Global setup
     setup_test_database();
     initialize_test_env();
-    
+
     // Run all tests
     let code = m.run();
-    
+
     // Global teardown
     cleanup_test_database();
     shutdown_test_env();
-    
+
     return code;
 }
 ```
@@ -925,7 +1076,7 @@ fn test_main(m: *M) {
 fn test_with_context(t: *T) {
     t.log("Starting test with context");
     t.logf("User ID: %d", user_id);
-    
+
     if result.is_err() {
         t.errorf("Operation failed: %v", result.err());
     }
@@ -945,26 +1096,26 @@ fn test_with_context(t: *T) {
     "pattern": "**/*.test.vx",
     "timeout": 30,
     "parallel": true,
-    
+
     "benchmark": {
       "pattern": "**/*.bench.vx",
       "time": "1s",
       "count": 1,
       "benchmem": false
     },
-    
+
     "fuzz": {
       "pattern": "**/*fuzz*.vx",
       "time": "10s",
       "corpus_dir": "testdata/fuzz"
     },
-    
+
     "coverage": {
       "enabled": true,
       "mode": "set",
       "min_coverage": 80.0
     },
-    
+
     "examples": {
       "pattern": "**/example_*.vx"
     }
@@ -977,12 +1128,14 @@ fn test_with_context(t: *T) {
 ## 🚀 Future Implementation Roadmap
 
 ### Phase 1: Core Testing (v0.1.2)
+
 - ✅ Test discovery (`**/*.test.vx`)
 - ✅ Basic assertions
 - ✅ Parallel execution
 - ✅ Timeout support
 
 ### Phase 2: Advanced Features (v0.2.0)
+
 - ⏳ Benchmarking (`*.bench.vx`)
 - ⏳ Table-driven tests
 - ⏳ Subtests (`t.run()`)
@@ -990,12 +1143,14 @@ fn test_with_context(t: *T) {
 - ⏳ Cleanup functions (`t.cleanup()`)
 
 ### Phase 3: Documentation & Analysis (v0.3.0)
+
 - ⏳ Examples (`example_*.vx`)
 - ⏳ Coverage reporting
 - ⏳ HTML coverage reports
 - ⏳ TestMain support
 
 ### Phase 4: Property Testing (v0.4.0)
+
 - ⏳ Fuzzing framework
 - ⏳ Seed corpus management
 - ⏳ Crash input persistence
