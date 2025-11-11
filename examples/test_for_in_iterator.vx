@@ -1,0 +1,32 @@
+// Test for-in loop with Iterator trait
+import { Iterator, Option } from "core";
+
+struct Counter impl Iterator {
+    count: i32,
+    limit: i32,
+    
+    type Item = i32;
+    
+    fn next()!: Option<i32> {
+        if self.count < self.limit {
+            let current = self.count;
+            self.count = self.count + 1;
+            return Some(current);
+        } else {
+            return None;
+        }
+    }
+}
+
+fn main(): i32 {
+    let! counter = Counter { count: 0, limit: 5 };
+    
+    // Test for-in loop with Iterator
+    let! sum = 0;
+    for item in counter {
+        sum = sum + item;
+    }
+    
+    // Should return 0+1+2+3+4 = 10
+    return sum;
+}

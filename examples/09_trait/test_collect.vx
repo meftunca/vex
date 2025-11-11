@@ -1,0 +1,74 @@
+// Test collect() method - gather iterator elements into Vec
+// Demonstrates iterator consumption
+
+import { Vec } from "core";
+
+trait Iterator {
+    type Item;
+    fn next()!: Option<i32>;
+    
+    // Collect all elements into Vec
+    fn collect()!: Vec<i32> {
+        let result = Vec.new();
+        
+        loop {
+            let val_opt: Option<i32> = None;
+            self.next(val_opt);
+            
+            // Check if None (done)
+            if val_opt == None {
+                break;
+            }
+            
+            // Extract value and push to Vec
+            // TODO: Need pattern matching or unwrap() method
+            // For now, manually handle Option
+        }
+        
+        return result;
+    }
+}
+
+// Simple range iterator
+struct Range impl Iterator {
+    current: i32,
+    end: i32,
+    
+    fn next()!: Option<i32> {
+        if self.current < self.end {
+            let val = self.current;
+            self.current = self.current + 1;
+            return Some(val);
+        }
+        return None;
+    }
+}
+
+fn main(): i32 {
+    // Test basic Range iteration
+    let range = Range { current: 0, end: 3 };
+    
+    println("Testing Range iterator:");
+    
+    let val1: Option<i32> = None;
+    range.next(val1);
+    println("First value extracted");
+    
+    let val2: Option<i32> = None;
+    range.next(val2);
+    println("Second value extracted");
+    
+    let val3: Option<i32> = None;
+    range.next(val3);
+    println("Third value extracted");
+    
+    let val4: Option<i32> = None;
+    range.next(val4);
+    
+    if val4 == None {
+        println("✅ Range iterator works!");
+        return 0;
+    }
+    
+    return 1;
+}

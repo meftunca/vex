@@ -651,7 +651,9 @@ impl LifetimeChecker {
 
             Expression::PostfixOp { expr, .. } => self.check_expression(expr),
 
-            Expression::Await(expr) | Expression::QuestionMark(expr) => self.check_expression(expr),
+            Expression::Await(expr)
+            | Expression::QuestionMark(expr)
+            | Expression::ChannelReceive(expr) => self.check_expression(expr),
 
             Expression::Launch { args, .. } => {
                 for arg in args {

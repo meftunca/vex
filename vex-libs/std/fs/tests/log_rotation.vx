@@ -1,0 +1,75 @@
+// Advanced FS Example - Log file rotation
+// Demonstrates real-world usage pattern
+
+import {
+    read_to_string,
+    write_string,
+    exists,
+    rename,
+    remove
+} from "fs";
+
+fn rotate_logs(base_path: String, max_rotations: i64) {
+    // Rotate old logs: log.3 -> delete, log.2 -> log.3, log.1 -> log.2, log -> log.1
+    let! i: i64 = max_rotations - 1;
+    while i > 0 {
+        // Note: String concatenation with numbers not yet available
+        // This is placeholder for when feature lands
+        i = i - 1;
+    }
+    
+    // Current log becomes log.1
+    if exists(base_path) {
+        let rotated: String = base_path + ".1";
+        rename(base_path, rotated);
+    }
+}
+
+fn append_log(path: String, message: String) {
+    let existing: String = "";
+    
+    if exists(path) {
+        existing = read_to_string(path);
+    }
+    
+    let new_content: String = existing + message + "\n";
+    write_string(path, new_content);
+}
+
+fn main() {
+    print("=== Log Rotation Example ===\n\n");
+    
+    let log_path: String = "/tmp/app.log";
+    
+    // Write some log entries
+    append_log(log_path, "[INFO] Application started");
+    append_log(log_path, "[INFO] Processing request 1");
+    append_log(log_path, "[WARN] Cache miss");
+    append_log(log_path, "[INFO] Request completed");
+    
+    print("Log file contents:\n");
+    print("------------------\n");
+    let contents: String = read_to_string(log_path);
+    print(contents);
+    print("------------------\n\n");
+    
+    // Rotate logs
+    print("Rotating logs...\n");
+    rotate_logs(log_path, 3);
+    
+    if exists(log_path + ".1") {
+        print("Rotated to: ");
+        print(log_path + ".1");
+        print("\n");
+    }
+    
+    // Start fresh log
+    append_log(log_path, "[INFO] New log session started");
+    print("\nNew log started\n");
+    
+    // Cleanup
+    remove(log_path);
+    remove(log_path + ".1");
+    
+    print("Cleanup complete\n");
+}

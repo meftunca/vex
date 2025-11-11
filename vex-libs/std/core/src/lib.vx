@@ -38,6 +38,12 @@ export trait Iterator {
     fn next()!: Option<i32>;  // Returns next element or None (mutable) - TEMPORARY: use i32 instead of Self.Item
 }
 
+// Display trait - String representation for debugging and display
+// Types implementing Display can be converted to string for printing
+export trait Display {
+    fn to_string(): string;  // Returns string representation of self
+}
+
 // ===== External C functions =====
 
 extern "C" {

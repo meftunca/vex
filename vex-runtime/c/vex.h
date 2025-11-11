@@ -697,6 +697,29 @@ extern "C"
   bool vex_file_rename(const char *old_path, const char *new_path);
 
   /**
+   * Copy file
+   * @param src Source file path
+   * @param dst Destination file path
+   * @return true on success
+   */
+  bool vex_file_copy(const char *src, const char *dst);
+
+  /**
+   * Move file (rename or copy+delete)
+   * @param src Source file path
+   * @param dst Destination file path
+   * @return true on success
+   */
+  bool vex_file_move(const char *src, const char *dst);
+
+  /**
+   * Create directory
+   * @param path Directory path
+   * @return true on success
+   */
+  bool vex_dir_create(const char *path);
+
+  /**
    * Remove directory
    * @param path Directory path
    * @return true on success
@@ -1074,14 +1097,6 @@ extern "C"
   bool vex_path_is_executable(const char *path);
 
   /**
-   * Create directory
-   * @param path Directory path
-   * @param mode Permission mode (Unix only)
-   * @return true on success
-   */
-  bool vex_dir_create(const char *path, int mode);
-
-  /**
    * Create directory and all parents (mkdir -p)
    * @param path Directory path
    * @param mode Permission mode (Unix only)
@@ -1090,11 +1105,10 @@ extern "C"
   bool vex_dir_create_all(const char *path, int mode);
 
   /**
-   * Remove empty directory
+   * Remove empty directory (legacy - duplicate removed)
    * @param path Directory path
    * @return true on success
    */
-  bool vex_dir_remove(const char *path);
 
   /**
    * Remove directory and all contents (rm -rf)

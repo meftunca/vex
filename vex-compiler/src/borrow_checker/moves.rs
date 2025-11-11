@@ -473,7 +473,9 @@ impl MoveChecker {
                 Ok(())
             }
 
-            Expression::Await(expr) | Expression::QuestionMark(expr) => {
+            Expression::Await(expr)
+            | Expression::QuestionMark(expr)
+            | Expression::ChannelReceive(expr) => {
                 self.check_expression(expr)?;
                 Ok(())
             }

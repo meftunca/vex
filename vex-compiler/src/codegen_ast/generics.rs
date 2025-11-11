@@ -34,6 +34,75 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         let subst_func = self.substitute_types_in_function(func_def, &type_subst)?;
 
+        // ⭐ NEW: If return type is a generic struct, instantiate it first
+        if let Some(ref ret_type) = subst_func.return_type {
+            if let Type::Named(struct_name) = ret_type {
+                // Check if this is a monomorphized generic struct (e.g., Container_i32)
+                if struct_name.contains('_') {
+                    // Extract base name and type args from mangled name
+                    let parts: Vec<&str> = struct_name.split('_').collect();
+                    if parts.len() >= 2 {
+                        let base_name = parts[0];
+                        // Check if base struct is generic
+                        if let Some(base_struct) = self.struct_ast_defs.get(base_name) {
+                            if !base_struct.type_params.is_empty() {
+                                // This is a monomorphized generic struct, ensure it exists
+                                if !self.struct_defs.contains_key(struct_name) {
+                                    // Reconstruct type args from mangled name
+                                    let type_arg_str = parts[1..].join("_");
+                                    eprintln!(
+                                        "🔧 Instantiating return type struct {} from {}",
+                                        struct_name, type_arg_str
+                                    );
+                                    // Parse ALL Vex types from mangled name
+                                    let concrete_type_args: Vec<Type> = parts[1..]
+                                        .iter()
+                                        .filter_map(|&part| match part {
+                                            // Integer types
+                                            "i8" => Some(Type::I8),
+                                            "i16" => Some(Type::I16),
+                                            "i32" => Some(Type::I32),
+                                            "i64" => Some(Type::I64),
+                                            "i128" => Some(Type::I128),
+                                            "u8" => Some(Type::U8),
+                                            "u16" => Some(Type::U16),
+                                            "u32" => Some(Type::U32),
+                                            "u64" => Some(Type::U64),
+                                            "u128" => Some(Type::U128),
+                                            // Float types
+                                            "f16" => Some(Type::F16),
+                                            "f32" => Some(Type::F32),
+                                            "f64" => Some(Type::F64),
+                                            // Other primitives
+                                            "bool" => Some(Type::Bool),
+                                            "string" => Some(Type::String),
+                                            "byte" => Some(Type::Byte),
+                                            // User-defined types (if not matched above)
+                                            _ => {
+                                                // Check if it's a known user struct
+                                                if self.struct_ast_defs.contains_key(part) {
+                                                    Some(Type::Named(part.to_string()))
+                                                } else {
+                                                    None
+                                                }
+                                            }
+                                        })
+                                        .collect();
+
+                                    if !concrete_type_args.is_empty() {
+                                        let _ = self.instantiate_generic_struct(
+                                            base_name,
+                                            &concrete_type_args,
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         let saved_current_function = self.current_function;
         let saved_insert_block = self.builder.get_insert_block();
         let saved_variables = std::mem::take(&mut self.variables);

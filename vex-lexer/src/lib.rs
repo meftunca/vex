@@ -4,7 +4,7 @@ use logos::Logos;
 fn unescape_string(s: &str) -> String {
     let mut result = String::new();
     let mut chars = s.chars();
-    
+
     while let Some(ch) = chars.next() {
         if ch == '\\' {
             match chars.next() {
@@ -34,7 +34,7 @@ fn unescape_string(s: &str) -> String {
             result.push(ch);
         }
     }
-    
+
     result
 }
 
@@ -246,6 +246,8 @@ pub enum Token {
     DotDotEq,
     #[token("->")]
     Arrow,
+    #[token("<-")]
+    LeftArrow, // Go-style channel receive
     #[token("=>")]
     FatArrow,
     #[token("...")]

@@ -133,6 +133,69 @@ enum Commands {
         #[arg(short, long)]
         in_place: bool,
     },
+
+    /// Run tests
+    Test {
+        /// Specific test file or pattern (default: all tests)
+        #[arg(value_name = "PATTERN")]
+        pattern: Option<String>,
+
+        /// Run tests verbosely
+        #[arg(short, long)]
+        verbose: bool,
+
+        /// Disable parallel test execution
+        #[arg(long)]
+        no_parallel: bool,
+
+        /// Custom timeout in seconds
+        #[arg(long, value_name = "SECONDS")]
+        timeout: Option<u64>,
+
+        /// Run benchmarks instead of tests
+        #[arg(long)]
+        bench: bool,
+
+        /// Benchmark execution time
+        #[arg(long, value_name = "DURATION", default_value = "1s")]
+        benchtime: String,
+
+        /// Number of benchmark iterations
+        #[arg(long, value_name = "N", default_value = "1")]
+        count: u32,
+
+        /// Show memory allocation statistics for benchmarks
+        #[arg(long)]
+        benchmem: bool,
+
+        /// Generate coverage report
+        #[arg(long)]
+        coverage: bool,
+
+        /// Coverage profile output file
+        #[arg(long, value_name = "FILE")]
+        coverprofile: Option<PathBuf>,
+
+        /// Coverage mode: set, count, or atomic
+        #[arg(long, value_name = "MODE", default_value = "set")]
+        covermode: String,
+
+        /// Run in short mode (skip slow tests)
+        #[arg(long)]
+        short: bool,
+
+        /// Run fuzzing tests
+        #[arg(long, value_name = "FUZZ_TARGET")]
+        fuzz: Option<String>,
+
+        /// Fuzzing execution time
+        #[arg(long, value_name = "DURATION", default_value = "10s")]
+        fuzztime: String,
+
+        /// Filter tests by name (regex)
+        #[arg(long, value_name = "REGEX")]
+        run: Option<String>,
+    },
 }
 
 fn main() -> Result<()> {
@@ -858,5 +921,295 @@ fn main() -> Result<()> {
 
             Ok(())
         }
+
+        Commands::Test {
+            pattern,
+            verbose,
+            no_parallel,
+            timeout,
+            bench,
+            benchtime,
+            count,
+            benchmem,
+            coverage,
+            coverprofile,
+            covermode,
+            short,
+            fuzz,
+            fuzztime,
+            run,
+        } => {
+            // Load vex.json to get test configuration
+            let manifest_path = std::env::current_dir()?.join("vex.json");
+            
+            let (_test_dir, test_pattern, test_timeout, test_parallel) = if manifest_path.exists() {
+                let manifest = vex_pm::Manifest::from_file(&manifest_path)?;
+                let testing_config = manifest.get_testing();
+                (
+                    testing_config.dir,
+                    testing_config.pattern,
+                    testing_config.timeout,
+                    testing_config.parallel,
+                )
+            } else {
+                // Default values
+                ("tests".to_string(), "**/*.test.vx".to_string(), None, true)
+            };
+
+            // Override with CLI args
+            let _parallel = !no_parallel && test_parallel;
+            let timeout_secs = timeout.or(test_timeout);
+
+            // Determine test file pattern
+            let search_pattern = if let Some(ref p) = pattern {
+                // User provided specific pattern
+                if p.ends_with(".vx") {
+                    p.clone()
+                } else {
+                    format!("{}/**/*.test.vx", p)
+                }
+            } else if bench {
+                "**/*.bench.vx".to_string()
+            } else if fuzz.is_some() {
+                "**/*fuzz*.vx".to_string()
+            } else {
+                test_pattern
+            };
+
+            // Discover test files
+            println!("🔍 Discovering tests with pattern: {}", search_pattern);
+            
+            // Debug: print current directory
+            if verbose {
+                println!("   Current directory: {:?}", std::env::current_dir()?);
+            }
+            
+            let test_files = discover_test_files(&search_pattern)?;
+
+            if test_files.is_empty() {
+                println!("⚠️  No test files found matching pattern: {}", search_pattern);
+                return Ok(());
+            }
+
+            println!("📋 Found {} test file(s)", test_files.len());
+            if verbose {
+                for file in &test_files {
+                    println!("  - {}", file.display());
+                }
+            }
+
+            // Execute tests
+            let mut passed = 0;
+            let mut failed = 0;
+            let mut skipped = 0;
+
+            println!("\n🚀 Running tests...\n");
+
+            for test_file in &test_files {
+                // Apply --run filter if specified
+                if let Some(ref filter) = run {
+                    let file_name = test_file.file_stem()
+                        .and_then(|n| n.to_str())
+                        .unwrap_or("");
+                    if !file_name.contains(filter) {
+                        continue;
+                    }
+                }
+
+                // Skip if --short and test is marked slow
+                if short && test_file.to_str().unwrap_or("").contains("slow") {
+                    skipped += 1;
+                    if verbose {
+                        println!("⏭️  {} ... skipped (slow test in short mode)", test_file.display());
+                    }
+                    continue;
+                }
+
+                // Run the test
+                match run_single_test(test_file, timeout_secs, verbose) {
+                    Ok(_) => {
+                        passed += 1;
+                        println!("✅ {} ... ok", test_file.display());
+                    }
+                    Err(e) => {
+                        failed += 1;
+                        println!("❌ {} ... FAILED", test_file.display());
+                        if verbose {
+                            eprintln!("   Error: {}", e);
+                        }
+                    }
+                }
+            }
+
+            // Print summary
+            println!("\n{}", "=".repeat(60));
+            println!("Test result: {}", if failed == 0 { "✅ OK" } else { "❌ FAILED" });
+            println!("  {} passed", passed);
+            println!("  {} failed", failed);
+            if skipped > 0 {
+                println!("  {} skipped", skipped);
+            }
+            println!("{}", "=".repeat(60));
+
+            if failed > 0 {
+                std::process::exit(1);
+            }
+
+            Ok(())
+        }
     }
+}
+
+// Helper function to discover test files using glob pattern
+fn discover_test_files(pattern: &str) -> Result<Vec<PathBuf>> {
+    use std::fs;
+    
+    let mut test_files = Vec::new();
+    
+    // Simple glob implementation for **/*.test.vx pattern
+    if pattern.starts_with("**/") {
+        let suffix = pattern.trim_start_matches("**/");
+        walk_dir(&PathBuf::from("."), suffix, &mut test_files)?;
+    } else if pattern.ends_with(".vx") {
+        // Single file
+        let path = PathBuf::from(pattern);
+        if path.exists() {
+            test_files.push(path);
+        }
+    } else {
+        // Directory pattern
+        let path = PathBuf::from(pattern);
+        if path.is_dir() {
+            walk_dir(&path, "*.test.vx", &mut test_files)?;
+        }
+    }
+    
+    Ok(test_files)
+}
+
+fn walk_dir(dir: &PathBuf, suffix: &str, results: &mut Vec<PathBuf>) -> Result<()> {
+    use std::fs;
+    
+    if !dir.exists() || !dir.is_dir() {
+        return Ok(());
+    }
+    
+    for entry in fs::read_dir(dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        
+        // Skip hidden directories and common ignore patterns
+        if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+            if name.starts_with('.') || name == "target" || name == "node_modules" || name == "vex-builds" {
+                continue;
+            }
+        }
+        
+        if path.is_dir() {
+            walk_dir(&path, suffix, results)?;
+        } else if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+            // Match pattern: *.test.vx should match anything ending with .test.vx
+            if suffix == "*.test.vx" && name.ends_with(".test.vx") {
+                results.push(path);
+            } else if suffix == "*.bench.vx" && name.ends_with(".bench.vx") {
+                results.push(path);
+            } else if name.ends_with(suffix) {
+                results.push(path);
+            }
+        }
+    }
+    
+    Ok(())
+}
+
+// Helper function to run a single test file
+fn run_single_test(test_file: &PathBuf, timeout: Option<u64>, _verbose: bool) -> Result<()> {
+    use std::process::Command;
+    use std::time::Duration;
+    
+    // Compile and run test file (similar to vex run)
+    let source = std::fs::read_to_string(test_file)?;
+    let filename = test_file
+        .file_stem()
+        .and_then(|n| n.to_str())
+        .ok_or_else(|| anyhow::anyhow!("Invalid test filename"))?;
+    
+    // Create temporary executable
+    let temp_output = std::env::temp_dir().join(format!("vex_test_{}", filename));
+    
+    // Parse
+    let test_file_str = test_file.to_str().unwrap_or("unknown.vx");
+    let mut parser = vex_parser::Parser::new_with_file(test_file_str, &source)?;
+    let ast = parser.parse_file()
+        .map_err(|e| anyhow::anyhow!("Parse error: {}", e))?;
+    
+    let span_map = parser.take_span_map();
+    
+    // Compile
+    let context = inkwell::context::Context::create();
+    let mut codegen = vex_compiler::ASTCodeGen::new_with_source_file(
+        &context,
+        filename,
+        span_map,
+        test_file_str,
+    );
+    
+    codegen.compile_program(&ast)
+        .map_err(|e| anyhow::anyhow!("Compilation error: {}", e))?;
+    
+    // Generate object file
+    let obj_path = temp_output.with_extension("o");
+    codegen.compile_to_object(&obj_path)
+        .map_err(|e| anyhow::anyhow!("Object generation error: {}", e))?;
+    
+    // Link
+    let mut command = Command::new("clang");
+    command.arg(&obj_path).arg("-o").arg(&temp_output);
+    
+    let linker_args = vex_runtime::get_linker_args();
+    for arg in linker_args.split_whitespace() {
+        command.arg(arg);
+    }
+    
+    let link_result = command.output()?;
+    if !link_result.status.success() {
+        std::fs::remove_file(&obj_path).ok();
+        anyhow::bail!("Linking failed: {}", String::from_utf8_lossy(&link_result.stderr));
+    }
+    
+    // Execute with timeout
+    let mut child = Command::new(&temp_output).spawn()?;
+    
+    let status = if let Some(timeout_secs) = timeout {
+        use std::thread;
+        use std::time::Instant;
+        
+        let start = Instant::now();
+        let duration = Duration::from_secs(timeout_secs);
+        
+        loop {
+            match child.try_wait()? {
+                Some(status) => break status,
+                None if start.elapsed() > duration => {
+                    child.kill()?;
+                    std::fs::remove_file(&obj_path).ok();
+                    std::fs::remove_file(&temp_output).ok();
+                    anyhow::bail!("Test timed out after {} seconds", timeout_secs);
+                }
+                None => thread::sleep(Duration::from_millis(100)),
+            }
+        }
+    } else {
+        child.wait()?
+    };
+    
+    // Cleanup
+    std::fs::remove_file(&obj_path).ok();
+    std::fs::remove_file(&temp_output).ok();
+    
+    if !status.success() {
+        anyhow::bail!("Test exited with code: {:?}", status.code());
+    }
+    
+    Ok(())
 }

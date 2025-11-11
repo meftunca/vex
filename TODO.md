@@ -61,8 +61,12 @@ struct Counter impl Iterator {
 
 **What's Next:**
 
+- ✅ **for-in loops** - Completed! (Nov 11, 2025) Syntax sugar over Iterator.next()
+  - Desugars `for item in iterator` to `while let Some(item) = iterator.next()`
+  - Works with any type implementing Iterator trait
+  - Tests: Counter iterator (0..5 → 10), empty iterator (→ 0), single item (→ 42)
+  - File: vex-compiler/src/codegen_ast/statements/loops.rs
 - Self.Item support (use associated types in trait signatures)
-- for-in loops (syntax sugar over Iterator.next())
 - Standard library collections (HashMap, Set)
 
 ---
@@ -1521,6 +1525,18 @@ fn main(): i32 {
   - Tests: channel_simple.vx, channel_sync_test.vx (Exit 0) ✅
   - **Status:** Channel<T> fully working! 🎉
 
+- **Go-Style Channel Receive Operator (`<-`)** - Syntactic sugar for channel receive (Nov 11) ✅
+
+  - Lexer: Added `Token::LeftArrow` for `<-` operator ✅
+  - AST: `Expression::ChannelReceive(Box<Expression>)` variant ✅
+  - Parser: Prefix operator parsing in `parse_unary()` ✅
+  - Codegen: Desugars `<-ch` to `ch.recv()` method call ✅
+  - Borrow Checker: Pattern matching for new expression (4 files) ✅
+  - Formatter: `<-expr` formatting support ✅
+  - Syntax: `let val = <-ch;` equivalent to `let val = ch.recv();` ✅
+  - Tests: channel_recv_test.vx (Exit 0) ✅
+  - **Status:** Go-style channel syntax working! 🚀
+
 - **Swiss Tables Performance Optimization** - 25% faster (00:45) ✅
 
   - Hash Function: Simplified to FNV-1a (compiler-friendly, single-pass) ✅
@@ -1616,8 +1632,12 @@ fn main(): i32 {
 
   - Parser: `0..10` (Range), `0..=15` (RangeInclusive) syntax
   - Codegen: Range construction, len(), next() methods
-  - For-in loops: Full integration with iterator protocol
-  - Tests: Comprehensive test passing (manual iteration, nested loops, empty ranges)
+  - For-in loops: ✅ **COMPLETE** - Full integration with Iterator trait (Nov 11, 2025)
+    - Supports any type implementing Iterator trait
+    - Desugars to while-let pattern with iterator.next()
+    - Properly handles Option extraction and loop termination
+  - Tests: Comprehensive tests passing (manual iteration, nested loops, empty ranges)
+  - Tests: Iterator integration (Counter: exit 10, Empty: exit 0, Single: exit 42)
 
 - **Vec/Box/String/Map** - Type-as-constructor pattern implemented
   - Parser: Vec(), Box(), String(), Map() keyword handling
@@ -1646,7 +1666,11 @@ All core builtin types are now fully implemented with method syntax, auto-cleanu
 - [x] **Iterator<T>** - Trait syntax working ✅ (Nov 6, 2025)
   - Trait definition: `trait Iterator { fn(self: &Self!) next(): Option<T>; }` ✅
   - Range integration: Range/RangeInclusive have next() methods ✅
-  - Future: for-in loop sugar (desugar to while let Some(x) = iter.next())
+  - **For-in loop sugar** ✅ **COMPLETE** (Nov 11, 2025)
+    - Desugars to while let Some(x) = iter.next()
+    - Works with any Iterator implementation
+    - File: vex-compiler/src/codegen_ast/statements/loops.rs
+    - Tests: Counter, EmptyIter, SingleIter all passing
 
 ### Tier 1 Remaining
 

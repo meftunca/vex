@@ -1,0 +1,488 @@
+// =============================================================================
+// VEX STANDARD LIBRARY - COMPREHENSIVE FILE SYSTEM MODULE
+// =============================================================================
+// Inspired by Go's os/path/filepath and Rust's std::fs
+// Features:
+// - File I/O (read, write, append, truncate)
+// - Directory operations (create, remove, recursive)
+// - Path manipulation (join, split, normalize, absolute)
+// - Metadata (size, permissions, timestamps)
+// - Memory-mapped files (zero-copy I/O)
+// - Glob/pattern matching
+// - Symlinks
+// - Temp files/dirs
+// - Cross-platform (Unix, Windows, macOS)
+//
+// Native implementation: fs/native/src/vex_fs.c + vex-runtime/c/vex_path.c + vex_mmap.c
+// =============================================================================
+
+extern "C" {
+    // -------------------------------------------------------------------------
+    // STRING UTILITIES
+    // -------------------------------------------------------------------------
+    fn vex_str_to_cstr(s: str): *u8;
+    fn vex_cstr_to_str(ptr: *u8): str;
+    fn vex_strlen(s: *u8): u64;
+    
+    // -------------------------------------------------------------------------
+    // FILE OPERATIONS (vex_file.c + fs/native/src/vex_fs.c)
+    // -------------------------------------------------------------------------
+    fn vex_file_read_all_str(path: *u8, out_size: *u64): *u8;
+    fn vex_file_write_all_str(path: *u8, data: *u8, size: u64): bool;
+    fn vex_file_exists_str(path: *u8): bool;
+    fn vex_file_remove_str(path: *u8): bool;
+    fn vex_file_rename_str(old_path: *u8, new_path: *u8): bool;
+    fn vex_file_copy_str(src: *u8, dst: *u8): bool;
+    fn vex_file_move_str(src: *u8, dst: *u8): bool;
+    
+    // -------------------------------------------------------------------------
+    // DIRECTORY OPERATIONS (vex_file.c + fs/native/src/vex_fs.c)
+    // -------------------------------------------------------------------------
+    fn vex_dir_create_str(path: *u8): bool;
+    fn vex_dir_remove_str(path: *u8): bool;
+    fn vex_dir_exists_str(path: *u8): bool;
+    
+    // -------------------------------------------------------------------------
+    // PATH MANIPULATION (vex_path.c)
+    // -------------------------------------------------------------------------
+    fn vex_path_normalize(path: *u8): *u8;         // Clean path (remove . and ..)
+    fn vex_path_join(p1: *u8, p2: *u8): *u8;        // Join with OS separator
+    fn vex_path_dirname(path: *u8): *u8;           // Parent directory
+    fn vex_path_basename(path: *u8): *u8;          // Filename (last component)
+    fn vex_path_extension(path: *u8): *u8;         // File extension (.txt)
+    fn vex_path_stem(path: *u8): *u8;              // Filename without extension
+    fn vex_path_absolute(path: *u8): *u8;          // Convert to absolute path
+    fn vex_path_is_absolute(path: *u8): bool;      // Check if absolute
+    fn vex_path_separator(): *u8;                  // Get OS separator (/ or \)
+    
+    // Path validation & sanitization
+    fn vex_path_is_valid(path: *u8): bool;
+    fn vex_path_sanitize(path: *u8): *u8;
+    fn vex_path_equals(p1: *u8, p2: *u8): bool;
+    fn vex_path_starts_with(path: *u8, prefix: *u8): bool;
+    fn vex_path_ends_with(path: *u8, suffix: *u8): bool;
+    
+    // Path type queries
+    fn vex_path_exists(path: *u8): bool;
+    fn vex_path_is_dir(path: *u8): bool;
+    fn vex_path_is_file(path: *u8): bool;
+    fn vex_path_is_symlink(path: *u8): bool;
+    
+    // Permissions (Unix-style)
+    fn vex_path_is_readable(path: *u8): bool;
+    fn vex_path_is_writable(path: *u8): bool;
+    fn vex_path_is_executable(path: *u8): bool;
+    fn vex_path_permissions(path: *u8): u32;
+    fn vex_path_set_permissions(path: *u8, mode: u32): bool;
+    
+    // Advanced directory operations
+    fn vex_dir_create_all(path: *u8, mode: i32): bool;  // mkdir -p
+    fn vex_dir_remove_all(path: *u8): bool;             // rm -rf
+    
+    // Symlinks
+    fn vex_symlink_create(target: *u8, link: *u8): bool;
+    fn vex_symlink_read(link: *u8): *u8;
+    
+    // Temp files
+    fn vex_path_temp_file(prefix: *u8): *u8;
+    fn vex_path_temp_dir(prefix: *u8): *u8;
+    
+    // Pattern matching (glob)
+    fn vex_path_match_glob(path: *u8, pattern: *u8): bool;
+    
+    // -------------------------------------------------------------------------
+    // MEMORY-MAPPED FILES (vex_mmap.c)
+    // -------------------------------------------------------------------------
+    fn vex_mmap_open(path: *u8, writable: bool): *u8;   // VexMmap*
+    fn vex_mmap_close(mapping: *u8): void;
+    fn vex_mmap_sync(mapping: *u8): bool;
+    fn vex_mmap_advise(mapping: *u8, advice: i32): bool;
+    fn vex_mmap_alloc(size: u64): *u8;
+    fn vex_mmap_free(addr: *u8, size: u64): void;
+}
+
+// =============================================================================
+// FILE OPERATIONS - Go os package style
+// =============================================================================
+
+/// Read entire file to string
+/// Example: let content = fs.read_to_string("/tmp/data.txt");
+export fn read_to_string(path: str): str {
+    let cpath: *u8 = vex_str_to_cstr(path);
+    let! size: u64 = 0;
+    let size_ptr: *u64! = &!size;
+    let data: *u8 = vex_file_read_all_str(cpath, size_ptr);
+    if data == 0 as *u8 {
+        return "";
+    }
+    return vex_cstr_to_str(data);
+}
+
+/// Write string to file (overwrites if exists)
+/// Example: fs.write_string("/tmp/data.txt", "Hello, World!");
+export fn write_string(path: str, content: str): bool {
+    let cpath: *u8 = vex_str_to_cstr(path);
+    let cdata: *u8 = vex_str_to_cstr(content);
+    let len: u64 = vex_strlen(cdata);
+    return vex_file_write_all_str(cpath, cdata, len);
+}
+
+/// Check if file or directory exists
+/// Example: if fs.exists("/tmp/data.txt") { ... }
+export fn exists(path: str): bool {
+    let cpath: *u8 = vex_str_to_cstr(path);
+    return vex_file_exists_str(cpath);
+}
+
+/// Remove file (not directory)
+/// Example: fs.remove("/tmp/data.txt");
+export fn remove(path: str): bool {
+    let cpath: *u8 = vex_str_to_cstr(path);
+    return vex_file_remove_str(cpath);
+}
+
+/// Rename or move file
+/// Example: fs.rename("/tmp/old.txt", "/tmp/new.txt");
+export fn rename(old_path: str, new_path: str): bool {
+    let cold: *u8 = vex_str_to_cstr(old_path);
+    let cnew: *u8 = vex_str_to_cstr(new_path);
+    return vex_file_rename_str(cold, cnew);
+}
+
+/// Copy file (overwrites destination)
+/// Example: fs.copy("/tmp/src.txt", "/tmp/dst.txt");
+export fn copy(src: str, dst: str): bool {
+    let csrc: *u8 = vex_str_to_cstr(src);
+    let cdst: *u8 = vex_str_to_cstr(dst);
+    return vex_file_copy_str(csrc, cdst);
+}
+
+/// Move file (rename + delete fallback)
+/// Example: fs.move_file("/tmp/src.txt", "/backup/dst.txt");
+export fn move_file(src: str, dst: str): bool {
+    let csrc: *u8 = vex_str_to_cstr(src);
+    let cdst: *u8 = vex_str_to_cstr(dst);
+    return vex_file_move_str(csrc, cdst);
+}
+
+// =============================================================================
+// DIRECTORY OPERATIONS - Go os package style
+// =============================================================================
+
+/// Create single directory (fails if parent doesn't exist)
+/// Example: fs.create_dir("/tmp/mydir");
+export fn create_dir(path: str): bool {
+    let cpath: *u8 = vex_str_to_cstr(path);
+    return vex_dir_create_str(cpath);
+}
+
+/// Create directory and all parents (like mkdir -p)
+/// Example: fs.create_dir_all("/tmp/a/b/c");
+export fn create_dir_all(path: str): bool {
+    let cpath: *u8 = vex_str_to_cstr(path);
+    return vex_dir_create_all(cpath, 755);
+}
+
+/// Remove empty directory (fails if not empty)
+/// Example: fs.remove_dir("/tmp/mydir");
+export fn remove_dir(path: str): bool {
+    let cpath: *u8 = vex_str_to_cstr(path);
+    return vex_dir_remove_str(cpath);
+}
+
+/// Remove directory and all contents recursively (like rm -rf)
+/// Example: fs.remove_dir_all("/tmp/mydir");
+export fn remove_dir_all(path: str): bool {
+    let cpath: *u8 = vex_str_to_cstr(path);
+    return vex_dir_remove_all(cpath);
+}
+
+/// Check if directory exists
+/// Example: if fs.dir_exists("/tmp") { ... }
+export fn dir_exists(path: str): bool {
+    let cpath: *u8 = vex_str_to_cstr(path);
+    return vex_dir_exists_str(cpath);
+}
+
+// =============================================================================
+// PATH MANIPULATION - Go path/filepath package style
+// =============================================================================
+
+/// Clean/normalize path (remove . and .., collapse separators)
+/// Example: fs.path_clean("./a/../b") => "b"
+export fn path_clean(path: str): str {
+    let cpath: *u8 = vex_str_to_cstr(path);
+    let result: *u8 = vex_path_normalize(cpath);
+    return vex_cstr_to_str(result);
+}
+
+/// Join path components with OS separator
+/// Example: fs.path_join("/tmp", "file.txt") => "/tmp/file.txt"
+export fn path_join(p1: str, p2: str): str {
+    let cp1: *u8 = vex_str_to_cstr(p1);
+    let cp2: *u8 = vex_str_to_cstr(p2);
+    let result: *u8 = vex_path_join(cp1, cp2);
+    return vex_cstr_to_str(result);
+}
+
+/// Get directory name (parent directory)
+/// Example: fs.path_dir("/tmp/file.txt") => "/tmp"
+export fn path_dir(path: str): str {
+    let cpath: *u8 = vex_str_to_cstr(path);
+    let result: *u8 = vex_path_dirname(cpath);
+    return vex_cstr_to_str(result);
+}
+
+/// Get base filename (last component)
+/// Example: fs.path_base("/tmp/file.txt") => "file.txt"
+export fn path_base(path: str): str {
+    let cpath: *u8 = vex_str_to_cstr(path);
+    let result: *u8 = vex_path_basename(cpath);
+    return vex_cstr_to_str(result);
+}
+
+/// Get file extension (includes dot)
+/// Example: fs.path_ext("/tmp/file.txt") => ".txt"
+export fn path_ext(path: str): str {
+    let cpath: *u8 = vex_str_to_cstr(path);
+    let result: *u8 = vex_path_extension(cpath);
+    return vex_cstr_to_str(result);
+}
+
+/// Get filename without extension
+/// Example: fs.path_stem("/tmp/file.txt") => "file"
+export fn path_stem(path: str): str {
+    let cpath: *u8 = vex_str_to_cstr(path);
+    let result: *u8 = vex_path_stem(cpath);
+    return vex_cstr_to_str(result);
+}
+
+/// Convert to absolute path
+/// Example: fs.path_abs("./file.txt") => "/home/user/file.txt"
+export fn path_abs(path: str): str {
+    let cpath: *u8 = vex_str_to_cstr(path);
+    let result: *u8 = vex_path_absolute(cpath);
+    return vex_cstr_to_str(result);
+}
+
+/// Check if path is absolute
+/// Example: fs.path_is_absolute("/tmp") => true
+export fn path_is_absolute(path: str): bool {
+    let cpath: *u8 = vex_str_to_cstr(path);
+    return vex_path_is_absolute(cpath);
+}
+
+/// Get OS path separator ("/" or "\\")
+/// Example: let sep = fs.path_separator();
+export fn path_separator(): str {
+    let result: *u8 = vex_path_separator();
+    return vex_cstr_to_str(result);
+}
+
+// =============================================================================
+// PATH QUERIES - Go os package style
+// =============================================================================
+
+/// Check if path exists (file or directory)
+/// Example: if fs.path_exists("/tmp/file.txt") { ... }
+export fn path_exists(path: str): bool {
+    let cpath: *u8 = vex_str_to_cstr(path);
+    return vex_path_exists(cpath);
+}
+
+/// Check if path is a directory
+/// Example: if fs.path_is_dir("/tmp") { ... }
+export fn path_is_dir(path: str): bool {
+    let cpath: *u8 = vex_str_to_cstr(path);
+    return vex_path_is_dir(cpath);
+}
+
+/// Check if path is a file (not directory)
+/// Example: if fs.path_is_file("/tmp/data.txt") { ... }
+export fn path_is_file(path: str): bool {
+    let cpath: *u8 = vex_str_to_cstr(path);
+    return vex_path_is_file(cpath);
+}
+
+/// Check if path is a symbolic link
+/// Example: if fs.path_is_symlink("/tmp/link") { ... }
+export fn path_is_symlink(path: str): bool {
+    let cpath: *u8 = vex_str_to_cstr(path);
+    return vex_path_is_symlink(cpath);
+}
+
+/// Check if path is valid (no invalid characters)
+/// Example: if fs.path_is_valid("/tmp/\0bad") => false
+export fn path_is_valid(path: str): bool {
+    let cpath: *u8 = vex_str_to_cstr(path);
+    return vex_path_is_valid(cpath);
+}
+
+/// Sanitize path (remove invalid characters)
+/// Example: fs.path_sanitize("file:bad.txt") => "file_bad.txt"
+export fn path_sanitize(path: str): str {
+    let cpath: *u8 = vex_str_to_cstr(path);
+    let result: *u8 = vex_path_sanitize(cpath);
+    return vex_cstr_to_str(result);
+}
+
+// =============================================================================
+// PATH COMPARISON
+// =============================================================================
+
+/// Check if two paths are equal (after normalization)
+/// Example: fs.path_equals("./a", "a") => true
+export fn path_equals(p1: str, p2: str): bool {
+    let cp1: *u8 = vex_str_to_cstr(p1);
+    let cp2: *u8 = vex_str_to_cstr(p2);
+    return vex_path_equals(cp1, cp2);
+}
+
+/// Check if path starts with prefix
+/// Example: fs.path_starts_with("/tmp/file.txt", "/tmp") => true
+export fn path_starts_with(path: str, prefix: str): bool {
+    let cpath: *u8 = vex_str_to_cstr(path);
+    let cprefix: *u8 = vex_str_to_cstr(prefix);
+    return vex_path_starts_with(cpath, cprefix);
+}
+
+/// Check if path ends with suffix
+/// Example: fs.path_ends_with("file.txt", ".txt") => true
+export fn path_ends_with(path: str, suffix: str): bool {
+    let cpath: *u8 = vex_str_to_cstr(path);
+    let csuffix: *u8 = vex_str_to_cstr(suffix);
+    return vex_path_ends_with(cpath, csuffix);
+}
+
+// =============================================================================
+// PERMISSIONS - Unix-style
+// =============================================================================
+
+/// Check if path is readable
+/// Example: if fs.is_readable("/tmp/file.txt") { ... }
+export fn is_readable(path: str): bool {
+    let cpath: *u8 = vex_str_to_cstr(path);
+    return vex_path_is_readable(cpath);
+}
+
+/// Check if path is writable
+/// Example: if fs.is_writable("/tmp/file.txt") { ... }
+export fn is_writable(path: str): bool {
+    let cpath: *u8 = vex_str_to_cstr(path);
+    return vex_path_is_writable(cpath);
+}
+
+/// Check if path is executable
+/// Example: if fs.is_executable("/usr/bin/ls") { ... }
+export fn is_executable(path: str): bool {
+    let cpath: *u8 = vex_str_to_cstr(path);
+    return vex_path_is_executable(cpath);
+}
+
+/// Get Unix permissions (0o755 format)
+/// Example: let mode = fs.permissions("/tmp/file.txt");
+export fn permissions(path: str): u32 {
+    let cpath: *u8 = vex_str_to_cstr(path);
+    return vex_path_permissions(cpath);
+}
+
+/// Set Unix permissions
+/// Example: fs.set_permissions("/tmp/file.txt", 0o644);
+export fn set_permissions(path: str, mode: u32): bool {
+    let cpath: *u8 = vex_str_to_cstr(path);
+    return vex_path_set_permissions(cpath, mode);
+}
+
+// =============================================================================
+// SYMLINKS - Unix-style
+// =============================================================================
+
+/// Create symbolic link
+/// Example: fs.symlink_create("/tmp/target", "/tmp/link");
+export fn symlink_create(target: str, link_path: str): bool {
+    let ctarget: *u8 = vex_str_to_cstr(target);
+    let clink: *u8 = vex_str_to_cstr(link_path);
+    return vex_symlink_create(ctarget, clink);
+}
+
+/// Read symbolic link target
+/// Example: let target = fs.symlink_read("/tmp/link");
+export fn symlink_read(link_path: str): str {
+    let clink: *u8 = vex_str_to_cstr(link_path);
+    let result: *u8 = vex_symlink_read(clink);
+    return vex_cstr_to_str(result);
+}
+
+// =============================================================================
+// TEMPORARY FILES - Go os package style
+// =============================================================================
+
+/// Create temporary file with prefix
+/// Example: let path = fs.temp_file("vex_");
+export fn temp_file(prefix: str): str {
+    let cprefix: *u8 = vex_str_to_cstr(prefix);
+    let result: *u8 = vex_path_temp_file(cprefix);
+    return vex_cstr_to_str(result);
+}
+
+/// Create temporary directory with prefix
+/// Example: let dir = fs.temp_dir("vex_build_");
+export fn temp_dir(prefix: str): str {
+    let cprefix: *u8 = vex_str_to_cstr(prefix);
+    let result: *u8 = vex_path_temp_dir(cprefix);
+    return vex_cstr_to_str(result);
+}
+
+// =============================================================================
+// PATTERN MATCHING - Go path/filepath style
+// =============================================================================
+
+/// Check if path matches glob pattern (* and ? supported)
+/// Example: fs.path_match("file.txt", "*.txt") => true
+export fn path_match(path: str, pattern: str): bool {
+    let cpath: *u8 = vex_str_to_cstr(path);
+    let cpattern: *u8 = vex_str_to_cstr(pattern);
+    return vex_path_match_glob(cpath, cpattern);
+}
+
+// =============================================================================
+// MEMORY-MAPPED FILES - Zero-copy I/O
+// =============================================================================
+
+/// Open memory-mapped file (returns opaque handle)
+/// Example: let map = fs.mmap_open("/tmp/data.bin", false);
+export fn mmap_open(path: str, writable: bool): *u8 {
+    let cpath: *u8 = vex_str_to_cstr(path);
+    return vex_mmap_open(cpath, writable);
+}
+
+/// Close memory-mapped file
+/// Example: fs.mmap_close(map);
+export fn mmap_close(mapping: *u8): void {
+    vex_mmap_close(mapping);
+}
+
+/// Sync memory-mapped file to disk
+/// Example: fs.mmap_sync(map);
+export fn mmap_sync(mapping: *u8): bool {
+    return vex_mmap_sync(mapping);
+}
+
+/// Advise kernel on memory usage pattern
+/// advice: 0=NORMAL, 1=SEQUENTIAL, 2=RANDOM, 3=WILLNEED, 4=DONTNEED
+/// Example: fs.mmap_advise(map, 1); // Sequential access
+export fn mmap_advise(mapping: *u8, advice: i32): bool {
+    return vex_mmap_advise(mapping, advice);
+}
+
+/// Allocate anonymous memory-mapped region (for large allocations)
+/// Example: let mem = fs.mmap_alloc(1024 * 1024); // 1MB
+export fn mmap_alloc(size: u64): *u8 {
+    return vex_mmap_alloc(size);
+}
+
+/// Free memory-mapped region
+/// Example: fs.mmap_free(mem, 1024 * 1024);
+export fn mmap_free(addr: *u8, size: u64): void {
+    vex_mmap_free(addr, size);
+}

@@ -1,0 +1,18 @@
+// Test Go-style channel receive operator in simpler form
+
+fn main(): i32 {
+    let! ch: Channel<i64> = Channel(1);
+
+    go {
+        ch.send(42);
+    };
+
+    // Test <-ch expression
+    let val = <-ch;
+
+    if val != 42 {
+        return 1;
+    }
+
+    return 0;
+}

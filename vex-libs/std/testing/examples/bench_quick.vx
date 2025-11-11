@@ -40,8 +40,9 @@ fn main() {
     print("Quick Benchmark\n");
     
     let start_ns: i64 = monotonic_now() as i64;
+    let n: i64 = 10000;
     let! b: B = B { 
-        n: 10000,
+        n: n,
         elapsed_ns: 0,
         timer_running: true,
         start_time: start_ns,
@@ -56,11 +57,26 @@ fn main() {
     
     b.stop_timer();
     
+    // Direct calculation instead of method calls
+    let elapsed: i64 = b.elapsed_ns;
+    let! ns_op: i64 = 0;
+    let! ops_sec: i64 = 0;
+    
+    if n != 0 {
+        ns_op = elapsed / n;
+    }
+    
+    if elapsed != 0 {
+        ops_sec = (n * 1000000000) / elapsed;
+    }
+    
     print("n=");
-    print(b.n);
+    print(n);
+    print(" elapsed=");
+    print(elapsed);
     print(" ns/op=");
-    print(b.ns_per_op());
+    print(ns_op);
     print(" ops/sec=");
-    print(b.ops_per_sec());
+    print(ops_sec);
     print("\n");
 }

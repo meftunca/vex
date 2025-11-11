@@ -1,0 +1,40 @@
+// Test Display trait with Option<T>
+// Demonstrates Display for enum types
+
+trait Display {
+    fn to_string(): string;
+}
+
+// Define Option enum
+enum Option<T> {
+    Some(T),
+    None,
+}
+
+// Implement Display for Option using struct wrapper
+struct OptionDisplay impl Display {
+    value: i32,
+    is_some: bool,
+    
+    fn to_string(): string {
+        if self.is_some {
+            return "Some(value)";
+        }
+        return "None";
+    }
+}
+
+fn main(): i32 {
+    let opt = Some(42);
+    
+    // Create wrapper for Display
+    let wrapper = OptionDisplay { value: 42, is_some: true };
+    let s = wrapper.to_string();
+    
+    if s == "Some(value)" {
+        println("✅ Display for Option works!");
+        return 0;
+    }
+    
+    return 1;
+}

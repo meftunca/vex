@@ -1,0 +1,55 @@
+// File Metadata Example
+// Shows how to work with file properties
+
+import {
+    exists,
+    write_string,
+    read_to_string,
+    remove
+} from "fs";
+
+fn check_file_info(path: String) {
+    print("Checking: ");
+    print(path);
+    print("\n");
+    
+    if exists(path) {
+        print("  Status: EXISTS\n");
+        
+        let content: String = read_to_string(path);
+        // Note: String length not yet available in stdlib
+        print("  Content preview: ");
+        print(content);
+        print("\n");
+    } else {
+        print("  Status: NOT FOUND\n");
+    }
+    
+    print("\n");
+}
+
+fn main() {
+    print("=== File Metadata Example ===\n\n");
+    
+    // Create test files
+    let file1: String = "/tmp/small.txt";
+    let file2: String = "/tmp/medium.txt";
+    let file3: String = "/tmp/large.txt";
+    
+    write_string(file1, "Small");
+    write_string(file2, "Medium content with more text");
+    write_string(file3, "Large content with even more text and multiple lines\nLine 2\nLine 3\nLine 4");
+    
+    // Check each file
+    check_file_info(file1);
+    check_file_info(file2);
+    check_file_info(file3);
+    check_file_info("/tmp/nonexistent.txt");
+    
+    // Cleanup
+    remove(file1);
+    remove(file2);
+    remove(file3);
+    
+    print("Cleanup complete\n");
+}

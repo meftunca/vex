@@ -384,6 +384,7 @@ impl BorrowChecker {
             | Expression::QuestionMark(expr)
             | Expression::New(expr)
             | Expression::Deref(expr)
+            | Expression::ChannelReceive(expr)
             | Expression::ErrorNew(expr) => {
                 self.analyze_expression_closures(expr)?;
                 Ok(())

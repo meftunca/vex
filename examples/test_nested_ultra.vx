@@ -1,0 +1,39 @@
+// Ultra minimal test for debugging
+
+struct Inner {
+    x: i32,
+}
+
+struct Outer {
+    inner: Inner,
+}
+
+fn main(): i32 {
+    // Create Inner with x=42
+    let i = Inner { x: 42 };
+    
+    // Test 1: Direct access on Inner
+    let x1 = i.x;
+    if x1 != 42 {
+        println("❌ Test 1 failed: i.x");
+        return 1;
+    }
+    println("✅ Test 1 passed: i.x = 42");
+    
+    // Create Outer containing Inner
+    let o = Outer { inner: i };
+    
+    // Test 2: First level access
+    let inner_ref = o.inner;
+    println("✅ Test 2: o.inner extracted");
+    
+    // Test 3: Access field on extracted struct
+    let x2 = inner_ref.x;
+    if x2 != 42 {
+        println("❌ Test 3 failed: inner_ref.x");
+        return 1;
+    }
+    println("✅ Test 3 passed: inner_ref.x = 42");
+    
+    return 0;
+}

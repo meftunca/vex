@@ -115,7 +115,7 @@ export fn read_to_string(path: String): String {
     let path_ptr: *String = &path;
     let cpath: *u8 = vex_string_as_cstr(path_ptr);
     let! size: u64 = 0;
-    let size_ptr: *u64 = &size;
+    let size_ptr: *u64! = &!size;
     
     let data: *u8 = vex_file_read_all(cpath, size_ptr);
     

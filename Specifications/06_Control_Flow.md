@@ -309,10 +309,10 @@ enum Option<T> {
     None,
 }
 
-let value = Option::Some(42);
+let value = Some(42);
 match value {
-    Option::Some(x) => { /* x = 42 */ }
-    Option::None => { /* no value */ }
+    Some(x) => { /* x = 42 */ }
+    None => { /* no value */ }
 }
 ```
 
@@ -646,13 +646,13 @@ enum Status {
 
 fn handle_status(status: Status): i32 {
     match status {
-        Status::Active => {
+        Active => {
             return 1;
         }
-        Status::Inactive => {
+        Inactive => {
             return 0;
         }
-        Status::Pending => {
+        Pending => {
             return -1;
         }
     }
@@ -951,17 +951,17 @@ fn is_prime(n: i32): bool {
 ```vex
 // Good: Clear, exhaustive
 match status {
-    Status::Active => { }
-    Status::Inactive => { }
-    Status::Pending => { }
+    Active => { }
+    Inactive => { }
+    Pending => { }
 }
 
 // Bad: Verbose, error-prone
-if status == Status::Active {
+if status == Active {
     // ...
-} elif status == Status::Inactive {
+} elif status == Inactive {
     // ...
-} elif status == Status::Pending {
+} elif status == Pending {
     // ...
 }
 ```

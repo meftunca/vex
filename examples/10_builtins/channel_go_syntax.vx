@@ -1,0 +1,31 @@
+// Test Go-style channel receive operator: <-
+// This example demonstrates the new <-ch syntax as syntactic sugar for ch.recv()
+
+fn main(): i32 {
+    let! ch: Channel<i64> = Channel(3);
+
+    go {
+        ch.send(42);
+        ch.send(100);
+        ch.send(999);
+    };
+
+    // Go-style syntax: <-ch as expression instead of ch.recv()
+    let val1 = <-ch;
+    let val2 = <-ch;
+    let val3 = <-ch;
+
+    if val1 != 42 {
+        return 1;
+    }
+
+    if val2 != 100 {
+        return 2;
+    }
+
+    if val3 != 999 {
+        return 3;
+    }
+
+    return 0;
+}

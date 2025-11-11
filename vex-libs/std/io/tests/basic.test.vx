@@ -1,0 +1,20 @@
+// Basic I/O tests
+import { print, println } from "../src/lib";
+
+fn test_print() {
+    // Test basic print functionality
+    print("Hello, ");
+    println("World!");
+}
+
+fn test_println() {
+    // Test println with different types
+    println("String test");
+    println("Number: 42");
+}
+
+fn main(): i32 {
+    test_print();
+    test_println();
+    return 0;
+}

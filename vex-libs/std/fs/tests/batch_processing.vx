@@ -1,0 +1,82 @@
+// Batch File Processing Example
+// Process multiple files in a directory
+
+import {
+    write_string,
+    read_to_string,
+    exists,
+    copy,
+    remove,
+    create_dir,
+    dir_exists
+} from "fs";
+
+fn process_file(input_path: String, output_path: String) {
+    if !exists(input_path) {
+        print("  File not found: ");
+        print(input_path);
+        print("\n");
+        return;
+    }
+    
+    let content: String = read_to_string(input_path);
+    
+    // Simple "processing": add header
+    let processed: String = "=== PROCESSED ===\n" + content + "\n=== END ===\n";
+    
+    write_string(output_path, processed);
+    print("  Processed: ");
+    print(input_path);
+    print(" -> ");
+    print(output_path);
+    print("\n");
+}
+
+fn main() {
+    print("=== Batch File Processing ===\n\n");
+    
+    // Setup directories
+    let input_dir: String = "/tmp/vex_input";
+    let output_dir: String = "/tmp/vex_output";
+    
+    if !dir_exists(input_dir) {
+        create_dir(input_dir);
+    }
+    
+    if !dir_exists(output_dir) {
+        create_dir(output_dir);
+    }
+    
+    // Create sample input files
+    print("Creating input files...\n");
+    write_string("/tmp/vex_input/file1.txt", "Content 1");
+    write_string("/tmp/vex_input/file2.txt", "Content 2");
+    write_string("/tmp/vex_input/file3.txt", "Content 3");
+    print("  Created 3 input files\n\n");
+    
+    // Process files
+    print("Processing files...\n");
+    process_file("/tmp/vex_input/file1.txt", "/tmp/vex_output/file1.txt");
+    process_file("/tmp/vex_input/file2.txt", "/tmp/vex_output/file2.txt");
+    process_file("/tmp/vex_input/file3.txt", "/tmp/vex_output/file3.txt");
+    print("\n");
+    
+    // Verify outputs
+    print("Verifying outputs...\n");
+    if exists("/tmp/vex_output/file1.txt") {
+        let result: String = read_to_string("/tmp/vex_output/file1.txt");
+        print("  Output sample:\n");
+        print(result);
+    }
+    print("\n");
+    
+    // Cleanup
+    print("Cleaning up...\n");
+    remove("/tmp/vex_input/file1.txt");
+    remove("/tmp/vex_input/file2.txt");
+    remove("/tmp/vex_input/file3.txt");
+    remove("/tmp/vex_output/file1.txt");
+    remove("/tmp/vex_output/file2.txt");
+    remove("/tmp/vex_output/file3.txt");
+    print("  Cleanup complete\n");
+}

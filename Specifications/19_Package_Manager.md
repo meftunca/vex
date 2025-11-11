@@ -74,50 +74,75 @@ The `vex.json` file describes your project and its dependencies:
   "description": "A Vex project",
   "authors": ["Your Name <you@example.com>"],
   "license": "MIT",
+  "repository": "https://github.com/user/my-project",
 
   "dependencies": {
-    "github.com/user/math-lib": "v1.2.0",
-    "github.com/user/http-client": "^2.0.0"
+    "local-lib": "v1.2.0"
   },
 
-  "targets": {
-    "debug": {
-      "opt-level": 0
-    },
-    "release": {
-      "opt-level": 3
-    }
-  },
-
-  "main": "src/main.vx",
+  "main": "src/lib.vx",
 
   "bin": {
     "my-app": "src/main.vx",
     "cli-tool": "src/cli.vx"
   },
 
+  "testing": {
+    "dir": "tests",
+    "pattern": "*.test.vx",
+    "timeout": 30,
+    "parallel": true
+  },
+
+  "targets": {
+    "default": "x64",
+    "supported": ["x64", "arm64", "wasm"]
+  },
+
+  "profiles": {
+    "development": {
+      "optimizationLevel": 0,
+      "debugSymbols": true
+    },
+    "production": {
+      "optimizationLevel": 3,
+      "debugSymbols": false
+    }
+  },
+
   "native": {
-    "include": ["vendor/include"],
-    "libs": ["ssl", "crypto"],
-    "flags": ["-O3", "-march=native"]
+    "sources": ["native/src/helper.c"],
+    "libraries": ["ssl", "crypto"],
+    "search_paths": ["/usr/local/lib"],
+    "static_libs": ["./vendor/libmylib.a"],
+    "cflags": ["-O3", "-Wall", "-fPIC"],
+    "include_dirs": ["vendor/include", "../../../vex-runtime/c"]
+  },
+
+  "vex": {
+    "borrowChecker": "strict"
   }
 }
 ```
 
 ### Dependency Specification
 
-Dependencies support multiple version formats:
+**Current Status (v0.1.2)**: Local dependencies only. Remote Git repositories planned for future releases.
 
 ```json
 {
   "dependencies": {
-    "github.com/user/lib": "v1.2.3", // Exact version
-    "github.com/user/lib": "^1.2.0", // Compatible with 1.x
-    "github.com/user/lib": "1.0.0..2.0.0", // Range
-    "github.com/user/lib": "*" // Latest
+    "local-lib": "v1.2.3",     // Exact version (local)
+    "math": "v0.2.0"          // Stdlib module
   }
 }
 ```
+
+**Future Support** (planned):
+- `"^1.2.0"` - Compatible with 1.x (semantic versioning)
+- `"1.0.0..2.0.0"` - Version range
+- `"*"` - Latest version
+- Git repositories: `"github.com/user/lib": "v1.2.0"`
 
 ### Native Dependencies
 
@@ -126,12 +151,101 @@ For C/C++ integration:
 ```json
 {
   "native": {
-    "include": ["path/to/headers"],
-    "libs": ["ssl", "zlib"],
-    "flags": ["-O3", "-Wall"]
+    "sources": ["native/src/implementation.c"],
+    "libraries": ["ssl", "zlib"],
+    "search_paths": ["/usr/local/lib", "/opt/homebrew/lib"],
+    "static_libs": ["./vendor/libcustom.a"],
+    "cflags": ["-O3", "-Wall", "-fPIC", "-std=c11"],
+    "include_dirs": ["path/to/headers", "../../../vex-runtime/c"]
   }
 }
 ```
+
+**Field Descriptions**:
+- `sources`: C/C++ files to compile
+- `libraries`: System libraries to link (e.g., `m`, `ssl`)
+- `search_paths`: Library search directories
+- `static_libs`: Static library files (.a)
+- `cflags`: C compiler flags
+- `include_dirs`: Header include directories
+
+### Complete Field Reference
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | ✅ | Package name |
+| `version` | string | ✅ | Semantic version (e.g., "1.0.0") |
+| `description` | string | ❌ | Package description |
+| `authors` | array | ❌ | Author names and emails |
+| `license` | string | ❌ | License identifier (e.g., "MIT") |
+| `repository` | string | ❌ | Repository URL |
+| `dependencies` | object | ❌ | Package dependencies |
+| `main` | string | ❌ | Entry point (default: `src/lib.vx`) |
+| `bin` | object | ❌ | Binary targets |
+| `testing` | object | ❌ | Test configuration |
+| `targets` | object | ❌ | Platform configuration |
+| `profiles` | object | ❌ | Build profiles |
+| `native` | object | ❌ | C/C++ integration config |
+| `vex` | object | ❌ | Vex-specific settings |
+
+**Targets Structure**:
+```json
+{
+  "targets": {
+    "default": "x64",
+    "supported": ["x64", "arm64", "wasm", "wasi"]
+  }
+}
+```
+
+**Profiles Structure**:
+```json
+{
+  "profiles": {
+    "development": {
+      "optimizationLevel": 0,
+      "debugSymbols": true,
+      "memProfiling": false,
+      "cpuProfiling": false
+    },
+    "production": {
+      "optimizationLevel": 3,
+      "debugSymbols": false
+    }
+  }
+}
+```
+
+**Vex Config Structure**:
+```json
+{
+  "vex": {
+    "borrowChecker": "strict"  // or "permissive"
+  }
+}
+```
+
+**Testing Config Structure**:
+```json
+{
+  "testing": {
+    "dir": "tests",              // Test directory (informational)
+    "pattern": "**/*.test.vx",   // Glob pattern from project root (default)
+    "timeout": 30,                // Test timeout in seconds (optional)
+    "parallel": true              // Run tests in parallel (default: true)
+  }
+}
+```
+
+**Test File Naming Convention**:
+
+- Test files MUST follow the `*.test.vx` pattern
+- Examples:
+  - `basic.test.vx`
+  - `integration.test.vx`
+  - `unit.test.vx`
+- **Pattern Search**: Uses glob from project root (`**/*.test.vx`)
+- Custom patterns can be specified via `testing.pattern`
 
 ---
 
@@ -177,22 +291,21 @@ vex init
 
 ### Dependency Management
 
+**Current Status (v0.1.2)**: Local dependencies only. CLI commands for remote packages planned.
+
 ```bash
-# Add dependency
-vex add github.com/user/math-lib@v1.2.0
-vex add github.com/user/math-lib  # Latest version
+# Manual dependency management (edit vex.json)
+# Add to dependencies section:
+# "local-lib": "v1.2.0"
 
-# Remove dependency
-vex remove github.com/user/math-lib
+# Planned commands (future):
+# vex add github.com/user/math-lib@v1.2.0
+# vex remove github.com/user/math-lib
+# vex update
+# vex list
 
-# Update dependencies
-vex update
-
-# List dependencies
-vex list
-
-# Clean cache
-vex clean
+# Currently available:
+vex clean  # Clean build cache
 ```
 
 ### Building and Running
@@ -226,8 +339,17 @@ vex check
 # Format code
 vex format
 
-# Run tests
+# Run tests (discovers *.test.vx files)
 vex test
+
+# Run specific test file
+vex test tests/basic.test.vx
+
+# Run tests with timeout
+vex test --timeout 60
+
+# Run tests sequentially (no parallel)
+vex test --no-parallel
 
 # Generate documentation
 vex doc
@@ -304,6 +426,129 @@ src/
 ├── crypto.wasm.vx      # WebAssembly version
 └── crypto.testing.vx   # Test mocks
 ```
+
+---
+
+## Testing
+
+### Test Discovery
+
+Vex automatically discovers test files using the pattern specified in `vex.json`.
+
+**Default Pattern**: `*.test.vx`
+
+**Directory Structure**:
+```
+my-project/
+├── vex.json
+├── src/
+│   └── lib.vx
+└── tests/
+    ├── basic.test.vx
+    ├── integration.test.vx
+    └── unit.test.vx
+```
+
+### Test File Naming
+
+**Required Pattern**: Files must end with `.test.vx`
+
+**Examples**:
+```
+✅ basic.test.vx
+✅ user_auth.test.vx
+✅ api_integration.test.vx
+❌ basic_test.vx       (missing .test before .vx)
+❌ test_basic.vx       (wrong position)
+❌ basic.vx            (missing .test)
+```
+
+### Test Configuration
+
+```json
+{
+  "testing": {
+    "dir": "tests",
+    "pattern": "*.test.vx",
+    "timeout": 30,
+    "parallel": true
+  }
+}
+```
+
+**Fields**:
+- `dir`: Directory containing test files (default: `"tests"`)
+- `pattern`: Glob pattern for test files (default: `"*.test.vx"`)
+- `timeout`: Maximum execution time per test in seconds (optional)
+- `parallel`: Run tests in parallel (default: `true`)
+
+### Running Tests
+
+**Discover and run all tests**:
+```bash
+vex test
+```
+
+**Run specific test file**:
+```bash
+vex test tests/basic.test.vx
+```
+
+**Run with custom timeout**:
+```bash
+vex test --timeout 60
+```
+
+**Run sequentially**:
+```bash
+vex test --no-parallel
+```
+
+### Test Organization
+
+**Unit Tests**: Test individual functions/modules
+```
+tests/
+├── math.test.vx
+├── string.test.vx
+└── utils.test.vx
+```
+
+**Integration Tests**: Test module interactions
+```
+tests/
+├── api_integration.test.vx
+├── db_integration.test.vx
+└── workflow.test.vx
+```
+
+**Mixed Structure**:
+```
+tests/
+├── unit/
+│   ├── math.test.vx
+│   └── string.test.vx
+└── integration/
+    ├── api.test.vx
+    └── db.test.vx
+```
+
+### Platform-Specific Tests
+
+Tests can also use platform-specific files:
+
+```
+tests/
+├── io.test.vx              # Generic tests
+├── io.test.macos.vx        # macOS-specific tests
+└── io.test.linux.vx        # Linux-specific tests
+```
+
+**Priority**:
+1. `test.{os}.{arch}.vx`
+2. `test.{arch}.vx`
+3. `test.{os}.vx`
+4. `test.vx`
 
 ---
 

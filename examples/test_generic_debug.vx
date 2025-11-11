@@ -1,0 +1,46 @@
+// Minimal debug: Print field values directly
+
+struct Point {
+    x: i32,
+    y: i32,
+}
+
+struct Container<T> {
+    value: T,
+}
+
+fn print_i32(val: i32) {
+    // TODO: Implement i32 to string conversion
+    if val == 0 {
+        println("0");
+    } else {
+        if val == 10 {
+            println("10");
+        } else {
+            if val == 20 {
+                println("20");
+            } else {
+                println("other");
+            }
+        }
+    }
+}
+
+fn main(): i32 {
+    let p = Point { x: 10, y: 20 };
+    
+    println("Testing Point fields:");
+    print_i32(p.x);
+    print_i32(p.y);
+    
+    let c = Container<Point> { value: p };
+    
+    println("Testing Container.value:");
+    let inner = c.value;
+    
+    println("Inner struct extracted, testing fields:");
+    print_i32(inner.x);
+    print_i32(inner.y);
+    
+    return 0;
+}

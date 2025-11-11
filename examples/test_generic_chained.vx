@@ -1,0 +1,38 @@
+// Test: Copy struct from container instead of using pointer
+
+struct Point {
+    x: i32,
+    y: i32,
+}
+
+struct Container<T> {
+    value: T,
+}
+
+fn main(): i32 {
+    let p = Point { x: 10, y: 20 };
+    let c = Container<Point> { value: p };
+    
+    // Debug: print intermediate steps
+    println("Point created with x=10");
+    println("Container created");
+    
+    // Try direct field access (chained)
+    let x_direct = c.value.x;
+    
+    println("Extracted x_direct");
+    
+    // Compare with 0 first
+    if x_direct == 0 {
+        println("x_direct is 0");
+    }
+    
+    // Compare with 10
+    if x_direct == 10 {
+        println("✅ Chained field access works!");
+        return 0;
+    }
+    
+    println("❌ Chained field access failed");
+    return 1;
+}

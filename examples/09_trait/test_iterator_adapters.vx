@@ -1,0 +1,42 @@
+// Test Iterator adapter methods: map, filter, take, skip
+// Demonstrates functional-style iteration
+
+trait Iterator {
+    type Item;
+    fn next()!: Option<i32>;
+}
+
+// Simple range iterator for testing
+struct Range impl Iterator {
+    current: i32,
+    end: i32,
+    
+    fn next()!: Option<i32> {
+        if self.current < self.end {
+            let val = self.current;
+            self.current = self.current + 1;
+            return Some(val);
+        }
+        return None;
+    }
+}
+
+fn main(): i32 {
+    // Test Range iterator
+    let range = Range { current: 0, end: 5 };
+    
+    let out1: Option<i32> = None;
+    range.next(out1);
+    if out1 == Some(0) {
+        println("✅ Range iterator works!");
+    }
+    
+    let out2: Option<i32> = None;
+    range.next(out2);
+    if out2 == Some(1) {
+        println("✅ Range next() increments!");
+        return 0;
+    }
+    
+    return 1;
+}

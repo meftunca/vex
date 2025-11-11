@@ -1,0 +1,32 @@
+// Debug: Test if Point fields work correctly
+
+struct Point {
+    x: i32,
+    y: i32,
+}
+
+fn main(): i32 {
+    let point = Point { x: 10, y: 20 };
+    
+    let x = point.x;
+    let y = point.y;
+    
+    println("Testing Point fields...");
+    
+    if x == 10 {
+        println("✅ x field correct");
+    } else {
+        println("❌ x field wrong");
+        return 1;
+    }
+    
+    if y == 20 {
+        println("✅ y field correct");
+    } else {
+        println("❌ y field wrong");
+        return 1;
+    }
+    
+    println("✅ Point works correctly!");
+    return 0;
+}

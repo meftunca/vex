@@ -207,6 +207,12 @@ impl<'a> Parser<'a> {
             return Ok(Expression::Deref(Box::new(expr)));
         }
 
+        // Channel receive: <-expr (Go-style syntax)
+        if self.match_token(&Token::LeftArrow) {
+            let expr = self.parse_unary()?;
+            return Ok(Expression::ChannelReceive(Box::new(expr)));
+        }
+
         if self.match_tokens(&[Token::Not, Token::Minus]) {
             let op = match self.previous() {
                 Token::Not => UnaryOp::Not,

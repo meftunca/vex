@@ -5,6 +5,7 @@
 #include <sys/stat.h>
 #include <errno.h>
 #include <stdio.h>
+#include <string.h>
 
 // ============================================================================
 // FILE OPERATIONS
@@ -291,4 +292,125 @@ bool vex_dir_exists(const char *path)
     if (stat(path, &st) != 0)
         return false;
     return S_ISDIR(st.st_mode);
+}
+
+bool vex_file_copy(const char *src, const char *dst)
+{
+    if (!src || !dst)
+    {
+        vex_panic("vex_file_copy: NULL path");
+    }
+
+    // Read source file
+    size_t size;
+    char *data = vex_file_read_all(src, &size);
+    if (!data)
+        return false;
+
+    // Write to destination
+    bool success = vex_file_write_all(dst, data, size);
+    vex_free(data);
+    return success;
+}
+
+bool vex_file_move(const char *src, const char *dst)
+{
+    if (!src || !dst)
+    {
+        vex_panic("vex_file_move: NULL path");
+    }
+
+    // Try rename first (atomic on same filesystem)
+    if (rename(src, dst) == 0)
+        return true;
+
+    // If rename fails, copy then delete
+    if (!vex_file_copy(src, dst))
+        return false;
+
+    return vex_file_remove(src);
+}
+
+bool vex_dir_create(const char *path)
+{
+    if (!path)
+    {
+        vex_panic("vex_dir_create: NULL path");
+    }
+
+    return mkdir(path, 0755) == 0;
+}
+
+bool vex_dir_remove(const char *path)
+{
+    if (!path)
+    {
+        vex_panic("vex_dir_remove: NULL path");
+    }
+
+    return rmdir(path) == 0;
+}
+
+// ============================================================================
+// STRING WRAPPER FUNCTIONS (for easier FFI from Vex)
+// ============================================================================
+
+char *vex_file_read_all_str(const char *path, size_t *out_size)
+{
+    return vex_file_read_all(path, out_size);
+}
+
+bool vex_file_write_all_str(const char *path, const void *data, size_t size)
+{
+    return vex_file_write_all(path, data, size);
+}
+
+bool vex_file_exists_str(const char *path)
+{
+    return vex_file_exists(path);
+}
+
+bool vex_file_remove_str(const char *path)
+{
+    return vex_file_remove(path);
+}
+
+bool vex_file_rename_str(const char *old_path, const char *new_path)
+{
+    return vex_file_rename(old_path, new_path);
+}
+
+bool vex_file_copy_str(const char *src, const char *dst)
+{
+    return vex_file_copy(src, dst);
+}
+
+bool vex_file_move_str(const char *src, const char *dst)
+{
+    return vex_file_move(src, dst);
+}
+
+bool vex_dir_create_str(const char *path)
+{
+    return vex_dir_create(path);
+}
+
+bool vex_dir_remove_str(const char *path)
+{
+    return vex_dir_remove(path);
+}
+
+bool vex_dir_exists_str(const char *path)
+{
+    return vex_dir_exists(path);
+}
+
+const char *vex_str_to_cstr(const char *s)
+{
+    return s; // Direct passthrough for C strings
+}
+
+const char *vex_cstr_to_str(const char *ptr)
+{
+    return ptr; // Direct passthrough for C strings
 }

@@ -1,0 +1,41 @@
+// Minimal test: Generic with user-defined type
+
+struct Point {
+    x: i32,
+    y: i32,
+}
+
+struct Container<T> {
+    value: T,
+}
+
+fn main(): i32 {
+    println("Creating Point...");
+    let p = Point { x: 10, y: 20 };
+    
+    // First check: Point alone
+    let x1 = p.x;
+    if x1 != 10 {
+        println("❌ Point.x failed");
+        return 1;
+    }
+    println("✅ Point.x works");
+    
+    // Second check: Point in Container (copy point)
+    let p2 = Point { x: 10, y: 20 };
+    println("Creating Container<Point>...");
+    let c = Container<Point> { value: p2 };
+    println("Container created");
+    
+    // Third check: Access container.value
+    let inner = c.value;
+    let x2 = inner.x;
+    
+    if x2 == 10 {
+        println("✅ Generic with user-defined type works!");
+        return 0;
+    }
+    
+    println("❌ Container.value.x failed");
+    return 1;
+}

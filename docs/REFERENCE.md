@@ -630,9 +630,20 @@ for let i = 0; i < 10; i = i + 1 {
     // body
 }
 
-// For-in loop (future)
+// For-in loop ✅ COMPLETE (Nov 11, 2025)
+// Works with any type implementing Iterator trait
 for item in collection {
+    // Desugars to: while let Some(item) = collection.next() { ... }
     // body
+}
+
+// Examples:
+for i in 0..10 {        // Range iterator
+    println(i);
+}
+
+for item in counter {   // Custom iterator
+    sum = sum + item;
 }
 ```
 
@@ -1069,7 +1080,9 @@ struct Person impl Eq, Ord {
 }
 ```
 
-#### Iterator Trait - Lazy Iteration
+#### Iterator Trait - Lazy Iteration ✅ COMPLETE (Nov 11, 2025)
+
+**Status:** Fully implemented with for-in loop support
 
 ```vex
 trait Iterator {
@@ -1084,7 +1097,7 @@ struct Counter impl Iterator {
 
     type Item = i32;
 
-    fn next()!: Option<i32> {
+    fn next()!: Option<i32> {  // Mutable method
         if self.count < self.limit {
             let current = self.count;
             self.count = self.count + 1;
@@ -1094,13 +1107,29 @@ struct Counter impl Iterator {
     }
 }
 
-// Usage
+// Usage with manual iteration
 let! counter = Counter { count: 0, limit: 5 };
 match counter.next() {
     Some(v) => print(v),
     None => print("Done"),
 }
+
+// Usage with for-in loop (automatic iteration)
+let! counter = Counter { count: 0, limit: 5 };
+let! sum = 0;
+
+for item in counter {  // ✅ Desugars to while let Some(item) = counter.next()
+    sum = sum + item;
+}
+// sum = 10 (0+1+2+3+4)
 ```
+
+**Implementation Details:**
+
+- For-in loops automatically call `.next()` on the iterator
+- Loop terminates when `next()` returns `None`
+- Works with any type implementing the Iterator trait
+- File: `vex-compiler/src/codegen_ast/statements/loops.rs`
 
 ### Associated Types
 
@@ -1349,14 +1378,40 @@ async fn main(): i32 {
 **MPSC channels fully working:**
 
 ```vex
-let ch = Channel.new();
+let! ch: Channel<i64> = Channel(10);  // Buffer size 10
 
 // Send
 ch.send(42);
 
-// Receive
+// Receive - method syntax
 let value = ch.recv();
+
+// Receive - Go-style operator (v0.1.2+)
+let value = <-ch;
 ```
+
+**Channel Receive Operator:**
+
+The `<-` operator provides Go-style syntactic sugar for receiving from channels:
+
+```vex
+let! ch: Channel<i64> = Channel(5);
+
+go {
+    ch.send(100);
+};
+
+// Both are equivalent:
+let val1 = ch.recv();  // Method syntax
+let val2 = <-ch;       // Go-style operator
+
+// Works in any expression context
+if <-ch == 42 {
+    println("Got 42!");
+}
+```
+
+**Implementation:** The `<-ch` operator is desugared to `ch.recv()` during compilation.
 
 ### GPU Computing
 
@@ -1719,6 +1774,20 @@ let v3 = v1 + v2;  // Concatenates vectors
 | `^`      | Bitwise XOR | `a ^ b`  |
 | `<<`     | Left shift  | `a << 2` |
 | `>>`     | Right shift | `a >> 2` |
+
+### Concurrency Operators
+
+| Operator | Description            | Example       | Status |
+| -------- | ---------------------- | ------------- | ------ |
+| `<-`     | Channel receive        | `val = <-ch`  | ✅     |
+| `<-`     | Channel send (planned) | `ch <- value` | ⏳     |
+
+**Channel Receive:**
+
+```vex
+let! ch: Channel<i64> = Channel(10);
+let value = <-ch;  // Desugars to ch.recv()
+```
 
 ### Assignment
 

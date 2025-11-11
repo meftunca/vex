@@ -189,9 +189,19 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     BasicTypeEnum::PointerType(
                         self.context.ptr_type(inkwell::AddressSpace::default()),
                     )
+                } else if let Some(struct_def) = self.struct_defs.get(name) {
+                    // User-defined struct type: Point, Container_Point, etc.
+                    let field_types: Vec<BasicTypeEnum> = struct_def
+                        .fields
+                        .iter()
+                        .map(|(_, field_ty)| self.ast_type_to_llvm(field_ty))
+                        .collect();
+
+                    BasicTypeEnum::StructType(self.context.struct_type(&field_types, false))
                 } else {
                     // Unknown named type, default to i32
                     // TODO: Better error handling
+                    eprintln!("⚠️ Unknown type name '{}', defaulting to i32", name);
                     BasicTypeEnum::IntType(self.context.i32_type())
                 }
             }

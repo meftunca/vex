@@ -794,7 +794,7 @@ enum Color {
     Blue,
 }
 
-let color = Color::Red;
+let color = Red;
 ```
 
 #### Enums with Values
@@ -825,9 +825,9 @@ enum Result<T, E> {
 
 ```vex
 match color {
-    Color::Red => { }
-    Color::Green => { }
-    Color::Blue => { }
+    Red => { }
+    Green => { }
+    Blue => { }
 }
 ```
 

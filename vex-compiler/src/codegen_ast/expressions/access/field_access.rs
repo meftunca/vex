@@ -244,6 +244,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
             Type::Named(field_type_name) => {
                 if self.struct_defs.contains_key(field_type_name) {
                     // Field is a struct - return pointer without loading (zero-copy)
+                    eprintln!(
+                        "  → Returning pointer to nested struct: {}",
+                        field_type_name
+                    );
                     return Ok(field_ptr.into());
                 }
             }
@@ -251,50 +255,22 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 // Phase 0 builtin types - always structs, return pointer
                 return Ok(field_ptr.into());
             }
-            Type::Generic { name, type_args } => {
-                // Generic struct (e.g., Box<i32>) - calculate mangled name
-                // Use the same mangling strategy as instantiate_generic_struct
-                let mangled_type_args: Vec<String> = type_args
-                    .iter()
-                    .map(|ty| match ty {
-                        Type::Named(n) => n.clone(),
-                        Type::I8 => "i8".to_string(),
-                        Type::I16 => "i16".to_string(),
-                        Type::I32 => "i32".to_string(),
-                        Type::I64 => "i64".to_string(),
-                        Type::I128 => "i128".to_string(),
-                        Type::U8 => "u8".to_string(),
-                        Type::U16 => "u16".to_string(),
-                        Type::U32 => "u32".to_string(),
-                        Type::U64 => "u64".to_string(),
-                        Type::U128 => "u128".to_string(),
-                        Type::F16 => "f16".to_string(),
-                        Type::F32 => "f32".to_string(),
-                        Type::F64 => "f64".to_string(),
-                        Type::Bool => "bool".to_string(),
-                        Type::String => "string".to_string(),
-                        Type::Byte => "byte".to_string(),
-                        Type::Nil => "nil".to_string(),
-                        Type::Error => "error".to_string(),
-                        Type::Generic {
-                            name: gn,
-                            type_args: gta,
-                        } => {
-                            // Nested generic: Box<Box<i32>> -> Box_Box_i32
-                            let inner_mangled: Vec<String> = gta
-                                .iter()
-                                .map(|t| format!("{:?}", t).replace("\"", ""))
-                                .collect();
-                            format!("{}_{}", gn, inner_mangled.join("_"))
-                        }
-                        _ => format!("{:?}", ty),
-                    })
-                    .collect();
-                let mangled_name = format!("{}_{}", name, mangled_type_args.join("_"));
+            Type::Generic { name, type_args: _ } => {
+                // Generic struct (e.g., Container<Point>) - use type_to_string for consistent mangling
+                let mangled_name = self.type_to_string(field_ast_type);
+                eprintln!(
+                    "  → Generic field type: {}<?>, mangled: {}",
+                    name, mangled_name
+                );
 
                 if self.struct_defs.contains_key(&mangled_name) {
-                    // Field is a generic struct - return pointer without loading
+                    eprintln!("  → Returning pointer to generic struct: {}", mangled_name);
                     return Ok(field_ptr.into());
+                } else {
+                    eprintln!(
+                        "  ⚠️ Generic struct {} not found in registry!",
+                        mangled_name
+                    );
                 }
             }
             _ => {}

@@ -9,21 +9,18 @@
   "dependencies": {},
 
   "native": {
-    "sources": [],
-    "libraries": ["vex_runtime"],
-    "search_paths": ["../../../vex-runtime/c"],
+    "sources": [
+      "native/src/vex_fs.c"
+    ],
+    "libraries": [],
+    "search_paths": [],
     "static_libs": [],
-    "cflags": ["-O3", "-Wall"],
-    "include_dirs": ["../../../vex-runtime/c"]
+    "cflags": ["-O3", "-Wall", "-fPIC", "-std=c11"],
+    "include_dirs": ["native/src"]
   },
 
   "exports": {
-    "main": "src/lib.vx",
-    "platforms": {
-      "macos": "src/lib.macos.vx",
-      "linux": "src/lib.linux.vx",
-      "windows": "src/lib.windows.vx"
-    }
+    "main": "src/lib.vx"
   },
 
   "features": {

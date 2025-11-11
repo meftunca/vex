@@ -21,6 +21,9 @@ pub struct Manifest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub license: Option<String>,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub repository: Option<String>,
+
     #[serde(default)]
     pub dependencies: HashMap<String, Dependency>,
 
@@ -38,6 +41,9 @@ pub struct Manifest {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bin: Option<HashMap<String, String>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub testing: Option<TestingConfig>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub native: Option<NativeConfig>,
@@ -69,6 +75,49 @@ pub struct NativeConfig {
     /// Include directories for C/C++ headers
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub include_dirs: Vec<String>,
+}
+
+/// Testing configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TestingConfig {
+    /// Test directory (default: "tests")
+    #[serde(default = "default_test_dir")]
+    pub dir: String,
+
+    /// Test file pattern (default: "*.test.vx")
+    #[serde(default = "default_test_pattern")]
+    pub pattern: String,
+
+    /// Test timeout in seconds
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub timeout: Option<u64>,
+
+    /// Run tests in parallel
+    #[serde(default = "default_parallel")]
+    pub parallel: bool,
+}
+
+fn default_test_dir() -> String {
+    "tests".to_string()
+}
+
+fn default_test_pattern() -> String {
+    "**/*.test.vx".to_string()
+}
+
+fn default_parallel() -> bool {
+    true
+}
+
+impl Default for TestingConfig {
+    fn default() -> Self {
+        Self {
+            dir: default_test_dir(),
+            pattern: default_test_pattern(),
+            timeout: None,
+            parallel: true,
+        }
+    }
 }
 
 /// Dependency can be a simple version string or detailed config
@@ -196,6 +245,11 @@ impl Manifest {
     pub fn get_native(&self) -> Option<&NativeConfig> {
         self.native.as_ref()
     }
+
+    /// Get testing configuration
+    pub fn get_testing(&self) -> TestingConfig {
+        self.testing.clone().unwrap_or_default()
+    }
 }
 
 /// Check if version is valid semver
@@ -227,6 +281,7 @@ impl Default for Manifest {
             description: Some("A Vex project".to_string()),
             authors: Some(vec!["Your Name <email@example.com>".to_string()]),
             license: Some("MIT".to_string()),
+            repository: None,
             dependencies: HashMap::new(),
             targets: Some(TargetConfig {
                 default: "x64".to_string(),
@@ -259,6 +314,7 @@ impl Default for Manifest {
             }),
             main: None,
             bin: None,
+            testing: None,
             native: None,
         }
     }

@@ -249,9 +249,9 @@ enum Option<T> {
     None,
 }
 
-let some_int = Option::Some(42);
-let some_str = Option::Some("hello");
-let nothing: Option<i32> = Option::None;
+let some_int = Some(42);
+let some_str = Some("hello");
+let nothing: Option<i32> = None;
 ```
 
 ### Multiple Type Parameters (Future)
@@ -262,20 +262,20 @@ enum Result<T, E> {
     Err(E),
 }
 
-let success: Result<i32, string> = Result::Ok(42);
-let failure: Result<i32, string> = Result::Err("error");
+let success: Result<i32, string> = Ok(42);
+let failure: Result<i32, string> = Err("error");
 ```
 
 ### Pattern Matching (Future)
 
 ```vex
-let result = Result::Ok(42);
+let result = Ok(42);
 
 match result {
-    Result::Ok(value) => {
+    Ok(value) => {
         // value: i32
     }
-    Result::Err(error) => {
+    Err(error) => {
         // error: string
     }
 }
@@ -294,10 +294,10 @@ enum Option<T> {
 fn find<T>(arr: [T], target: T): Option<i32> {
     for i in 0..arr.len() {
         if arr[i] == target {
-            return Option::Some(i);
+            return Some(i);
         }
     }
-    return Option::None;
+    return None;
 }
 ```
 

@@ -112,7 +112,7 @@ enum Color {
 }
 
 fn main(): i32 {
-    let color = Color::Red;
+    let color = Red;
     return 0;
 }
 ```
@@ -290,18 +290,19 @@ enum Color {
     Blue,
 }
 
-fn color_name(c: Color): i32 {
+fn print_color(c: Color): i32 {
     match c {
-        Color::Red => {
-            return 0;
+        Red => {
+            println("Red");
         }
-        Color::Green => {
-            return 1;
+        Green => {
+            println("Green");
         }
-        Color::Blue => {
-            return 2;
+        Blue => {
+            println("Blue");
         }
     }
+    return 0;
 }
 ```
 
@@ -318,15 +319,15 @@ enum Status {
 
 // OK: All variants covered
 match status {
-    Status::Active => { }
-    Status::Inactive => { }
-    Status::Pending => { }
+    Active => { }
+    Inactive => { }
+    Pending => { }
 }
 
-// ERROR: Missing Status::Pending
+// ERROR: Missing Pending
 match status {
-    Status::Active => { }
-    Status::Inactive => { }
+    Active => { }
+    Inactive => { }
 }
 ```
 
@@ -335,8 +336,9 @@ match status {
 Use `_` to match remaining cases:
 
 ```vex
+// Specific pattern
 match status {
-    Status::Active => { /* handle active */ }
+    Active => { /* handle active */ }
     _ => { /* handle all other cases */ }
 }
 ```
@@ -347,10 +349,10 @@ Match multiple variants:
 
 ```vex
 match status {
-    Status::Active | Status::Pending => {
+    Active | Pending => {
         // Handle both active and pending
     }
-    Status::Inactive => {
+    Inactive => {
         // Handle inactive
     }
 }
@@ -360,22 +362,25 @@ match status {
 
 Extract data from data-carrying variants:
 
-```vex
+````vex
 enum Option<T> {
     Some(T),
     None,
 }
 
-let value = Option::Some(42);
+```vex
+let value = Some(42);
 match value {
-    Option::Some(x) => {
+    Some(x) => {
         // x = 42
     }
-    Option::None => {
+    None => {
         // No value
     }
 }
-```
+````
+
+````
 
 **Named Fields**:
 
@@ -385,11 +390,11 @@ enum Message {
 }
 
 match msg {
-    Message::Move { x, y } => {
+    Move { x, y } => {
         // x and y extracted
     }
 }
-```
+````
 
 ---
 
@@ -407,7 +412,7 @@ enum Color {
 
     fn (self: &Color) is_primary(): bool {
         match *self {
-            Color::Red | Color::Green | Color::Blue => {
+            Red | Green | Blue => {
                 return true;
             }
         }
@@ -415,9 +420,9 @@ enum Color {
 
     fn (self: &Color) to_hex(): string {
         match *self {
-            Color::Red => { return "#FF0000"; }
-            Color::Green => { return "#00FF00"; }
-            Color::Blue => { return "#0000FF"; }
+            Red => { return "#FF0000"; }
+            Green => { return "#00FF00"; }
+            Blue => { return "#0000FF"; }
         }
     }
 }
@@ -436,16 +441,16 @@ enum Status {
 
 fn (s: &Status) is_active(): bool {
     match *s {
-        Status::Active => { return true; }
+        Active => { return true; }
         _ => { return false; }
     }
 }
 
 fn (s: &Status) code(): i32 {
     match *s {
-        Status::Active => { return 0; }
-        Status::Inactive => { return 1; }
-        Status::Pending => { return 2; }
+        Active => { return 0; }
+        Inactive => { return 1; }
+        Pending => { return 2; }
     }
 }
 ```
@@ -460,15 +465,15 @@ enum Color {
 
     fn from_code(code: i32): Color {
         match code {
-            0 => { return Color::Red; }
-            1 => { return Color::Green; }
-            2 => { return Color::Blue; }
-            _ => { return Color::Red; }  // Default
+            0 => { return Red; }
+            1 => { return Green; }
+            2 => { return Blue; }
+            _ => { return Red; }  // Default
         }
     }
 }
 
-let color = Color::from_code(1);  // Color::Green
+let color = Color.from_code(1);  // Returns Green
 ```
 
 ---
@@ -483,9 +488,9 @@ enum Option<T> {
     None,
 }
 
-let some_int = Option::Some(42);
-let some_str = Option::Some("hello");
-let nothing: Option<i32> = Option::None;
+let some_int = Some(42);
+let some_str = Some("hello");
+let nothing: Option<i32> = None;
 ```
 
 ### Multiple Type Parameters
@@ -496,8 +501,8 @@ enum Result<T, E> {
     Err(E),
 }
 
-let success: Result<i32, string> = Result::Ok(42);
-let failure: Result<i32, string> = Result::Err("error");
+let success: Result<i32, string> = Ok(42);
+let failure: Result<i32, string> = Err("error");
 ```
 
 ### Constraints (Future)
@@ -582,24 +587,24 @@ enum Option<T> {
 fn find(arr: [i32], target: i32): Option<i32> {
     for i in 0..arr.len() {
         if arr[i] == target {
-            return Option::Some(i);
+            return Some(i);
         }
     }
-    return Option::None;
+    return None;
 }
 
 let result = find([1, 2, 3], 2);
 match result {
-    Option::Some(index) => { /* found */ }
-    Option::None => { /* not found */ }
+    Some(index) => { /* found */ }
+    None => { /* not found */ }
 }
 ```
 
 **Builtin Constructors**:
 
 ```vex
-let value = Some(42);        // Option::Some<i32>
-let nothing = None<i32>();   // Option::None (needs type annotation)
+let value = Some(42);        // Creates Option<i32>
+let nothing = None<i32>();   // Explicit type annotation for None
 ```
 
 **Implementation Status**: ✅ Complete - constructors and pattern matching fully working
@@ -616,23 +621,23 @@ enum Result<T, E> {
 
 fn divide(a: i32, b: i32): Result<i32, string> {
     if b == 0 {
-        return Result::Err("Division by zero");
+        return Err("Division by zero");
     }
-    return Result::Ok(a / b);
+    return Ok(a / b);
 }
 
 let result = divide(10, 2);
 match result {
-    Result::Ok(value) => { /* value = 5 */ }
-    Result::Err(msg) => { /* handle error */ }
+    Ok(value) => { /* value = 5 */ }
+    Err(msg) => { /* handle error */ }
 }
 ```
 
 **Builtin Constructors**:
 
 ```vex
-let success = Ok(42);                  // Result::Ok<i32, E>
-let failure = Err("error message");    // Result::Err<T, string>
+let success = Ok(42);                  // Creates Result<i32, E>
+let failure = Err("error message");    // Creates Result<T, string>
 ```
 
 **Implementation Status**: ✅ Complete - constructors and pattern matching fully working
@@ -699,15 +704,15 @@ enum Color {
 }
 
 fn main(): i32 {
-    let color = Color::Red;
+    let color = Red;
     match color {
-        Color::Red => {
+        Red => {
             return 1;
         }
-        Color::Green => {
+        Green => {
             return 2;
         }
-        Color::Blue => {
+        Blue => {
             return 3;
         }
     }
@@ -725,14 +730,14 @@ enum Status {
 
 fn status_code(s: Status): i32 {
     match s {
-        Status::Active => { return 0; }
-        Status::Inactive => { return 1; }
-        Status::Pending => { return 2; }
+        Active => { return 0; }
+        Inactive => { return 1; }
+        Pending => { return 2; }
     }
 }
 
 fn main(): i32 {
-    let status = Status::Active;
+    let status = Active;
     return status_code(status);  // 0
 }
 ```
@@ -850,18 +855,18 @@ enum Role {
 ```vex
 // Good: Compiler checks all cases
 match status {
-    Status::Active => { }
-    Status::Inactive => { }
-    Status::Pending => { }
+    Active => { }
+    Inactive => { }
+    Pending => { }
 }
 
 // Bad: Might miss cases
-if status == Status::Active {
+if status == Active {
     // ...
-} elif status == Status::Inactive {
+} elif status == Inactive {
     // ...
 }
-// Forgot Status::Pending!
+// Forgot Pending!
 ```
 
 ### 4. Group Related Variants
@@ -892,8 +897,8 @@ enum Status {
 
     fn (self: &Status) is_active(): bool {
         match *self {
-            Status::Active => { return true; }
-            Status::Inactive => { return false; }
+            Active => { return true; }
+            Inactive => { return false; }
         }
     }
 }
@@ -903,8 +908,8 @@ if status.is_active() { }
 
 // Bad: Repeated matching
 match status {
-    Status::Active => { /* ... */ }
-    Status::Inactive => { /* ... */ }
+    Active => { /* ... */ }
+    Inactive => { /* ... */ }
 }
 ```
 

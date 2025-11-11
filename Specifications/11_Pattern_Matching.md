@@ -127,19 +127,19 @@ enum Color {
 }
 
 match color {
-    Color::Red => { /* red */ }
-    Color::Green => { /* green */ }
-    Color::Blue => { /* blue */ }
+    Red => { /* red */ }
+    Green => { /* green */ }
+    Blue => { /* blue */ }
 }
 ```
 
 **Must be exhaustive**:
 
 ```vex
-// ERROR: Missing Color::Blue
+// ERROR: Missing Blue
 match color {
-    Color::Red => { }
-    Color::Green => { }
+    Red => { }
+    Green => { }
 }
 ```
 
@@ -161,8 +161,8 @@ match day {
 
 ```vex
 match status {
-    Status::Active | Status::Pending => { /* in progress */ }
-    Status::Inactive => { /* done */ }
+    Active | Pending => { /* in progress */ }
+    Inactive => { /* done */ }
 }
 
 match x {
@@ -355,10 +355,10 @@ enum Option<T> {
 }
 
 match value {
-    Option::Some(x) => {
+    Some(x) => {
         // x contains the wrapped value
     }
-    Option::None => {
+    None => {
         // No value
     }
 }
@@ -374,9 +374,9 @@ enum Message {
 }
 
 match msg {
-    Message::Move { x, y } => { /* x, y bound */ }
-    Message::Write(text) => { /* text bound */ }
-    Message::ChangeColor(r, g, b) => { /* r, g, b bound */ }
+    Move { x, y } => { /* x, y bound */ }
+    Write(text) => { /* text bound */ }
+    ChangeColor(r, g, b) => { /* r, g, b bound */ }
 }
 ```
 
@@ -397,21 +397,21 @@ enum Status {
 
 // OK: All variants covered
 match status {
-    Status::Active => { }
-    Status::Inactive => { }
-    Status::Pending => { }
+    Active => { }
+    Inactive => { }
+    Pending => { }
 }
 
 // OK: Wildcard covers remaining
 match status {
-    Status::Active => { }
+    Active => { }
     _ => { /* Inactive and Pending */ }
 }
 
-// ERROR: Missing Status::Pending
+// ERROR: Missing Pending
 match status {
-    Status::Active => { }
-    Status::Inactive => { }
+    Active => { }
+    Inactive => { }
 }
 ```
 
@@ -422,7 +422,7 @@ Error: Match is not exhaustive
   --> example.vx:10:5
    |
 10 |     match status {
-   |     ^^^^^ missing Status::Pending
+   |     ^^^^^ missing Pending
    |
    = help: ensure all variants are covered or add a wildcard pattern
 ```
@@ -480,9 +480,9 @@ match pair {
 
 ```vex
 match option {
-    Option::Some(x) if x > 10 => { /* large value */ }
-    Option::Some(x) => { /* small value */ }
-    Option::None => { /* no value */ }
+    Some(x) if x > 10 => { /* large value */ }
+    Some(x) => { /* small value */ }
+    None => { /* no value */ }
 }
 ```
 
@@ -561,9 +561,9 @@ enum Color {
 
 fn color_code(c: Color): i32 {
     match c {
-        Color::Red => { return 0; }
-        Color::Green => { return 1; }
-        Color::Blue => { return 2; }
+        Red => { return 0; }
+        Green => { return 1; }
+        Blue => { return 2; }
     }
 }
 ```
@@ -613,15 +613,15 @@ fn is_weekend(day: i32): bool {
 ```vex
 // Good: Clear, exhaustive
 match status {
-    Status::Active => { }
-    Status::Inactive => { }
-    Status::Pending => { }
+    Active => { }
+    Inactive => { }
+    Pending => { }
 }
 
 // Bad: Error-prone if-else chain
-if status == Status::Active {
+if status == Active {
     // ...
-} elif status == Status::Inactive {
+} elif status == Inactive {
     // ...
 }
 ```
@@ -715,13 +715,13 @@ match error_code {
 | Literal      | `42`, `true`, `"text"` | ✅ Working           | Exact value match            |
 | Variable     | `x`, `name`            | ✅ Working           | Bind to variable             |
 | Wildcard     | `_`                    | ✅ Working           | Match anything               |
-| Enum         | `Color::Red`           | ✅ Working           | Enum variant                 |
+| Enum         | `Red`, `Active`        | ✅ Working           | Enum variant (no :: syntax)  |
 | Or           | `1 \| 2 \| 3`          | ✅ Working           | Multiple patterns            |
 | Tuple        | `(x, y)`               | ✅ Working           | Destructure tuples           |
 | Struct       | `Point { x, y }`       | ✅ Complete (v0.1.2) | Destructure structs          |
 | Array        | `[a, b, c]`            | ✅ Working           | Fixed-size arrays            |
 | Slice        | `[head, ...rest]`      | ✅ Working           | Rest patterns with `...`     |
-| Enum Data    | `Some(x)`              | ✅ Working           | Data-carrying enums working  |
+| Enum Data    | `Some(x)`, `None`      | ✅ Working           | Data-carrying enums working  |
 | Range        | `0..10`, `0..=10`      | ✅ Working           | Value ranges with .. and ..= |
 | Guard        | `x if x > 0`           | ✅ Working           | Conditional patterns         |
 | Reference    | `&x`                   | 🚧 Future            | Match references             |

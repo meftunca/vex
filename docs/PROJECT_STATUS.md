@@ -2,7 +2,7 @@
 
 **Version:** 0.2.0 (Syntax v0.1.2)
 **Last Updated:** Kasım 11, 2025
-**Test Status:** 279/279 passing (100%) ✅🎉 - PRODUCTION READY!
+**Test Status:** 290/290 passing (100%) ✅🎉 - PRODUCTION READY!
 
 ## 📊 Code Metrics
 
@@ -10,14 +10,14 @@
 
 | Component | File | Lines |
 |-----------|------|-------|
-| AST | vex-ast/src/lib.rs | 858 |
+| AST | vex-ast/src/lib.rs | 862 |
 | Parser | vex-parser/src/parser/mod.rs | 407 |
 | Codegen | vex-compiler/src/codegen_ast/mod.rs | 802 |
-| Types | vex-compiler/src/codegen_ast/types.rs | 819 |
+| Types | vex-compiler/src/codegen_ast/types.rs | 829 |
 | Pattern Matching | vex-compiler/src/codegen_ast/expressions/pattern_matching.rs | 1471 |
-| Borrow Checker - Lifetimes | vex-compiler/src/borrow_checker/lifetimes.rs | 796 |
-| Borrow Checker - Moves | vex-compiler/src/borrow_checker/moves.rs | 705 |
-| Borrow Checker - Borrows | vex-compiler/src/borrow_checker/borrows.rs | 645 |
+| Borrow Checker - Lifetimes | vex-compiler/src/borrow_checker/lifetimes.rs | 798 |
+| Borrow Checker - Moves | vex-compiler/src/borrow_checker/moves.rs | 707 |
+| Borrow Checker - Borrows | vex-compiler/src/borrow_checker/borrows.rs | 647 |
 
 ---
 

@@ -1,0 +1,104 @@
+// Test generic support for user-defined types
+// Tests that generics work with custom structs, not just primitives
+
+// User-defined wrapper struct
+struct Point {
+    x: i32,
+    y: i32,
+}
+
+// Generic container that should accept ANY type
+struct Container<T> {
+    value: T,
+}
+
+// Generic pair that should accept ANY two types
+struct Pair<A, B> {
+    first: A,
+    second: B,
+}
+
+// Test with primitives
+fn test_primitives(): bool {
+    let c_int = Container<i32> { value: 42 };
+    let c_str = Container<string> { value: "hello" };
+    let c_bool = Container<bool> { value: true };
+    
+    return true;
+}
+
+// Test with user-defined types
+fn test_user_types(): bool {
+    let point = Point { x: 10, y: 20 };
+    let c_point = Container<Point> { value: point };
+    
+    // Access nested field
+    let x_val = c_point.value.x;
+    
+    if x_val == 10 {
+        println("✅ Generic with user-defined type works!");
+        return true;
+    }
+    
+    return false;
+}
+
+// Test nested generics with user types
+fn test_nested_user(): bool {
+    let point = Point { x: 5, y: 10 };
+    let c1 = Container<Point> { value: point };
+    let c2 = Container<Container<Point>> { value: c1 };
+    
+    // Access deeply nested field
+    let nested_x = c2.value.value.x;
+    
+    if nested_x == 5 {
+        println("✅ Nested generic with user type works!");
+        return true;
+    }
+    
+    return false;
+}
+
+// Test pair with mixed types
+fn test_pair_mixed(): bool {
+    let point = Point { x: 1, y: 2 };
+    let pair = Pair<Point, i32> { first: point, second: 42 };
+    
+    let x = pair.first.x;
+    let num = pair.second;
+    
+    if x == 1 && num == 42 {
+        println("✅ Pair with mixed types works!");
+        return true;
+    }
+    
+    return false;
+}
+
+fn main(): i32 {
+    println("Testing generic support for user-defined types...");
+    
+    if !test_primitives() {
+        println("❌ Primitive test failed");
+        return 1;
+    }
+    
+    if !test_user_types() {
+        println("❌ User type test failed");
+        return 1;
+    }
+    
+    if !test_nested_user() {
+        println("❌ Nested user type test failed");
+        return 1;
+    }
+    
+    if !test_pair_mixed() {
+        println("❌ Pair mixed test failed");
+        return 1;
+    }
+    
+    println("✅ All generic user type tests passed!");
+    return 0;
+}

@@ -1,0 +1,73 @@
+// FS Module Advanced Example
+// Demonstrates production usage patterns
+
+import {
+    read_to_string,
+    write_string,
+    exists,
+    copy,
+    remove,
+    create_dir,
+    dir_exists
+} from "fs";
+
+fn main() {
+    print("=== Vex FS Module Demo ===\n\n");
+    
+    // Example 1: Basic file write/read
+    print("1. Basic File I/O\n");
+    
+    let content: String = "Hello from Vex FS module!\nLine 2\nLine 3";
+    write_string("/tmp/vex_demo.txt", content);
+    print("  Written to: /tmp/vex_demo.txt\n");
+    
+    let read_back: String = read_to_string("/tmp/vex_demo.txt");
+    print("  Read back: ");
+    print(read_back);
+    print("\n\n");
+    
+    // Example 2: File operations
+    print("2. File Operations\n");
+    
+    if exists("/tmp/vex_demo.txt") {
+        print("  File exists: /tmp/vex_demo.txt\n");
+        
+        copy("/tmp/vex_demo.txt", "/tmp/vex_demo_backup.txt");
+        print("  Copied to: /tmp/vex_demo_backup.txt\n");
+        
+        remove("/tmp/vex_demo_backup.txt");
+        print("  Backup removed\n");
+    }
+    print("\n");
+    
+    // Example 3: Directory operations
+    print("3. Directory Operations\n");
+    
+    if !dir_exists("/tmp/vex_test_dir") {
+        create_dir("/tmp/vex_test_dir");
+        print("  Created directory: /tmp/vex_test_dir\n");
+    }
+    
+    if dir_exists("/tmp/vex_test_dir") {
+        print("  Directory exists: /tmp/vex_test_dir\n");
+    }
+    print("\n");
+    
+    // Example 4: Multiple files
+    print("4. Batch File Creation\n");
+    let! i: i64 = 0;
+    while i < 3 {
+        print("  Would create file #");
+        print(i);
+        print("\n");
+        i = i + 1;
+    }
+    print("\n");
+    
+    // Cleanup
+    print("5. Cleanup\n");
+    remove("/tmp/vex_demo.txt");
+    print("  Removed test file\n");
+    
+    print("\nDemo complete!\n");
+}

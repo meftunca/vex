@@ -596,6 +596,11 @@ impl<'a> FormattingVisitor<'a> {
                 }
                 self.write(")");
             }
+            Expression::ChannelReceive(channel) => {
+                // Go-style channel receive: <-ch
+                self.write("<-");
+                self.visit_expression(channel);
+            }
             _ => {
                 self.write("/* expr */");
             }

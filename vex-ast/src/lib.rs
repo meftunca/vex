@@ -728,6 +728,10 @@ pub enum Expression {
     /// Error creation: error.new("message")
     ErrorNew(Box<Expression>),
 
+    /// Channel receive: <-channel (Go-style)
+    /// Equivalent to channel.recv()
+    ChannelReceive(Box<Expression>),
+
     /// Closure/Lambda: |x, y| expr or |x, y| { stmts; expr }
     Closure {
         params: Vec<Param>,        // Closure parameters

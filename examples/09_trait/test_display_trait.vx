@@ -1,0 +1,33 @@
+// Test Display trait implementation
+// Tests basic to_string() functionality
+
+// Define Display trait locally (since stdlib import not working yet)
+trait Display {
+    fn to_string(): string;
+}
+
+// Simple Point struct with Display
+struct Point impl Display {
+    x: i32,
+    y: i32,
+    
+    fn to_string(): string {
+        // For now, return simple format
+        // TODO: Use proper string formatting when available
+        return "Point";
+    }
+}
+
+fn main(): i32 {
+    let p = Point { x: 10, y: 20 };
+    let s = p.to_string();
+    
+    // Verify to_string() works
+    if s == "Point" {
+        println("✅ Display trait works!");
+        return 0;
+    }
+    
+    println("❌ Display trait failed");
+    return 1;
+}

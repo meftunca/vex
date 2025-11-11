@@ -1,0 +1,14 @@
+// Ultra minimal test
+import {exists, write_string} from "fs";
+
+fn main() {
+    print("FS module test starting...\n");
+    
+    write_string("/tmp/vex_test.txt", "Hello World");
+    
+    if exists("/tmp/vex_test.txt") {
+        print("File created!\n");
+    }
+    
+    print("Test complete\n");
+}

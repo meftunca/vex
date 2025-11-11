@@ -1,0 +1,21 @@
+// Minimal FS test
+import {exists, write_string, read_to_string} from "fs";
+
+fn main() {
+    print("Testing FS module...\n");
+    
+    let data: String = "Test content";
+    
+    write_string("/tmp/vex_minimal_test.txt", data);
+    
+    if exists("/tmp/vex_minimal_test.txt") {
+        print("File created successfully\n");
+        
+        let content: String = read_to_string("/tmp/vex_minimal_test.txt");
+        print("Content: ");
+        print(content);
+        print("\n");
+    }
+    
+    print("Test complete\n");
+}

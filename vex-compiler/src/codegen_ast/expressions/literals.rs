@@ -497,7 +497,45 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
             let field_val = self.compile_expression(&adjusted_field_expr)?;
             field_types.push(self.ast_type_to_llvm(field_ty));
-            field_values.push(field_val);
+
+            // CRITICAL FIX: If field is a struct type and field_val is a pointer,
+            // we need to load the struct value (memcpy) instead of storing the pointer
+            let actual_field_val = match field_ty {
+                Type::Named(type_name) if self.struct_defs.contains_key(type_name) => {
+                    // Field is a user-defined struct
+                    if field_val.is_pointer_value() {
+                        // Load the struct value from pointer
+                        let field_type = self.ast_type_to_llvm(field_ty);
+                        self.builder
+                            .build_load(field_type, field_val.into_pointer_value(), "struct_val")
+                            .map_err(|e| format!("Failed to load struct field value: {}", e))?
+                    } else {
+                        field_val
+                    }
+                }
+                Type::Generic { .. } => {
+                    // Generic struct - use mangled name
+                    let mangled_name = self.type_to_string(field_ty);
+                    if self.struct_defs.contains_key(&mangled_name) && field_val.is_pointer_value()
+                    {
+                        let field_type = self.ast_type_to_llvm(field_ty);
+                        self.builder
+                            .build_load(
+                                field_type,
+                                field_val.into_pointer_value(),
+                                "generic_struct_val",
+                            )
+                            .map_err(|e| {
+                                format!("Failed to load generic struct field value: {}", e)
+                            })?
+                    } else {
+                        field_val
+                    }
+                }
+                _ => field_val,
+            };
+
+            field_values.push(actual_field_val);
         }
 
         // 2. Create struct type from registry definition

@@ -375,7 +375,7 @@ Traits can have associated types:
 trait Iterator {
     type Item;
 
-    fn next(): Option<Self::Item>;
+    fn next(): Option<Self.Item>;
 }
 ```
 
@@ -385,7 +385,7 @@ trait Iterator {
 - Implementing types specify concrete type
 - Used for output types in trait methods
 
-### Implementation (Future)
+### Implementation (IMPLEMENTED ✅)
 
 ```vex
 struct Counter impl Iterator {
@@ -393,10 +393,10 @@ struct Counter impl Iterator {
 
     current: i32,
 
-    fn (self: &Counter!) next(): Option<i32> {
+    fn next()!: Option<i32> {
         let value = self.current;
         self.current = self.current + 1;
-        return Option::Some(value);
+        return Some(value);
     }
 }
 ```
@@ -407,7 +407,7 @@ struct Counter impl Iterator {
 trait Container {
     type Item<T>;
 
-    fn get<T>(): Self::Item<T>;
+    fn get<T>(): Self.Item<T>;
 }
 ```
 

@@ -525,6 +525,19 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 }
             }
 
+            Expression::ChannelReceive(channel_expr) => {
+                // Channel receive operator: <-ch
+                // Desugar to method call: ch.recv()
+                let recv_call = Expression::MethodCall {
+                    receiver: channel_expr.clone(),
+                    method: "recv".to_string(),
+                    type_args: vec![],
+                    args: vec![],
+                    is_mutable_call: true,
+                };
+                self.compile_expression(&recv_call)
+            }
+
             Expression::EnumLiteral {
                 enum_name,
                 variant,
