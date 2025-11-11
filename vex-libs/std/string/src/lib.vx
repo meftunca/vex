@@ -37,21 +37,24 @@ extern "C" {
 
 export fn from_utf8(bytes: *u8, len: u64): Result<str, str> {
     if vex_utf8_valid(bytes, len) {
-        // TODO: Create string from bytes when from_utf8_unchecked is available
-        return Result.Ok("string_from_bytes"); // Placeholder
+        // Use from_utf8_unchecked since validation passed
+        let s = from_utf8_unchecked(bytes, len);
+        return Result.Ok(s);
     } else {
-        return Result.Err("invalid_utf8");
+        return Result.Err("Invalid UTF-8 byte sequence");
     }
 }
 
 export fn from_utf8_unchecked(bytes: *u8, len: u64): str {
-    // TODO: Implement when string creation from bytes is available
-    return "unchecked_string"; // Placeholder
+    // Create string from raw bytes without validation
+    // bytes is already a *u8, just cast to string
+    return bytes;
 }
 
 export fn from_cstr(cstr: *u8): str {
-    // TODO: Implement C string to Vex string conversion
-    return "from_cstr"; // Placeholder
+    // C strings are null-terminated, just return pointer as string
+    // Vex strings are compatible with C strings (both *u8)
+    return cstr;
 }
 
 export fn len(s: str): u64 {

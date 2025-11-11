@@ -207,7 +207,46 @@ impl<'ctx> FFIBridge<'ctx> {
             Type::Tuple(_) => {
                 Err("Tuple types not supported in FFI (use struct instead)".to_string())
             }
-            Type::Union(_) => Err("Union types not yet implemented in FFI".to_string()),
+            Type::Union(types) => {
+                // Union types in FFI map to LLVM union representation
+                // Strategy: Use largest type size, represented as byte array
+                let mut max_size = 0usize;
+
+                for ty in types {
+                    let llvm_ty = self.vex_type_to_llvm(ty)?;
+
+                    // Estimate size based on BasicMetadataTypeEnum
+                    let size = match llvm_ty {
+                        inkwell::types::BasicMetadataTypeEnum::IntType(int_ty) => {
+                            (int_ty.get_bit_width() as usize + 7) / 8
+                        }
+                        inkwell::types::BasicMetadataTypeEnum::FloatType(float_ty) => {
+                            if float_ty == self.context.f32_type() {
+                                4
+                            } else if float_ty == self.context.f64_type() {
+                                8
+                            } else {
+                                16 // f128
+                            }
+                        }
+                        inkwell::types::BasicMetadataTypeEnum::PointerType(_) => 8, // 64-bit pointer
+                        inkwell::types::BasicMetadataTypeEnum::StructType(_) => 16, // Estimate
+                        inkwell::types::BasicMetadataTypeEnum::ArrayType(_) => 16,  // Estimate
+                        inkwell::types::BasicMetadataTypeEnum::VectorType(_) => 16, // Estimate
+                        _ => 8,
+                    };
+
+                    if size > max_size {
+                        max_size = size;
+                    }
+                }
+
+                // Create union as byte array with max_size
+                let i8_type = self.context.i8_type();
+                let union_array = i8_type.array_type(max_size as u32);
+
+                Ok(union_array.into())
+            }
             Type::Infer(_) => {
                 Err("Type inference failed - cannot generate FFI declaration".to_string())
             }
@@ -216,11 +255,4 @@ impl<'ctx> FFIBridge<'ctx> {
             _ => Err(format!("Unsupported type for FFI: {:?}", ty)),
         }
     }
-}
-
-#[cfg(test)]
-mod tests {
-    // Integration test moved to examples/test_ffi_bridge.vx
-    // Test lifetime issues prevented unit testing here
-    // FFI bridge validated via actual extern "C" block compilation
 }

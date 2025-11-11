@@ -88,20 +88,48 @@ extern "C" {
 
 // Format i64 to string
 export fn i64_to_str(value: i64): str {
-    // TODO: Implement proper string conversion when string.from_utf8_unchecked is available
-    return "i64_formatted"; // Placeholder
+    // Allocate buffer for string (max i64 is 20 chars + null)
+    let! buf: [u8; 32];
+    let buf_ptr: *u8! = &buf;
+    
+    unsafe {
+        let len = vex_i64_to_str(value, buf_ptr, 32);
+        if len > 0 {
+            // Return pointer to buffer as string
+            return buf_ptr;
+        }
+    }
+    return "0";
 }
 
 // Format u64 to string
 export fn u64_to_str(value: u64): str {
-    // TODO: Implement proper string conversion
-    return "u64_formatted"; // Placeholder
+    // Allocate buffer for string (max u64 is 20 chars + null)
+    let! buf: [u8; 32];
+    let buf_ptr: *u8! = &buf;
+    
+    unsafe {
+        let len = vex_u64_to_str(value, buf_ptr, 32);
+        if len > 0 {
+            return buf_ptr;
+        }
+    }
+    return "0";
 }
 
 // Format f64 to string
 export fn f64_to_str(value: f64): str {
-    // TODO: Implement proper string conversion
-    return "f64_formatted"; // Placeholder
+    // Allocate buffer for float string (32 bytes should be enough)
+    let! buf: [u8; 64];
+    let buf_ptr: *u8! = &buf;
+    
+    unsafe {
+        let len = vex_f64_to_str(value, buf_ptr, 64);
+        if len > 0 {
+            return buf_ptr;
+        }
+    }
+    return "0.0";
 }
 
 // Parse i32

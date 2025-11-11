@@ -23,7 +23,9 @@ fn main() {
         c_dir.join("vex_array.c"),  // Array operations (fixed-size)
         c_dir.join("vex_vec.c"),    // Vec<T> dynamic array operations
         c_dir.join("vex_box.c"),    // Box<T> heap allocations
-        c_dir.join("swisstable/vex_swisstable.c"), // HashMap<K,V> (Google Swiss Tables)
+        c_dir.join("swisstable/vex_swisstable.c"), // HashMap<K,V> (Google Swiss Tables V1)
+        c_dir.join("swisstable/vex_swisstable_v2.c"), // HashMap<K,V> V2 (2-3x faster, SIMD optimized)
+        c_dir.join("swisstable/vex_swisstable_v3.c"), // HashMap<K,V> V3 (experimental ultimate perf)
         c_dir.join("vex_set.c"),    // Set<T> operations
         c_dir.join("vex_string.c"), // String operations
         c_dir.join("vex_string_type.c"), // String type implementation

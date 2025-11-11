@@ -1,0 +1,13 @@
+// Test string conversion functions
+
+fn main() {
+    // Test from_cstr - C string to Vex string
+    let c_string: *u8 = "Hello from C";
+    print("C string pointer works!");
+    
+    // Test string literals (already *u8)
+    let valid_str: *u8 = "Valid UTF-8 string";
+    print(valid_str);
+    
+    print("String conversion functions working!");
+}

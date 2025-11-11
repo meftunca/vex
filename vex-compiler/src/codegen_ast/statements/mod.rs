@@ -111,6 +111,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
             } => {
                 self.compile_while_loop(span_id, condition, body)?;
             }
+            Statement::Loop { body } => {
+                self.compile_loop(body)?;
+            }
             Statement::ForIn {
                 variable,
                 iterable,

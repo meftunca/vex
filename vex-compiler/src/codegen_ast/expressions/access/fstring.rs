@@ -2,6 +2,7 @@
 
 use crate::codegen_ast::ASTCodeGen;
 use inkwell::values::BasicValueEnum;
+use vex_ast::Expression;
 
 impl<'ctx> ASTCodeGen<'ctx> {
     /// Compile F-string with interpolation
@@ -87,19 +88,80 @@ impl<'ctx> ASTCodeGen<'ctx> {
             return Ok(global_str.as_pointer_value().into());
         }
 
-        // TODO: For now, F-strings with interpolation are not fully supported
-        // We would need to:
-        // 1. Parse each {expression} as a Vex expression
-        // 2. Evaluate each expression
-        // 3. Convert each result to string (call to_string methods or format functions)
-        // 4. Concatenate all parts
+        // Implement full F-string interpolation
+        // Process each part: text → string literal, expr → evaluate + convert to string
+        let mut string_parts: Vec<BasicValueEnum<'ctx>> = Vec::new();
 
-        // For now, just return a placeholder string indicating interpolation is needed
-        let placeholder = format!("f\"{}\" (interpolation not yet implemented)", template);
-        let global_str = self
-            .builder
-            .build_global_string_ptr(&placeholder, "fstr_placeholder")
-            .map_err(|e| format!("Failed to create F-string placeholder: {}", e))?;
-        Ok(global_str.as_pointer_value().into())
+        for part in result_parts {
+            match part {
+                FStringPart::Text(text) => {
+                    // Create string literal for text parts
+                    let str_ptr = self
+                        .builder
+                        .build_global_string_ptr(&text, "fstr_text")
+                        .map_err(|e| format!("Failed to create F-string text part: {}", e))?;
+                    string_parts.push(str_ptr.as_pointer_value().into());
+                }
+                FStringPart::Expr(expr_str) => {
+                    // For now, only support simple variable references
+                    // Full expression parsing would require parser integration
+                    let trimmed = expr_str.trim();
+
+                    // Try to compile as identifier (variable reference)
+                    let value = match self
+                        .compile_expression(&Expression::Ident(trimmed.to_string()))
+                    {
+                        Ok(v) => v,
+                        Err(_) => {
+                            // If identifier fails, return error message
+                            return Err(format!(
+                                "F-string interpolation only supports simple variables for now, got: '{}'",
+                                trimmed
+                            ));
+                        }
+                    };
+
+                    // Convert value to string based on its type
+                    let str_value = self.convert_value_to_string(value)?;
+                    string_parts.push(str_value);
+                }
+            }
+        }
+
+        // Concatenate all string parts using vex_strcat_new
+        if string_parts.is_empty() {
+            // Empty F-string - return empty string
+            let empty_str = self
+                .builder
+                .build_global_string_ptr("", "fstr_empty")
+                .map_err(|e| format!("Failed to create empty F-string: {}", e))?;
+            return Ok(empty_str.as_pointer_value().into());
+        }
+
+        if string_parts.len() == 1 {
+            // Single part - no concatenation needed
+            return Ok(string_parts[0]);
+        }
+
+        // Get vex_strcat_new function (concatenates two strings)
+        let strcat_fn = self.get_or_declare_vex_strcat_new()?;
+
+        // Concatenate parts iteratively: result = part0 + part1 + part2 + ...
+        let mut result = string_parts[0].into_pointer_value();
+        for part in &string_parts[1..] {
+            let part_ptr = part.into_pointer_value();
+            let concat_result = self
+                .builder
+                .build_call(strcat_fn, &[result.into(), part_ptr.into()], "fstr_concat")
+                .map_err(|e| format!("Failed to concatenate F-string parts: {}", e))?;
+
+            result = concat_result
+                .try_as_basic_value()
+                .left()
+                .ok_or("vex_strcat_new returned void")?
+                .into_pointer_value();
+        }
+
+        Ok(result.into())
     }
 }

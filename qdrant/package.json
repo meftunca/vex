@@ -1,0 +1,40 @@
+{
+  "name": "vex-qdrant-rag",
+  "version": "1.0.0",
+  "description": "Qdrant-based RAG system for Vex language documentation and codebase",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "sync": "bun src/cli.ts all",
+    "search": "bun src/search-cli.ts",
+    "todo": "bun src/todo-cli.ts",
+    "serve-mcp": "bun src/mcp-server.ts",
+    "reset": "bun src/reset.ts",
+    "test": "bun test.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "@qdrant/js-client-rest": "^1.12.0",
+    "commander": "^12.1.0",
+    "dotenv": "^16.4.5",
+    "glob": "^11.0.0",
+    "ollama": "^0.5.11"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/markdown-it": "^13.0.7",
+    "@types/js-yaml": "^4.0.9",
+    "typescript": "^5.3.0"
+  },
+  "keywords": [
+    "vex",
+    "qdrant",
+    "rag",
+    "mcp",
+    "semantic-search"
+  ],
+  "author": "Vex Language Team",
+  "license": "MIT"
+}

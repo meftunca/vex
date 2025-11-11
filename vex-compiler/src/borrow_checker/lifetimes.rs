@@ -344,6 +344,13 @@ impl LifetimeChecker {
                 Ok(())
             }
 
+            Statement::Loop { body } => {
+                self.enter_scope();
+                self.check_block(body)?;
+                self.exit_scope();
+                Ok(())
+            }
+
             Statement::For {
                 span_id: _,
                 init,

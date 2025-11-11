@@ -1,0 +1,83 @@
+// Simple Iterator adapter test - map only
+// Testing the most basic functionality
+
+struct Counter impl Iterator {
+    type Item = i32;
+    current: i32,
+    max: i32,
+    
+    fn next()!: Option<i32> {
+        if self.current >= self.max {
+            return None;
+        }
+        
+        let val = self.current;
+        self.current = self.current + 1;
+        return Some(val);
+    }
+}
+
+// Map adapter - simplified version  
+struct MapAdapter impl Iterator {
+    type Item = i32;
+    counter: Counter,
+    
+    fn next()!: Option<i32> {
+        // Direct field method call (no workaround needed!)
+        let val = self.counter.next();
+        
+        // Match expression returns a value automatically
+        match val {
+            Some(x) => {
+                let doubled = x * 2;
+                Some(doubled)
+            },
+            None => None,
+        }
+    }
+}
+
+fn main(): i32 {
+    println("Testing map adapter...");
+    
+    let! base_counter = Counter { current: 0, max: 3 };
+    let! mapper = MapAdapter { counter: base_counter };
+    
+    // Should get: 0*2, 1*2, 2*2 = 0, 2, 4
+    let val1 = mapper.next();
+    match val1 {
+        Some(x) => {
+            if x == 0 {
+                println("✅ First value correct: 0");
+            } else {
+                println("❌ Expected 0, got:");
+                println(x);
+                return 1;
+            }
+        },
+        None => {
+            println("❌ Expected Some(0), got None");
+            return 1;
+        },
+    }
+    
+    let val2 = mapper.next();
+    match val2 {
+        Some(x) => {
+            if x == 2 {
+                println("✅ Second value correct: 2");
+            } else {
+                println("❌ Expected 2, got:");
+                println(x);
+                return 1;
+            }
+        },
+        None => {
+            println("❌ Expected Some(2), got None");
+            return 1;
+        },
+    }
+    
+    println("✅ Map adapter works!");
+    return 0;
+}

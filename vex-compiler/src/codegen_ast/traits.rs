@@ -83,10 +83,43 @@ impl<'ctx> ASTCodeGen<'ctx> {
             self.track_param_struct_name(&param.name, &param.ty);
         }
 
-        for stmt in &method.body.statements {
+        // Compile method body
+        let mut last_expr_value: Option<BasicValueEnum> = None;
+        
+        for (i, stmt) in method.body.statements.iter().enumerate() {
+            let is_last = i == method.body.statements.len() - 1;
+            
+            // If last statement is expression, save its value for potential implicit return
+            if is_last && matches!(stmt, Statement::Expression(_)) && method.return_type.is_some() {
+                if let Statement::Expression(expr) = stmt {
+                    let val = self.compile_expression(expr)?;
+                    last_expr_value = Some(val);
+                    continue; // Don't compile as statement
+                }
+            }
+            
             self.compile_statement(stmt)?;
         }
+        
+        // If we have a last expression value and block is not terminated, use implicit return
+        if let Some(return_val) = last_expr_value {
+            let is_terminated = if let Some(bb) = self.builder.get_insert_block() {
+                bb.get_terminator().is_some()
+            } else {
+                false
+            };
+            
+            if !is_terminated {
+                eprintln!("🔄 Implicit return from last expression in function body");
+                self.builder
+                    .build_return(Some(&return_val))
+                    .map_err(|e| format!("Failed to build implicit return: {}", e))?;
+            }
+        }
 
+        // Check if block needs explicit terminator
+
+        // Check if function needs explicit return
         if self
             .builder
             .get_insert_block()

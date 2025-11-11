@@ -469,6 +469,9 @@ pub enum Statement {
         body: Block,
     },
 
+    /// Loop statement: loop { body } (infinite loop)
+    Loop { body: Block },
+
     /// For-in loop: for item in collection
     ForIn {
         variable: String,

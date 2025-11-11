@@ -177,8 +177,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
         }
 
         // Get struct type from receiver (for instance method calls)
-        let struct_name = if let Expression::Ident(var_name) = receiver {
-            self.variable_struct_names
+        let (struct_name, receiver_val) = if let Expression::Ident(var_name) = receiver {
+            let struct_name = self
+                .variable_struct_names
                 .get(var_name)
                 .cloned()
                 .ok_or_else(|| {
@@ -186,9 +187,89 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         "Variable {} is not a struct or module, cannot call methods",
                         var_name
                     )
-                })?
+                })?;
+
+            // Get variable pointer
+            let var_ptr = self
+                .variables
+                .get(var_name)
+                .ok_or_else(|| format!("Variable {} not found", var_name))?;
+
+            (struct_name, *var_ptr)
+        } else if let Expression::FieldAccess { object, field } = receiver {
+            // Handle field access: self.counter.next()
+            eprintln!(
+                "🔧 Method call on field access: {}.{}.{}",
+                if let Expression::Ident(n) = object.as_ref() {
+                    n
+                } else {
+                    "?"
+                },
+                field,
+                method
+            );
+
+            // Get the object variable
+            if let Expression::Ident(var_name) = object.as_ref() {
+                let object_struct_name = self
+                    .variable_struct_names
+                    .get(var_name)
+                    .ok_or_else(|| format!("Variable {} not found or not a struct", var_name))?;
+
+                // Get struct definition
+                let struct_def = self
+                    .struct_defs
+                    .get(object_struct_name)
+                    .ok_or_else(|| format!("Struct {} not found", object_struct_name))?
+                    .clone();
+
+                // Find field index and type
+                let field_index = struct_def
+                    .fields
+                    .iter()
+                    .position(|(name, _)| name == field)
+                    .ok_or_else(|| {
+                        format!("Field {} not found in struct {}", field, object_struct_name)
+                    })?;
+
+                let field_type = &struct_def.fields[field_index].1;
+
+                // Get field struct name
+                let field_struct_name = if let Type::Named(name) = field_type {
+                    name.clone()
+                } else {
+                    return Err(format!("Field {} is not a struct type", field));
+                };
+
+                // Get object pointer
+                let object_ptr = self
+                    .variables
+                    .get(var_name)
+                    .ok_or_else(|| format!("Variable {} not found", var_name))?;
+
+                // Get field pointer
+                let field_ptr = self
+                    .builder
+                    .build_struct_gep(
+                        self.ast_type_to_llvm(field_type),
+                        *object_ptr,
+                        field_index as u32,
+                        &format!("{}_field_{}", var_name, field),
+                    )
+                    .map_err(|e| format!("Failed to GEP field: {}", e))?;
+
+                eprintln!("  ✅ Field GEP successful, struct: {}", field_struct_name);
+                (field_struct_name, field_ptr)
+            } else {
+                return Err(
+                    "Method calls on field access only supported when object is a variable"
+                        .to_string(),
+                );
+            }
         } else {
-            return Err("Method calls only supported on variables for now".to_string());
+            return Err(
+                "Method calls only supported on variables and field access for now".to_string(),
+            );
         };
 
         // Construct method function name: StructName_method
@@ -407,18 +488,19 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }
         }
 
-        // Compile receiver (this will be the first argument)
-        let receiver_val = self.compile_expression(receiver)?;
+        // Receiver value is already retrieved above (receiver_val)
+        // No need to compile_expression again
 
         eprintln!(
-            "🔧 Method call: {}.{}(), receiver_val.is_pointer={}",
+            "🔧 Method call: {}.{}(), receiver_val is pointer",
             if let Expression::Ident(name) = receiver {
                 name.as_str()
+            } else if let Expression::FieldAccess { field, .. } = receiver {
+                field.as_str()
             } else {
                 "<expr>"
             },
-            method,
-            receiver_val.is_pointer_value()
+            method
         );
 
         // Compile other arguments

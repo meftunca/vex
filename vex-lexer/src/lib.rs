@@ -90,6 +90,8 @@ pub enum Token {
     For,
     #[token("while")]
     While,
+    #[token("loop")]
+    Loop,
     #[token("in")]
     In,
     #[token("import")]

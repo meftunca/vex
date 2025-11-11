@@ -185,6 +185,11 @@ impl BorrowChecker {
                     self.analyze_statement_closures(stmt)?;
                 }
             }
+            Statement::Loop { body } => {
+                for stmt in &mut body.statements {
+                    self.analyze_statement_closures(stmt)?;
+                }
+            }
             Statement::For {
                 span_id: _,
                 init,

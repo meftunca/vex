@@ -115,6 +115,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                 if let Some(func_def) = self.function_defs.get(&method_func_name) {
                                     if let Some(Type::Named(s_name)) = &func_def.return_type {
                                         Some(s_name.clone())
+                                    } else if let Some(Type::Option(_)) = &func_def.return_type {
+                                        Some("Option".to_string())
+                                    } else if let Some(Type::Result(_, _)) = &func_def.return_type {
+                                        Some("Result".to_string())
                                     } else {
                                         None
                                     }

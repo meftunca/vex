@@ -371,13 +371,6 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     .build_conditional_branch(final_condition, then_block, else_block)
                     .map_err(|e| format!("Failed to build match branch: {}", e))?;
 
-                eprintln!(
-                    "🔵 Built conditional branch: condition={:?}, then={:?}, else={:?}",
-                    final_condition,
-                    then_block.get_name(),
-                    else_block.get_name()
-                );
-
                 self.builder.position_at_end(then_block);
 
                 // Now do the binding in then_block

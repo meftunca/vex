@@ -1,0 +1,24 @@
+// Test defer with block support
+
+fn main() {
+    print("Starting defer block test");
+    
+    // Test 1: Simple defer with single statement
+    defer print("Defer 1: cleanup");
+    
+    // Test 2: Defer with block (multiple statements)
+    defer {
+        print("Defer 2: Block cleanup start");
+        print("Defer 2: Block cleanup end");
+    }
+    
+    // Test 3: Another simple defer
+    defer print("Defer 3: final cleanup");
+    
+    print("Main function body");
+    
+    // Defers should execute in LIFO order:
+    // 1. "Defer 3: final cleanup"
+    // 2. "Defer 2: Block cleanup start" + "Defer 2: Block cleanup end"
+    // 3. "Defer 1: cleanup"
+}

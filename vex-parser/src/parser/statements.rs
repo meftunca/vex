@@ -58,13 +58,15 @@ impl<'a> Parser<'a> {
         // defer { /* block */ };
         if self.match_token(&Token::Defer) {
             let deferred_stmt = if self.check(&Token::LBrace) {
-                // defer { block } - parse as unsafe block style
-                let _block = self.parse_block()?;
-                // For now, just parse and return as expression statement
-                // TODO: Support block in defer properly
-                return Err(
-                    self.error("defer with block not yet fully supported, use defer func();")
-                );
+                // defer { block } - parse block and convert to block expression
+                let block = self.parse_block()?;
+                // Convert Block to Expression::Block
+                // Since Block doesn't have return_expr, create one with None
+                let block_expr = Expression::Block {
+                    statements: block.statements,
+                    return_expr: None,
+                };
+                Box::new(Statement::Expression(block_expr))
             } else {
                 // defer function_call();
                 let expr = self.parse_expression()?;
@@ -170,7 +172,15 @@ impl<'a> Parser<'a> {
                 condition,
                 body,
             });
-        } // Switch statement
+        }
+
+        // Loop statement (infinite loop)
+        if self.match_token(&Token::Loop) {
+            let body = self.parse_block()?;
+            return Ok(Statement::Loop { body });
+        }
+
+        // Switch statement
         if self.match_token(&Token::Switch) {
             // Parse value expression (or none for type switch)
             let value = if !self.check(&Token::LBrace) {

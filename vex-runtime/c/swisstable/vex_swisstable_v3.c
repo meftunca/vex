@@ -172,6 +172,7 @@ static inline size_t bucket_start(uint64_t h, size_t cap) {
 // Forward declarations
 static bool vex_swiss_init_internal_v3(SwissMap *map, size_t initial_capacity);
 static void vex_swiss_free_internal_v3(SwissMap *map);
+static void vex_swiss_clear_internal_v3(SwissMap *map);
 
 // ============================================================================
 // OPTIMIZATION 2: Optimized Rehash (USE CACHED HASH!)
@@ -420,6 +421,18 @@ static bool vex_swiss_remove_internal_v3(SwissMap *map, const char *key) {
     return false;
 }
 
+static void vex_swiss_clear_internal_v3(SwissMap *map) {
+    if (!map || map->len == 0) return;
+
+    memset(map->ctrl, EMPTY, map->capacity + GROUP_SIZE);
+    for (size_t i = 0; i < map->capacity; ++i) {
+        map->entries[i].hash = 0;
+        map->entries[i].key = NULL;
+        map->entries[i].value = NULL;
+    }
+    map->len = 0;
+}
+
 // Free
 static void vex_swiss_free_internal_v3(SwissMap *map) {
     if (!map) return;
@@ -449,6 +462,10 @@ void *vex_map_get_v3(const VexMap *map, const char *key) {
 
 bool vex_map_remove_v3(VexMap *map, const char *key) {
     return vex_swiss_remove_internal_v3((SwissMap *)map, key);
+}
+
+void vex_map_clear_v3(VexMap *map) {
+    vex_swiss_clear_internal_v3((SwissMap *)map);
 }
 
 size_t vex_map_len_v3(const VexMap *map) {

@@ -1,0 +1,20 @@
+// Test F-string interpolation
+
+fn main() {
+    let name = "Vex";
+    let version = 2;
+    let pi = 3.14;
+    let enabled = true;
+    
+    // Simple variable interpolation
+    print(f"Hello, {name}!");
+    print(f"Version: {version}");
+    print(f"Pi: {pi}");
+    print(f"Enabled: {enabled}");
+    
+    // Multiple interpolations
+    print(f"Language: {name}, Version: {version}");
+    
+    // Mixed text and variables
+    print(f"Welcome to {name} v{version} - Pi is approximately {pi}");
+}

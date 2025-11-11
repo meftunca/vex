@@ -1,15 +1,44 @@
 # Vex SwissTable Optimization Plan
 ## Goal: Beat Google Abseil Swiss Tables
 
-Current Performance (ARM64/NEON):
-- Insert: 155.6 ns/op (6.4M ops/s)
-- Lookup: 107.4 ns/op (9.3M ops/s)
-- Delete: 120.0 ns/op (8.3M ops/s)
+Current Baseline (SwissTable V3, ARM64/NEON, 100K keys, clang -O3):
+- Insert: **51.6 ns/op** (19.4M ops/s)
+- Lookup: **74.9 ns/op** (13.4M ops/s)
+- Delete: **20.6 ns/op** (48.5M ops/s)
 
-Target Performance (match/beat Abseil):
-- Insert: <65 ns/op (>15M ops/s) - **2.4x improvement needed**
-- Lookup: <40 ns/op (>25M ops/s) - **2.7x improvement needed**
-- Delete: <55 ns/op (>18M ops/s) - **2.2x improvement needed**
+Target Performance (match/beat Abseil on ARM):
+- Insert: <40 ns/op (>25M ops/s) - **~22% improvement needed**
+- Lookup: <55 ns/op (>18M ops/s) - **~27% improvement needed**
+- Delete: <20 ns/op (>50M ops/s) - **~5% improvement needed**
+
+---
+
+## 🚀 V3 Immediate Roadmap (Q4 2025)
+
+1. **Dual-Group SIMD Probe (Work-In-Progress)**
+    - Extend NEON/AVX2 matching to compare 2 probe groups per iteration
+    - Expected gain: +10-15% lookup throughput, better branch prediction
+    - Status: Prototype in `bench_v2_vs_v3` branch, needs integration & tests
+
+2. **Hash Dispatch for 1-32 byte keys**
+    - Keep tiny/small key fast path but add 24/32-byte specializations
+    - Avoids fallback to generic loop for medium strings
+    - Expected gain: +8-10% insert & lookup on compiler workloads
+
+3. **Adaptive Prefetch Tuning**
+    - Prefetch next 2-3 groups only when load factor > 0.5
+    - Reduce wasted prefetches for sparse tables
+    - Expected gain: +5% on mixed workloads, lower power usage
+
+4. **Micro-benchmark Automation**
+    - Integrate `bench_v2_vs_v3.c` into CI perf suite (nightly)
+    - Capture regression history for insert/lookup/remove
+    - Needed before enabling V3 by default for all Map users
+
+5. **API Hardening**
+    - Add `vex_map_clear_v3` (DONE ✅)
+    - Add stress tests for rehash + cached hashes
+    - Document alignment assumptions in `vex_swisstable_v3.c`
 
 ---
 

@@ -263,6 +263,7 @@ static bool vex_swiss_init_internal(SwissMap *map, size_t initial_capacity);
 static bool vex_swiss_insert_internal_v2(SwissMap *map, const char *key, void *value);
 static void *vex_swiss_get_internal_v2(const SwissMap *map, const char *key);
 static bool vex_swiss_remove_internal_v2(SwissMap *map, const char *key);
+static void vex_swiss_clear_internal_v2(SwissMap *map);
 static void vex_swiss_free_internal(SwissMap *map);
 
 // Rehash implementation (same as v1)
@@ -476,6 +477,23 @@ static bool vex_swiss_remove_internal_v2(SwissMap *map, const char *key) {
     return false;
 }
 
+// Clear all entries (keep capacity)
+static void vex_swiss_clear_internal_v2(SwissMap *map) {
+    if (!map || map->len == 0) return;
+    
+    // Reset all control bytes to EMPTY
+    memset(map->ctrl, EMPTY, map->capacity + GROUP_PAD);
+    
+    // Clear all entries
+    for (size_t i = 0; i < map->capacity; i++) {
+        map->entries[i].hash = 0;
+        map->entries[i].key = NULL;
+        map->entries[i].value = NULL;
+    }
+    
+    map->len = 0;
+}
+
 // Free (same as v1)
 static void vex_swiss_free_internal(SwissMap *map) {
     if (!map) return;
@@ -505,6 +523,10 @@ void *vex_map_get_v2(const VexMap *map, const char *key) {
 
 bool vex_map_remove_v2(VexMap *map, const char *key) {
     return vex_swiss_remove_internal_v2((SwissMap *)map, key);
+}
+
+void vex_map_clear_v2(VexMap *map) {
+    vex_swiss_clear_internal_v2((SwissMap *)map);
 }
 
 size_t vex_map_len_v2(const VexMap *map) {

@@ -46,12 +46,12 @@ fn main(): i32 {
 
     let quotient = match division_ok {
         Result.Ok(value) => { value }
-        Result.Err(error) => { 0 }
+        Result.Err(err) => { 0 }
     };
 
     let error_result = match division_err {
         Result.Ok(value) => { value }
-        Result.Err(error) => { -1 }
+        Result.Err(err) => { -1 }
     };
 
     return user_id + missing_id + quotient + error_result + 2;  // +2 to make positive

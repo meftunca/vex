@@ -1,0 +1,93 @@
+// Iterator Adapters
+// Lazy transformation methods: map, filter, take, skip
+//
+// NOTE: These adapters currently don't support generic functions (Fn trait).
+// They are concrete implementations that work with i32 only.
+// See examples/09_trait/test_map_simple.vx for usage pattern.
+
+// ===== Map Adapter =====
+
+// Map<I> - Transforms each i32 element by multiplying by 2
+// Generic over iterator type I, but transformation is hardcoded
+export struct Map<I> impl Iterator {
+    type Item = i32;
+    iter: I,
+    
+    fn next()!: Option<i32> {
+        let val = self.iter.next();
+        match val {
+            Some(x) => Some(x * 2),
+            None => None,
+        }
+    }
+}
+
+// ===== Filter Adapter =====
+
+// Filter<I> - Keeps only even i32 elements
+// Generic over iterator type I, but predicate is hardcoded
+export struct Filter<I> impl Iterator {
+    type Item = i32;
+    iter: I,
+    
+    fn next()!: Option<i32> {
+        loop {
+            let val = self.iter.next();
+            match val {
+                Some(x) => {
+                    if x % 2 == 0 {
+                        return Some(x);
+                    }
+                },
+                None => return None,
+            }
+        }
+    }
+}
+
+// ===== Take Adapter =====
+
+// Take<I> - Yields first n elements
+export struct Take<I> impl Iterator {
+    type Item = i32;
+    iter: I,
+    remaining: i64,
+    
+    fn next()!: Option<i32> {
+        if self.remaining <= 0 {
+            return None;
+        }
+        
+        let val = self.iter.next();
+        match val {
+            Some(x) => {
+                self.remaining = self.remaining - 1;
+                Some(x)
+            },
+            None => None,
+        }
+    }
+}
+
+// ===== Skip Adapter =====
+
+// Skip<I> - Skips first n elements  
+export struct Skip<I> impl Iterator {
+    type Item = i32;
+    iter: I,
+    to_skip: i64,
+    
+    fn next()!: Option<i32> {
+        while self.to_skip > 0 {
+            let val = self.iter.next();
+            self.to_skip = self.to_skip - 1;
+            
+            match val {
+                None => return None,
+                _ => {},
+            }
+        }
+        
+        self.iter.next()
+    }
+}

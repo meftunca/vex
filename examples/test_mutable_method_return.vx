@@ -1,0 +1,33 @@
+// Test mutable method return value (auto out-parameter)
+
+struct Counter {
+    value: i32,
+}
+
+// Mutable method with return value
+fn (self: &Counter!) next(): i32 {
+    let old_value = self.value;
+    self.value = self.value + 1;
+    return old_value;
+}
+
+fn main(): i32 {
+    let! counter = Counter { value: 0 };
+    
+    // Test 1: Should auto-inject out-parameter
+    let val1 = counter.next();
+    print("First call:");
+    print(val1);
+    
+    let val2 = counter.next();
+    print("Second call:");
+    print(val2);
+    
+    if val1 == 0 && val2 == 1 {
+        print("✅ Mutable method return values work!");
+        return 0;
+    } else {
+        print("❌ Failed - values incorrect");
+        return 1;
+    }
+}
