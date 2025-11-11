@@ -1,22 +1,10 @@
 # Conditional Types (TypeScript-inspired)
 
-**Status:** 🚧 Planned (Not Implemented) 
-**Version:** Future (v1.0+) 
-**Last Updated:** November 9, 2025
+Status: Planned (Not Implemented) 
+Version: Future (v1.0+) 
+Last Updated: November 9, 2025
 
 This document describes Vex's planned conditional type system, inspired by TypeScript's `T extends U ? X : Y` syntax for advanced type-level programming.
-
----
-
-## Table of Contents
-
-1. \1
-2. \1
-3. \1
-4. \1
-5. \1
-6. \1
-7. \1
 
 ---
 
@@ -26,9 +14,9 @@ Conditional types allow types to be chosen based on a condition evaluated at com
 
 ### Why Conditional Types?
 
-**Problem:** Generic code often needs different behavior based on type properties:
+Problem: Generic code often needs different behavior based on type properties:
 
-``````vex
+```vex
 // How to return different types based on input type?
 fn process<T>(value: T): ??? {
     // If T is String, return i32 (length)
@@ -36,9 +24,9 @@ fn process<T>(value: T): ??? {
 }
 ```
 
-**Solution:** Conditional types express this at the type level:
+Solution: Conditional types express this at the type level:
 
-``````vex
+```vex
 type ProcessResult<T> = T extends String ? i32 : T extends i32 ? String : T;
 
 fn process<T>(value: T): ProcessResult<T> {
@@ -52,18 +40,18 @@ fn process<T>(value: T): ProcessResult<T> {
 
 ### Type Condition Expression
 
-``````vex
+```vex
 type ConditionalType<T> = T extends U ? X : Y;
 ```
 
-**Meaning:**
+Meaning:
 
 - If `T` is assignable to `U`, the type is `X`
 - Otherwise, the type is `Y`
 
 ### Simple Example
 
-``````vex
+```vex
 type IsString<T> = T extends String ? true : false;
 
 // Usage
@@ -77,11 +65,24 @@ type B = IsString<i32>;     // false
 
 ### 1. Type-Based Return Types
 
-[12 lines code: ```vex]
+```vex
+type ReturnType<T> =
+    T extends String ? i32 :
+    T extends i32 ? String :
+    T;
+
+fn convert<T>(value: T): ReturnType<T> {
+    // Implementation inferred by compiler
+}
+
+let x: i32 = convert("hello");      // OK: String → i32
+let y: String = convert(42);        // OK: i32 → String
+let z: bool = convert(true);        // OK: bool → bool
+```
 
 ### 2. Extract Array Element Type
 
-``````vex
+```vex
 type ElementType<T> = T extends [U] ? U : never;
 
 type A = ElementType<[i32]>;        // i32
@@ -91,7 +92,7 @@ type C = ElementType<i32>;          // never (not an array)
 
 ### 3. Optional Type Unwrapping
 
-``````vex
+```vex
 type Unwrap<T> = T extends Option<U> ? U : T;
 
 type A = Unwrap<Option<i32>>;       // i32
@@ -100,7 +101,7 @@ type B = Unwrap<i32>;               // i32
 
 ### 4. Function Return Type Extraction
 
-``````vex
+```vex
 type ReturnOf<T> = T extends fn(...): R ? R : never;
 
 fn add(a: i32, b: i32): i32 { return a + b; }
@@ -114,19 +115,39 @@ type AddReturn = ReturnOf<typeof add>;  // i32
 
 ### Nested Conditionals
 
-[9 lines code: ```vex]
+```vex
+type TypeName<T> =
+    T extends String ? "string" :
+    T extends i32 ? "i32" :
+    T extends bool ? "bool" :
+    "unknown";
+
+type A = TypeName<String>;  // "string"
+type B = TypeName<i32>;     // "i32"
+type C = TypeName<f64>;     // "unknown"
+```
 
 ### Multiple Conditions
 
-[9 lines code: ```vex]
+```vex
+type IsNumeric<T> =
+    T extends i32 ? true :
+    T extends i64 ? true :
+    T extends f32 ? true :
+    T extends f64 ? true :
+    false;
+
+type A = IsNumeric<i32>;    // true
+type B = IsNumeric<String>; // false
+```
 
 ---
 
 ## Distributive Conditional Types
 
-When `T` is a union type, conditional types **distribute** over the union:
+When `T` is a union type, conditional types distribute over the union:
 
-``````vex
+```vex
 type ToArray<T> = T extends U ? [U] : never;
 
 type A = ToArray<String | i32>;
@@ -136,7 +157,7 @@ type A = ToArray<String | i32>;
 
 ### Filtering Union Types
 
-``````vex
+```vex
 type NonNullable<T> = T extends nil ? never : T;
 
 type A = NonNullable<String | nil>;  // String
@@ -145,7 +166,7 @@ type B = NonNullable<i32 | nil>;     // i32
 
 ### Extracting from Unions
 
-``````vex
+```vex
 type ExtractStrings<T> = T extends String ? T : never;
 
 type A = ExtractStrings<String | i32 | bool>;  // String
@@ -155,11 +176,11 @@ type A = ExtractStrings<String | i32 | bool>;  // String
 
 ## Infer Keyword
 
-The `infer` keyword allows **extracting types** from within a conditional type:
+The `infer` keyword allows extracting types from within a conditional type:
 
 ### Basic Inference
 
-``````vex
+```vex
 type GetReturnType<T> = T extends fn(...): infer R ? R : never;
 
 fn foo(): i32 { return 42; }
@@ -169,7 +190,7 @@ type FooReturn = GetReturnType<typeof foo>;  // i32
 
 ### Array Element Inference
 
-``````vex
+```vex
 type Flatten<T> = T extends [infer U] ? U : T;
 
 type A = Flatten<[i32]>;    // i32
@@ -178,7 +199,7 @@ type B = Flatten<i32>;      // i32
 
 ### Multiple Infers
 
-``````vex
+```vex
 type GetParams<T> = T extends fn(infer P1, infer P2): R ? [P1, P2] : never;
 
 fn add(a: i32, b: i32): i32 { return a + b; }
@@ -193,16 +214,14 @@ type AddParams = GetParams<typeof add>;  // [i32, i32]
 ### Similarities
 
 • Feature — TypeScript — Vex (Planned)
-• ---------------------- — --------------------- — -------------------------
 | Basic Syntax | `T extends U ? X : Y` | `T extends U ? X : Y` |
-• Distributive Types — ✅ Yes — ✅ Yes (planned)
-| Infer Keyword | ✅ `infer R` | ✅ `infer R` (planned) |
-• Type-level Programming — ✅ Full support — ✅ Full support (planned)
+• Distributive Types — Yes — Yes (planned)
+| Infer Keyword | `infer R` | `infer R` (planned) |
+• Type-level Programming — Full support — Full support (planned)
 
 ### Differences
 
 • Feature — TypeScript — Vex (Planned)
-• ------------- — --------------------- — ---------------------- — ------------------------
 | Type Aliases | `type X = ...` | `type X = ...` (same) |
 | Trait Bounds | Interface constraints | `T: Trait` constraints |
 | Literal Types | `"string" | "number"` | String literals as types |
@@ -214,11 +233,11 @@ type AddParams = GetParams<typeof add>;  // [i32, i32]
 
 ### Phase 1: Basic Conditionals (v1.0)
 
-``````vex
+```vex
 type IsString<T> = T extends String ? true : false;
 ```
 
-**Requirements:**
+Requirements:
 
 - Parser: Extend type syntax to support `extends`, `?`, `:`
 - Type Checker: Evaluate conditionals at compile time
@@ -226,11 +245,11 @@ type IsString<T> = T extends String ? true : false;
 
 ### Phase 2: Infer Keyword (v1.1)
 
-``````vex
+```vex
 type ReturnType<T> = T extends fn(...): infer R ? R : never;
 ```
 
-**Requirements:**
+Requirements:
 
 - Parser: Support `infer` in type expressions
 - Type Checker: Extract and bind inferred types
@@ -238,12 +257,12 @@ type ReturnType<T> = T extends fn(...): infer R ? R : never;
 
 ### Phase 3: Distributive Types (v1.2)
 
-``````vex
+```vex
 type ToArray<T> = T extends U ? [U] : never;
 type A = ToArray<String | i32>;  // [String] | [i32]
 ```
 
-**Requirements:**
+Requirements:
 
 - Type Checker: Distribute conditionals over union types
 - Optimization: Simplify nested unions
@@ -254,11 +273,21 @@ type A = ToArray<String | i32>;  // [String] | [i32]
 
 ### Practical Use Case: Generic API Response
 
-[9 lines code: ```vex]
+```vex
+trait Deserialize {
+    fn deserialize(data: String): Self;
+}
+
+type ApiResponse<T> = T extends Deserialize ? Result<T, String> : never;
+
+fn fetch<T: Deserialize>(url: String): ApiResponse<T> {
+    // Conditional return type ensures T is Deserializable
+}
+```
 
 ### Type-Safe Event Handlers
 
-``````vex
+```vex
 type EventHandler<E> =
     E extends MouseEvent ? fn(MouseEvent) :
     E extends KeyEvent ? fn(KeyEvent) :
@@ -273,20 +302,18 @@ fn on<E>(event_name: String, handler: EventHandler<E>) {
 
 ## Status
 
-**Current Status:** 🚧 Not Implemented 
-**Target Version:** v1.0 
-**Priority:** MEDIUM (powerful but not essential for v1.0)
+Current Status: Not Implemented 
+Target Version: v1.0 
+Priority: MEDIUM (powerful but not essential for v1.0)
 
-**Dependencies:**
+Dependencies:
 
-- ✅ Type system (implemented)
-- ✅ Generics (implemented)
-- ✅ Trait bounds (implemented)
-- ❌ Advanced type inference (planned)
+- Type system (implemented)
+- Generics (implemented)
+- Trait bounds (implemented)
+- Advanced type inference (planned)
 
 ---
 
-**Previous**: \1 
-**Next**: \1
-
-**Maintained by**: Vex Language Team
+Previous: 10_Generics.md 
+Next: 11PatternMatching.md

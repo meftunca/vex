@@ -1,20 +1,9 @@
 # Control Flow
 
-**Version:** 0.1.0 
-**Last Updated:** November 3, 2025
+Version: 0.1.0 
+Last Updated: November 3, 2025
 
 This document defines control flow constructs in the Vex programming language.
-
----
-
-## Table of Contents
-
-1. \1
-2. \1
-3. \1
-4. \1
-5. \1
-6. \1
 
 ---
 
@@ -22,23 +11,23 @@ This document defines control flow constructs in the Vex programming language.
 
 ### If Expression
 
-**Basic Syntax**:
+Basic Syntax:
 
-``````vex
+```vex
 if condition {
     // body
 }
 ```
 
-**Properties**:
+Properties:
 
 - Condition must be `bool` type (no implicit conversion)
 - Braces are required (no braceless syntax)
 - Body is a new scope
 
-**Example**:
+Example:
 
-``````vex
+```vex
 let x = 10;
 if x > 5 {
     // x is greater than 5
@@ -47,7 +36,7 @@ if x > 5 {
 
 ### If-Else
 
-``````vex
+```vex
 if condition {
     // true branch
 } else {
@@ -55,9 +44,9 @@ if condition {
 }
 ```
 
-**Answer**: 🔴 `select` statement (High Priority) - Go-style channel selection
+Answer: `select` statement (High Priority) - Go-style channel selection
 
-``````vex
+```vex
 select {
     case msg = <-ch1:
         println("Received from ch1");
@@ -70,9 +59,9 @@ select {
 
 Channel implementation ile birlikte gelecek. Şu an channels implement edilmemiş, o yüzden bu dokümanda yok. 13_Concurrency.md'de mention edilmeli.
 
-**Example**:
+Example:
 
-``````vex
+```vex
 let age = 18;
 if age >= 18 {
     // adult
@@ -85,17 +74,38 @@ if age >= 18 {
 
 Use `elif` for else-if chains:
 
-[9 lines code: ```vex]
+```vex
+if condition1 {
+    // first branch
+} elif condition2 {
+    // second branch
+} elif condition3 {
+    // third branch
+} else {
+    // default branch
+}
+```
 
-**Example**:
+Example:
 
-[10 lines code: ```vex]
+```vex
+let score = 85;
+if score >= 90 {
+    // grade A
+} elif score >= 80 {
+    // grade B
+} elif score >= 70 {
+    // grade C
+} else {
+    // grade F
+}
+```
 
-**Note**: `elif` keyword introduced in v0.1 (replaces older `else if` syntax)
+Note: `elif` keyword introduced in v0.1 (replaces older `else if` syntax)
 
 ### Nested If
 
-``````vex
+```vex
 if outer_condition {
     if inner_condition {
         // nested body
@@ -103,9 +113,9 @@ if outer_condition {
 }
 ```
 
-**Example**:
+Example:
 
-``````vex
+```vex
 let age = 20;
 let has_license = true;
 
@@ -118,7 +128,7 @@ if age >= 18 {
 
 ### If as Expression (Future)
 
-``````vex
+```vex
 let value = if condition { 10 } else { 20 };
 ```
 
@@ -128,9 +138,9 @@ let value = if condition { 10 } else { 20 };
 
 ### Match Expression
 
-**Syntax**:
+Syntax:
 
-``````vex
+```vex
 match value {
     pattern1 => { body1 }
     pattern2 => { body2 }
@@ -138,7 +148,7 @@ match value {
 }
 ```
 
-**Properties**:
+Properties:
 
 - Must be exhaustive (all cases covered)
 - Evaluates top-to-bottom (first match wins)
@@ -146,7 +156,7 @@ match value {
 
 ### Literal Patterns
 
-``````vex
+```vex
 match x {
     0 => { /* zero */ }
     1 => { /* one */ }
@@ -155,17 +165,42 @@ match x {
 }
 ```
 
-**Example**:
+Example:
 
-[11 lines code: ```vex]
+```vex
+let day = 3;
+match day {
+    1 => { /* Monday */ }
+    2 => { /* Tuesday */ }
+    3 => { /* Wednesday */ }
+    4 => { /* Thursday */ }
+    5 => { /* Friday */ }
+    6 => { /* Saturday */ }
+    7 => { /* Sunday */ }
+    _ => { /* invalid */ }
+}
+```
 
 ### Enum Patterns
 
-[12 lines code: ```vex]
+```vex
+enum Color {
+    Red,
+    Green,
+    Blue,
+}
 
-**Exhaustiveness Check**:
+let color = Color.Red;
+match color {
+    Color.Red => { /* red */ }
+    Color.Green => { /* green */ }
+    Color.Blue => { /* blue */ }
+}
+```
 
-``````vex
+Exhaustiveness Check:
+
+```vex
 match color {
     Color.Red => { }
     Color.Green => { }
@@ -177,7 +212,7 @@ match color {
 
 Match multiple patterns with `|`:
 
-``````vex
+```vex
 match x {
     1 | 2 | 3 => { /* low */ }
     4 | 5 | 6 => { /* medium */ }
@@ -186,9 +221,9 @@ match x {
 }
 ```
 
-**Example**:
+Example:
 
-``````vex
+```vex
 match day {
     1 | 2 | 3 | 4 | 5 => { /* weekday */ }
     6 | 7 => { /* weekend */ }
@@ -198,7 +233,7 @@ match day {
 
 ### Tuple Patterns
 
-``````vex
+```vex
 let point = (10, 20);
 match point {
     (0, 0) => { /* origin */ }
@@ -208,9 +243,9 @@ match point {
 }
 ```
 
-**Destructuring**:
+Destructuring:
 
-``````vex
+```vex
 let pair = (1, 2);
 match pair {
     (a, b) => {
@@ -221,7 +256,7 @@ match pair {
 
 ### Struct Patterns (Future)
 
-``````vex
+```vex
 struct Point { x: i32, y: i32 }
 
 let p = Point { x: 10, y: 20 };
@@ -234,7 +269,7 @@ match p {
 
 ### Range Patterns (Future)
 
-``````vex
+```vex
 match age {
     0..=12 => { /* child */ }
     13..=17 => { /* teen */ }
@@ -247,7 +282,7 @@ match age {
 
 Add conditions to patterns:
 
-``````vex
+```vex
 match x {
     n if n < 0 => { /* negative */ }
     n if n == 0 => { /* zero */ }
@@ -257,7 +292,18 @@ match x {
 
 ### Data-Carrying Enum Patterns (Future)
 
-[10 lines code: ```vex]
+```vex
+enum Option<T> {
+    Some(T),
+    None,
+}
+
+let value = Some(42);
+match value {
+    Some(x) => { /* x = 42 */ }
+    None => { /* no value */ }
+}
+```
 
 ---
 
@@ -265,26 +311,26 @@ match x {
 
 ### While Loop
 
-**Syntax**:
+Syntax:
 
-``````vex
+```vex
 while condition {
     // body
 }
 ```
 
-**Example**:
+Example:
 
-``````vex
+```vex
 let! counter = 0;
 while counter < 10 {
     counter = counter + 1;
 }
 ```
 
-**Infinite Loop**:
+Infinite Loop:
 
-``````vex
+```vex
 while true {
     // runs forever (until break)
 }
@@ -292,25 +338,25 @@ while true {
 
 ### For Loop
 
-**Syntax**:
+Syntax:
 
-``````vex
+```vex
 for variable in start..end {
     // body
 }
 ```
 
-**Range-Based**:
+Range-Based:
 
-``````vex
+```vex
 for i in 0..10 {
     // i = 0, 1, 2, ..., 9
 }
 ```
 
-**Example**:
+Example:
 
-``````vex
+```vex
 let! sum = 0;
 for i in 1..11 {
     sum = sum + i;
@@ -318,22 +364,22 @@ for i in 1..11 {
 // sum = 55 (1+2+...+10)
 ```
 
-**Inclusive Range**:
+Inclusive Range:
 
-``````vex
+```vex
 for i in 0..=10 {
     // i = 0, 1, 2, ..., 10 (includes 10)
 }
 ```
 
-**Operators**:
+Operators:
 
 - `..` - Exclusive range: `0..10` → 0, 1, 2, ..., 9
 - `..=` - Inclusive range: `0..=10` → 0, 1, 2, ..., 10
 
 ### Loop (Infinite Loop) (Future)
 
-``````vex
+```vex
 loop {
     // runs forever
     if condition {
@@ -342,9 +388,9 @@ loop {
 }
 ```
 
-**Equivalent to**:
+Equivalent to:
 
-``````vex
+```vex
 while true {
     // body
 }
@@ -354,16 +400,16 @@ while true {
 
 Iterate over collections:
 
-``````vex
+```vex
 let numbers = [1, 2, 3, 4, 5];
 for num in numbers {
     // num = 1, then 2, then 3, ...
 }
 ```
 
-**With Index**:
+With Index:
 
-``````vex
+```vex
 for (index, value) in numbers.enumerate() {
     // index = 0, 1, 2, ...
     // value = 1, 2, 3, ...
@@ -378,7 +424,7 @@ for (index, value) in numbers.enumerate() {
 
 Exit from loop early:
 
-``````vex
+```vex
 let! i = 0;
 while i < 10 {
     if i == 5 {
@@ -389,9 +435,9 @@ while i < 10 {
 // i = 5
 ```
 
-**In Match** (Future):
+In Match (Future):
 
-``````vex
+```vex
 while true {
     match get_input() {
         "quit" => { break; }
@@ -404,7 +450,7 @@ while true {
 
 Skip to next iteration:
 
-``````vex
+```vex
 for i in 0..10 {
     if i % 2 == 0 {
         continue;  // Skip even numbers
@@ -413,9 +459,9 @@ for i in 0..10 {
 }
 ```
 
-**Example**:
+Example:
 
-``````vex
+```vex
 let! count = 0;
 for i in 1..101 {
     if i % 3 == 0 {
@@ -430,7 +476,7 @@ for i in 1..101 {
 
 Exit from function:
 
-``````vex
+```vex
 fn find(arr: [i32; 10], target: i32): i32 {
     for i in 0..10 {
         if arr[i] == target {
@@ -441,15 +487,25 @@ fn find(arr: [i32; 10], target: i32): i32 {
 }
 ```
 
-**Early Return**:
+Early Return:
 
-[9 lines code: ```vex]
+```vex
+fn validate(x: i32): bool {
+    if x < 0 {
+        return false;  // Early exit
+    }
+    if x > 100 {
+        return false;  // Early exit
+    }
+    return true;
+}
+```
 
 ### Labeled Breaks (Future)
 
 Break from nested loops:
 
-``````vex
+```vex
 'outer: for i in 0..10 {
     for j in 0..10 {
         if i * j > 50 {
@@ -467,7 +523,7 @@ Break from nested loops:
 
 Use union types for error handling:
 
-``````vex
+```vex
 type Result<T> = (T | error);
 
 fn divide(a: i32, b: i32): Result<i32> {
@@ -478,19 +534,40 @@ fn divide(a: i32, b: i32): Result<i32> {
 }
 ```
 
-**Pattern Matching on Result**:
+Pattern Matching on Result:
 
-[9 lines code: ```vex]
+```vex
+let result = divide(10, 2);
+match result {
+    value when value is i32 => {
+        // Success: value = 5
+    }
+    err when err is error => {
+        // Error: handle err
+    }
+}
+```
 
 ### Option Type (Future)
 
 Represent optional values:
 
-[10 lines code: ```vex]
+```vex
+type Option<T> = (T | nil);
 
-**Unwrapping**:
+fn find(arr: [i32], target: i32): Option<i32> {
+    for i in 0..arr.len() {
+        if arr[i] == target {
+            return i;
+        }
+    }
+    return nil;
+}
+```
 
-``````vex
+Unwrapping:
+
+```vex
 let result = find([1, 2, 3], 2);
 match result {
     index when index is i32 => { /* found at index */ }
@@ -500,7 +577,7 @@ match result {
 
 ### Try-Catch (Future Consideration)
 
-``````vex
+```vex
 try {
     let result = risky_operation();
     process(result);
@@ -513,7 +590,17 @@ try {
 
 Abort program execution:
 
-[9 lines code: ```vex]
+```vex
+fn unreachable_code() {
+    @unreachable();  // Compiler hint
+}
+
+fn assert_positive(x: i32) {
+    if x <= 0 {
+        panic("Value must be positive");
+    }
+}
+```
 
 ---
 
@@ -521,15 +608,49 @@ Abort program execution:
 
 ### If-Elif-Else
 
-[13 lines code: ```vex]
+```vex
+fn classify_age(age: i32): i32 {
+    if age < 0 {
+        return -1;  // Invalid
+    } elif age < 13 {
+        return 0;   // Child
+    } elif age < 20 {
+        return 1;   // Teen
+    } elif age < 65 {
+        return 2;   // Adult
+    } else {
+        return 3;   // Senior
+    }
+}
+```
 
 ### Match with Enums
 
-[19 lines code: ```vex]
+```vex
+enum Status {
+    Active = 0,
+    Inactive = 1,
+    Pending = 2,
+}
+
+fn handle_status(status: Status): i32 {
+    match status {
+        Active => {
+            return 1;
+        }
+        Inactive => {
+            return 0;
+        }
+        Pending => {
+            return -1;
+        }
+    }
+}
+```
 
 ### While Loop
 
-``````vex
+```vex
 fn count_down(n: i32): i32 {
     let! counter = n;
     while counter > 0 {
@@ -541,11 +662,33 @@ fn count_down(n: i32): i32 {
 
 ### For Loop
 
-[11 lines code: ```vex]
+```vex
+fn sum_range(start: i32, end: i32): i32 {
+    let! sum = 0;
+    for i in start..end {
+        sum = sum + i;
+    }
+    return sum;
+}
+
+fn main(): i32 {
+    return sum_range(1, 11);  // 55
+}
+```
 
 ### Break and Continue
 
-[9 lines code: ```vex]
+```vex
+fn find_first_even(numbers: [i32; 10]): i32 {
+    for i in 0..10 {
+        if numbers[i] % 2 == 1 {
+            continue;  // Skip odd numbers
+        }
+        return numbers[i];  // Return first even
+    }
+    return -1;  // No even number found
+}
+```
 
 ---
 
@@ -553,13 +696,13 @@ fn count_down(n: i32): i32 {
 
 ### Syntax
 
-**Purpose**: Execute code when function exits, regardless of how it exits.
+Purpose: Execute code when function exits, regardless of how it exits.
 
-**Status**: ✅ Fully implemented - deferred statements execute in LIFO order on function exit
+Status: Fully implemented - deferred statements execute in LIFO order on function exit
 
-**Keyword**: `defer`
+Keyword: `defer`
 
-``````vex
+```vex
 fn example() {
     defer cleanup();  // Executes when function returns
     // ... function body
@@ -568,79 +711,224 @@ fn example() {
 
 ### Basic Usage
 
-[10 lines code: ```vex]
+```vex
+fn read_file(path: string): string {
+    let file = open(path);
+    defer close(file);  // Always closes, even on error
+
+    if !file.is_valid() {
+        return "";  // defer executes before return
+    }
+
+    return file.read_all();
+}  // defer executes here
+```
 
 ### Multiple Defer Statements
 
-**Execution Order**: LIFO (Last In, First Out) - Reverse order of declaration
+Execution Order: LIFO (Last In, First Out) - Reverse order of declaration
 
-[14 lines code: ```vex]
+```vex
+fn process_data() {
+    defer println("Step 3: Final cleanup");
+    defer println("Step 2: Release lock");
+    defer println("Step 1: Close connection");
+
+    // Function body
+    println("Processing...");
+}
+
+// Output:
+// Processing...
+// Step 1: Close connection
+// Step 2: Release lock
+// Step 3: Final cleanup
+```
 
 ### Resource Management
 
-**File Handling**:
+File Handling:
 
-[10 lines code: ```vex]
+```vex
+fn copy_file(src: string, dst: string): bool {
+    let src_file = open(src);
+    defer close(src_file);
 
-**Memory Management**:
+    let dst_file = create(dst);
+    defer close(dst_file);
 
-[9 lines code: ```vex]
+    // Both files automatically closed on return
+    return copy_content(src_file, dst_file);
+}
+```
 
-**Lock Management**:
+Memory Management:
 
-[9 lines code: ```vex]
+```vex
+fn process_buffer(): i32 {
+    let buffer = allocate(1024);
+    defer free(buffer);
+
+    // Use buffer...
+    let result = compute(buffer);
+
+    return result;
+}  // buffer freed automatically
+```
+
+Lock Management:
+
+```vex
+fn update_shared_data(mutex: &Mutex!, data: i32) {
+    mutex.lock();
+    defer mutex.unlock();
+
+    // Critical section
+    shared_value = data;
+
+    // mutex unlocked automatically, even if panic occurs
+}
+```
 
 ### Defer with Closures (Future)
 
-[9 lines code: ```vex]
+```vex
+fn complex_cleanup() {
+    let! counter = 0;
+    defer {
+        // Closure can access function variables
+        println("Counter was: " + counter);
+    };
+
+    counter = 42;
+}  // Prints: "Counter was: 42"
+```
 
 ### Error Handling with Defer
 
-[10 lines code: ```vex]
+```vex
+fn risky_operation(): (i32 | error) {
+    let resource = acquire();
+    defer release(resource);
+
+    if problem() {
+        return "Error occurred";  // defer runs before return
+    }
+
+    return 42;
+}
+```
 
 ### Common Patterns
 
-**1. RAII-style Resource Management**:
+1. RAII-style Resource Management:
 
-[11 lines code: ```vex]
+```vex
+fn database_transaction(): bool {
+    let tx = db.begin_transaction();
+    defer tx.rollback();  // Safety net
 
-**2. Cleanup Stack**:
+    if !tx.insert(...) {
+        return false;  // Rollback happens
+    }
 
-[12 lines code: ```vex]
+    tx.commit();
+    return true;
+}
+```
 
-**3. Timing and Logging**:
+2. Cleanup Stack:
 
-[10 lines code: ```vex]
+```vex
+fn multi_step_process(): i32 {
+    let step1 = init_step1();
+    defer cleanup_step1(step1);
+
+    let step2 = init_step2();
+    defer cleanup_step2(step2);
+
+    let step3 = init_step3();
+    defer cleanup_step3(step3);
+
+    return execute();
+}  // Cleanup in reverse: step3, step2, step1
+```
+
+3. Timing and Logging:
+
+```vex
+fn measured_operation() {
+    let start_time = now();
+    defer {
+        let elapsed = now() - start_time;
+        println("Operation took: " + elapsed + "ms");
+    };
+
+    // Expensive operation
+    compute_heavy_task();
+}
+```
 
 ### Comparison with Other Languages
 
 • Feature — Vex — Go — Rust — C++
-• ------------- — ------- — ------- — ------------- — ---------
-| **Keyword** | `defer` | `defer` | N/A | N/A |
-• **RAII** — Manual — Manual — Automatic — Manual
-• **Execution** — On exit — On exit — On drop — On scope
-• **Order** — LIFO — LIFO — LIFO (drop) — LIFO
-• **Closures** — ✅ Yes — ✅ Yes — ✅ Yes (Drop) — ✅ Lambda
+| Keyword | `defer` | `defer` | N/A | N/A |
+• RAII — Manual — Manual — Automatic — Manual
+• Execution — On exit — On exit — On drop — On scope
+• Order — LIFO — LIFO — LIFO (drop) — LIFO
+• Closures — Yes — Yes — Yes (Drop) — Lambda
 
 ### Implementation Status
 
-- ✅ Keyword reserved (`defer`)
-- ✅ Parser support (COMPLETE - Nov 9, 2025)
-- ✅ Codegen implemented (LIFO execution)
-- ✅ Stack unwinding integration working
-- **Priority**: ✅ COMPLETE
+- Keyword reserved (`defer`)
+- Parser support (COMPLETE - Nov 9, 2025)
+- Codegen implemented (LIFO execution)
+- Stack unwinding integration working
+- Priority: COMPLETE
 
-**Examples**: See `examples/defer_*.vx` for working demonstrations
+Examples: See `examples/defer_*.vx` for working demonstrations
 
 ---
 
 ### Nested Loops
 
-[9 lines code: ```vex]
+```vex
+fn matrix_sum(rows: i32, cols: i32): i32 {
+    let! sum = 0;
+    for i in 0..rows {
+        for j in 0..cols {
+            sum = sum + (i * cols + j);
+        }
+    }
+    return sum;
+}
+```
 
 ### Early Return
 
-[21 lines code: ```vex]
+```vex
+fn is_prime(n: i32): bool {
+    if n <= 1 {
+        return false;  // Early return
+    }
+    if n == 2 {
+        return true;   // Early return
+    }
+    if n % 2 == 0 {
+        return false;  // Early return
+    }
+
+    // Check odd divisors
+    let! i = 3;
+    while i * i <= n {
+        if n % i == 0 {
+            return false;
+        }
+        i = i + 2;
+    }
+    return true;
+}
+```
 
 ---
 
@@ -648,23 +936,114 @@ fn example() {
 
 ### 1. Use Match Over If Chains
 
-[15 lines code: ```vex]
+```vex
+// Good: Clear, exhaustive
+match status {
+    Active => { }
+    Inactive => { }
+    Pending => { }
+}
+
+// Bad: Verbose, error-prone
+if status == Active {
+    // ...
+} elif status == Inactive {
+    // ...
+} elif status == Pending {
+    // ...
+}
+```
 
 ### 2. Prefer Early Returns
 
-[25 lines code: ```vex]
+```vex
+// Good: Early validation
+fn process(x: i32): i32 {
+    if x < 0 {
+        return -1;
+    }
+    if x == 0 {
+        return 0;
+    }
+    // Main logic
+    return x * 2;
+}
+
+// Bad: Deep nesting
+fn process(x: i32): i32 {
+    if x >= 0 {
+        if x != 0 {
+            // Main logic
+            return x * 2;
+        } else {
+            return 0;
+        }
+    } else {
+        return -1;
+    }
+}
+```
 
 ### 3. Avoid Deep Nesting
 
-[19 lines code: ```vex]
+```vex
+// Good: Flat structure
+fn validate(x: i32, y: i32, z: i32): bool {
+    if x < 0 { return false; }
+    if y < 0 { return false; }
+    if z < 0 { return false; }
+    return true;
+}
+
+// Bad: Deep nesting
+fn validate(x: i32, y: i32, z: i32): bool {
+    if x >= 0 {
+        if y >= 0 {
+            if z >= 0 {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+```
 
 ### 4. Use Descriptive Conditions
 
-[12 lines code: ```vex]
+```vex
+// Good: Named condition
+let is_adult = age >= 18;
+let has_permission = role == "admin";
+
+if is_adult && has_permission {
+    // Clear intent
+}
+
+// Bad: Complex inline condition
+if age >= 18 && role == "admin" && status == "active" {
+    // What does this check?
+}
+```
 
 ### 5. Limit Loop Complexity
 
-[15 lines code: ```vex]
+```vex
+// Good: Simple loop body
+for i in 0..10 {
+    process_item(i);
+}
+
+// Bad: Complex logic in loop
+for i in 0..10 {
+    if condition1 {
+        if condition2 {
+            for j in 0..5 {
+                // Too complex
+            }
+        }
+    }
+}
+```
 
 ---
 
@@ -674,48 +1053,94 @@ fn example() {
 
 ### Syntax (Go-style)
 
-**Purpose**: Wait on multiple channel operations
+Purpose: Wait on multiple channel operations
 
-[10 lines code: ```vex]
+```vex
+select {
+    case msg = <-ch1:
+        println("Received from ch1");
+    case ch2 <- value:
+        println("Sent to ch2");
+    case msg = <-ch3:
+        println("Received from ch3");
+    default:
+        println("No channel ready");
+}
+```
 
 ### Semantics
 
-- **Blocks** until one case is ready
-- If multiple cases ready, **randomly** chooses one
+- Blocks until one case is ready
+- If multiple cases ready, randomly chooses one
 - `default` case executes immediately if no channel ready
 - Without `default`, blocks forever if no channel ready
 
 ### Example: Timeout Pattern
 
-[15 lines code: ```vex]
+```vex
+import { channel, timeout } from "sync";
+
+fn fetch_with_timeout(): (string | error) {
+    let result_ch = channel<string>();
+    let timeout_ch = timeout(5000); // 5 seconds
+
+    go fetch_data(result_ch);
+
+    select {
+        case data = <-result_ch:
+            return data;
+        case <-timeout_ch:
+            return "Timeout error";
+    }
+}
+```
 
 ### Current Status
 
-**Syntax**: ✅ `select` keyword reserved 
-**Parser**: 🚧 Partial (keyword recognized, AST node exists) 
-**Channels**: ✅ MPSC channels implemented (lock-free ring buffer) 
-**Priority**: � Medium (Channel infrastructure complete, select syntax pending)
+Syntax: `select` keyword reserved 
+Parser: Partial (keyword recognized, AST node exists) 
+Channels: MPSC channels implemented (lock-free ring buffer) 
+Priority: � Medium (Channel infrastructure complete, select syntax pending)
 
-**Note**: Basic channel operations (`send`, `recv`, `close`) fully working. Multi-channel `select` syntax planned.
+Note: Basic channel operations (`send`, `recv`, `close`) fully working. Multi-channel `select` syntax planned.
 
-See \1 for full concurrency model.
+See 13_Concurrency.md for full concurrency model.
 
 ### Switch Statement
 
 C-style switch with integer values:
 
-**Syntax**: `switch value { case val: { } default: { } }`
+Syntax: `switch value { case val: { } default: { } }`
 
-[18 lines code: ```vex]
+```vex
+switch day {
+    case 1:
+        println("Monday");
+    case 2:
+        println("Tuesday");
+    case 3:
+        println("Wednesday");
+    case 4:
+        println("Thursday");
+    case 5:
+        println("Friday");
+    case 6:
+        println("Saturday");
+    case 7:
+        println("Sunday");
+    default:
+        println("Invalid day");
+}
+```
 
-**Properties**:
+Properties:
 
 - Only works with integer types (i32, u32, etc.)
 - No implicit fallthrough (unlike C)
 - Must have `default` case (unlike C)
 - Each case must be a compile-time constant
 
-**Differences from C**:
+Differences from C:
 
 - No fallthrough by default
 - Requires `default` case
@@ -727,23 +1152,20 @@ C-style switch with integer values:
 ## Control Flow Summary
 
 • Construct — Syntax — Use Case — Status
-• ------------ — -------------------------- — -------------------- — ------
-| If | `if cond { }` | Simple branching | ✅ |
-| If-Else | `if cond { } else { }` | Binary choice | ✅ |
-| If-Elif-Else | `if { } elif { } else { }` | Multiple conditions | ✅ |
-| Match | `match val { pat => { } }` | Pattern matching | ✅ |
-| Switch | `switch val { case ... }` | Integer switching | ✅ |
-| While | `while cond { }` | Condition-based loop | ✅ |
-| For | `for i in range { }` | Iteration | ✅ |
-| Defer | `defer cleanup();` | LIFO cleanup | ✅ |
-| Select | `select { case ... }` | Channel multiplexing | ❌ |
-| Break | `break;` | Exit loop | ✅ |
-| Continue | `continue;` | Skip iteration | ✅ |
-| Return | `return value;` | Exit function | ✅ |
+| If | `if cond { }` | Simple branching | |
+| If-Else | `if cond { } else { }` | Binary choice | |
+| If-Elif-Else | `if { } elif { } else { }` | Multiple conditions | |
+| Match | `match val { pat => { } }` | Pattern matching | |
+| Switch | `switch val { case ... }` | Integer switching | |
+| While | `while cond { }` | Condition-based loop | |
+| For | `for i in range { }` | Iteration | |
+| Defer | `defer cleanup();` | LIFO cleanup | |
+| Select | `select { case ... }` | Channel multiplexing | |
+| Break | `break;` | Exit loop | |
+| Continue | `continue;` | Skip iteration | |
+| Return | `return value;` | Exit function | |
 
 ---
 
-**Previous**: \1 
-**Next**: \1
-
-**Maintained by**: Vex Language Team
+Previous: 05Functionsand_Methods.md 
+Next: 07StructsandDataTypes.md

@@ -1,20 +1,9 @@
 # Memory Management
 
-**Version:** 0.1.2 
-**Last Updated:** November 2025
+Version: 0.1.2 
+Last Updated: November 2025
 
 This document defines memory management, ownership, and borrowing in the Vex programming language.
-
----
-
-## Table of Contents
-
-1. \1
-2. \1
-3. \1
-4. \1
-5. \1
-6. \1
 
 ---
 
@@ -22,24 +11,24 @@ This document defines memory management, ownership, and borrowing in the Vex pro
 
 ### Core Principles
 
-Vex uses **ownership-based memory management** without garbage collection:
+Vex uses ownership-based memory management without garbage collection:
 
-1. **Each value has exactly one owner**
-2. **When the owner goes out of scope, the value is dropped**
-3. **Ownership can be transferred (moved)**
-4. **Values can be borrowed temporarily**
+1. Each value has exactly one owner
+2. When the owner goes out of scope, the value is dropped
+3. Ownership can be transferred (moved)
+4. Values can be borrowed temporarily
 
 ### Ownership Transfer (Move Semantics)
 
-``````vex
+```vex
 let x = Point { x: 10, y: 20 };
 let y = x;  // Ownership moves from x to y
 // x is no longer valid!
 ```
 
-**After Move**:
+After Move:
 
-``````vex
+```vex
 let x = Point { x: 10, y: 20 };
 let y = x;
 // ERROR: x has been moved
@@ -50,20 +39,20 @@ let y = x;
 
 Some types implement implicit copy (primitives):
 
-``````vex
+```vex
 let x = 42;
 let y = x;  // x is copied, not moved
 // Both x and y are valid
 ```
 
-**Copy Types**:
+Copy Types:
 
 - All integer types: i8-i64, u8-u64
 - Floating-point types: f32, f64
 - Boolean: bool
 - Tuples of copy types: `(i32, i32)`
 
-**Move Types**:
+Move Types:
 
 - String: `string`
 - Arrays: `[T; N]` (unless T is Copy)
@@ -76,22 +65,22 @@ let y = x;  // x is copied, not moved
 
 ### Immutable Borrowing
 
-**Syntax**: `&T`
+Syntax: `&T`
 
-``````vex
+```vex
 let x = 42;
 let ref_x: &i32 = &x;  // Borrow x immutably
 ```
 
-**Properties**:
+Properties:
 
 - Can have multiple immutable borrows
 - Cannot modify through immutable reference
 - Original owner cannot modify while borrowed
 
-**Example**:
+Example:
 
-``````vex
+```vex
 fn print_value(x: &i32) {
     // Can read x, cannot modify
 }
@@ -103,22 +92,22 @@ print_value(&value);
 
 ### Mutable Borrowing
 
-**Syntax**: `&T!` (v0.1 syntax)
+Syntax: `&T!` (v0.1 syntax)
 
-``````vex
+```vex
 let! x = 42;
 let ref_x: &i32! = &x;  // Borrow x mutably
 ```
 
-**Properties**:
+Properties:
 
 - Can have only ONE mutable borrow at a time
 - Cannot have immutable borrows while mutably borrowed
 - Can modify through mutable reference
 
-**Example**:
+Example:
 
-``````vex
+```vex
 fn increment(x: &i32!) {
     *x = *x + 1;  // Modify through reference
 }
@@ -130,15 +119,31 @@ increment(&value);
 
 ### The Core Rule
 
-**"One mutable XOR many immutable"**:
+"One mutable XOR many immutable":
 
-[15 lines code: ```vex]
+```vex
+let! x = 42;
+
+// OK: Multiple immutable borrows
+let r1: &i32 = &x;
+let r2: &i32 = &x;
+let r3: &i32 = &x;
+
+// OK: Single mutable borrow
+let! x = 42;
+let r1: &i32! = &x;
+
+// ERROR: Cannot mix mutable and immutable
+let! x = 42;
+let r1: &i32 = &x;
+let r2: &i32! = &x;  // ERROR!
+```
 
 ### Borrowing Examples
 
-**Read-Only Access**:
+Read-Only Access:
 
-``````vex
+```vex
 fn calculate_area(rect: &Rectangle): i32 {
     return rect.width * rect.height;
 }
@@ -148,9 +153,9 @@ let area = calculate_area(&r);
 // r still valid
 ```
 
-**Mutation Through Reference**:
+Mutation Through Reference:
 
-``````vex
+```vex
 fn scale_rectangle(rect: &Rectangle!, factor: i32) {
     rect.width = rect.width * factor;
     rect.height = rect.height * factor;
@@ -167,13 +172,13 @@ scale_rectangle(&r, 2);
 
 ### Four-Phase System (v0.1.2)
 
-Vex implements a **four-phase borrow checker**:
+Vex implements a four-phase borrow checker:
 
-### Phase 1: Immutability Checking ✅
+### Phase 1: Immutability Checking 
 
 Enforces `let` vs `let!` semantics:
 
-``````vex
+```vex
 let x = 42;
 // x = 100;  // ERROR: Cannot assign to immutable variable
 
@@ -181,83 +186,136 @@ let! y = 42;
 y = 100;     // OK: y is mutable
 ```
 
-**Test Coverage**: 7 tests passing
+Test Coverage: 7 tests passing
 
-### Phase 2: Move Semantics ✅
+### Phase 2: Move Semantics 
 
 Prevents use-after-move:
 
-``````vex
+```vex
 let point = Point { x: 10, y: 20 };
 let moved = point;
 // let error = point;  // ERROR: point has been moved
 ```
 
-**Test Coverage**: 5 tests passing
+Test Coverage: 5 tests passing
 
-### Phase 3: Borrow Rules ✅
+### Phase 3: Borrow Rules 
 
 Enforces reference rules:
 
-``````vex
+```vex
 let! x = 42;
 let r1: &i32! = &x;
 // let r2: &i32! = &x;  // ERROR: Cannot have two mutable borrows
 ```
 
-**Test Coverage**: 5 tests passing
+Test Coverage: 5 tests passing
 
-### Phase 4: Lifetime Analysis ✅
+### Phase 4: Lifetime Analysis 
 
-**Status**: ✅ **COMPLETE** (v0.1.2)
+Status: COMPLETE (v0.1.2)
 
-**Purpose**: Track reference validity across scopes and prevent dangling references
+Purpose: Track reference validity across scopes and prevent dangling references
 
 Lifetime analysis prevents common memory safety bugs:
 
-- **Dangling references**: References to deallocated memory
-- **Use-after-free**: Using memory after it's been freed
-- **Return local reference**: Returning references to local variables
+- Dangling references: References to deallocated memory
+- Use-after-free: Using memory after it's been freed
+- Return local reference: Returning references to local variables
 
-**How It Works**:
+How It Works:
 
 The lifetime checker tracks:
 
-1. **Variable scopes**: When variables are created and destroyed
-2. **Reference tracking**: Which references point to which variables
-3. **Scope validation**: Ensures references don't outlive their referents
-4. **Return value analysis**: Prevents returning references to locals
+1. Variable scopes: When variables are created and destroyed
+2. Reference tracking: Which references point to which variables
+3. Scope validation: Ensures references don't outlive their referents
+4. Return value analysis: Prevents returning references to locals
 
-**Examples**:
+Examples:
 
-[33 lines code: ```vex]
+```vex
+// ✅ Valid: Basic reference lifetime
+fn test_basic_lifetime() {
+    let x = 10;
+    let y = &x;  // OK: x is in scope
+    print(*y);
+}
 
-**Implementation Details**:
+// ❌ Error: Dangling reference
+fn test_dangling_reference(): &i32 {
+    let x = 42;
+    return &x;  // ERROR: Cannot return reference to local variable
+}
 
-- **Checker**: `vex-compiler/src/borrow_checker/lifetimes.rs`
-- **Scope tracking**: Maintains variable scope depth (0=global, 1=function, 2+=blocks)
-- **Reference map**: Tracks which references point to which variables
-- **Global variables**: Extern functions and constants never go out of scope
-- **Builtin registry**: Identifies builtin functions for special handling
-- **Test file**: `examples/test_lifetimes.vx`
+// ❌ Error: Reference outlives referent
+fn test_reference_outlives() {
+    let y: &i32;
+    {
+        let x = 10;
+        y = &x;  // ERROR: x goes out of scope, y would dangle
+    }
+    print(*y);  // ERROR: y is dangling
+}
 
-**Test Coverage**: 8+ tests passing (v0.1.2)
+// ✅ Valid: Reference to field (lifetime tied to struct)
+fn test_method_lifetime(self: &Vector2): &f32 {
+    return &self.x;  // OK: Field lifetime tied to self
+}
+
+// ✅ Valid: Heap allocation (ownership transferred)
+fn test_valid_reference_lifetime(): &i32 {
+    let x = Box.new(42);  // Heap allocation
+    return x;  // OK: Box ownership transferred
+}
+```
+
+Implementation Details:
+
+- Checker: `vex-compiler/src/borrow_checker/lifetimes.rs`
+- Scope tracking: Maintains variable scope depth (0=global, 1=function, 2+=blocks)
+- Reference map: Tracks which references point to which variables
+- Global variables: Extern functions and constants never go out of scope
+- Builtin registry: Identifies builtin functions for special handling
+- Test file: `examples/test_lifetimes.vx`
+
+Test Coverage: 8+ tests passing (v0.1.2)
 
 ### Borrow Checker Errors
 
-**Immutability Violation**:
+Immutability Violation:
 
-[10 lines code: (unknown)]
+```
+Borrow Checker Error: Cannot assign to immutable variable 'x'
+   |
+1  | let x = 42;
+   |     - variable declared as immutable here
+2  |
+3  | x = 100;
+   | ^^^^^^^ cannot assign to immutable variable
+   |
+   = help: consider declaring it as mutable: `let! x = 42;`
+```
 
-**Use After Move**:
+Use After Move:
 
-[10 lines code: (unknown)]
+```
+Borrow Checker Error: Use of moved value 'point'
+   |
+1  | let point = Point { x: 10, y: 20 };
+2  | let moved = point;
+   |             ----- value moved here
+3  | let error = point;
+   |             ^^^^^ value used after move
+   |
+   = note: move occurs because `point` has type `Point`, which does not implement `Copy`
+```
 
-**Multiple Mutable Borrows**:
+Multiple Mutable Borrows:
 
 ```
 Borrow Checker Error: Cannot borrow 'x' as mutable more than once
-  --> example.vx:3:17
    |
 2  | let r1: &i32! = &x;
    |                 -- first mutable borrow occurs here
@@ -273,7 +331,7 @@ Borrow Checker Error: Cannot borrow 'x' as mutable more than once
 
 Lifetimes track how long references are valid:
 
-``````vex
+```vex
 fn example<'a>(x: &'a i32): &'a i32 {
     return x;  // Returned reference lives as long as input
 }
@@ -291,7 +349,7 @@ Vex automatically infers lifetimes in all cases, so explicit annotations are rar
 
 Most values allocated on stack:
 
-``````vex
+```vex
 let x = 42;            // Stack: 4 bytes
 let point = Point {    // Stack: 8 bytes (2 × i32)
     x: 10,
@@ -299,7 +357,7 @@ let point = Point {    // Stack: 8 bytes (2 × i32)
 };
 ```
 
-**Stack Properties**:
+Stack Properties:
 
 - Fast allocation/deallocation
 - Automatic cleanup (scope-based)
@@ -310,12 +368,12 @@ let point = Point {    // Stack: 8 bytes (2 × i32)
 
 Dynamic allocation for variable-size data:
 
-``````vex
+```vex
 let buffer = Box::new([0; 1024]);  // Heap allocation
 let text = String::from("hello");  // Heap string
 ```
 
-**Heap Properties**:
+Heap Properties:
 
 - Slower than stack
 - Manual management (ownership)
@@ -326,7 +384,7 @@ let text = String::from("hello");  // Heap string
 
 Types align to natural boundaries:
 
-``````vex
+```vex
 struct Example {
     a: i8,    // 1 byte, aligned to 1
     b: i32,   // 4 bytes, aligned to 4
@@ -335,7 +393,7 @@ struct Example {
 // Size: 12 bytes (with padding)
 ```
 
-**Alignment Rules**:
+Alignment Rules:
 
 - i8: 1-byte alignment
 - i16: 2-byte alignment
@@ -352,13 +410,24 @@ struct Example {
 
 Resources tied to object lifetime:
 
-[10 lines code: ```vex]
+```vex
+struct File {
+    handle: i32,
+}
+
+impl Drop for File {
+    fn drop(self: &File!) {
+        // Close file automatically when File goes out of scope
+        close_handle(self.handle);
+    }
+}
+```
 
 ### Manual Cleanup
 
 Current approach - explicit cleanup:
 
-``````vex
+```vex
 fn process_file(path: string) {
     let file = open_file(path);
     // Use file
@@ -368,7 +437,7 @@ fn process_file(path: string) {
 
 ### Defer Statement (Future - Go-style)
 
-``````vex
+```vex
 fn process() {
     let file = open("data.txt");
     defer close(file);  // Executes when function returns
@@ -384,7 +453,7 @@ fn process() {
 
 ### 1. Prefer Immutable Bindings
 
-``````vex
+```vex
 // Good: Immutable by default
 let x = 42;
 let data = load_data();
@@ -396,45 +465,94 @@ counter = counter + 1;
 
 ### 2. Use References for Large Data
 
-[9 lines code: ```vex]
+```vex
+// Good: Pass by reference
+fn process_large_array(data: &[i32; 10000]) {
+    // Read data without copying
+}
+
+// Bad: Unnecessary copy
+fn process_large_array(data: [i32; 10000]) {
+    // Copies entire array!
+}
+```
 
 ### 3. Borrow, Don't Move
 
-[13 lines code: ```vex]
+```vex
+// Good: Borrow when ownership not needed
+fn print_point(p: &Point) {
+    // Read-only access
+}
+
+let point = Point { x: 10, y: 20 };
+print_point(&point);
+// point still valid
+
+// Bad: Takes ownership unnecessarily
+fn print_point(p: Point) {
+    // point moved, original invalid
+}
+```
 
 ### 4. Minimize Mutable State
 
-[11 lines code: ```vex]
+```vex
+// Good: Functional approach
+fn add(x: i32, y: i32): i32 {
+    return x + y;
+}
+
+// Bad: Unnecessary mutation
+fn add(x: i32, y: i32): i32 {
+    let! result = x;
+    result = result + y;
+    return result;
+}
+```
 
 ### 5. Clear Ownership
 
-[13 lines code: ```vex]
+```vex
+// Good: Clear ownership transfer
+fn take_ownership(s: string) {
+    // s is owned here
+}
+
+let text = "hello";
+take_ownership(text);
+// text is moved
+
+// Bad: Unclear borrowing
+fn process(s: &string!) {
+    // Mutable borrow, but does it need to be?
+}
+```
 
 ---
 
 ## Memory Management Summary
 
 • Feature — Status — Description
-• ----------------------- — ------------ — ---------------------------
-• **Ownership** — ✅ Working — Each value has one owner
-• **Move Semantics** — ✅ Phase 2 — Transfer ownership
-• **Copy Types** — ✅ Working — Primitive types auto-copy
-| **Immutable Borrow** | ✅ Phase 3 | `&T` reference |
-| **Mutable Borrow** | ✅ Phase 3 | `&T!` reference |
-• **Borrow Checker** — ✅ Phase 1-4 — Compile-time checking
-• **Lifetimes** — ✅ Phase 4 — Reference validity tracking
-• **Drop Trait** — ❌ Future — RAII destructors
-• **Box Type** — ❌ Future — Heap allocation
-• **Reference Counting** — ❌ Future — Rc/Arc types
-• **Interior Mutability** — ❌ Future — Cell/RefCell
+• Ownership — Working — Each value has one owner
+• Move Semantics — Phase 2 — Transfer ownership
+• Copy Types — Working — Primitive types auto-copy
+| Immutable Borrow | Phase 3 | `&T` reference |
+| Mutable Borrow | Phase 3 | `&T!` reference |
+• Borrow Checker — Phase 1-4 — Compile-time checking
+• Lifetimes — Phase 4 — Reference validity tracking
+• Drop Trait — Future — RAII destructors
+• Box Type — Future — Heap allocation
+• Reference Counting — Future — Rc/Arc types
+• Interior Mutability — Future — Cell/RefCell
 
 ### Test Coverage
 
-- **Phase 1 (Immutability)**: 7/7 tests passing ✅
-- **Phase 2 (Move Semantics)**: 5/5 tests passing ✅
-- **Phase 3 (Borrow Rules)**: 5/5 tests passing ✅
-- **Phase 4 (Lifetimes)**: 5/5 tests passing ✅ (v0.1.2)
-- **Total**: 22/22 borrow checker tests passing (100%)
+- Phase 1 (Immutability): 7/7 tests passing 
+- Phase 2 (Move Semantics): 5/5 tests passing 
+- Phase 3 (Borrow Rules): 5/5 tests passing 
+- Phase 4 (Lifetimes): 5/5 tests passing (v0.1.2)
+- Total: 22/22 borrow checker tests passing (100%)
 
 ---
 
@@ -442,7 +560,7 @@ counter = counter + 1;
 
 ### Ownership Transfer
 
-``````vex
+```vex
 fn main(): i32 {
     let x = Point { x: 10, y: 20 };
     let y = x;  // x moved to y
@@ -453,15 +571,37 @@ fn main(): i32 {
 
 ### Immutable Borrowing
 
-[11 lines code: ```vex]
+```vex
+fn sum(a: &i32, b: &i32): i32 {
+    return *a + *b;
+}
+
+fn main(): i32 {
+    let x = 10;
+    let y = 20;
+    let result = sum(&x, &y);
+    // x and y still valid
+    return result;  // 30
+}
+```
 
 ### Mutable Borrowing
 
-[9 lines code: ```vex]
+```vex
+fn increment(x: &i32!) {
+    *x = *x + 1;
+}
+
+fn main(): i32 {
+    let! value = 42;
+    increment(&value);
+    return value;  // 43
+}
+```
 
 ### Borrow Checker Error
 
-``````vex
+```vex
 fn main(): i32 {
     let x = 42;
     x = 100;  // ERROR: Cannot assign to immutable variable
@@ -471,7 +611,5 @@ fn main(): i32 {
 
 ---
 
-**Previous**: \1 
-**Next**: \1
-
-**Maintained by**: Vex Language Team
+Previous: 11PatternMatching.md 
+Next: 13_Concurrency.md

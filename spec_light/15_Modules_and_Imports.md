@@ -1,19 +1,9 @@
 # Modules and Imports
 
-**Version:** 0.1.2 
-**Last Updated:** November 2025
+Version: 0.1.2 
+Last Updated: November 2025
 
 This document defines the module system and import/export mechanism in Vex.
-
----
-
-## Table of Contents
-
-1. \1
-2. \1
-3. \1
-4. \1
-5. \1
 
 ---
 
@@ -23,7 +13,7 @@ This document defines the module system and import/export mechanism in Vex.
 
 Each `.vx` file is a module:
 
-``````vex
+```vex
 // file: math.vx
 fn add(x: i32, y: i32): i32 {
     return x + y;
@@ -34,7 +24,7 @@ export fn multiply(x: i32, y: i32): i32 {
 }
 ```
 
-**Properties**:
+Properties:
 
 - One module per file
 - File name becomes module name
@@ -44,9 +34,20 @@ export fn multiply(x: i32, y: i32): i32 {
 
 Standard library modules:
 
-[10 lines code: (unknown)]
+```
+vex-libs/std/
+├── io/
+│   ├── mod.vx          # Main module
+│   ├── file.vx         # Submodule
+│   └── stream.vx       # Submodule
+├── net/
+│   ├── mod.vx
+│   ├── http.vx
+│   └── tcp.vx
+└── ...
+```
 
-**Import Path**: `"io"` → `vex-libs/std/io/mod.vx`
+Import Path: `"io"` → `vex-libs/std/io/mod.vx`
 
 ---
 
@@ -54,9 +55,9 @@ Standard library modules:
 
 ### Basic Import with Alias
 
-**Syntax**: `import * as alias from "module";`
+Syntax: `import * as alias from "module";`
 
-``````vex
+```vex
 import * as io from "io";
 
 fn main(): i32 {
@@ -67,9 +68,9 @@ fn main(): i32 {
 
 ### Named Imports
 
-**Syntax**: `import { name1, name2 } from "module";`
+Syntax: `import { name1, name2 } from "module";`
 
-``````vex
+```vex
 import { println, readln } from "io";
 
 fn main(): i32 {
@@ -81,7 +82,7 @@ fn main(): i32 {
 
 ### Import Nested Modules
 
-``````vex
+```vex
 import * as http from "net/http";
 import { TcpStream } from "net/tcp";
 import { parse } from "json";
@@ -94,7 +95,7 @@ fn main(): i32 {
 
 ### Multiple Named Imports
 
-``````vex
+```vex
 import { println } from "io";
 import { get, post } from "net/http";
 import { parse, stringify } from "json";
@@ -102,7 +103,7 @@ import { parse, stringify } from "json";
 
 ### Wildcard Import (Discouraged)
 
-``````vex
+```vex
 import * from "io";
 // Imports all exported names directly (not recommended)
 ```
@@ -115,15 +116,38 @@ import * from "io";
 
 Make declarations public:
 
-[9 lines code: ```vex]
+```vex
+// Private function (not exported)
+fn internal_helper(): i32 {
+    return 42;
+}
+
+// Public function (exported)
+export fn public_api(): i32 {
+    return internal_helper();
+}
+```
 
 ### Export Structs
 
-[12 lines code: ```vex]
+```vex
+export struct Point {
+    x: i32,
+    y: i32,
+}
+
+// All fields in exported structs are accessible
+// Use underscore prefix for internal/helper fields (convention only)
+export struct User {
+    id: i64,
+    name: String,
+    _internal_cache: i32,  // Convention: internal field
+}
+```
 
 ### Export Enums
 
-``````vex
+```vex
 export enum Status {
     Active,
     Inactive,
@@ -133,7 +157,7 @@ export enum Status {
 
 ### Export Traits
 
-``````vex
+```vex
 export trait Display {
     fn show();
 }
@@ -141,18 +165,28 @@ export trait Display {
 
 ### Export Constants
 
-``````vex
+```vex
 export const MAX_SIZE: i32 = 1024;
 export const VERSION: string = "0.1.0";
 ```
 
 ### Export Policies
 
-[9 lines code: ```vex]
+```vex
+export policy Debug {
+    description: "Debug information",
+    version: "1.0.0",
+}
+
+export policy Serializable {
+    description: "Can be serialized",
+    format: "json",
+}
+```
 
 ### Re-exports
 
-``````vex
+```vex
 // Re-export from another module
 import { helper } from "internal";
 export { helper };
@@ -167,17 +201,17 @@ export { helper } from "internal";
 
 ### Resolution Process
 
-1. **Parse import path**: `"io"` → `["io"]`
-2. **Locate module**: `vex-libs/std/io/mod.vx`
-3. **Load and parse**: Parse `.vx` file
-4. **Merge AST**: Combine with main program
-5. **Resolve symbols**: Link function calls
+1. Parse import path: `"io"` → `["io"]`
+2. Locate module: `vex-libs/std/io/mod.vx`
+3. Load and parse: Parse `.vx` file
+4. Merge AST: Combine with main program
+5. Resolve symbols: Link function calls
 
 ### Standard Library Path
 
-**Base Path**: `vex-libs/std/`
+Base Path: `vex-libs/std/`
 
-**Examples**:
+Examples:
 
 - `"io"` → `vex-libs/std/io/mod.vx`
 - `"net/http"` → `vex-libs/std/net/http.vx`
@@ -186,11 +220,11 @@ export { helper } from "internal";
 
 ### Module Loader
 
-**Implementation**: `ModuleResolver` in `vex-compiler/src/module_resolver.rs`
+Implementation: `ModuleResolver` in `vex-compiler/src/module_resolver.rs`
 
-**Process**:
+Process:
 
-``````rust
+```rust
 fn resolve_import(path: &str) -> Result<Program, String> {
     let file_path = convert_to_path(path);
     let source = read_file(file_path)?;
@@ -216,7 +250,7 @@ Core runtime written in Rust:
 
 Low-level operations (100% Vex with `unsafe`):
 
-``````vex
+```vex
 // vex-libs/std/io/mod.vx
 export fn print(s: string) {
     @libc::printf(s);
@@ -227,7 +261,7 @@ export fn read_file(path: string): string {
 }
 ```
 
-**Modules**:
+Modules:
 
 - `"io"` - Basic I/O
 - `"ffi"` - Foreign function interface
@@ -238,7 +272,7 @@ export fn read_file(path: string): string {
 
 Safe abstractions:
 
-``````vex
+```vex
 // vex-libs/std/net/mod.vx
 export struct TcpStream {
     handle: i32,
@@ -249,7 +283,7 @@ export fn connect(addr: string): TcpStream {
 }
 ```
 
-**Modules**:
+Modules:
 
 - `"net"` - Networking base
 - `"net/tcp"` - TCP operations
@@ -261,14 +295,14 @@ export fn connect(addr: string): TcpStream {
 
 High-level APIs:
 
-``````vex
+```vex
 // vex-libs/std/net/http.vx
 export fn get(url: string): (Response | Error) {
     // HTTP client implementation
 }
 ```
 
-**Modules**:
+Modules:
 
 - `"net/http"` - HTTP client/server
 - `"json"` - JSON parsing
@@ -280,7 +314,7 @@ export fn get(url: string): (Response | Error) {
 
 ### Basic Import
 
-``````vex
+```vex
 import * as io from "io";
 
 fn main(): i32 {
@@ -291,7 +325,7 @@ fn main(): i32 {
 
 ### Named Imports
 
-``````vex
+```vex
 import { println, readln } from "io";
 
 fn main(): i32 {
@@ -304,13 +338,38 @@ fn main(): i32 {
 
 ### Multiple Modules
 
-[10 lines code: ```vex]
+```vex
+import { println } from "io";
+import * as http from "net/http";
+import { parse } from "json";
+
+fn main(): i32 {
+    println("Starting server");
+    let server = http.Server.new();
+    server.listen(8080);
+    return 0;
+}
+```
 
 ### Creating a Module
 
-[13 lines code: ```vex]
+```vex
+// file: utils.vx
+export fn add(x: i32, y: i32): i32 {
+    return x + y;
+}
 
-``````vex
+export fn multiply(x: i32, y: i32): i32 {
+    return x * y;
+}
+
+fn internal_helper(): i32 {
+    // Not exported, private
+    return 42;
+}
+```
+
+```vex
 // file: main.vx
 import { add, multiply } from "utils";
 
@@ -327,7 +386,7 @@ fn main(): i32 {
 
 ### 1. Explicit Imports
 
-``````vex
+```vex
 // Good: Explicit named imports
 import { println, readln } from "io";
 
@@ -340,7 +399,7 @@ import * as io from "io";
 
 ### 2. Module Organization
 
-``````vex
+```vex
 // Good: Hierarchical structure
 import { TcpStream } from "net/tcp";
 import { get } from "net/http";
@@ -352,7 +411,7 @@ import "std::http";  // ❌ Wrong!
 
 ### 3. Minimal Exports
 
-``````vex
+```vex
 // Good: Only export public API
 export fn public_function();
 fn private_helper();
@@ -364,7 +423,7 @@ export fn internal_implementation();
 
 ### 4. Clear Module Names
 
-``````vex
+```vex
 // Good: Clear, descriptive paths
 import { HashMap } from "collections/hashmap";
 import { parse } from "json";
@@ -378,21 +437,18 @@ import "std::json";  // ❌ Wrong!
 ## Module System Summary
 
 • Feature — Status — Example
-• --------------------- — -------------- — -------------------------------------------------
-| **Named Import** | ✅ Working | `import { println } from "io"` |
-| **Import with Alias** | ✅ Working | `import * as io from "io"` |
-| **Export** | ✅ v0.1 | `export fn name()` |
-| **Module Resolution** | ✅ Working | Loads from `vex-libs/std/` |
-| **Nested Modules** | ✅ Working | `import { get } from "net/http"` |
-| **Re-exports** | ✅ Working | `export { x } from "mod"` |
-• **Private Items** — ✅ Working — Default (no export)
-| **Field Visibility** | ❌ Not Planned | All fields accessible (use `_` prefix convention) |
-| **Relative Imports** | ✅ Working | `import "./local"` supported |
-• **Package System** — ✅ vex-pm — Full package manager with dependency resolution
+| Named Import | Working | `import { println } from "io"` |
+| Import with Alias | Working | `import * as io from "io"` |
+| Export | v0.1 | `export fn name()` |
+| Module Resolution | Working | Loads from `vex-libs/std/` |
+| Nested Modules | Working | `import { get } from "net/http"` |
+| Re-exports | Working | `export { x } from "mod"` |
+• Private Items — Working — Default (no export)
+| Field Visibility | Not Planned | All fields accessible (use `_` prefix convention) |
+| Relative Imports | Working | `import "./local"` supported |
+• Package System — vex-pm — Full package manager with dependency resolution
 
 ---
 
-**Previous**: \1 
-**Next**: \1
-
-**Maintained by**: Vex Language Team
+Previous: 13_Concurrency.md 
+Next: 15StandardLibrary.md

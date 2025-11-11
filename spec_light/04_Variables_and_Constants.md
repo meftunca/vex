@@ -1,21 +1,9 @@
 # Variables and Constants
 
-**Version:** 0.1.0 
-**Last Updated:** November 3, 2025
+Version: 0.1.0 
+Last Updated: November 3, 2025
 
 This document defines the variable and constant declaration system in Vex, including the unified variable syntax introduced in v0.1.
-
----
-
-## Table of Contents
-
-1. \1
-2. \1
-3. \1
-4. \1
-5. \1
-6. \1
-7. \1
 
 ---
 
@@ -25,71 +13,71 @@ This document defines the variable and constant declaration system in Vex, inclu
 
 Vex v0.1 unifies variable declarations with a single `let` keyword and explicit mutability markers:
 
-``````vex
+```vex
 let x = 42;              // Immutable (default, Rust-style)
 let! counter = 0;        // Mutable (explicit with ! suffix)
 ```
 
-**Key Changes from Previous Versions**:
+Key Changes from Previous Versions:
 
-- ✅ `let` for immutable variables (default)
-- ✅ `let!` for mutable variables (explicit)
-- ❌ `mut` keyword **removed** (deprecated in v0.1)
-- ❌ `:=` operator **removed** (use `let` instead)
+- `let` for immutable variables (default)
+- `let!` for mutable variables (explicit)
+- `mut` keyword removed (deprecated in v0.1)
+- `:=` operator removed (use `let` instead)
 
 ### Immutable Variables
 
-**Syntax**: `let name = value;`
+Syntax: `let name = value;`
 
-``````vex
+```vex
 let age = 30;
 let name = "Alice";
 let pi = 3.14159;
 let is_valid = true;
 ```
 
-**Properties**:
+Properties:
 
 - Cannot be reassigned after initialization
 - Enforced by borrow checker (Phase 1: Immutability)
 - Default behavior (Rust-inspired)
 - Memory efficient (allows optimizations)
 
-**Example**:
+Example:
 
-``````vex
+```vex
 let x = 42;
 // x = 100;  // ERROR: Cannot assign to immutable variable 'x'
 ```
 
 ### Mutable Variables
 
-**Syntax**: `let! name = value;`
+Syntax: `let! name = value;`
 
-``````vex
+```vex
 let! counter = 0;
 let! balance = 1000.0;
 let! status = true;
 ```
 
-**Properties**:
+Properties:
 
 - Can be reassigned after initialization
 - Requires explicit `let!` declaration
 - Enforced by borrow checker
 - Forces intentional mutability
 
-**Example**:
+Example:
 
-``````vex
+```vex
 let! counter = 0;
 counter = counter + 1;    // OK: counter is mutable
 counter += 1;             // OK: compound assignment
 ```
 
-**Reassignment**:
+Reassignment:
 
-``````vex
+```vex
 let! x = 10;
 x = 20;              // OK: x is mutable
 x = x * 2;           // OK: 40
@@ -99,15 +87,15 @@ x = x * 2;           // OK: 40
 
 Declare multiple variables in sequence:
 
-``````vex
+```vex
 let x = 10;
 let y = 20;
 let z = 30;
 ```
 
-**Tuple Destructuring** (Future):
+Tuple Destructuring (Future):
 
-``````vex
+```vex
 let (x, y, z) = (10, 20, 30);
 let! (a, b) = (1, 2);
 ```
@@ -118,36 +106,35 @@ let! (a, b) = (1, 2);
 
 ### Compile-Time Constants
 
-**Syntax**: `const NAME = value;`
+Syntax: `const NAME = value;`
 
-``````vex
+```vex
 const MAX_SIZE = 100;
 const PI = 3.141592653589793;
 const APP_NAME = "VexApp";
 const DEBUG = true;
 ```
 
-**Properties**:
+Properties:
 
-- **Compile-Time Evaluation**: Value computed at compile time
-- **Immutable**: Cannot be changed at runtime
-- **No Type Inference**: Type must be determinable from literal
-- **Naming Convention**: SCREAMING_SNAKE_CASE recommended
-- **Global Scope**: Can be declared at module level
+- Compile-Time Evaluation: Value computed at compile time
+- Immutable: Cannot be changed at runtime
+- No Type Inference: Type must be determinable from literal
+- Naming Convention: SCREAMINGSNAKECASE recommended
+- Global Scope: Can be declared at module level
 
-**Differences from Variables**:
+Differences from Variables:
 
 | Feature | `const` | `let` | `let!` |
-• --------------- — ------------ — ---------- — ----------
 • Mutability — Never — No — Yes
 • Initialization — Compile-time — Runtime — Runtime
 • Scope — Any — Block — Block
 • Memory — Inlined — Stack/Heap — Stack/Heap
 • Type Annotation — Optional — Optional — Optional
 
-**Example**:
+Example:
 
-``````vex
+```vex
 const MAX_USERS = 1000;
 const MIN_PASSWORD_LENGTH = 8;
 const DEFAULT_TIMEOUT = 30.0;
@@ -161,9 +148,9 @@ fn validate_users(count: i32): bool {
 
 Constants must be initialized with compile-time constant expressions:
 
-**Allowed**:
+Allowed:
 
-``````vex
+```vex
 const A = 42;                    // Literal
 const B = 10 + 20;               // Arithmetic
 const C = 100 * 2;               // Multiplication
@@ -171,9 +158,9 @@ const D = true && false;         // Boolean logic
 const E = "Hello, " + "World";   // String concatenation (future)
 ```
 
-**Not Allowed**:
+Not Allowed:
 
-``````vex
+```vex
 const X = some_function();       // ERROR: Function calls
 const Y = get_value();           // ERROR: Runtime value
 let z = 10;
@@ -186,18 +173,18 @@ const Z = z + 5;                 // ERROR: Variable reference
 
 ### Philosophy
 
-Vex follows the **"immutable by default, mutable by choice"** principle:
+Vex follows the "immutable by default, mutable by choice" principle:
 
-1. **Safety First**: Immutability prevents accidental modifications
-2. **Explicit Intent**: `let!` makes mutability visible
-3. **Rust-Inspired**: Similar to Rust's `let` vs `let mut`
-4. **Borrow Checker**: Enforces mutability rules at compile time
+1. Safety First: Immutability prevents accidental modifications
+2. Explicit Intent: `let!` makes mutability visible
+3. Rust-Inspired: Similar to Rust's `let` vs `let mut`
+4. Borrow Checker: Enforces mutability rules at compile time
 
 ### Mutability Enforcement
 
 The borrow checker (Phase 1) enforces mutability rules:
 
-``````vex
+```vex
 let x = 42;
 // x = 100;  // ERROR: Cannot assign to immutable variable 'x'
 
@@ -205,20 +192,30 @@ let! y = 42;
 y = 100;      // OK: y declared as mutable with let!
 ```
 
-**Error Message**:
+Error Message:
 
-[10 lines code: (unknown)]
+```
+Borrow Checker Error: Cannot assign to immutable variable 'x'
+   |
+1  | let x = 42;
+   |     - variable declared as immutable here
+2  |
+3  | x = 100;
+   | ^^^^^^^ cannot assign to immutable variable
+   |
+   = help: consider declaring it as mutable: `let! x = 42;`
+```
 
 ### Mutable References
 
 The mutability of a reference is independent of the mutability of the variable it points to. Vex uses a `!` marker to denote mutable references.
 
-**Syntax**:
+Syntax:
 
 - Immutable Reference: `&T`
 - Mutable Reference: `&T!`
 
-``````vex
+```vex
 let! x = 42;             // Mutable variable
 let ref_x: &i32 = &x;    // Immutable reference to a mutable variable
 
@@ -226,13 +223,12 @@ let! y = 100;
 let ref_y: &i32! = &y;   // Mutable reference to a mutable variable
 ```
 
-**Mutability Matrix**:
+Mutability Matrix:
 
 • Variable Declaration — Reference Type — Can Read? — Can Write to Variable Directly? — Can Write Through Reference?
-• -------------------- — -------------- — --------- — ------------------------------- — ----------------------------
-| `let x` (immutable) | `&x` | ✅ | ❌ | ❌ |
-| `let! x` (mutable) | `&x` | ✅ | ✅ | ❌ |
-| `let! x` (mutable) | `&x!` | ✅ | ✅ | ✅ |
+| `let x` (immutable) | `&x` | | | |
+| `let! x` (mutable) | `&x` | | | |
+| `let! x` (mutable) | `&x!` | | | |
 
 This system provides fine-grained control over how data can be accessed and modified, forming a core part of Vex's safety guarantees.
 
@@ -244,13 +240,13 @@ This system provides fine-grained control over how data can be accessed and modi
 
 Shadowing allows declaring a new variable with the same name as a previous variable:
 
-``````vex
+```vex
 let x = 5;
 let x = x + 1;    // Shadows previous x
 let x = x * 2;    // Shadows again (x is now 12)
 ```
 
-**Properties**:
+Properties:
 
 - New variable shadows the old one in the same scope
 - Old variable becomes inaccessible
@@ -259,16 +255,16 @@ let x = x * 2;    // Shadows again (x is now 12)
 
 ### Shadowing vs Mutation
 
-**Shadowing** (creates new variable):
+Shadowing (creates new variable):
 
-``````vex
+```vex
 let x = 5;
 let x = x + 1;    // New immutable variable
 ```
 
-**Mutation** (modifies existing variable):
+Mutation (modifies existing variable):
 
-``````vex
+```vex
 let! x = 5;
 x = x + 1;        // Modifies existing variable
 ```
@@ -277,14 +273,14 @@ x = x + 1;        // Modifies existing variable
 
 Shadowing allows changing the type:
 
-``````vex
+```vex
 let x = "42";         // x: string
 let x = 42;           // x: i32 (shadows previous x)
 ```
 
-**This is not possible with mutation**:
+This is not possible with mutation:
 
-``````vex
+```vex
 let! x = "42";
 // x = 42;  // ERROR: Type mismatch (string vs i32)
 ```
@@ -293,7 +289,7 @@ let! x = "42";
 
 Inner scopes can shadow outer variables:
 
-``````vex
+```vex
 let x = 10;
 {
     let x = 20;   // Shadows outer x in this scope
@@ -302,9 +298,22 @@ let x = 10;
 // x is 10 here (inner x out of scope)
 ```
 
-**Example**:
+Example:
 
-[12 lines code: ```vex]
+```vex
+fn example() {
+    let x = 5;
+
+    if true {
+        let x = 10;     // Shadows x in if block
+        // x is 10 here
+    }
+
+    // x is 5 here
+
+    let x = x * 2;      // Shadows x in function scope (now 10)
+}
+```
 
 ---
 
@@ -314,7 +323,7 @@ let x = 10;
 
 Variables are scoped to the block they're declared in:
 
-``````vex
+```vex
 {
     let x = 42;
     // x is accessible here
@@ -322,15 +331,29 @@ Variables are scoped to the block they're declared in:
 // x is NOT accessible here (out of scope)
 ```
 
-**Example**:
+Example:
 
-[13 lines code: ```vex]
+```vex
+fn main(): i32 {
+    let outer = 10;
+
+    {
+        let inner = 20;
+        // Both outer and inner accessible
+    }
+
+    // Only outer accessible here
+    // inner is out of scope
+
+    return 0;
+}
+```
 
 ### Function Scope
 
 Function parameters and variables have function scope:
 
-``````vex
+```vex
 fn calculate(x: i32, y: i32): i32 {
     let sum = x + y;
     let product = x * y;
@@ -344,13 +367,23 @@ fn calculate(x: i32, y: i32): i32 {
 
 Constants and functions can have module scope:
 
-[9 lines code: ```vex]
+```vex
+const MAX_SIZE = 100;  // Module-level constant
+
+fn helper(): i32 {
+    return MAX_SIZE;   // Can access module-level const
+}
+
+fn main(): i32 {
+    return helper();
+}
+```
 
 ### Lifetime (Future Feature)
 
 Lifetimes track how long references are valid:
 
-``````vex
+```vex
 fn longest<'a>(x: &'a string, y: &'a string): &'a string {
     if x.len() > y.len() {
         return x;
@@ -360,7 +393,7 @@ fn longest<'a>(x: &'a string, y: &'a string): &'a string {
 }
 ```
 
-**Status**: Phase 4 of borrow checker (planned)
+Status: Phase 4 of borrow checker (planned)
 
 ---
 
@@ -370,7 +403,7 @@ fn longest<'a>(x: &'a string, y: &'a string): &'a string {
 
 Variables must be initialized before use:
 
-``````vex
+```vex
 let x: i32;
 // let y = x + 5;  // ERROR: Use of uninitialized variable 'x'
 
@@ -382,7 +415,7 @@ let y = x + 5;     // OK: x initialized
 
 Variables initialized in all branches can be used:
 
-``````vex
+```vex
 let x: i32;
 if condition {
     x = 10;
@@ -393,9 +426,9 @@ if condition {
 let y = x + 5;  // OK
 ```
 
-**Partial Initialization (Error)**:
+Partial Initialization (Error):
 
-``````vex
+```vex
 let x: i32;
 if condition {
     x = 10;
@@ -406,16 +439,16 @@ if condition {
 
 ### Default Values
 
-Vex does **not** provide default values automatically:
+Vex does not provide default values automatically:
 
-``````vex
+```vex
 // No default initialization
 let x: i32;  // x is uninitialized (error if used)
 ```
 
-**Explicit Zero Initialization**:
+Explicit Zero Initialization:
 
-``````vex
+```vex
 let x: i32 = 0;
 let y: f64 = 0.0;
 let z: bool = false;
@@ -430,7 +463,7 @@ let s: string = "";
 
 Type annotations are optional when type can be inferred:
 
-``````vex
+```vex
 let x = 42;              // Inferred as i32
 let y: i32 = 42;         // Explicit annotation
 ```
@@ -439,22 +472,22 @@ let y: i32 = 42;         // Explicit annotation
 
 Type annotations required when inference fails:
 
-**Empty Collections**:
+Empty Collections:
 
-``````vex
+```vex
 // let arr = [];         // ERROR: Cannot infer type
 let arr: [i32; 5] = [1, 2, 3, 4, 5];  // OK
 ```
 
-**Ambiguous Numeric Types**:
+Ambiguous Numeric Types:
 
-``````vex
+```vex
 let x: u64 = 100;        // Required: could be u8, u16, u32, or u64
 ```
 
-**Function Pointers** (Future):
+Function Pointers (Future):
 
-``````vex
+```vex
 let f: fn(i32): i32 = some_function;
 ```
 
@@ -462,15 +495,15 @@ let f: fn(i32): i32 = some_function;
 
 Type annotations follow the colon:
 
-``````vex
+```vex
 let name: Type = value;
 let! name: Type = value;
 const NAME: Type = value;
 ```
 
-**Examples**:
+Examples:
 
-``````vex
+```vex
 let age: i32 = 30;
 let! balance: f64 = 1000.0;
 const MAX: u64 = 18446744073709551615;
@@ -484,7 +517,7 @@ let numbers: [i32; 5] = [1, 2, 3, 4, 5];
 
 ### Basic Variables
 
-``````vex
+```vex
 fn main(): i32 {
     let x = 10;
     let y = 20;
@@ -495,7 +528,7 @@ fn main(): i32 {
 
 ### Mutable Counter
 
-``````vex
+```vex
 fn count_to_ten(): i32 {
     let! counter = 0;
     while counter < 10 {
@@ -507,11 +540,25 @@ fn count_to_ten(): i32 {
 
 ### Constants
 
-[13 lines code: ```vex]
+```vex
+const MAX_RETRIES = 3;
+const TIMEOUT = 5.0;
+
+fn retry_operation(): bool {
+    let! attempts = 0;
+    while attempts < MAX_RETRIES {
+        if try_operation() {
+            return true;
+        }
+        attempts = attempts + 1;
+    }
+    return false;
+}
+```
 
 ### Shadowing
 
-``````vex
+```vex
 fn transform(): i32 {
     let x = "42";           // x: string
     let x = 42;             // x: i32 (shadowed)
@@ -522,7 +569,17 @@ fn transform(): i32 {
 
 ### Scope
 
-[9 lines code: ```vex]
+```vex
+fn scoped_example(): i32 {
+    let outer = 10;
+    {
+        let inner = 20;
+        let result = outer + inner;  // 30
+    }
+    // inner not accessible here
+    return outer;  // 10
+}
+```
 
 ---
 
@@ -531,7 +588,6 @@ fn transform(): i32 {
 ### Vex vs Rust
 
 • Vex v0.1 — Rust — Description
-• --------- — --------------- — -----------------
 | `let x` | `let x` | Immutable |
 | `let! x` | `let mut x` | Mutable |
 | `const X` | `const X: Type` | Constant |
@@ -540,7 +596,6 @@ fn transform(): i32 {
 ### Vex vs Go
 
 • Vex v0.1 — Go — Description
-• -------------- — -------------- — --------------------
 | `let x = 42` | `x := 42` | Variable declaration |
 | `let! x = 42` | `var x = 42` | Mutable variable |
 | `const X = 42` | `const X = 42` | Constant |
@@ -548,7 +603,6 @@ fn transform(): i32 {
 ### Vex vs TypeScript
 
 • Vex v0.1 — TypeScript — Description
-• -------------- — -------------- — -----------
 | `let x = 42` | `const x = 42` | Immutable |
 | `let! x = 42` | `let x = 42` | Mutable |
 | `const X = 42` | `const X = 42` | Constant |
@@ -559,7 +613,7 @@ fn transform(): i32 {
 
 ### 1. Prefer Immutability
 
-``````vex
+```vex
 // Good: Immutable by default
 let x = 42;
 let y = x * 2;
@@ -571,7 +625,7 @@ counter = counter + 1;
 
 ### 2. Use Descriptive Names
 
-``````vex
+```vex
 // Good
 let user_count = 42;
 let total_price = 99.99;
@@ -583,11 +637,23 @@ let y = 99.99;
 
 ### 3. Initialize Close to Use
 
-[11 lines code: ```vex]
+```vex
+// Good: Initialize when needed
+if condition {
+    let result = expensive_computation();
+    use_result(result);
+}
+
+// Bad: Initialize too early
+let result = expensive_computation();
+if condition {
+    use_result(result);
+}
+```
 
 ### 4. Use Constants for Magic Numbers
 
-``````vex
+```vex
 // Good
 const MAX_BUFFER_SIZE = 1024;
 let buffer = allocate(MAX_BUFFER_SIZE);
@@ -598,14 +664,31 @@ let buffer = allocate(1024);  // What is 1024?
 
 ### 5. Minimize Mutable State
 
-[17 lines code: ```vex]
+```vex
+// Good: Functional style
+fn sum(numbers: [i32; 5]): i32 {
+    let result = 0;
+    // Use fold/reduce (future)
+    return result;
+}
+
+// Bad: Excessive mutation
+fn sum(numbers: [i32; 5]): i32 {
+    let! result = 0;
+    let! i = 0;
+    while i < 5 {
+        result = result + numbers[i];
+        i = i + 1;
+    }
+    return result;
+}
+```
 
 ---
 
 ## Summary Table
 
 • Declaration — Syntax — Mutable? — Scope — When to Use
-• ------------------ — --------------------- — ------------ — ------------ — -----------------------------
 | Immutable Variable | `let x = value` | No | Block | Default choice |
 | Mutable Variable | `let! x = value` | Yes | Block | When reassignment needed |
 | Constant | `const X = value` | No | Module/Block | Compile-time values |
@@ -613,7 +696,5 @@ let buffer = allocate(1024);  // What is 1024?
 
 ---
 
-**Previous**: \1 
-**Next**: \1
-
-**Maintained by**: Vex Language Team
+Previous: 03TypeSystem.md 
+Next: 05Functionsand_Methods.md

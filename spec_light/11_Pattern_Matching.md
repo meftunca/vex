@@ -1,20 +1,9 @@
 # Pattern Matching
 
-**Version:** 0.1.0 
-**Last Updated:** November 3, 2025
+Version: 0.1.0 
+Last Updated: November 3, 2025
 
 This document defines pattern matching and destructuring in the Vex programming language.
-
----
-
-## Table of Contents
-
-1. \1
-2. \1
-3. \1
-4. \1
-5. \1
-6. \1
 
 ---
 
@@ -22,9 +11,9 @@ This document defines pattern matching and destructuring in the Vex programming 
 
 ### Basic Syntax
 
-**Syntax**: `match value { pattern => body }`
+Syntax: `match value { pattern => body }`
 
-``````vex
+```vex
 match x {
     pattern1 => { /* body 1 */ }
     pattern2 => { /* body 2 */ }
@@ -32,7 +21,7 @@ match x {
 }
 ```
 
-**Properties**:
+Properties:
 
 - Must be exhaustive (all cases covered)
 - Evaluates top-to-bottom (first match wins)
@@ -41,7 +30,7 @@ match x {
 
 ### Simple Example
 
-``````vex
+```vex
 let x = 5;
 match x {
     0 => { /* zero */ }
@@ -59,7 +48,7 @@ match x {
 
 Match against specific values:
 
-``````vex
+```vex
 match status_code {
     200 => { /* OK */ }
     404 => { /* Not Found */ }
@@ -68,7 +57,7 @@ match status_code {
 }
 ```
 
-**Supported Literals**:
+Supported Literals:
 
 - Integers: `0`, `42`, `-10`
 - Booleans: `true`, `false`
@@ -79,7 +68,7 @@ match status_code {
 
 Bind matched value to variable:
 
-``````vex
+```vex
 match x {
     n => {
         // n binds to x's value
@@ -87,9 +76,9 @@ match x {
 }
 ```
 
-**Example**:
+Example:
 
-``````vex
+```vex
 match age {
     a => {
         // a = age
@@ -102,14 +91,14 @@ match age {
 
 Match and discard value:
 
-``````vex
+```vex
 match result {
     0 => { /* success */ }
     _ => { /* any error */ }
 }
 ```
 
-**Use Cases**:
+Use Cases:
 
 - Default/catch-all case
 - Ignoring specific values
@@ -119,11 +108,23 @@ match result {
 
 Match enum variants:
 
-[11 lines code: ```vex]
+```vex
+enum Color {
+    Red,
+    Green,
+    Blue,
+}
 
-**Must be exhaustive**:
+match color {
+    Red => { /* red */ }
+    Green => { /* green */ }
+    Blue => { /* blue */ }
+}
+```
 
-``````vex
+Must be exhaustive:
+
+```vex
 // ERROR: Missing Blue
 match color {
     Red => { }
@@ -135,7 +136,7 @@ match color {
 
 Match multiple patterns:
 
-``````vex
+```vex
 match day {
     1 | 2 | 3 | 4 | 5 => { /* weekday */ }
     6 | 7 => { /* weekend */ }
@@ -143,11 +144,22 @@ match day {
 }
 ```
 
-**Syntax**: `pattern1 | pattern2 | ...`
+Syntax: `pattern1 | pattern2 | ...`
 
-**Examples**:
+Examples:
 
-[10 lines code: ```vex]
+```vex
+match status {
+    Active | Pending => { /* in progress */ }
+    Inactive => { /* done */ }
+}
+
+match x {
+    0 | 1 | 2 => { /* low */ }
+    3 | 4 | 5 => { /* medium */ }
+    _ => { /* high */ }
+}
+```
 
 ---
 
@@ -157,7 +169,7 @@ match day {
 
 Extract tuple components:
 
-``````vex
+```vex
 let point = (10, 20);
 match point {
     (x, y) => {
@@ -166,9 +178,9 @@ match point {
 }
 ```
 
-**Multiple Patterns**:
+Multiple Patterns:
 
-``````vex
+```vex
 match pair {
     (0, 0) => { /* origin */ }
     (0, y) => { /* on y-axis, y is bound */ }
@@ -177,9 +189,9 @@ match pair {
 }
 ```
 
-**Ignoring Components**:
+Ignoring Components:
 
-``````vex
+```vex
 match triple {
     (x, _, z) => {
         // Only x and z are bound, middle ignored
@@ -189,19 +201,50 @@ match triple {
 
 ### Struct Destructuring
 
-**Status**: ✅ **COMPLETE** (v0.1.2)
+Status: COMPLETE (v0.1.2)
 
 Extract struct fields in pattern matching:
 
-[9 lines code: ```vex]
+```vex
+struct Point { x: f32, y: f32 }
 
-**Nested Destructuring**:
+match point {
+    Point { x, y } => {
+        // x and y are bound from point.x and point.y
+        print(x);
+        print(y);
+    }
+}
+```
 
-[20 lines code: ```vex]
+Nested Destructuring:
 
-**Field Renaming**:
+```vex
+struct Line {
+    start: Point,
+    end: Point
+}
 
-``````vex
+match line {
+    Line { start, end } => {
+        match start {
+            Point { x: x1, y: y1 } => {
+                match end {
+                    Point { x: x2, y: y2 } => {
+                        // Access nested fields
+                        print(x1);
+                        print(y2);
+                    }
+                };
+            }
+        };
+    }
+}
+```
+
+Field Renaming:
+
+```vex
 match point {
     Point { x: px, y: py } => {
         // Bind point.x to px, point.y to py
@@ -211,28 +254,66 @@ match point {
 }
 ```
 
-**Use Cases**:
+Use Cases:
 
 - Extract specific fields from structs
 - Validate struct values with guards
 - Destructure function parameters (future)
 - Pattern matching in match expressions
 
-**Examples**:
+Examples:
 
-[37 lines code: ```vex]
+```vex
+fn distance(p: Point): f32 {
+    match p {
+        Point { x, y } => {
+            return (x * x + y * y);  // Simplified distance
+        }
+    };
+}
 
-**Implementation Details**:
+fn origin_check(p: Point): bool {
+    match p {
+        Point { x, y } => {
+            if x == 0.0 && y == 0.0 {
+                return true;
+            } else {
+                return false;
+            };
+        }
+    };
+}
 
-- **Parser**: `vex-parser/src/parser/patterns.rs` - Parses `Struct { field1, field2 }` syntax
-- **AST**: `vex-ast/src/lib.rs` - `Pattern::Struct { name, fields }`
-- **Pattern checking**: `vex-compiler/src/codegen_ast/expressions/pattern_matching.rs`
-- **Pattern binding**: Extract field values and bind to variables
-- **Test file**: `examples/test_struct_patterns.vx`
+fn quadrant(p: Point): i32 {
+    match p {
+        Point { x, y } => {
+            if x > 0.0 && y > 0.0 {
+                return 1;
+            } else if x < 0.0 && y > 0.0 {
+                return 2;
+            } else if x < 0.0 && y < 0.0 {
+                return 3;
+            } else if x > 0.0 && y < 0.0 {
+                return 4;
+            } else {
+                return 0;  // On axis
+            };
+        }
+    };
+}
+```
 
-**Partial Destructuring** (Future):
+Implementation Details:
 
-``````vex
+- Parser: `vex-parser/src/parser/patterns.rs` - Parses `Struct { field1, field2 }` syntax
+- AST: `vex-ast/src/lib.rs` - `Pattern::Struct { name, fields }`
+- Pattern checking: `vex-compiler/src/codegenast/expressions/patternmatching.rs`
+- Pattern binding: Extract field values and bind to variables
+- Test file: `examples/teststructpatterns.vx`
+
+Partial Destructuring (Future):
+
+```vex
 match person {
     Person { name, .. } => {
         // Only extract name, ignore other fields
@@ -242,7 +323,7 @@ match person {
 
 ### Array/Slice Destructuring (Future)
 
-``````vex
+```vex
 match arr {
     [first, second, third] => { /* exactly 3 elements */ }
     [head, ..] => { /* at least 1 element */ }
@@ -256,11 +337,37 @@ match arr {
 
 Data-carrying enums:
 
-[13 lines code: ```vex]
+```vex
+enum Option<T> {
+    Some(T),
+    None,
+}
 
-**Complex Enums**:
+match value {
+    Some(x) => {
+        // x contains the wrapped value
+    }
+    None => {
+        // No value
+    }
+}
+```
 
-[11 lines code: ```vex]
+Complex Enums:
+
+```vex
+enum Message {
+    Move { x: i32, y: i32 },
+    Write(string),
+    ChangeColor(i32, i32, i32),
+}
+
+match msg {
+    Move { x, y } => { /* x, y bound */ }
+    Write(text) => { /* text bound */ }
+    ChangeColor(r, g, b) => { /* r, g, b bound */ }
+}
+```
 
 ---
 
@@ -270,13 +377,37 @@ Data-carrying enums:
 
 Match expressions must handle all possible cases:
 
-[24 lines code: ```vex]
+```vex
+enum Status {
+    Active,
+    Inactive,
+    Pending,
+}
+
+// OK: All variants covered
+match status {
+    Active => { }
+    Inactive => { }
+    Pending => { }
+}
+
+// OK: Wildcard covers remaining
+match status {
+    Active => { }
+    _ => { /* Inactive and Pending */ }
+}
+
+// ERROR: Missing Pending
+match status {
+    Active => { }
+    Inactive => { }
+}
+```
 
 ### Compiler Errors
 
 ```
 Error: Match is not exhaustive
-  --> example.vx:10:5
    |
 10 |     match status {
    |     ^^^^^ missing Pending
@@ -288,7 +419,22 @@ Error: Match is not exhaustive
 
 For integers, wildcard required:
 
-[14 lines code: ```vex]
+```vex
+// OK: Wildcard covers all other values
+match x {
+    0 => { }
+    1 => { }
+    _ => { }
+}
+
+// ERROR: Cannot cover all i32 values
+match x {
+    0 => { }
+    1 => { }
+    2 => { }
+    // Missing billions of other values
+}
+```
 
 ---
 
@@ -298,7 +444,7 @@ For integers, wildcard required:
 
 Add conditions to patterns:
 
-``````vex
+```vex
 match x {
     n if n < 0 => { /* negative */ }
     n if n == 0 => { /* zero */ }
@@ -306,11 +452,11 @@ match x {
 }
 ```
 
-**Syntax**: `pattern if condition`
+Syntax: `pattern if condition`
 
 ### Complex Guards
 
-``````vex
+```vex
 match pair {
     (x, y) if x == y => { /* equal */ }
     (x, y) if x > y => { /* first larger */ }
@@ -320,7 +466,7 @@ match pair {
 
 ### With Enums
 
-``````vex
+```vex
 match option {
     Some(x) if x > 10 => { /* large value */ }
     Some(x) => { /* small value */ }
@@ -334,7 +480,7 @@ match option {
 
 ### Range Patterns
 
-``````vex
+```vex
 match age {
     0..=12 => { /* child */ }
     13..=17 => { /* teen */ }
@@ -343,7 +489,7 @@ match age {
 }
 ```
 
-**Syntax**:
+Syntax:
 
 - `a..b` - Exclusive end (a <= x < b)
 - `a..=b` - Inclusive end (a <= x <= b)
@@ -352,7 +498,7 @@ match age {
 
 ### Reference Patterns (Future)
 
-``````vex
+```vex
 match &value {
     &x => {
         // x is a reference
@@ -362,7 +508,7 @@ match &value {
 
 ### Nested Patterns (Future)
 
-``````vex
+```vex
 match nested {
     (Point { x, y }, Some(value)) => {
         // Destructure tuple and Point and Option
@@ -376,19 +522,75 @@ match nested {
 
 ### Basic Match
 
-[13 lines code: ```vex]
+```vex
+fn classify(x: i32): i32 {
+    match x {
+        0 => {
+            return 0;
+        }
+        1 | 2 | 3 => {
+            return 1;
+        }
+        _ => {
+            return 2;
+        }
+    }
+}
+```
 
 ### Enum Matching
 
-[13 lines code: ```vex]
+```vex
+enum Color {
+    Red,
+    Green,
+    Blue,
+}
+
+fn color_code(c: Color): i32 {
+    match c {
+        Red => { return 0; }
+        Green => { return 1; }
+        Blue => { return 2; }
+    }
+}
+```
 
 ### Tuple Destructuring
 
-[16 lines code: ```vex]
+```vex
+fn process_pair(pair: (i32, i32)): i32 {
+    match pair {
+        (0, 0) => {
+            return 0;
+        }
+        (x, 0) => {
+            return x;
+        }
+        (0, y) => {
+            return y;
+        }
+        (x, y) => {
+            return x + y;
+        }
+    }
+}
+```
 
 ### Or Patterns
 
-[10 lines code: ```vex]
+```vex
+fn is_weekend(day: i32): bool {
+    match day {
+        6 | 7 => {
+            return true;
+        }
+        _ => {
+            return false;
+        }
+    }
+}
+```
 
 ---
 
@@ -396,47 +598,122 @@ match nested {
 
 ### 1. Use Match for Enums
 
-[13 lines code: ```vex]
+```vex
+// Good: Clear, exhaustive
+match status {
+    Active => { }
+    Inactive => { }
+    Pending => { }
+}
+
+// Bad: Error-prone if-else chain
+if status == Active {
+    // ...
+} elif status == Inactive {
+    // ...
+}
+```
 
 ### 2. Specific Before General
 
-[12 lines code: ```vex]
+```vex
+// Good: Specific patterns first
+match x {
+    0 => { /* exact match */ }
+    1 | 2 | 3 => { /* range */ }
+    _ => { /* default */ }
+}
+
+// Bad: General pattern first (unreachable)
+match x {
+    _ => { /* catches everything */ }
+    0 => { /* never reached! */ }
+}
+```
 
 ### 3. Use Destructuring
 
-[15 lines code: ```vex]
+```vex
+// Good: Extract in match
+match point {
+    (x, y) => {
+        use_coordinates(x, y);
+    }
+}
+
+// Bad: Manual extraction
+match point {
+    p => {
+        let x = p.0;
+        let y = p.1;
+        use_coordinates(x, y);
+    }
+}
+```
 
 ### 4. Avoid Deep Nesting
 
-[20 lines code: ```vex]
+```vex
+// Good: Flat structure
+match outer {
+    Some(inner) => {
+        process(inner);
+    }
+    None => { }
+}
+
+// Bad: Deep nesting
+match outer {
+    Some(x) => {
+        match inner {
+            Some(y) => {
+                match another {
+                    // Too deep
+                }
+            }
+        }
+    }
+}
+```
 
 ### 5. Use Wildcard for Defaults
 
-[13 lines code: ```vex]
+```vex
+// Good: Clear default case
+match error_code {
+    0 => { /* success */ }
+    _ => { /* any error */ }
+}
+
+// Bad: Listing all error codes
+match error_code {
+    0 => { /* success */ }
+    1 => { /* error */ }
+    2 => { /* error */ }
+    // ... hundreds of error codes
+}
+```
 
 ---
 
 ## Pattern Matching Summary
 
 • Pattern Type — Syntax — Status — Example
-• ------------ — ---------------------- — -------------------- — ----------------------------
-| Literal | `42`, `true`, `"text"` | ✅ Working | Exact value match |
-| Variable | `x`, `name` | ✅ Working | Bind to variable |
-| Wildcard | `_` | ✅ Working | Match anything |
-| Enum | `Red`, `Active` | ✅ Working | Enum variant (no :: syntax) |
-| Or | `1 \| 2 \| 3` | ✅ Working | Multiple patterns |
-| Tuple | `(x, y)` | ✅ Working | Destructure tuples |
-| Struct | `Point { x, y }` | ✅ Complete (v0.1.2) | Destructure structs |
-| Array | `[a, b, c]` | ✅ Working | Fixed-size arrays |
-| Slice | `[head, ...rest]` | ✅ Working | Rest patterns with `...` |
-| Enum Data | `Some(x)`, `None` | ✅ Working | Data-carrying enums working |
-| Range | `0..10`, `0..=10` | ✅ Working | Value ranges with .. and ..= |
-| Guard | `x if x > 0` | ✅ Working | Conditional patterns |
-| Reference | `&x` | 🚧 Future | Match references |
+| Literal | `42`, `true`, `"text"` | Working | Exact value match |
+| Variable | `x`, `name` | Working | Bind to variable |
+| Wildcard | `_` | Working | Match anything |
+| Enum | `Red`, `Active` | Working | Enum variant (no :: syntax) |
+| Or | `1 \| 2 \| 3` | Working | Multiple patterns |
+| Tuple | `(x, y)` | Working | Destructure tuples |
+| Struct | `Point { x, y }` | Complete (v0.1.2) | Destructure structs |
+| Array | `[a, b, c]` | Working | Fixed-size arrays |
+| Slice | `[head, ...rest]` | Working | Rest patterns with `...` |
+| Enum Data | `Some(x)`, `None` | Working | Data-carrying enums working |
+| Range | `0..10`, `0..=10` | Working | Value ranges with .. and ..= |
+| Guard | `x if x > 0` | Working | Conditional patterns |
+| Reference | `&x` | Future | Match references |
 
 ---
 
-**Previous**: \1 
-**Next**: \1
-
-**Maintained by**: Vex Language Team
+Previous: 10_Generics.md 
+Next: 12ClosuresandLambdaExpressions.md

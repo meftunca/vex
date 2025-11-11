@@ -1,20 +1,9 @@
 # Generics (Parametric Polymorphism)
 
-**Version:** 0.1.0 
-**Last Updated:** November 3, 2025
+Version: 0.1.0 
+Last Updated: November 3, 2025
 
 This document defines the generic type system in Vex, enabling code reuse through parametric polymorphism.
-
----
-
-## Table of Contents
-
-1. \1
-2. \1
-3. \1
-4. \1
-5. \1
-6. \1
 
 ---
 
@@ -22,17 +11,17 @@ This document defines the generic type system in Vex, enabling code reuse throug
 
 ### Basic Syntax
 
-**Syntax**: `fn name<T>(params): return_type`
+Syntax: `fn name<T>(params): return_type`
 
-``````vex
+```vex
 fn identity<T>(x: T): T {
     return x;
 }
 ```
 
-**Usage**:
+Usage:
 
-``````vex
+```vex
 let num = identity<i32>(42);
 let text = identity<string>("hello");
 let flag = identity<bool>(true);
@@ -42,7 +31,7 @@ let flag = identity<bool>(true);
 
 Type parameters can be inferred from arguments:
 
-``````vex
+```vex
 fn identity<T>(x: T): T {
     return x;
 }
@@ -51,9 +40,9 @@ let num = identity(42);        // T inferred as i32
 let text = identity("hello");  // T inferred as string
 ```
 
-**Explicit vs Inferred**:
+Explicit vs Inferred:
 
-``````vex
+```vex
 // Explicit type argument
 let result = identity<i32>(42);
 
@@ -63,7 +52,7 @@ let result = identity(42);  // Same as above
 
 ### Multiple Type Parameters
 
-``````vex
+```vex
 fn pair<T, U>(first: T, second: U): (T, U) {
     return (first, second);
 }
@@ -74,7 +63,7 @@ let p2 = pair(3.14, true);  // Inferred: <f64, bool>
 
 ### Generic Return Types
 
-``````vex
+```vex
 fn create<T>(value: T): T {
     return value;
 }
@@ -85,9 +74,9 @@ let y: string = create("text");
 
 ### Examples
 
-**Swap Function**:
+Swap Function:
 
-``````vex
+```vex
 fn swap<T>(a: T, b: T): (T, T) {
     return (b, a);
 }
@@ -96,9 +85,9 @@ let (x, y) = swap(10, 20);        // x=20, y=10
 let (s1, s2) = swap("hi", "bye"); // s1="bye", s2="hi"
 ```
 
-**Generic Comparison** (Future):
+Generic Comparison (Future):
 
-``````vex
+```vex
 fn max<T: Ord>(a: T, b: T): T {
     if a > b {
         return a;
@@ -113,7 +102,7 @@ fn max<T: Ord>(a: T, b: T): T {
 
 ### Single Type Parameter
 
-``````vex
+```vex
 struct Box<T> {
     value: T,
 }
@@ -124,7 +113,17 @@ let str_box = Box<string> { value: "hello" };
 
 ### Multiple Type Parameters
 
-[9 lines code: ```vex]
+```vex
+struct Pair<T, U> {
+    first: T,
+    second: U,
+}
+
+let pair = Pair<i32, string> {
+    first: 42,
+    second: "answer",
+};
+```
 
 ### Generic Methods
 
@@ -134,11 +133,25 @@ Methods on generic structs can operate on the generic types. Vex supports two st
 
 Methods defined inside a `struct` or `trait` use the `!` suffix on the function signature to indicate mutability.
 
-[13 lines code: ```vex]
+```vex
+struct Container<T> {
+    value: T,
 
-**Usage**:
+    // Immutable method, returns a copy of the value.
+    fn get(): T {
+        return self.value;
+    }
 
-``````vex
+    // Mutable method, modifies the internal state.
+    fn set(new_value: T)! {
+        self.value = new_value;
+    }
+}
+```
+
+Usage:
+
+```vex
 let! container = Container<i32> { value: 42 };
 let val = container.get();      // val is 42
 container.set(100)!;            // State is mutated
@@ -149,7 +162,7 @@ container.set(100)!;            // State is mutated
 
 Methods can also be defined outside the struct body, using an explicit `self` parameter. Mutability is declared on the receiver's type.
 
-``````vex
+```vex
 // This style is also valid for generic structs.
 fn (self: &Container<T>) get_external(): T {
     return self.value;
@@ -160,9 +173,9 @@ fn (self: &Container<T>!) set_external(new_value: T) {
 }
 ```
 
-**Usage**:
+Usage:
 
-``````vex
+```vex
 let! container = Container<i32> { value: 42 };
 let val = container.get_external();      // val is 42
 container.set_external(100);             // State is mutated
@@ -171,7 +184,7 @@ container.set_external(100);             // State is mutated
 
 ### Nested Generics
 
-``````vex
+```vex
 struct Box<T> {
     value: T,
 }
@@ -184,13 +197,26 @@ let nested = Box<Box<i32>> {
 
 ### Examples
 
-**Generic Stack** (Conceptual):
+Generic Stack (Conceptual):
 
-[12 lines code: ```vex]
+```vex
+struct Stack<T> {
+    items: [T],
+    size: i32,
 
-**Generic Point**:
+    fn (self: &Stack<T>!) push(item: T) {
+        // Add item
+    }
 
-``````vex
+    fn (self: &Stack<T>!) pop(): T {
+        // Remove and return item
+    }
+}
+```
+
+Generic Point:
+
+```vex
 struct Point<T> {
     x: T,
     y: T,
@@ -206,7 +232,7 @@ let float_point = Point<f64> { x: 1.5, y: 2.5 };
 
 ### Basic Generic Enum (Future)
 
-``````vex
+```vex
 enum Option<T> {
     Some(T),
     None,
@@ -219,7 +245,7 @@ let nothing: Option<i32> = None;
 
 ### Multiple Type Parameters (Future)
 
-``````vex
+```vex
 enum Result<T, E> {
     Ok(T),
     Err(E),
@@ -231,17 +257,42 @@ let failure: Result<i32, string> = Err("error");
 
 ### Pattern Matching (Future)
 
-[10 lines code: ```vex]
+```vex
+let result = Ok(42);
+
+match result {
+    Ok(value) => {
+        // value: i32
+    }
+    Err(error) => {
+        // error: string
+    }
+}
+```
 
 ### Examples
 
-**Option Type** (Future):
+Option Type (Future):
 
-[13 lines code: ```vex]
+```vex
+enum Option<T> {
+    Some(T),
+    None,
+}
 
-**Either Type** (Future):
+fn find<T>(arr: [T], target: T): Option<i32> {
+    for i in 0..arr.len() {
+        if arr[i] == target {
+            return Some(i);
+        }
+    }
+    return None;
+}
+```
 
-``````vex
+Either Type (Future):
+
+```vex
 enum Either<L, R> {
     Left(L),
     Right(R),
@@ -257,7 +308,7 @@ let right: Either<i32, string> = Either::Right("text");
 
 ### Generic Trait Definition (Future)
 
-``````vex
+```vex
 trait Container<T> {
     fn get(): T;
     fn set(value: T);
@@ -266,11 +317,35 @@ trait Container<T> {
 
 ### Implementation (Future)
 
-[11 lines code: ```vex]
+```vex
+struct Box<T> impl Container<T> {
+    value: T,
+
+    fn (self: &Box<T>!) get(): T {
+        return self.value;
+    }
+
+    fn (self: &Box<T>!) set(value: T) {
+        self.value = value;
+    }
+}
+```
 
 ### Generic Methods in Traits (Future)
 
-[11 lines code: ```vex]
+```vex
+trait Converter {
+    fn convert<T>(): T;
+}
+
+struct Value impl Converter {
+    data: i32,
+
+    fn (self: &Value!) convert<T>(): T {
+        // Type-specific conversion
+    }
+}
+```
 
 ---
 
@@ -280,7 +355,7 @@ trait Container<T> {
 
 Restrict generic types to those implementing specific traits:
 
-``````vex
+```vex
 fn print_all<T: Display>(items: [T]) {
     for item in items {
         item.show();
@@ -288,11 +363,11 @@ fn print_all<T: Display>(items: [T]) {
 }
 ```
 
-**Syntax**: `T: Trait` after type parameter
+Syntax: `T: Trait` after type parameter
 
 ### Multiple Constraints (Future)
 
-``````vex
+```vex
 fn compare_and_show<T: Comparable & Display>(a: T, b: T): i32 {
     let result = a.compare(b);
     a.show();
@@ -301,25 +376,44 @@ fn compare_and_show<T: Comparable & Display>(a: T, b: T): i32 {
 }
 ```
 
-**Syntax**: `T: Trait1 & Trait2 & ...`
+Syntax: `T: Trait1 & Trait2 & ...`
 
-### Where Clauses ✅ COMPLETE (v0.1.2)
+### Where Clauses COMPLETE (v0.1.2)
 
 For complex constraints, use where clause for better readability:
 
-[18 lines code: ```vex]
+```vex
+fn print_both<T, U>(a: T, b: U): i32
+where
+    T: Display,
+    U: Display
+{
+    print("T: ");
+    print(a);
+    print("U: ");
+    print(b);
+    return 0;
+}
 
-**Implementation**:
+fn main(): i32 {
+    let x: i32 = 42;
+    let y: i32 = 100;
+    print_both(x, y);
+    return 0;
+}
+```
 
-- Parser: `parse_where_clause()` in `vex-parser/src/parser/items/functions.rs:138`
+Implementation:
+
+- Parser: `parsewhereclause()` in `vex-parser/src/parser/items/functions.rs:138`
 - AST: `WhereClausePredicate { type_param, bounds }`
 - Syntax: `where T: Trait1 & Trait2, U: Trait3`
-- Test: `examples/test_where_clause.vx`
+- Test: `examples/testwhereclause.vx`
 - Limitation: Struct inline methods don't support where clauses yet
 
 ### Bound on Structs (Future)
 
-``````vex
+```vex
 struct Container<T: Display> {
     value: T,
 
@@ -333,7 +427,19 @@ struct Container<T: Display> {
 
 Methods available only when constraints met:
 
-[11 lines code: ```vex]
+```vex
+struct Wrapper<T> {
+    value: T,
+}
+
+impl<T: Display> Wrapper<T> {
+    fn (self: &Wrapper<T>!) show() {
+        self.value.show();
+    }
+}
+
+// show() only available for Wrapper<T> where T: Display
+```
 
 ---
 
@@ -341,7 +447,7 @@ Methods available only when constraints met:
 
 ### Concept
 
-Vex uses **monomorphization** for generics:
+Vex uses monomorphization for generics:
 
 - Each generic instantiation generates specialized code
 - No runtime overhead (unlike type erasure)
@@ -350,9 +456,9 @@ Vex uses **monomorphization** for generics:
 
 ### Example
 
-**Generic Code**:
+Generic Code:
 
-``````vex
+```vex
 fn identity<T>(x: T): T {
     return x;
 }
@@ -361,28 +467,40 @@ let a = identity(42);
 let b = identity("hello");
 ```
 
-**Generated Code** (conceptual):
+Generated Code (conceptual):
 
-[11 lines code: ```vex]
+```vex
+// Compiler generates specialized versions:
+fn identity_i32(x: i32): i32 {
+    return x;
+}
+
+fn identity_string(x: string): string {
+    return x;
+}
+
+let a = identity_i32(42);
+let b = identity_string("hello");
+```
 
 ### Benefits
 
-1. **Zero Runtime Cost**: No type checking at runtime
-2. **Type Safety**: Full compile-time verification
-3. **Optimization**: Compiler can optimize each instantiation
-4. **No Boxing**: Values aren't boxed/wrapped
+1. Zero Runtime Cost: No type checking at runtime
+2. Type Safety: Full compile-time verification
+3. Optimization: Compiler can optimize each instantiation
+4. No Boxing: Values aren't boxed/wrapped
 
 ### Trade-offs
 
-1. **Code Size**: Each instantiation increases binary size
-2. **Compile Time**: More code to generate
-3. **Cache Pressure**: Larger code can affect cache
+1. Code Size: Each instantiation increases binary size
+2. Compile Time: More code to generate
+3. Cache Pressure: Larger code can affect cache
 
 ### Example with Structs
 
-**Generic Struct**:
+Generic Struct:
 
-``````vex
+```vex
 struct Box<T> {
     value: T,
 }
@@ -391,9 +509,9 @@ let int_box = Box<i32> { value: 42 };
 let str_box = Box<string> { value: "hello" };
 ```
 
-**Generated Structs**:
+Generated Structs:
 
-``````vex
+```vex
 struct Box_i32 {
     value: i32,
 }
@@ -409,17 +527,59 @@ struct Box_string {
 
 ### Generic Wrapper
 
-[10 lines code: ```vex]
+```vex
+struct Wrapper<T> {
+    inner: T,
+}
+
+fn wrap<T>(value: T): Wrapper<T> {
+    return Wrapper<T> { inner: value };
+}
+
+let wrapped_int = wrap(42);
+let wrapped_str = wrap("text");
+```
 
 ### Generic Pair Operations
 
-[19 lines code: ```vex]
+```vex
+struct Pair<T, U> {
+    first: T,
+    second: U,
+
+    fn (self: &Pair<T, U>) get_first(): T {
+        return self.first;
+    }
+
+    fn (self: &Pair<T, U>) get_second(): U {
+        return self.second;
+    }
+
+    fn (self: &Pair<T, U>) swap(): Pair<U, T> {
+        return Pair<U, T> {
+            first: self.second,
+            second: self.first,
+        };
+    }
+}
+```
 
 ### Phantom Types (Future)
 
 Type parameters not stored but used for compile-time checks:
 
-[10 lines code: ```vex]
+```vex
+struct PhantomData<T>;
+
+struct Marker<T> {
+    data: i32,
+    _phantom: PhantomData<T>,
+}
+
+let m1: Marker<i32> = Marker { data: 42, _phantom: PhantomData };
+let m2: Marker<string> = Marker { data: 42, _phantom: PhantomData };
+// m1 and m2 are different types despite same data
+```
 
 ---
 
@@ -427,15 +587,38 @@ Type parameters not stored but used for compile-time checks:
 
 ### Identity Function
 
-[9 lines code: ```vex]
+```vex
+fn identity<T>(x: T): T {
+    return x;
+}
+
+fn main(): i32 {
+    let a = identity(42);        // i32
+    let b = identity("hello");   // string
+    return a;
+}
+```
 
 ### Generic Box
 
-[12 lines code: ```vex]
+```vex
+struct Box<T> {
+    value: T,
+
+    fn (self: &Box<T>) get(): T {
+        return self.value;
+    }
+}
+
+fn main(): i32 {
+    let box = Box<i32> { value: 42 };
+    return box.get();
+}
+```
 
 ### Swap Function
 
-``````vex
+```vex
 fn swap<T>(a: T, b: T): (T, T) {
     return (b, a);
 }
@@ -448,11 +631,52 @@ fn main(): i32 {
 
 ### Generic Pair
 
-[13 lines code: ```vex]
+```vex
+struct Pair<T, U> {
+    first: T,
+    second: U,
+}
+
+fn make_pair<T, U>(a: T, b: U): Pair<T, U> {
+    return Pair<T, U> { first: a, second: b };
+}
+
+fn main(): i32 {
+    let pair = make_pair<i32, string>(42, "answer");
+    return pair.first;  // 42
+}
+```
 
 ### Generic Methods
 
-[26 lines code: ```vex]
+```vex
+struct Container<T> {
+    value: T,
+    count: i32,
+
+    fn (self: &Container<T>) get_value(): T {
+        return self.value;
+    }
+
+    fn (self: &Container<T>) get_count(): i32 {
+        return self.count;
+    }
+
+    fn (self: &Container<T>!) increment() {
+        self.count = self.count + 1;
+    }
+}
+
+fn main(): i32 {
+    let! container = Container<i32> {
+        value: 42,
+        count: 0,
+    };
+
+    container.increment();
+    return container.get_count();  // 1
+}
+```
 
 ---
 
@@ -460,7 +684,7 @@ fn main(): i32 {
 
 ### 1. Use Descriptive Type Parameter Names
 
-``````vex
+```vex
 // Good: Descriptive single letters or words
 fn map<T, U>(value: T, func: fn(T): U): U { }
 fn process<Input, Output>(data: Input): Output { }
@@ -469,7 +693,7 @@ fn process<Input, Output>(data: Input): Output { }
 fn process<X, Y>(data: X): Y { }
 ```
 
-**Common Conventions**:
+Common Conventions:
 
 - `T` - Generic type
 - `U`, `V`, `W` - Additional types
@@ -480,19 +704,54 @@ fn process<X, Y>(data: X): Y { }
 
 ### 2. Prefer Specific Types When Possible
 
-[9 lines code: ```vex]
+```vex
+// Good: When type is always the same
+fn add_integers(a: i32, b: i32): i32 {
+    return a + b;
+}
+
+// Bad: Unnecessary generic
+fn add<T>(a: T, b: T): T {
+    return a + b;  // Assumes T supports +
+}
+```
 
 ### 3. Use Constraints for Safety (Future)
 
-[9 lines code: ```vex]
+```vex
+// Good: Explicit constraint
+fn compare<T: Comparable>(a: T, b: T): bool {
+    return a > b;  // Safe: T implements Comparable
+}
+
+// Bad: Unconstrained
+fn compare<T>(a: T, b: T): bool {
+    return a > b;  // Error: T might not support >
+}
+```
 
 ### 4. Avoid Over-Genericization
 
-[14 lines code: ```vex]
+```vex
+// Good: Reasonable generality
+struct Pair<T, U> {
+    first: T,
+    second: U,
+}
+
+// Bad: Unnecessarily complex
+struct Pair<T, U, F, G>
+where
+    F: Fn(T): U,
+    G: Fn(U): T
+{
+    // Too generic for common use
+}
+```
 
 ### 5. Document Generic Constraints
 
-``````vex
+```vex
 /// Creates a new container with the given value.
 /// Type T can be any type that implements Clone.
 fn create<T: Clone>(value: T): Container<T> {
@@ -505,19 +764,18 @@ fn create<T: Clone>(value: T): Container<T> {
 ## Generics Summary
 
 • Feature — Syntax — Status — Example
-• ------------------- — ------------------ — ---------- — ------------------------------
-| Generic Functions | `fn name<T>()` | ✅ Working | `identity<T>(x: T)` |
-| Generic Structs | `struct S<T> { }` | ✅ Working | `Box<i32>` |
-| Multiple Parameters | `<T, U, V>` | ✅ Working | `Pair<T, U>` |
-| Type Inference | Omit type args | ✅ Working | `identity(42)` |
-| Generic Methods | `fn (self: &S<T>)` | ✅ Working | Methods on generic types |
-• Monomorphization — Automatic — ✅ Working — Zero runtime cost
-| Generic Enums | `enum E<T> { }` | ✅ Working | `Option<T>`, `Result<T,E>` |
-| Trait Bounds | `<T: Trait>` | ✅ Working | Constrained types |
-| Where Clauses | `where T: Trait` | ✅ v0.1.2 | Complex constraints |
-| Associated Types | `type Item;` | ✅ Working | Trait associated types working |
-| Higher-Kinded | `F<T>` | ❌ Future | Generic over generics |
-| Const Generics | `[T; N]` | ❌ Future | Array size parameter |
+| Generic Functions | `fn name<T>()` | Working | `identity<T>(x: T)` |
+| Generic Structs | `struct S<T> { }` | Working | `Box<i32>` |
+| Multiple Parameters | `<T, U, V>` | Working | `Pair<T, U>` |
+| Type Inference | Omit type args | Working | `identity(42)` |
+| Generic Methods | `fn (self: &S<T>)` | Working | Methods on generic types |
+• Monomorphization — Automatic — Working — Zero runtime cost
+| Generic Enums | `enum E<T> { }` | Working | `Option<T>`, `Result<T,E>` |
+| Trait Bounds | `<T: Trait>` | Working | Constrained types |
+| Where Clauses | `where T: Trait` | v0.1.2 | Complex constraints |
+| Associated Types | `type Item;` | Working | Trait associated types working |
+| Higher-Kinded | `F<T>` | Future | Generic over generics |
+| Const Generics | `[T; N]` | Future | Array size parameter |
 
 ---
 
@@ -525,23 +783,23 @@ fn create<T: Clone>(value: T): Container<T> {
 
 ### Instantiation Process
 
-1. **Parse**: Generic definition → AST with type parameters
-2. **Type Check**: Verify generic constraints
-3. **Instantiate**: Generate concrete types for each usage
-4. **Monomorphize**: Create specialized code for each type
-5. **Optimize**: Optimize each instantiation independently
-6. **Link**: Combine all instantiations into binary
+1. Parse: Generic definition → AST with type parameters
+2. Type Check: Verify generic constraints
+3. Instantiate: Generate concrete types for each usage
+4. Monomorphize: Create specialized code for each type
+5. Optimize: Optimize each instantiation independently
+6. Link: Combine all instantiations into binary
 
 ### Example Flow
 
-``````vex
+```vex
 fn identity<T>(x: T): T { return x; }
 
 let a = identity(42);       // Instantiate identity<i32>
 let b = identity("hi");     // Instantiate identity<string>
 ```
 
-**Compilation**:
+Compilation:
 
 1. Parse `identity<T>` as generic template
 2. Encounter `identity(42)` → infer T = i32
@@ -552,7 +810,5 @@ let b = identity("hi");     // Instantiate identity<string>
 
 ---
 
-**Previous**: \1 
-**Next**: \1
-
-**Maintained by**: Vex Language Team
+Previous: 09_Traits.md 
+Next: 11PatternMatching.md

@@ -1,22 +1,9 @@
 # Structs and Data Types
 
-**Version:** 0.1.0 
-**Last Updated:** November 3, 2025
+Version: 0.1.0 
+Last Updated: November 3, 2025
 
 This document defines struct types and related data structures in the Vex programming language.
-
----
-
-## Table of Contents
-
-1. \1
-2. \1
-3. \1
-4. \1
-5. \1
-6. \1
-7. \1
-8. \1
 
 ---
 
@@ -24,11 +11,22 @@ This document defines struct types and related data structures in the Vex progra
 
 ### Basic Syntax
 
-**Syntax**: `struct Name { fields }`
+Syntax: `struct Name { fields }`
 
-[10 lines code: ```vex]
+```vex
+struct Point {
+    x: i32,
+    y: i32,
+}
 
-**Properties**:
+struct Person {
+    name: string,
+    age: i32,
+    email: string,
+}
+```
+
+Properties:
 
 - `struct` keyword
 - Name in PascalCase (convention)
@@ -40,16 +38,16 @@ This document defines struct types and related data structures in the Vex progra
 
 Each field has name and type:
 
-``````vex
+```vex
 struct Rectangle {
     width: i32,
     height: i32,
 }
 ```
 
-**Multiple Fields**:
+Multiple Fields:
 
-``````vex
+```vex
 struct User {
     id: u64,
     username: string,
@@ -63,7 +61,7 @@ struct User {
 
 Vex supports Go-style struct tags for metadata:
 
-``````vex
+```vex
 struct User {
     id: u64        `json:"id" db:"pk"`,
     username: string `json:"username" db:"username"`,
@@ -73,25 +71,25 @@ struct User {
 }
 ```
 
-**Syntax**: Backtick-enclosed string literals after field declarations
+Syntax: Backtick-enclosed string literals after field declarations
 
-**Use Cases**:
+Use Cases:
 
 - JSON serialization/deserialization
 - Database mapping
 - Validation rules
 - API documentation
 
-**Properties**:
+Properties:
 
 - Ignored by compiler (metadata only)
 - Available at runtime via reflection
 - Multiple tags separated by spaces
 - Convention: `key:"value"` format
 
-**Different Types**:
+Different Types:
 
-``````vex
+```vex
 struct Mixed {
     integer: i32,
     floating: f64,
@@ -106,7 +104,7 @@ struct Mixed {
 
 Vex supports Go-style backtick struct tags for metadata:
 
-``````vex
+```vex
 struct User {
     id: u64        `json:"id" db:"pk"`,
     username: string `json:"username" db:"username"`,
@@ -116,9 +114,9 @@ struct User {
 }
 ```
 
-**Syntax**: Backtick-enclosed string literals after field type
+Syntax: Backtick-enclosed string literals after field type
 
-**Use Cases**:
+Use Cases:
 
 - JSON serialization field mapping
 - Database column mapping
@@ -126,29 +124,51 @@ struct User {
 - API documentation
 - Reflection metadata
 
-**Implementation Status**: ✅ Fully implemented
+Implementation Status: Fully implemented
 
 - Struct tags ARE parsed and stored in AST (`Field.tag`)
 - Metadata available in compiler
-- **IMPORTANT**: Vex does NOT use Rust-style `#[attribute]` syntax
-- Runtime reflection builtins: `typeof`, `type_id`, `type_size`, `type_align`, `is_*_type` functions
+- IMPORTANT: Vex does NOT use Rust-style `#[attribute]` syntax
+- Runtime reflection builtins: `typeof`, `typeid`, `typesize`, `typealign`, `is*_type` functions
 - Policy system provides rich metadata annotations
 
 ### Nested Structs
 
 Structs can contain other structs:
 
-[10 lines code: ```vex]
+```vex
+struct Address {
+    street: string,
+    city: string,
+    zip: i32,
+}
 
-**Example Usage**:
+struct Person {
+    name: string,
+    address: Address,
+}
+```
 
-[10 lines code: ```vex]
+Example Usage:
+
+```vex
+let addr = Address {
+    street: "123 Main St",
+    city: "NYC",
+    zip: 10001,
+};
+
+let person = Person {
+    name: "Alice",
+    address: addr,
+};
+```
 
 ### Self-Referential Structs (Limited)
 
 Structs cannot directly contain themselves:
 
-``````vex
+```vex
 // ERROR: Infinite size
 struct Node {
     value: i32,
@@ -156,9 +176,9 @@ struct Node {
 }
 ```
 
-**Use references instead** (future):
+Use references instead (future):
 
-``````vex
+```vex
 struct Node {
     value: i32,
     next: &Node!,  // OK: Pointer, fixed size
@@ -173,23 +193,23 @@ struct Node {
 
 All fields must be provided:
 
-``````vex
+```vex
 let point = Point {
     x: 10,
     y: 20,
 };
 ```
 
-**Order doesn't matter**:
+Order doesn't matter:
 
-``````vex
+```vex
 let p1 = Point { x: 10, y: 20 };
 let p2 = Point { y: 20, x: 10 };  // Same as p1
 ```
 
 ### Missing Fields (Error)
 
-``````vex
+```vex
 // ERROR: Missing field 'y'
 let point = Point { x: 10 };
 ```
@@ -198,7 +218,7 @@ All fields must be initialized.
 
 ### Field Init Shorthand (Future)
 
-``````vex
+```vex
 let x = 10;
 let y = 20;
 let point = Point { x, y };  // Shorthand for { x: x, y: y }
@@ -208,7 +228,7 @@ let point = Point { x, y };  // Shorthand for { x: x, y: y }
 
 Copy existing struct with some fields changed:
 
-``````vex
+```vex
 let p1 = Point { x: 10, y: 20 };
 let p2 = Point { x: 30, ..p1 };  // y copied from p1
 ```
@@ -221,84 +241,161 @@ let p2 = Point { x: 30, ..p1 };  // y copied from p1
 
 Use dot notation:
 
-``````vex
+```vex
 let point = Point { x: 10, y: 20 };
 let x_coord = point.x;  // 10
 let y_coord = point.y;  // 20
 ```
 
-**Nested Access**:
+Nested Access:
 
-[10 lines code: ```vex]
+```vex
+let person = Person {
+    name: "Alice",
+    address: Address {
+        street: "Main St",
+        city: "NYC",
+        zip: 10001,
+    },
+};
+
+let city = person.address.city;  // "NYC"
+```
 
 ### Writing Fields
 
 Only possible with mutable variables:
 
-``````vex
+```vex
 let! point = Point { x: 10, y: 20 };
 point.x = 30;  // OK: point is mutable
 point.y = 40;  // OK
 ```
 
-**Immutable Structs**:
+Immutable Structs:
 
-``````vex
+```vex
 let point = Point { x: 10, y: 20 };
 // point.x = 30;  // ERROR: Cannot assign to immutable variable
 ```
 
 ### Field Access Through References
 
-**Immutable Reference**:
+Immutable Reference:
 
-``````vex
+```vex
 let point = Point { x: 10, y: 20 };
 let ref_point: &Point = &point;
 let x = ref_point.x;  // OK: Read through reference
 ```
 
-**Mutable Reference**:
+Mutable Reference:
 
-``````vex
+```vex
 let! point = Point { x: 10, y: 20 };
 let ref_point: &Point! = &point;
 ref_point.x = 30;  // OK: Write through mutable reference
 ```
 
-**Note**: Auto-dereference for field access (future feature)
+Note: Auto-dereference for field access (future feature)
 
 ---
 
 ## Methods on Structs
 
-Vex uses a hybrid model for method mutability. See `05_Functions_and_Methods.md` for the full specification.
+Vex uses a hybrid model for method mutability. See `05Functionsand_Methods.md` for the full specification.
 
 ### Inline Methods (in `struct` or `trait`)
 
-- **Declaration**: `fn method_name()!` for mutable, `fn method_name()` for immutable.
-- **Behavior**: A mutable method can modify `self`.
-- **Call**: `object.method_name()` (no `!` at call site). The compiler ensures a mutable method is only called on a mutable (`let!`) variable.
+- Declaration: `fn methodname()!` for mutable, `fn methodname()` for immutable.
+- Behavior: A mutable method can modify `self`.
+- Call: `object.method_name()` (no `!` at call site). The compiler ensures a mutable method is only called on a mutable (`let!`) variable.
 
-[22 lines code: ```vex]
+```vex
+struct Rectangle {
+    width: i32,
+    height: i32,
+
+    // Immutable method
+    fn area(): i32 {
+        return self.width * self.height;
+    }
+
+    // Mutable method
+    fn scale(factor: i32)! {
+        self.width = self.width * factor;
+        self.height = self.height * factor;
+    }
+}
+
+// --- Calls ---
+let rect = Rectangle { width: 10, height: 20 };
+let a = rect.area(); // OK
+
+let! rect_mut = Rectangle { width: 10, height: 20 };
+rect_mut.scale(2); // OK
+```
 
 ### External Methods (Golang-Style)
 
-- **Declaration**: `fn (self: &MyType!) method_name()` for mutable, `fn (self: &MyType) method_name()` for immutable.
-- **Behavior**: A mutable method can modify `self`.
-- **Call**: `object.method_name()` (no `!` at call site).
+- Declaration: `fn (self: &MyType!) methodname()` for mutable, `fn (self: &MyType) methodname()` for immutable.
+- Behavior: A mutable method can modify `self`.
+- Call: `object.method_name()` (no `!` at call site).
 
-[17 lines code: ```vex]
+```vex
+struct Circle {
+    radius: f64,
+}
+
+// Immutable external method
+fn (c: &Circle) circumference(): f64 {
+    return 2.0 * 3.14159 * c.radius;
+}
+
+// Mutable external method
+fn (c: &Circle!) set_radius(new_radius: f64) {
+    c.radius = new_radius;
+}
+
+// --- Calls ---
+let! circle = Circle { radius: 5.0 };
+circle.set_radius(10.0);
+```
 
 ### Trait Methods vs Extra Methods
 
-**Trait Methods**: MUST be in struct body
+Trait Methods: MUST be in struct body
 
-[24 lines code: ```vex]
+```vex
+trait Shape {
+    fn area(): f64;
+    fn scale(factor: f64)!;
+}
 
-**Extra Methods**: Can be external
+struct Rectangle impl Shape {
+    width: f64,
+    height: f64,
 
-``````vex
+    // Trait methods MUST be here
+    fn area(): f64 {
+        return self.width * self.height;
+    }
+
+    fn scale(factor: f64)! {
+        self.width = self.width * factor;
+        self.height = self.height * factor;
+    }
+}
+
+// ❌ ERROR: Trait methods cannot be external
+fn (r: &Rectangle) area(): f64 {
+    return r.width * r.height;
+}
+```
+
+Extra Methods: Can be external
+
+```vex
 // ✅ OK: Extra methods can be external
 fn (rect: &Rectangle) diagonal(): f64 {
     return sqrt(rect.width * rect.width + rect.height * rect.height);

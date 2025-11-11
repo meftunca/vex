@@ -1,22 +1,9 @@
 # Functions and Methods
 
-**Version:** 0.1.0 
-**Last Updated:** November 3, 2025
+Version: 0.1.0 
+Last Updated: November 3, 2025
 
 This document defines functions, methods, and related concepts in the Vex programming language.
-
----
-
-## Table of Contents
-
-1. \1
-2. \1
-3. \1
-4. \1
-5. \1
-6. \1
-7. \1
-8. \1
 
 ---
 
@@ -24,11 +11,23 @@ This document defines functions, methods, and related concepts in the Vex progra
 
 ### Basic Syntax
 
-**Syntax**: `fn name(parameters): return_type { body }`
+Syntax: `fn name(parameters): return_type { body }`
 
-[11 lines code: ```vex]
+```vex
+fn add(x: i32, y: i32): i32 {
+    return x + y;
+}
 
-**Components**:
+fn greet(name: string) {
+    // No return type = returns nil (unit)
+}
+
+fn main(): i32 {
+    return 0;  // Entry point
+}
+```
+
+Components:
 
 - `fn` keyword
 - Function name (identifier)
@@ -38,25 +37,25 @@ This document defines functions, methods, and related concepts in the Vex progra
 
 ### Simple Functions
 
-**No Parameters**:
+No Parameters:
 
-``````vex
+```vex
 fn hello(): i32 {
     return 42;
 }
 ```
 
-**No Return Value** (returns nil):
+No Return Value (returns nil):
 
-``````vex
+```vex
 fn print_message() {
     // Implicit return nil
 }
 ```
 
-**Single Expression** (explicit return required):
+Single Expression (explicit return required):
 
-``````vex
+```vex
 fn double(x: i32): i32 {
     return x * 2;
 }
@@ -64,16 +63,16 @@ fn double(x: i32): i32 {
 
 ### Function Naming
 
-**Conventions**:
+Conventions:
 
 - `snake_case` for function names
 - Descriptive names preferred
-- Verbs for actions: `calculate_sum`, `print_result`
-- Predicates start with `is_`, `has_`, `can_`: `is_valid`, `has_error`
+- Verbs for actions: `calculatesum`, `printresult`
+- Predicates start with `is`, `has`, `can`: `isvalid`, `has_error`
 
-**Examples**:
+Examples:
 
-``````vex
+```vex
 fn calculate_total(items: [i32; 10]): i32 { }
 fn is_prime(n: i32): bool { }
 fn get_user_name(): string { }
@@ -84,13 +83,13 @@ fn validate_input(data: string): bool { }
 
 The `main` function is the program entry point:
 
-``````vex
+```vex
 fn main(): i32 {
     return 0;  // Exit code
 }
 ```
 
-**Properties**:
+Properties:
 
 - Must return `i32` (exit code)
 - No parameters (command-line args future feature)
@@ -105,41 +104,106 @@ Vex, metodun tanımlandığı bağlama göre değişen, esnek ve pragmatik bir m
 
 ### Kural 1: Inline Metodlar (Struct ve Trait İçinde)
 
-**Amaç:** Kod tekrarını önlemek ve `struct`/`trait` tanımlarını temiz tutmak.
+Amaç: Kod tekrarını önlemek ve `struct`/`trait` tanımlarını temiz tutmak.
 
-- **Tanımlama:** Metodun `mutable` olduğu, imzanın sonuna eklenen `!` işareti ile belirtilir. Receiver (`self`) bu stilde implisittir ve yazılmaz.
+- Tanımlama: Metodun `mutable` olduğu, imzanın sonuna eklenen `!` işareti ile belirtilir. Receiver (`self`) bu stilde implisittir ve yazılmaz.
  - `fn method_name()!`
-- **Gövde Erişimi:** Metod gövdesinde, alanlara erişim ve atama doğrudan `self` üzerinden yapılır. `self!` **kullanılmaz**.
+- Gövde Erişimi: Metod gövdesinde, alanlara erişim ve atama doğrudan `self` üzerinden yapılır. `self!` kullanılmaz.
  - `self.field = new_value`
-- **Çağrı:** `Mutable` metodlar, çağrı anında `!` **kullanılmadan** çağrılır. Derleyici, metodun sadece `let!` ile tanımlanmış `mutable` bir nesne üzerinde çağrıldığını compile-time'da kontrol eder.
+- Çağrı: `Mutable` metodlar, çağrı anında `!` kullanılmadan çağrılır. Derleyici, metodun sadece `let!` ile tanımlanmış `mutable` bir nesne üzerinde çağrıldığını compile-time'da kontrol eder.
  - `object.method_name()`
 
-**Örnek:**
+Örnek:
 
-[22 lines code: ```vex]
+```vex
+struct Point {
+    x: i32,
+    y: i32,
+
+    // Immutable method (implicit self)
+    fn distance(): f64 {
+        return sqrt(self.x * self.x + self.y * self.y);
+    }
+
+    // Mutable method (implicit self)
+    fn move_to(new_x: i32, new_y: i32)! {
+        self.x = new_x;
+        self.y = new_y;
+    }
+}
+
+// --- Çağrılar ---
+let p = Point { x: 10, y: 20 };
+let dist = p.distance();
+
+let! p_mut = Point { x: 0, y: 0 };
+p_mut.move_to(30, 40); // '!' yok
+```
 
 ### Kural 2: External Metodlar (Golang-Style)
 
-**Amaç:** Metodun hangi veri tipi üzerinde çalıştığını ve `mutable` olup olmadığını receiver tanımında açıkça belirtmek.
+Amaç: Metodun hangi veri tipi üzerinde çalıştığını ve `mutable` olup olmadığını receiver tanımında açıkça belirtmek.
 
-- **Tanımlama:** Metodun `mutable` olduğu, receiver tanımındaki `&Type!` ifadesi ile belirtilir. Metod imzasının sonunda `!` **kullanılmaz**.
+- Tanımlama: Metodun `mutable` olduğu, receiver tanımındaki `&Type!` ifadesi ile belirtilir. Metod imzasının sonunda `!` kullanılmaz.
  - `fn (self: &MyType!) method_name()`
-- **Gövde Erişimi:** Metod gövdesinde, alanlara erişim ve atama doğrudan `self` üzerinden yapılır. `self!` **kullanılmaz**.
+- Gövde Erişimi: Metod gövdesinde, alanlara erişim ve atama doğrudan `self` üzerinden yapılır. `self!` kullanılmaz.
  - `self.field = new_value`
-- **Çağrı:** Çağrı sırasında `!` işareti **kullanılmaz**.
+- Çağrı: Çağrı sırasında `!` işareti kullanılmaz.
  - `object.method_name()`
 
-**Örnek:**
+Örnek:
 
-[22 lines code: ```vex]
+```vex
+struct Rectangle {
+    width: i32,
+    height: i32,
+}
+
+// Immutable external method
+fn (r: &Rectangle) area(): i32 {
+    return r.width * r.height;
+}
+
+// Mutable external method
+fn (r: &Rectangle!) scale(factor: i32) {
+    r.width = r.width * factor;
+    r.height = r.height * factor;
+}
+
+// --- Çağrılar ---
+let rect = Rectangle { width: 10, height: 5 };
+let a = rect.area();
+
+let! rect_mut = Rectangle { width: 10, height: 5};
+rect_mut.scale(2); // '!' yok
+```
 
 ### Trait Method Implementation
 
-[18 lines code: ```vex]
+```vex
+trait Display {
+    fn show();        // Immutable contract
+    fn update()!;     // Mutable contract
+}
 
-**Error**: Trait methods cannot be external
+struct User impl Display {
+    name: string,
+    age: i32,
 
-``````vex
+    // Trait methods MUST be here (in struct body)
+    fn show() {
+        print(self.name, " - ", self.age);
+    }
+
+    fn update()! {
+        self.age = self.age + 1;
+    }
+}
+```
+
+Error: Trait methods cannot be external
+
+```vex
 // ❌ COMPILE ERROR: Trait method cannot be external
 fn (u: &User) show() {
     print(u.name);

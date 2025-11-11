@@ -1,20 +1,9 @@
 # Closures and Lambda Expressions
 
-**Version:** 0.1.0
-**Last Updated:** November 3, 2025
+Version: 0.1.0
+Last Updated: November 3, 2025
 
 This document defines closures and lambda expressions in the Vex programming language.
-
----
-
-## Table of Contents
-
-1. \1
-2. \1
-3. \1
-4. \1
-5. \1
-6. \1
 
 ---
 
@@ -24,9 +13,9 @@ Closures are anonymous functions that can capture variables from their surroundi
 
 ### Key Features
 
-- **Automatic Capture Mode Detection**: Compiler determines the appropriate closure trait
-- **Borrow Checker Integration**: Full integration with Vex's ownership system
-- **Multiple Calling**: Closures can be called multiple times (depending on capture mode)
+- Automatic Capture Mode Detection: Compiler determines the appropriate closure trait
+- Borrow Checker Integration: Full integration with Vex's ownership system
+- Multiple Calling: Closures can be called multiple times (depending on capture mode)
 
 ---
 
@@ -34,15 +23,27 @@ Closures are anonymous functions that can capture variables from their surroundi
 
 ### Basic Syntax
 
-**Syntax**: `|parameters| body` or `|parameters| { statements }`
+Syntax: `|parameters| body` or `|parameters| { statements }`
 
-[11 lines code: ```vex]
+```vex
+// Simple closure
+let add_one = |x| x + 1;
+
+// Multi-parameter closure
+let add = |x, y| x + y;
+
+// Block body closure
+let complex = |x| {
+    let temp = x * 2;
+    return temp + 1;
+};
+```
 
 ### Parameter Types
 
 Parameters can be explicitly typed or inferred:
 
-``````vex
+```vex
 // Explicit types
 let add: fn(i32, i32): i32 = |a: i32, b: i32| a + b;
 
@@ -54,7 +55,18 @@ let multiply = |a, b| a * b;  // Types inferred from usage
 
 Closures can return values implicitly or explicitly:
 
-[10 lines code: ```vex]
+```vex
+// Implicit return
+let square = |x| x * x;
+
+// Explicit return
+let factorial = |n| {
+    if n <= 1 {
+        return 1;
+    }
+    return n * factorial(n - 1);
+};
+```
 
 ---
 
@@ -66,7 +78,7 @@ Vex closures automatically determine their capture mode based on how they use ca
 
 Closures that only read captured variables:
 
-``````vex
+```vex
 let x = 5;
 let y = 10;
 let add_to_x = |z| x + z;  // Captures x immutably
@@ -80,13 +92,33 @@ let result2 = add_to_x(7);  // 12
 
 Closures that mutate captured variables:
 
-[9 lines code: ```vex]
+```vex
+let! counter = 0;
+let increment = || {
+    counter = counter + 1;
+    return counter;
+};
+
+// Can be called multiple times, modifies environment
+let val1 = increment();  // 1, counter = 1
+let val2 = increment();  // 2, counter = 2
+```
 
 ### CallableOnce (FnOnce) - Move Capture
 
 Closures that take ownership of captured variables:
 
-[9 lines code: ```vex]
+```vex
+let data = vec![1, 2, 3];
+let processor = || {
+    // Takes ownership of data
+    return data.sum();
+};
+
+// Can only be called once
+let result = processor();  // Moves data, closure consumed
+// processor();  // ERROR: Already moved
+```
 
 ---
 
@@ -96,7 +128,7 @@ Vex defines three closure traits that correspond to capture modes:
 
 ### Callable Trait
 
-``````vex
+```vex
 trait Callable<Args, Return> {
     fn call(args: Args): Return;
 }
@@ -108,7 +140,7 @@ trait Callable<Args, Return> {
 
 ### CallableMut Trait
 
-``````vex
+```vex
 trait CallableMut<Args, Return> {
     fn call(args: Args): Return;
 }
@@ -121,7 +153,7 @@ trait CallableMut<Args, Return> {
 
 ### CallableOnce Trait
 
-``````vex
+```vex
 trait CallableOnce<Args, Return> {
     fn (self: Self) call(args: Args): Return;
 }
@@ -138,15 +170,67 @@ trait CallableOnce<Args, Return> {
 
 ### Higher-Order Functions
 
-[10 lines code: ```vex]
+```vex
+fn map_array<T, U>(arr: [T; 5], f: fn(T): U): [U; 5] {
+    return [f(arr[0]), f(arr[1]), f(arr[2]), f(arr[3]), f(arr[4])];
+}
+
+fn main(): i32 {
+    let numbers = [1, 2, 3, 4, 5];
+    let doubled = map_array(numbers, |x| x * 2);
+    // doubled = [2, 4, 6, 8, 10]
+    return 0;
+}
+```
 
 ### Event Handlers
 
-[24 lines code: ```vex]
+```vex
+struct Button {
+    label: string,
+    on_click: fn(): (),
+}
+
+fn create_button(label: string, handler: fn(): ()): Button {
+    return Button {
+        label: label,
+        on_click: handler,
+    };
+}
+
+fn main(): i32 {
+    let! count = 0;
+    let button = create_button("Click me", || {
+        count = count + 1;
+    });
+
+    // Simulate clicks
+    button.on_click();  // count = 1
+    button.on_click();  // count = 2
+
+    return 0;
+}
+```
 
 ### Resource Management
 
-[15 lines code: ```vex]
+```vex
+fn with_resource<T>(resource: T, operation: fn(T): ()): () {
+    defer cleanup(resource);  // Cleanup when done
+    operation(resource);
+}
+
+fn main(): i32 {
+    let file = open_file("data.txt");
+    with_resource(file, |f| {
+        // Use file
+        let content = read_file(f);
+        process_content(content);
+    });
+    // File automatically cleaned up
+    return 0;
+}
+```
 
 ---
 
@@ -156,17 +240,55 @@ trait CallableOnce<Args, Return> {
 
 Closures can be nested and capture from multiple scopes:
 
-[13 lines code: ```vex]
+```vex
+fn create_multiplier(factor: i32): fn(i32): i32 {
+    return |x| {
+        let inner_factor = factor + 1;
+        return |y| x * y * inner_factor;
+    };
+}
+
+fn main(): i32 {
+    let multiply_by_3 = create_multiplier(3);
+    let result = multiply_by_3(4);  // Returns a closure
+    let final_result = result(5);   // 4 * 5 * (3 + 1) = 80
+    return final_result;
+}
+```
 
 ### Closure Composition
 
-[13 lines code: ```vex]
+```vex
+fn compose<A, B, C>(f: fn(B): C, g: fn(A): B): fn(A): C {
+    return |x| f(g(x));
+}
+
+fn main(): i32 {
+    let add_one = |x| x + 1;
+    let multiply_two = |x| x * 2;
+
+    let add_one_then_double = compose(multiply_two, add_one);
+    let result = add_one_then_double(5);  // (5 + 1) * 2 = 12
+
+    return result;
+}
+```
 
 ### Async Closures
 
 Closures work with async functions:
 
-[9 lines code: ```vex]
+```vex
+async fn process_async(data: string): string {
+    return data.to_uppercase();
+}
+
+async fn main(): i32 {
+    let processor = |data| process_async(data);
+    let result = await processor("hello");
+    return 0;
+}
+```
 
 ---
 
@@ -176,21 +298,21 @@ Closures work with async functions:
 
 The compiler performs static analysis to determine closure capture modes:
 
-1. **Variable Usage Tracking**: Tracks how each captured variable is used
-2. **Mode Inference**: Determines the most restrictive mode required
-3. **Trait Assignment**: Assigns the appropriate closure trait
+1. Variable Usage Tracking: Tracks how each captured variable is used
+2. Mode Inference: Determines the most restrictive mode required
+3. Trait Assignment: Assigns the appropriate closure trait
 
 ### Memory Management
 
-- **Stack Allocation**: Closures are typically stack-allocated
-- **Reference Counting**: Complex captures use reference counting
-- **Move Semantics**: Move captures transfer ownership
+- Stack Allocation: Closures are typically stack-allocated
+- Reference Counting: Complex captures use reference counting
+- Move Semantics: Move captures transfer ownership
 
 ### Performance
 
-- **Zero-Cost Abstractions**: Closures compile to efficient machine code
-- **Inlined Calls**: Small closures may be inlined by the compiler
-- **Minimal Overhead**: Capture environment is optimized for size and speed
+- Zero-Cost Abstractions: Closures compile to efficient machine code
+- Inlined Calls: Small closures may be inlined by the compiler
+- Minimal Overhead: Capture environment is optimized for size and speed
 
 ---
 
@@ -198,20 +320,17 @@ The compiler performs static analysis to determine closure capture modes:
 
 ### Current Restrictions
 
-- **No Generic Closures**: Closures cannot be generic over types
-- **Limited Type Inference**: Some complex cases require explicit typing
-- **No Closure Methods**: Cannot define methods on closure types
+- No Generic Closures: Closures cannot be generic over types
+- Limited Type Inference: Some complex cases require explicit typing
+- No Closure Methods: Cannot define methods on closure types
 
 ### Future Enhancements
 
-- **Generic Closures**: Support for `|T| -> U` syntax
-- **Async Closures**: Dedicated syntax for async closures
-- **Closure Methods**: Ability to extend closure types with methods
+- Generic Closures: Support for `|T| -> U` syntax
+- Async Closures: Dedicated syntax for async closures
+- Closure Methods: Ability to extend closure types with methods
 
 ---
 
-**Previous**: \1
-**Next**: \1
-
-**Maintained by**: Vex Language Team 
-**License**: MIT
+Previous: 11PatternMatching.md
+Next: 14_Concurrency.md

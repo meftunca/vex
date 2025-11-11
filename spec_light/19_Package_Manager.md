@@ -1,22 +1,9 @@
 # Package Manager
 
-**Version:** 0.1.2
-**Last Updated:** November 2025
+Version: 0.1.2
+Last Updated: November 2025
 
 This document describes Vex's package manager (`vex-pm`), which provides dependency management, project initialization, and build coordination for Vex projects.
-
----
-
-## Table of Contents
-
-1. \1
-2. \1
-3. \1
-4. \1
-5. \1
-6. \1
-7. \1
-8. \1
 
 ---
 
@@ -26,15 +13,15 @@ Vex's package manager is fully integrated into the `vex` command-line tool. It f
 
 ### Key Features
 
-- **Decentralized**: No central package registry - uses Git repositories directly
-- **Fast**: Parallel downloads with global caching
-- **Secure**: SHA-256 checksums and lock files
-- **Platform-aware**: Automatic selection of platform-specific implementations
-- **Simple**: Single tool for compilation, running, and package management
+- Decentralized: No central package registry - uses Git repositories directly
+- Fast: Parallel downloads with global caching
+- Secure: SHA-256 checksums and lock files
+- Platform-aware: Automatic selection of platform-specific implementations
+- Simple: Single tool for compilation, running, and package management
 
 ### Philosophy
 
-_"Cargo'nun gücü, Go Mod'un sadeliği, Zig'in platform awareness'ı"_
+"Cargo'nun gücü, Go Mod'un sadeliği, Zig'in platform awareness'ı"
 
 ---
 
@@ -42,13 +29,24 @@ _"Cargo'nun gücü, Go Mod'un sadeliği, Zig'in platform awareness'ı"_
 
 Vex projects follow a conventional directory structure:
 
-[10 lines code: (unknown)]
+```
+my-project/
+├── vex.json          # Project manifest
+├── vex.lock          # Lock file (generated)
+├── src/
+│   ├── lib.vx        # Library entry point
+│   ├── main.vx       # Executable entry point (optional)
+│   └── mod.vx        # Module declarations
+├── tests/            # Test files
+├── examples/         # Example code
+└── vex-builds/       # Build artifacts (generated)
+```
 
 ### Entry Points
 
-- **Library**: `src/lib.vx` (default)
-- **Executable**: `src/main.vx` or specified in `vex.json`
-- **Custom**: Configurable via `main` field in manifest
+- Library: `src/lib.vx` (default)
+- Executable: `src/main.vx` or specified in `vex.json`
+- Custom: Configurable via `main` field in manifest
 
 ---
 
@@ -56,13 +54,69 @@ Vex projects follow a conventional directory structure:
 
 The `vex.json` file describes your project and its dependencies:
 
-[55 lines code: ```json]
+```json
+{
+  "name": "my-project",
+  "version": "1.0.0",
+  "description": "A Vex project",
+  "authors": ["Your Name <you@example.com>"],
+  "license": "MIT",
+  "repository": "https://github.com/user/my-project",
+
+  "dependencies": {
+    "local-lib": "v1.2.0"
+  },
+
+  "main": "src/lib.vx",
+
+  "bin": {
+    "my-app": "src/main.vx",
+    "cli-tool": "src/cli.vx"
+  },
+
+  "testing": {
+    "dir": "tests",
+    "pattern": "*.test.vx",
+    "timeout": 30,
+    "parallel": true
+  },
+
+  "targets": {
+    "default": "x64",
+    "supported": ["x64", "arm64", "wasm"]
+  },
+
+  "profiles": {
+    "development": {
+      "optimizationLevel": 0,
+      "debugSymbols": true
+    },
+    "production": {
+      "optimizationLevel": 3,
+      "debugSymbols": false
+    }
+  },
+
+  "native": {
+    "sources": ["native/src/helper.c"],
+    "libraries": ["ssl", "crypto"],
+    "search_paths": ["/usr/local/lib"],
+    "static_libs": ["./vendor/libmylib.a"],
+    "cflags": ["-O3", "-Wall", "-fPIC"],
+    "include_dirs": ["vendor/include", "../../../vex-runtime/c"]
+  },
+
+  "vex": {
+    "borrowChecker": "strict"
+  }
+}
+```
 
 ### Dependency Specification
 
-**Current Status (v0.1.2)**: Local dependencies only. Remote Git repositories planned for future releases.
+Current Status (v0.1.2): Local dependencies only. Remote Git repositories planned for future releases.
 
-``````json
+```json
 {
   "dependencies": {
     "local-lib": "v1.2.3",     // Exact version (local)
@@ -71,7 +125,7 @@ The `vex.json` file describes your project and its dependencies:
 }
 ```
 
-**Future Support** (planned):
+Future Support (planned):
 - `"^1.2.0"` - Compatible with 1.x (semantic versioning)
 - `"1.0.0..2.0.0"` - Version range
 - `"*"` - Latest version
@@ -81,9 +135,20 @@ The `vex.json` file describes your project and its dependencies:
 
 For C/C++ integration:
 
-[10 lines code: ```json]
+```json
+{
+  "native": {
+    "sources": ["native/src/implementation.c"],
+    "libraries": ["ssl", "zlib"],
+    "search_paths": ["/usr/local/lib", "/opt/homebrew/lib"],
+    "static_libs": ["./vendor/libcustom.a"],
+    "cflags": ["-O3", "-Wall", "-fPIC", "-std=c11"],
+    "include_dirs": ["path/to/headers", "../../../vex-runtime/c"]
+  }
+}
+```
 
-**Field Descriptions**:
+Field Descriptions:
 - `sources`: C/C++ files to compile
 - `libraries`: System libraries to link (e.g., `m`, `ssl`)
 - `search_paths`: Library search directories
@@ -94,24 +159,23 @@ For C/C++ integration:
 ### Complete Field Reference
 
 • Field — Type — Required — Description
-• ------- — ------ — ---------- — -------------
-| `name` | string | ✅ | Package name |
-| `version` | string | ✅ | Semantic version (e.g., "1.0.0") |
-| `description` | string | ❌ | Package description |
-| `authors` | array | ❌ | Author names and emails |
-| `license` | string | ❌ | License identifier (e.g., "MIT") |
-| `repository` | string | ❌ | Repository URL |
-| `dependencies` | object | ❌ | Package dependencies |
-| `main` | string | ❌ | Entry point (default: `src/lib.vx`) |
-| `bin` | object | ❌ | Binary targets |
-| `testing` | object | ❌ | Test configuration |
-| `targets` | object | ❌ | Platform configuration |
-| `profiles` | object | ❌ | Build profiles |
-| `native` | object | ❌ | C/C++ integration config |
-| `vex` | object | ❌ | Vex-specific settings |
+| `name` | string | | Package name |
+| `version` | string | | Semantic version (e.g., "1.0.0") |
+| `description` | string | | Package description |
+| `authors` | array | | Author names and emails |
+| `license` | string | | License identifier (e.g., "MIT") |
+| `repository` | string | | Repository URL |
+| `dependencies` | object | | Package dependencies |
+| `main` | string | | Entry point (default: `src/lib.vx`) |
+| `bin` | object | | Binary targets |
+| `testing` | object | | Test configuration |
+| `targets` | object | | Platform configuration |
+| `profiles` | object | | Build profiles |
+| `native` | object | | C/C++ integration config |
+| `vex` | object | | Vex-specific settings |
 
-**Targets Structure**:
-``````json
+Targets Structure:
+```json
 {
   "targets": {
     "default": "x64",
@@ -120,11 +184,26 @@ For C/C++ integration:
 }
 ```
 
-**Profiles Structure**:
-[14 lines code: ```json]
+Profiles Structure:
+```json
+{
+  "profiles": {
+    "development": {
+      "optimizationLevel": 0,
+      "debugSymbols": true,
+      "memProfiling": false,
+      "cpuProfiling": false
+    },
+    "production": {
+      "optimizationLevel": 3,
+      "debugSymbols": false
+    }
+  }
+}
+```
 
-**Vex Config Structure**:
-``````json
+Vex Config Structure:
+```json
 {
   "vex": {
     "borrowChecker": "strict"  // or "permissive"
@@ -132,8 +211,8 @@ For C/C++ integration:
 }
 ```
 
-**Testing Config Structure**:
-``````json
+Testing Config Structure:
+```json
 {
   "testing": {
     "dir": "tests",              // Test directory (informational)
@@ -144,14 +223,14 @@ For C/C++ integration:
 }
 ```
 
-**Test File Naming Convention**:
+Test File Naming Convention:
 
 - Test files MUST follow the `*.test.vx` pattern
 - Examples:
  - `basic.test.vx`
  - `integration.test.vx`
  - `unit.test.vx`
-- **Pattern Search**: Uses glob from project root (`**/*.test.vx`)
+- Pattern Search: Uses glob from project root (`*/.test.vx`)
 - Custom patterns can be specified via `testing.pattern`
 
 ---
@@ -160,7 +239,25 @@ For C/C++ integration:
 
 The `vex.lock` file ensures reproducible builds by locking exact dependency versions:
 
-[17 lines code: ```json]
+```json
+{
+  "version": "1.0",
+  "packages": {
+    "github.com/user/math-lib": {
+      "version": "v1.2.3",
+      "checksum": "abc123...",
+      "dependencies": {}
+    },
+    "github.com/user/http-client": {
+      "version": "v2.1.0",
+      "checksum": "def456...",
+      "dependencies": {
+        "github.com/user/math-lib": "v1.2.3"
+      }
+    }
+  }
+}
+```
 
 Lock files are automatically generated and should be committed to version control.
 
@@ -170,7 +267,7 @@ Lock files are automatically generated and should be committed to version contro
 
 ### Project Initialization
 
-``````bash
+```bash
 # Create new project
 vex new my-project
 
@@ -180,17 +277,69 @@ vex init
 
 ### Dependency Management
 
-**Current Status (v0.1.2)**: Local dependencies only. CLI commands for remote packages planned.
+Current Status (v0.1.2): Local dependencies only. CLI commands for remote packages planned.
 
-[12 lines code: ```bash]
+```bash
+# Manual dependency management (edit vex.json)
+# Add to dependencies section:
+# "local-lib": "v1.2.0"
+
+# Planned commands (future):
+# vex add github.com/user/math-lib@v1.2.0
+# vex remove github.com/user/math-lib
+# vex update
+# vex list
+
+# Currently available:
+vex clean  # Clean build cache
+```
 
 ### Building and Running
 
-[17 lines code: ```bash]
+```bash
+# Build project
+vex build
+
+# Build with specific profile
+vex build --release
+
+# Run executable
+vex run
+
+# Run specific binary
+vex run --bin my-app
+
+# Run example
+vex run --example demo
+
+# CI build (locked dependencies)
+vex build --locked
+```
 
 ### Development
 
-[20 lines code: ```bash]
+```bash
+# Check project
+vex check
+
+# Format code
+vex format
+
+# Run tests (discovers *.test.vx files)
+vex test
+
+# Run specific test file
+vex test tests/basic.test.vx
+
+# Run tests with timeout
+vex test --timeout 60
+
+# Run tests sequentially (no parallel)
+vex test --no-parallel
+
+# Generate documentation
+vex doc
+```
 
 ---
 
@@ -200,18 +349,18 @@ Vex uses a Go-style flat dependency resolution:
 
 ### Algorithm
 
-1. **Collect**: Gather all direct and transitive dependencies
-2. **Resolve**: Find compatible versions for all packages
-3. **Download**: Fetch packages in parallel to global cache
-4. **Verify**: Check SHA-256 checksums
-5. **Link**: Generate build configuration
+1. Collect: Gather all direct and transitive dependencies
+2. Resolve: Find compatible versions for all packages
+3. Download: Fetch packages in parallel to global cache
+4. Verify: Check SHA-256 checksums
+5. Link: Generate build configuration
 
 ### Version Selection
 
-- **Semantic versioning**: `^1.2.0` allows compatible updates within major version
-- **Exact pinning**: `v1.2.3` locks to specific version
-- **Range specification**: `1.0.0..2.0.0` for custom ranges
-- **Latest**: `*` or no version specifier
+- Semantic versioning: `^1.2.0` allows compatible updates within major version
+- Exact pinning: `v1.2.3` locks to specific version
+- Range specification: `1.0.0..2.0.0` for custom ranges
+- Latest: `*` or no version specifier
 
 ### Conflict Resolution
 
@@ -237,7 +386,7 @@ Vex supports platform-specific implementations using file suffixes:
 
 ### Supported Platforms
 
-**Architectures:**
+Architectures:
 
 - `x64` - x86-64
 - `arm64` - ARM64/AArch64
@@ -245,7 +394,7 @@ Vex supports platform-specific implementations using file suffixes:
 - `wasi` - WASI
 - `riscv64` - RISC-V 64-bit
 
-**Operating Systems:**
+Operating Systems:
 
 - `linux` - Linux
 - `macos` - macOS
@@ -272,9 +421,9 @@ src/
 
 Vex automatically discovers test files using the pattern specified in `vex.json`.
 
-**Default Pattern**: `*.test.vx`
+Default Pattern: `*.test.vx`
 
-**Directory Structure**:
+Directory Structure:
 ```
 my-project/
 ├── vex.json
@@ -288,9 +437,9 @@ my-project/
 
 ### Test File Naming
 
-**Required Pattern**: Files must end with `.test.vx`
+Required Pattern: Files must end with `.test.vx`
 
-**Examples**:
+Examples:
 ```
 ✅ basic.test.vx
 ✅ user_auth.test.vx
@@ -302,7 +451,7 @@ my-project/
 
 ### Test Configuration
 
-``````json
+```json
 {
   "testing": {
     "dir": "tests",
@@ -313,7 +462,7 @@ my-project/
 }
 ```
 
-**Fields**:
+Fields:
 - `dir`: Directory containing test files (default: `"tests"`)
 - `pattern`: Glob pattern for test files (default: `"*.test.vx"`)
 - `timeout`: Maximum execution time per test in seconds (optional)
@@ -321,29 +470,29 @@ my-project/
 
 ### Running Tests
 
-**Discover and run all tests**:
-``````bash
+Discover and run all tests:
+```bash
 vex test
 ```
 
-**Run specific test file**:
-``````bash
+Run specific test file:
+```bash
 vex test tests/basic.test.vx
 ```
 
-**Run with custom timeout**:
-``````bash
+Run with custom timeout:
+```bash
 vex test --timeout 60
 ```
 
-**Run sequentially**:
-``````bash
+Run sequentially:
+```bash
 vex test --no-parallel
 ```
 
 ### Test Organization
 
-**Unit Tests**: Test individual functions/modules
+Unit Tests: Test individual functions/modules
 ```
 tests/
 ├── math.test.vx
@@ -351,7 +500,7 @@ tests/
 └── utils.test.vx
 ```
 
-**Integration Tests**: Test module interactions
+Integration Tests: Test module interactions
 ```
 tests/
 ├── api_integration.test.vx
@@ -359,7 +508,7 @@ tests/
 └── workflow.test.vx
 ```
 
-**Mixed Structure**:
+Mixed Structure:
 ```
 tests/
 ├── unit/
@@ -381,7 +530,7 @@ tests/
 └── io.test.linux.vx        # Linux-specific tests
 ```
 
-**Priority**:
+Priority:
 1. `test.{os}.{arch}.vx`
 2. `test.{arch}.vx`
 3. `test.{os}.vx`
@@ -395,29 +544,42 @@ tests/
 
 When building, Vex automatically:
 
-1. **Reads** `vex.json` and `vex.lock`
-2. **Downloads** dependencies to `~/.vex/cache/`
-3. **Verifies** checksums
-4. **Generates** build configuration
-5. **Compiles** with proper include paths and linking
+1. Reads `vex.json` and `vex.lock`
+2. Downloads dependencies to `~/.vex/cache/`
+3. Verifies checksums
+4. Generates build configuration
+5. Compiles with proper include paths and linking
 
 ### Cache Location
 
-- **Global cache**: `~/.vex/cache/`
-- **Project cache**: `vex-builds/`
-- **Lock file**: `vex.lock`
+- Global cache: `~/.vex/cache/`
+- Project cache: `vex-builds/`
+- Lock file: `vex.lock`
 
 ### Build Profiles
 
 Configure optimization levels and flags:
 
-[12 lines code: ```json]
+```json
+{
+  "profiles": {
+    "debug": {
+      "opt-level": 0,
+      "debug": true
+    },
+    "release": {
+      "opt-level": 3,
+      "lto": true
+    }
+  }
+}
+```
 
 ### Native Library Integration
 
 Link with system libraries:
 
-``````json
+```json
 {
   "native": {
     "libs": ["ssl", "crypto", "z"],
@@ -429,7 +591,4 @@ Link with system libraries:
 
 ---
 
-**Previous**: \1
-
-**Maintained by**: Vex Language Team</content>
-<parameter name="filePath">/Users/mapletechnologies/Desktop/big_projects/vex_lang/Specifications/19_Package_Manager.md
+Previous: 18RawPointersandFFI.md
