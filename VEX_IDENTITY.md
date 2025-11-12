@@ -599,6 +599,43 @@ add_numbers(1);        // 31 (1 + 10 + 20)
 7. **Module system:** Pure JS-style or add Vex-specific features?
 8. ~~**Parameter grouping:**~~ ✅ Implemented - Go-style `(a, b, c: i32)`
 9. ~~**Default parameters:**~~ ✅ Implemented - `(a: i32 = 10)`
+10. ~~**Variadic parameters:**~~ ✅ Implemented - `(items: ...Type)`
+
+---
+
+## 🎯 New Feature: Variadic Parameters ✅
+
+**Status:** ✅ **IMPLEMENTED** (v0.2.0) - Parsing & Codegen Complete
+
+```vex
+// Simple variadic
+fn sum(base: i32, numbers: ...i32): i32 {
+    return base;  // TODO: iterate when runtime support added
+}
+
+// Variadic with defaults
+fn greet_many(prefix: string = "Hello", names: ...string) {
+    print(prefix, " to everyone!");
+}
+
+// Usage
+sum(10, 1, 2, 3, 4, 5);              // ✅ Works
+greet_many("Hi", "A", "B", "C");     // ✅ Works
+```
+
+**Benefits:**
+- ✅ Flexible function APIs
+- ✅ FFI support for C variadic functions
+- ✅ Type-safe variadic arguments
+- ✅ Combines with default parameters
+
+**Implementation:**
+- ✅ Parser: `name: ...Type` syntax
+- ✅ Codegen: Variable argument count
+- ⏳ Runtime: Iteration over args (future)
+- ✅ Test: `examples/test_variadic_comprehensive.vx`
+
+**Status:** ✅ **COMPLETED** - Parsing and calling work
 
 ---
 
