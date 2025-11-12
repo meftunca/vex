@@ -11,7 +11,7 @@
 
 mod assignment;
 mod control_flow;
-mod let_statement;
+pub(crate) mod let_statement;
 mod loops;
 
 use super::ASTCodeGen;
