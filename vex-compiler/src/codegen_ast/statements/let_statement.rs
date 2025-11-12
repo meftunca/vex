@@ -409,7 +409,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 }
                 Expression::MethodCall { .. } => {
                     eprintln!("  → MethodCall expression");
-                    
+
                     // Infer return type - only track if it's a struct type
                     if let Ok(return_type) = self.infer_expression_type(value) {
                         match return_type {
@@ -447,7 +447,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                         "    ✅ Operator overload {} → {}",
                                         type_name, trait_name
                                     );
-                                    
+
                                     // Get return type from trait method signature
                                     let mut result = None;
                                     if let Some(trait_def) = self.trait_defs.get(trait_name) {
@@ -455,15 +455,21 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                             if method_sig.name == method_name {
                                                 if let Some(return_type) = &method_sig.return_type {
                                                     // Only track if return type is a struct
-                                                    if let Type::Named(ret_type_name) = return_type {
-                                                        if self.struct_defs.contains_key(ret_type_name) {
+                                                    if let Type::Named(ret_type_name) = return_type
+                                                    {
+                                                        if self
+                                                            .struct_defs
+                                                            .contains_key(ret_type_name)
+                                                        {
                                                             eprintln!("    ✅ Operator returns struct: {}", ret_type_name);
                                                             result = Some(ret_type_name.clone());
                                                         }
                                                     }
                                                 }
                                                 if result.is_none() {
-                                                    eprintln!("    ℹ️  Operator returns primitive type");
+                                                    eprintln!(
+                                                        "    ℹ️  Operator returns primitive type"
+                                                    );
                                                 }
                                                 break;
                                             }
@@ -543,7 +549,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 }
                 Expression::Unary { expr, op, .. } => {
                     eprintln!("  → Unary expression");
-                    
+
                     // Check for operator overloading (struct with trait impl)
                     if let Ok(expr_type) = self.infer_expression_type(expr) {
                         if let Type::Named(type_name) = &expr_type {

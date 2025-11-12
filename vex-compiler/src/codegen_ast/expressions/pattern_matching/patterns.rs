@@ -27,9 +27,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }
             Pattern::Tuple(patterns) => self.check_tuple_pattern(patterns, value),
             Pattern::Struct { name, fields } => self.check_struct_pattern(name, fields, value),
-            Pattern::Enum { name, variant, data } => {
-                self.check_enum_pattern(name, variant, data, value)
-            }
+            Pattern::Enum {
+                name,
+                variant,
+                data,
+            } => self.check_enum_pattern(name, variant, data, value),
             Pattern::Or(patterns) => self.check_or_pattern(patterns, value),
             Pattern::Array { elements, rest } => self.check_array_pattern(elements, rest, value),
         }
@@ -46,7 +48,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
             .ok_or_else(|| format!("Enum variant '{}' not found", name))?;
 
         let enum_val = self.extract_enum_tag(value)?;
-        let expected_tag = self.context.i32_type().const_int(variant_index as u64, false);
+        let expected_tag = self
+            .context
+            .i32_type()
+            .const_int(variant_index as u64, false);
 
         self.builder
             .build_int_compare(IntPredicate::EQ, enum_val, expected_tag, "enum_tag_check")
@@ -76,11 +81,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             let sub_matches = self.compile_pattern_check(sub_pattern, element)?;
             combined_result = self
                 .builder
-                .build_and(
-                    combined_result,
-                    sub_matches,
-                    &format!("tuple_and_{}", i),
-                )
+                .build_and(combined_result, sub_matches, &format!("tuple_and_{}", i))
                 .map_err(|e| format!("Failed to combine tuple pattern checks: {}", e))?;
         }
         Ok(combined_result)
@@ -165,7 +166,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let (_enum_name, variant_index) =
             self.find_enum_and_variant_index_by_name(name, variant)?;
         let enum_tag = self.extract_enum_tag(value)?;
-        let expected_tag = self.context.i32_type().const_int(variant_index as u64, false);
+        let expected_tag = self
+            .context
+            .i32_type()
+            .const_int(variant_index as u64, false);
         let tag_matches = self
             .builder
             .build_int_compare(IntPredicate::EQ, enum_tag, expected_tag, "enum_tag_check")
@@ -287,7 +291,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
             ));
         }
         if variant_name == "Ok" || variant_name == "Err" {
-            return Some(("Result".to_string(), if variant_name == "Ok" { 0 } else { 1 }));
+            return Some((
+                "Result".to_string(),
+                if variant_name == "Ok" { 0 } else { 1 },
+            ));
         }
         for (e_name, e_def) in &self.enum_ast_defs {
             if let Some(idx) = e_def.variants.iter().position(|v| v.name == variant_name) {
@@ -385,4 +392,3 @@ impl<'ctx> ASTCodeGen<'ctx> {
         }
     }
 }
-

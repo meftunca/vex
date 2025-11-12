@@ -43,17 +43,29 @@ impl<'ctx> ASTCodeGen<'ctx> {
             self.builder.position_at_end(current_block);
 
             // Load fresh copy of match value for this arm
-            let arm_match_value = self.builder.build_load(match_value.get_type(), match_value_ptr, "match_value_load")
+            let arm_match_value = self
+                .builder
+                .build_load(match_value.get_type(), match_value_ptr, "match_value_load")
                 .map_err(|e| format!("Failed to load match value for arm: {}", e))?;
 
             let is_last_arm = i == arms.len() - 1;
 
-            let then_block = self.context.append_basic_block(self.current_function.unwrap(), &format!("match_arm_{}", i));
-            let else_block = if is_last_arm { merge_block } else { self.context.append_basic_block(self.current_function.unwrap(), &format!("match_check_{}", i + 1)) };
+            let then_block = self
+                .context
+                .append_basic_block(self.current_function.unwrap(), &format!("match_arm_{}", i));
+            let else_block = if is_last_arm {
+                merge_block
+            } else {
+                self.context.append_basic_block(
+                    self.current_function.unwrap(),
+                    &format!("match_check_{}", i + 1),
+                )
+            };
 
             // Handle catch-all patterns without guards separately for efficiency
             if self.is_catch_all_pattern(&arm.pattern) && is_last_arm && arm.guard.is_none() {
-                self.builder.build_unconditional_branch(then_block)
+                self.builder
+                    .build_unconditional_branch(then_block)
                     .map_err(|e| format!("Failed to branch to match arm: {}", e))?;
                 self.builder.position_at_end(then_block);
                 self.compile_pattern_binding(&arm.pattern, arm_match_value)?;
@@ -62,11 +74,19 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 let matches = self.compile_pattern_check(&arm.pattern, arm_match_value)?;
 
                 // Handle guard condition
-                let final_condition = self.compile_guard_condition(matches, &arm.guard, &arm.pattern, arm_match_value, then_block, else_block)?;
+                let final_condition = self.compile_guard_condition(
+                    matches,
+                    &arm.guard,
+                    &arm.pattern,
+                    arm_match_value,
+                    then_block,
+                    else_block,
+                )?;
 
                 // If compile_guard_condition returns None, it handled the branching itself.
                 if let Some(condition) = final_condition {
-                     self.builder.build_conditional_branch(condition, then_block, else_block)
+                    self.builder
+                        .build_conditional_branch(condition, then_block, else_block)
                         .map_err(|e| format!("Failed to build match branch: {}", e))?;
                 } else {
                     // Branching was handled inside guard compilation for identifier patterns
@@ -82,16 +102,26 @@ impl<'ctx> ASTCodeGen<'ctx> {
             let arm_result = self.compile_expression(&arm.body)?;
 
             // Only store result and branch if block is not terminated by return/break etc.
-            if self.builder.get_insert_block().unwrap().get_terminator().is_none() {
+            if self
+                .builder
+                .get_insert_block()
+                .unwrap()
+                .get_terminator()
+                .is_none()
+            {
                 if result_ptr.is_none() {
                     let inferred_type = arm_result.get_type();
                     result_type = Some(inferred_type);
-                    result_ptr = Some(self.create_entry_block_alloca_for_type(inferred_type, "match_result")?);
+                    result_ptr = Some(
+                        self.create_entry_block_alloca_for_type(inferred_type, "match_result")?,
+                    );
                 }
 
-                self.builder.build_store(result_ptr.unwrap(), arm_result)
+                self.builder
+                    .build_store(result_ptr.unwrap(), arm_result)
                     .map_err(|e| format!("Failed to store match result: {}", e))?;
-                self.builder.build_unconditional_branch(merge_block)
+                self.builder
+                    .build_unconditional_branch(merge_block)
                     .map_err(|e| format!("Failed to branch to merge: {}", e))?;
             }
 
@@ -103,7 +133,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // If all arms did early return, result_ptr will be None.
         if let (Some(res_type), Some(res_ptr)) = (result_type, result_ptr) {
-            self.builder.build_load(res_type, res_ptr, "match_result")
+            self.builder
+                .build_load(res_type, res_ptr, "match_result")
                 .map_err(|e| format!("Failed to load match result: {}", e))
         } else {
             // All arms returned, so this block should be unreachable.
@@ -113,7 +144,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
     }
 
     /// Loads a value if it's a pointer to a composite type (struct, tuple, enum).
-    pub(crate) fn load_if_composite_pointer(&mut self, expr: &Expression, value: BasicValueEnum<'ctx>) -> Result<BasicValueEnum<'ctx>, String> {
+    pub(crate) fn load_if_composite_pointer(
+        &mut self,
+        expr: &Expression,
+        value: BasicValueEnum<'ctx>,
+    ) -> Result<BasicValueEnum<'ctx>, String> {
         if !value.is_pointer_value() {
             return Ok(value);
         }
@@ -122,8 +157,16 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let loaded_type = match expr {
             Expression::Ident(name) => self.variable_types.get(name).cloned(),
             Expression::StructLiteral { name, .. } => {
-                let struct_def = self.struct_defs.get(name).ok_or_else(|| format!("Struct '{}' not found", name))?.clone();
-                let field_types: Vec<_> = struct_def.fields.iter().map(|(_, ty)| self.ast_type_to_llvm(ty)).collect();
+                let struct_def = self
+                    .struct_defs
+                    .get(name)
+                    .ok_or_else(|| format!("Struct '{}' not found", name))?
+                    .clone();
+                let field_types: Vec<_> = struct_def
+                    .fields
+                    .iter()
+                    .map(|(_, ty)| self.ast_type_to_llvm(ty))
+                    .collect();
                 Some(self.context.struct_type(&field_types, false).into())
             }
             Expression::TupleLiteral(elements) => {
@@ -138,7 +181,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
         };
 
         if let Some(typ) = loaded_type {
-            self.builder.build_load(typ, ptr, "loaded_composite").map_err(|e| e.to_string())
+            self.builder
+                .build_load(typ, ptr, "loaded_composite")
+                .map_err(|e| e.to_string())
         } else {
             Ok(value)
         }
@@ -155,7 +200,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
     /// Checks if an identifier name corresponds to a known enum variant.
     pub(crate) fn is_enum_variant(&self, name: &str) -> bool {
-        self.enum_ast_defs.values().any(|e| e.variants.iter().any(|v| v.name == name))
+        self.enum_ast_defs
+            .values()
+            .any(|e| e.variants.iter().any(|v| v.name == name))
     }
 
     fn build_alloca_and_store(
@@ -178,7 +225,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
         ty: BasicTypeEnum<'ctx>,
         name: &str,
     ) -> Result<PointerValue<'ctx>, String> {
-        let function = self.current_function.ok_or_else(|| "No current function".to_string())?;
+        let function = self
+            .current_function
+            .ok_or_else(|| "No current function".to_string())?;
         let entry = function
             .get_first_basic_block()
             .ok_or_else(|| "Function has no entry block".to_string())?;

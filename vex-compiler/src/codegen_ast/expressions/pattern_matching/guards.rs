@@ -1,7 +1,7 @@
 //! Pattern matching: guard logic
 use crate::codegen_ast::ASTCodeGen;
-use inkwell::values::{BasicValueEnum, IntValue};
 use inkwell::basic_block::BasicBlock;
+use inkwell::values::{BasicValueEnum, IntValue};
 use vex_ast::{Expression, Pattern};
 
 impl<'ctx> ASTCodeGen<'ctx> {
@@ -27,8 +27,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
             if !self.is_enum_variant(name) {
                 // This is a binding. We need to branch to a temporary block,
                 // perform the binding, evaluate the guard, and then branch.
-                let guard_check_block = self.context.append_basic_block(self.current_function.unwrap(), "guard_check");
-                self.builder.build_conditional_branch(pattern_matches, guard_check_block, else_block)
+                let guard_check_block = self
+                    .context
+                    .append_basic_block(self.current_function.unwrap(), "guard_check");
+                self.builder
+                    .build_conditional_branch(pattern_matches, guard_check_block, else_block)
                     .map_err(|e| format!("Failed to build initial guard branch: {}", e))?;
 
                 self.builder.position_at_end(guard_check_block);
@@ -37,7 +40,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 let guard_val = self.compile_expression(guard_expr)?;
                 let guard_bool = guard_val.into_int_value();
 
-                self.builder.build_conditional_branch(guard_bool, then_block, else_block)
+                self.builder
+                    .build_conditional_branch(guard_bool, then_block, else_block)
                     .map_err(|e| format!("Failed to build guard result branch: {}", e))?;
 
                 // The caller should not add any more branches for this arm.
@@ -50,7 +54,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let guard_val = self.compile_expression(guard_expr)?;
         let guard_bool = guard_val.into_int_value();
 
-        let final_condition = self.builder.build_and(pattern_matches, guard_bool, "match_and_guard")
+        let final_condition = self
+            .builder
+            .build_and(pattern_matches, guard_bool, "match_and_guard")
             .map_err(|e| format!("Failed to build guard AND: {}", e))?;
 
         Ok(Some(final_condition))
