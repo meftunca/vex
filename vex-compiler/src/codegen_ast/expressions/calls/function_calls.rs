@@ -31,23 +31,43 @@ impl<'ctx> ASTCodeGen<'ctx> {
             let provided_count = args.len();
             let expected_count = func_def.params.len();
             
-            if provided_count < expected_count {
-                // Fill in missing arguments with defaults
-                for i in provided_count..expected_count {
-                    if let Some(default_expr) = &func_def.params[i].default_value {
-                        final_args.push((**default_expr).clone());
-                    } else {
-                        return Err(format!(
-                            "Missing argument {} for function (no default value)",
-                            func_def.params[i].name
-                        ));
+            // Check if function is variadic
+            if func_def.is_variadic {
+                // Variadic function: allow more args than params
+                if provided_count < expected_count {
+                    // Fill in missing arguments with defaults
+                    for i in provided_count..expected_count {
+                        if let Some(default_expr) = &func_def.params[i].default_value {
+                            final_args.push((**default_expr).clone());
+                        } else {
+                            return Err(format!(
+                                "Missing argument {} for function (no default value)",
+                                func_def.params[i].name
+                            ));
+                        }
                     }
                 }
-            } else if provided_count > expected_count {
-                return Err(format!(
-                    "Too many arguments: expected {}, got {}",
-                    expected_count, provided_count
-                ));
+                // For variadic, extra args are OK
+            } else {
+                // Non-variadic: strict arg count check
+                if provided_count < expected_count {
+                    // Fill in missing arguments with defaults
+                    for i in provided_count..expected_count {
+                        if let Some(default_expr) = &func_def.params[i].default_value {
+                            final_args.push((**default_expr).clone());
+                        } else {
+                            return Err(format!(
+                                "Missing argument {} for function (no default value)",
+                                func_def.params[i].name
+                            ));
+                        }
+                    }
+                } else if provided_count > expected_count {
+                    return Err(format!(
+                        "Too many arguments: expected {}, got {}",
+                        expected_count, provided_count
+                    ));
+                }
             }
         }
 

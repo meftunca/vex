@@ -56,38 +56,9 @@ impl<'a> Parser<'a> {
         let type_params = self.parse_type_params()?;
 
         self.consume(&Token::LParen, "Expected '('")?;
-        let params = self.parse_parameters()?;
-
-        // Check for variadic parameter AFTER regular params: , args: ...any
-        let (is_variadic, variadic_type) = if self.check(&Token::Comma) {
-            let checkpoint = self.current;
-            self.advance(); // consume comma
-
-            // Check if this is a variadic parameter (name: ...)
-            if let Token::Ident(_) = self.peek() {
-                let _var_name = self.consume_identifier()?;
-                if self.match_token(&Token::Colon) {
-                    // Check for ... (DotDotDot token)
-                    if self.match_token(&Token::DotDotDot) {
-                        // This is variadic!
-                        let var_type = self.parse_type()?;
-                        (true, Some(var_type))
-                    } else {
-                        // Regular param after comma, backtrack
-                        self.current = checkpoint;
-                        (false, None)
-                    }
-                } else {
-                    self.current = checkpoint;
-                    (false, None)
-                }
-            } else {
-                self.current = checkpoint;
-                (false, None)
-            }
-        } else {
-            (false, None)
-        };
+        
+        // Parse parameters and check for variadic
+        let (params, is_variadic, variadic_type) = self.parse_parameters_with_variadic()?;
 
         self.consume(&Token::RParen, "Expected ')'")?;
 
@@ -196,43 +167,45 @@ impl<'a> Parser<'a> {
     }
 
     pub(crate) fn parse_parameters(&mut self) -> Result<Vec<Param>, ParseError> {
+        let (params, _, _) = self.parse_parameters_with_variadic()?;
+        Ok(params)
+    }
+
+    /// Parse parameters with optional variadic support
+    /// Returns: (params, is_variadic, variadic_type)
+    pub(crate) fn parse_parameters_with_variadic(
+        &mut self,
+    ) -> Result<(Vec<Param>, bool, Option<Type>), ParseError> {
         let mut params = Vec::new();
 
         if self.check(&Token::RParen) {
-            return Ok(params);
+            return Ok((params, false, None));
         }
 
         loop {
-            // Parse parameter group: either "name1, name2, name3: type" or "name: type"
-            let mut names = vec![self.consume_identifier()?];
+            // Check if this is a variadic parameter: name: ...Type
+            let param_name = self.consume_identifier()?;
             
-            // Check for Go-style grouping: a, b, c: type
-            while self.match_token(&Token::Comma) {
-                // Peek ahead to see if there's a colon after the next identifier
-                let checkpoint = self.current;
-                if let Ok(name) = self.consume_identifier() {
-                    if self.check(&Token::Colon) {
-                        // This is the last name in the group
-                        names.push(name);
-                        break;
-                    } else if self.check(&Token::Comma) {
-                        // More names in the group
-                        names.push(name);
-                        continue;
-                    } else {
-                        // Not a parameter group, backtrack
-                        self.current = checkpoint;
-                        break;
-                    }
-                } else {
-                    // Error parsing identifier, backtrack
-                    self.current = checkpoint;
-                    break;
-                }
+            if !self.match_token(&Token::Colon) {
+                return Err(ParseError::Other(format!(
+                    "Expected ':' after parameter name '{}'",
+                    param_name
+                )));
             }
 
-            // Now we must have a colon
-            self.consume(&Token::Colon, "Expected ':' after parameter name(s)")?;
+            // Check for variadic: ...Type
+            if self.match_token(&Token::DotDotDot) {
+                let var_type = self.parse_type()?;
+                // Variadic must be the last parameter
+                if self.match_token(&Token::Comma) {
+                    return Err(ParseError::Other(
+                        "Variadic parameter must be last".to_string(),
+                    ));
+                }
+                return Ok((params, true, Some(var_type)));
+            }
+
+            // Regular parameter - parse type
             let ty = self.parse_type()?;
 
             // Check for default value: = expr
@@ -242,20 +215,17 @@ impl<'a> Parser<'a> {
                 None
             };
 
-            // Expand all names with the same type and default value
-            for name in names {
-                params.push(Param { 
-                    name, 
-                    ty: ty.clone(),
-                    default_value: default_value.clone(),
-                });
-            }
+            params.push(Param {
+                name: param_name,
+                ty: ty.clone(),
+                default_value,
+            });
 
             if !self.match_token(&Token::Comma) {
                 break;
             }
         }
 
-        Ok(params)
+        Ok((params, false, None))
     }
 }

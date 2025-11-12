@@ -1,0 +1,22 @@
+// Test: Variadic parameters (name: ...Type)
+// Current syntax: last parameter with comma before it
+
+fn sum(first: i32, values: ...i32): i32 {
+    // TODO: Need runtime support for variadic args iteration
+    return first;
+}
+
+fn print_all(items: ...string) {
+    // TODO: Need runtime support for variadic args iteration
+    print("Done\n");
+}
+
+fn main(): i32 {
+    // Test parsing only (runtime not implemented)
+    let result = sum(1, 2, 3, 4, 5);
+    print("Result: ");
+    print(result);
+    print("\n");
+    
+    return 0;
+}

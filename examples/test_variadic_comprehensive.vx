@@ -1,0 +1,43 @@
+// Test: Variadic parameters - comprehensive
+
+// Simple variadic
+fn sum_variadic(base: i32, numbers: ...i32): i32 {
+    // TODO: Iterate over variadic args when runtime support added
+    // For now, just return base
+    return base;
+}
+
+// Variadic with defaults
+fn greet_many(prefix: string = "Hello", names: ...string) {
+    print(prefix);
+    print(" to everyone!\n");
+}
+
+// Only variadic
+fn count_all(items: ...i32): i32 {
+    // Would return count of variadic items
+    return 0;
+}
+
+fn main(): i32 {
+    // Test 1: Variadic with multiple args
+    let s1 = sum_variadic(10, 1, 2, 3, 4, 5);
+    print("Sum: ");
+    print(s1);
+    print("\n");
+    
+    // Test 2: Variadic with default + multiple args  
+    greet_many("Hi", "Alice", "Bob", "Charlie");
+    
+    // Test 3: Use default for first param
+    greet_many("World");
+    
+    // Test 4: Only variadic args
+    let c = count_all(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+    print("Count: ");
+    print(c);
+    print("\n");
+    
+    println("✅ Variadic parsing and calling works!");
+    return 0;
+}

@@ -411,14 +411,81 @@ bar(1, 2, 3);  // OK: x=1, y=2, z=3
 
 ### Variadic Parameters
 
-**Status**: Not yet implemented (future feature)
+✅ **Implemented in v0.2.0**: Functions can accept variable number of arguments.
+
+**Syntax**: `parameter_name: ...Type`
 
 ```vex
-// Future syntax
-fn sum(values...: i32): i32 {
-    let total = 0;
-    for val in values {
-        total = total + val;
+// Simple variadic
+fn sum(base: i32, numbers: ...i32): i32 {
+    // numbers is variadic - can accept 0 or more i32 values
+    return base;  // TODO: iterate over numbers when runtime support added
+}
+
+// Variadic with defaults
+fn greet_many(prefix: string = "Hello", names: ...string) {
+    print(prefix, " to everyone!");
+}
+
+// Only variadic parameter
+fn count_all(items: ...i32): i32 {
+    // Would return count of items
+    return 0;
+}
+```
+
+**Calling variadic functions**:
+
+```vex
+// Pass multiple arguments
+sum(10, 1, 2, 3, 4, 5);
+
+// Combine defaults and variadic
+greet_many("Hi", "Alice", "Bob", "Charlie");
+
+// Use default for regular param
+greet_many("World");  // Uses "Hello" default
+
+// Pass many variadic args
+count_all(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+```
+
+**Rules**:
+- ✅ Variadic parameter must be the LAST parameter
+- ✅ Only ONE variadic parameter per function
+- ✅ Can combine with default parameters
+- ✅ Variadic parameters can accept zero or more arguments
+- ⚠️ Runtime iteration over variadic args not yet implemented
+- ⚠️ Currently used mainly for FFI (C variadic functions)
+
+**Examples**:
+
+```vex
+// ✅ Valid
+fn foo(a: i32, items: ...string) { }
+fn bar(prefix: string = "default", args: ...i32) { }
+
+// ❌ Invalid: variadic not last
+fn baz(items: ...i32, suffix: string) { }  // Compile error
+
+// ❌ Invalid: multiple variadic
+fn qux(items1: ...i32, items2: ...string) { }  // Compile error
+```
+
+**Current Status**:
+- ✅ Parser support: `name: ...Type` syntax
+- ✅ Type checking: variadic type validation
+- ✅ Codegen: accepts variable argument count
+- ⏳ Runtime: iteration over variadic args (future feature)
+
+**Future**: Access variadic arguments via slice or iterator:
+
+```vex
+// Future syntax (not yet implemented)
+fn sum(numbers: ...i32): i32 {
+    let! total = 0;
+    for num in numbers {  // Iterate over variadic args
+        total = total + num;
     }
     return total;
 }

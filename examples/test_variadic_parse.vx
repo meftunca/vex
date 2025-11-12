@@ -1,0 +1,11 @@
+// Test: Variadic parameter parsing only
+
+fn test_variadic(args: ...i32): i32 {
+    // Just return 0 for now (variadic access not implemented)
+    return 0;
+}
+
+fn main(): i32 {
+    // Don't call it yet - just test parsing
+    return 0;
+}
