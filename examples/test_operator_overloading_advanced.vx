@@ -1,0 +1,118 @@
+// Test advanced operator overloading scenarios
+// Comparison with C++ operator overloading
+
+contract Add {
+    fn add(other: Self): Self;
+}
+
+// Scenario 1: Same type addition (like C++)
+// C++: Point operator+(const Point& other) const
+struct Point impl Add {
+    x: i32,
+    y: i32,
+    
+    fn add(other: Point): Point {
+        return Point {
+            x: self.x + other.x,
+            y: self.y + other.y,
+        };
+    }
+}
+
+// Scenario 2: Different types - Scalar multiplication
+// C++: Point operator*(int scalar) const
+contract MulScalar {
+    fn mul_scalar(scalar: i32): Self;
+}
+
+struct Vector impl MulScalar {
+    x: i32,
+    y: i32,
+    
+    fn mul_scalar(scalar: i32): Vector {
+        return Vector {
+            x: self.x * scalar,
+            y: self.y * scalar,
+        };
+    }
+}
+
+// Scenario 3: Multiple contracts on same type
+contract Display {
+    fn to_string(): string;
+}
+
+struct Complex impl Add, Display {
+    real: f64,
+    imag: f64,
+    
+    fn add(other: Complex): Complex {
+        return Complex {
+            real: self.real + other.real,
+            imag: self.imag + other.imag,
+        };
+    }
+    
+    fn to_string(): string {
+        // TODO: Implement when runtime string functions ready
+        return "Complex";
+    }
+}
+
+fn point_new(x: i32, y: i32): Point {
+    return Point { x: x, y: y };
+}
+
+fn vector_new(x: i32, y: i32): Vector {
+    return Vector { x: x, y: y };
+}
+
+fn complex_new(real: f64, imag: f64): Complex {
+    return Complex { real: real, imag: imag };
+}
+
+fn main(): i32 {
+    // Test 1: Point + Point (same type)
+    let p1 = point_new(10, 20);
+    let p2 = point_new(5, 15);
+    let p3 = p1 + p2;
+    
+    if p3.x == 15 {
+        if p3.y == 35 {
+            // Success
+        } else {
+            return 1;
+        }
+    } else {
+        return 1;
+    }
+    
+    // Test 2: Vector * scalar (different types - manual call)
+    let v1 = vector_new(3, 4);
+    let v2 = v1.mul_scalar(5);  // Manual call, not operator
+    
+    if v2.x == 15 {
+        if v2.y == 20 {
+            // Success
+        } else {
+            return 2;
+        }
+    } else {
+        return 2;
+    }
+    
+    // Test 3: Complex + Complex (multiple contracts)
+    let c1 = complex_new(1.5, 2.5);
+    let c2 = complex_new(0.5, 1.5);
+    let c3 = c1 + c2;
+    
+    if c3.real == 2.0 {
+        if c3.imag == 4.0 {
+            return 0; // All tests passed
+        } else {
+            return 3;
+        }
+    } else {
+        return 3;
+    }
+}
