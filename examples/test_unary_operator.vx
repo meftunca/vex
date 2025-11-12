@@ -1,0 +1,31 @@
+// Test unary operator overloading
+
+contract Add {
+    op+(rhs: Self): Self;
+}
+
+contract Neg {
+    op-(): Self;
+}
+
+struct Vec2 impl Add, Neg {
+    x: i32,
+    y: i32,
+    
+    op+(other: Vec2): Vec2 {
+        return Vec2 { x: self.x + other.x, y: self.y + other.y };
+    }
+    
+    op-(): Vec2 {
+        return Vec2 { x: -self.x, y: -self.y };
+    }
+}
+
+fn main(): i32 {
+    let v1 = Vec2 { x: 10, y: 20 };
+    
+    let neg = -v1;      // -10, -20
+    
+    // Test only neg.x (unary operator result)
+    return neg.x;  // Should be -10, but return as positive 10
+}

@@ -216,6 +216,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     BinaryOp::Mul => self.builder.build_int_mul(l, r, "mul"),
                     BinaryOp::Div => self.builder.build_int_signed_div(l, r, "div"),
                     BinaryOp::Mod => self.builder.build_int_signed_rem(l, r, "mod"),
+                    BinaryOp::Pow => {
+                        return Err("Power operator (**) not yet implemented for integers".to_string());
+                    }
                     BinaryOp::Eq => {
                         return Ok(self
                             .builder
@@ -265,6 +268,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     BinaryOp::BitXor => self.builder.build_xor(l, r, "bitxor"),
                     BinaryOp::Shl => self.builder.build_left_shift(l, r, "shl"),
                     BinaryOp::Shr => self.builder.build_right_shift(l, r, true, "shr"),
+                    BinaryOp::Range | BinaryOp::RangeInclusive => {
+                        return Err("Range operators not yet implemented".to_string());
+                    }
+                    BinaryOp::NullCoalesce => {
+                        return Err("Null coalesce operator not yet implemented".to_string());
+                    }
                 }
                 .map_err(|e| format!("Failed to build operation: {}", e))?;
                 Ok(result.into())
@@ -276,6 +285,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     BinaryOp::Mul => self.builder.build_float_mul(l, r, "fmul"),
                     BinaryOp::Div => self.builder.build_float_div(l, r, "fdiv"),
                     BinaryOp::Mod => self.builder.build_float_rem(l, r, "fmod"),
+                    BinaryOp::Pow => {
+                        return Err("Power operator (**) not yet implemented for floats".to_string());
+                    }
+                    BinaryOp::Range | BinaryOp::RangeInclusive | BinaryOp::NullCoalesce => {
+                        return Err("Range/NullCoalesce operators not implemented for floats".to_string());
+                    }
                     BinaryOp::Eq => {
                         return Ok(self
                             .builder

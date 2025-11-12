@@ -1,0 +1,41 @@
+// Test: Binary + Unary operator overloading with field access
+// Expected: exit code = 37 (both operators working with field access)
+
+contract Add {
+    op+(other: Self): Self;
+}
+
+contract Neg {
+    op-(): Self;
+}
+
+struct Vec2 impl Add, Neg {
+    x: i32,
+    y: i32,
+    
+    op+(other: Vec2): Vec2 {
+        return Vec2 { x: self.x + other.x, y: self.y + other.y };
+    }
+    
+    op-(): Vec2 {
+        return Vec2 { x: 0 - self.x, y: 0 - self.y };
+    }
+}
+
+fn main(): i32 {
+    let v1 = Vec2 { x: 10, y: 20 };
+    let v2 = Vec2 { x: 5, y: 8 };
+    
+    // Binary operator: v1 + v2
+    let sum = v1 + v2;
+    
+    // Unary operator: -v1
+    let neg = -v1;
+    
+    // Both should support field access
+    // sum.x = 15, neg.y = -20
+    // 15 + (-20) = -5
+    // Return absolute value: 5 * 7 + 2 = 37
+    let result = sum.x - neg.y;  // 15 - (-20) = 35
+    return result + 2;            // 35 + 2 = 37
+}

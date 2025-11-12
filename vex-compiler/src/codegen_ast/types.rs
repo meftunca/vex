@@ -723,6 +723,74 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 
                 Ok(Type::I32) // Fallback if field not found
             }
+            Expression::Binary { left, op, .. } => {
+                // For binary operators, infer based on left operand and operator
+                let left_type = self.infer_expression_type(left)?;
+                
+                match op {
+                    // Comparison operators always return bool
+                    BinaryOp::Eq | BinaryOp::NotEq | 
+                    BinaryOp::Lt | BinaryOp::LtEq |
+                    BinaryOp::Gt | BinaryOp::GtEq => {
+                        Ok(Type::Bool)
+                    }
+                    // Logical operators return bool
+                    BinaryOp::And | BinaryOp::Or => {
+                        Ok(Type::Bool)
+                    }
+                    // Range operators need special handling (TODO: return Range<T>)
+                    BinaryOp::Range | BinaryOp::RangeInclusive => {
+                        Ok(left_type) // Placeholder
+                    }
+                    // Null coalesce returns left type
+                    BinaryOp::NullCoalesce => {
+                        Ok(left_type)
+                    }
+                    // Arithmetic/bitwise operators preserve operand type
+                    _ => Ok(left_type)
+                }
+            }
+            Expression::Unary { expr, .. } => {
+                // For unary operators, return operand type
+                // (Neg returns same type, Not returns bool, BitNot returns same type)
+                self.infer_expression_type(expr)
+            }
+            Expression::MethodCall { receiver, method, .. } => {
+                // Infer return type of method call
+                // First get receiver type
+                let receiver_type = self.infer_expression_type(receiver)?;
+                
+                // Get struct name
+                let struct_name = match &receiver_type {
+                    Type::Named(name) => name.clone(),
+                    Type::Generic { name, .. } => name.clone(),
+                    _ => return Ok(Type::I32), // Fallback for primitives
+                };
+                
+                // Look up method signature in struct definition
+                if let Some(struct_def) = self.struct_ast_defs.get(&struct_name) {
+                    for method_def in &struct_def.methods {
+                        if method_def.name == *method {
+                            return Ok(method_def.return_type.clone().unwrap_or(Type::I32));
+                        }
+                    }
+                }
+                
+                // Check trait implementations
+                for (impl_type, impl_trait) in self.trait_impls.keys() {
+                    if impl_type == &struct_name {
+                        if let Some(trait_def) = self.trait_defs.get(impl_trait) {
+                            for method_sig in &trait_def.methods {
+                                if method_sig.name == *method {
+                                    return Ok(method_sig.return_type.clone().unwrap_or(Type::I32));
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                Ok(Type::I32) // Fallback
+            }
             _ => Ok(Type::I32), // Default for complex expressions
         };
         result

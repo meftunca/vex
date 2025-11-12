@@ -1,0 +1,7 @@
+// Minimal pre-increment test
+
+fn main(): i32 {
+    let! x = 5;
+    let y = ++x;
+    return y;
+}

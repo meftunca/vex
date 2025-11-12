@@ -167,6 +167,18 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }
         }
 
+        // Case 3: Field access on operator result: (v1 + v2).x, (-v1).y
+        // Compile the expression and infer its type
+        if let Ok(expr_type) = self.infer_expression_type(object) {
+            if let Type::Named(struct_name) = expr_type {
+                // Compile the expression to get the value
+                let expr_value = self.compile_expression(object)?;
+                
+                // Access field on the resulting struct value
+                return self.compile_field_access_on_value(expr_value, &struct_name, field);
+            }
+        }
+
         eprintln!("❌ Field access FAILED for field: {}", field);
         Err(format!("Cannot access field {} on non-struct value", field))
     }
@@ -208,12 +220,24 @@ impl<'ctx> ASTCodeGen<'ctx> {
             .ok_or_else(|| format!("Field '{}' not found in struct '{}'", field, struct_name))?
             as u32;
 
-        // Value must be pointer to struct
-        if !struct_value.is_pointer_value() {
-            return Err(format!("Expected pointer value for struct field access"));
-        }
-
-        let struct_ptr = struct_value.into_pointer_value();
+        // If value is not a pointer, allocate temporary storage
+        let struct_ptr = if struct_value.is_pointer_value() {
+            struct_value.into_pointer_value()
+        } else if struct_value.is_struct_value() {
+            // Allocate temporary storage for the struct value
+            let temp_ptr = self
+                .builder
+                .build_alloca(struct_value.get_type(), "temp_struct")
+                .map_err(|e| format!("Failed to allocate temp storage: {}", e))?;
+            
+            self.builder
+                .build_store(temp_ptr, struct_value)
+                .map_err(|e| format!("Failed to store struct value: {}", e))?;
+            
+            temp_ptr
+        } else {
+            return Err(format!("Expected pointer or struct value for field access"));
+        };
 
         // Rebuild struct type
         let field_types: Vec<BasicTypeEnum> = struct_def

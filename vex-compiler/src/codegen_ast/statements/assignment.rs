@@ -5,6 +5,38 @@ use super::ASTCodeGen;
 use inkwell::values::BasicValueEnum;
 use vex_ast::*;
 
+/// Helper function to map CompoundOp to trait name
+fn compound_op_to_trait(op: &CompoundOp) -> &'static str {
+    match op {
+        CompoundOp::Add => "Add",
+        CompoundOp::Sub => "Sub",
+        CompoundOp::Mul => "Mul",
+        CompoundOp::Div => "Div",
+        CompoundOp::Mod => "Mod",
+        CompoundOp::BitAnd => "BitAnd",
+        CompoundOp::BitOr => "BitOr",
+        CompoundOp::BitXor => "BitXor",
+        CompoundOp::Shl => "Shl",
+        CompoundOp::Shr => "Shr",
+    }
+}
+
+/// Helper function to map CompoundOp to method name
+fn compound_op_to_method(op: &CompoundOp) -> &'static str {
+    match op {
+        CompoundOp::Add => "op+",
+        CompoundOp::Sub => "op-",
+        CompoundOp::Mul => "op*",
+        CompoundOp::Div => "op/",
+        CompoundOp::Mod => "op%",
+        CompoundOp::BitAnd => "op&",
+        CompoundOp::BitOr => "op|",
+        CompoundOp::BitXor => "op^",
+        CompoundOp::Shl => "op<<",
+        CompoundOp::Shr => "op>>",
+    }
+}
+
 impl<'ctx> ASTCodeGen<'ctx> {
     pub(crate) fn compile_assign_statement(
         &mut self,
@@ -172,8 +204,62 @@ impl<'ctx> ASTCodeGen<'ctx> {
         op: &CompoundOp,
         value: &Expression,
     ) -> Result<(), String> {
-        // Compound assignment: x += expr is equivalent to x = x + expr
-        // First load the current value
+        // Compound assignment: x += expr
+        // Strategy:
+        // 1. For primitives: direct LLVM IR (x = x + expr)
+        // 2. For structs: call trait method if available, otherwise desugar
+        
+        // First, check if target is a struct with operator trait
+        let target_type = self.infer_expression_type(target)?;
+        
+        // Check if we should use trait dispatch
+        if let Type::Named(type_name) = &target_type {
+            if self.struct_defs.contains_key(type_name) {
+                // This is a struct - try trait dispatch
+                let trait_name = compound_op_to_trait(op);
+                
+                if let Some(_) = self.has_operator_trait(type_name, trait_name) {
+                    // Use trait method call: result = x.op+(y)
+                    let method_name = compound_op_to_method(op);
+                    
+                    // Call the binary operator method
+                    let result = self.compile_method_call(
+                        target,
+                        method_name,
+                        &[], // No generic type args
+                        &vec![value.clone()],
+                        false,
+                    )?;
+                    
+                    // Store result back to target
+                    match target {
+                        Expression::Ident(name) => {
+                            let ptr = self
+                                .variables
+                                .get(name)
+                                .ok_or_else(|| format!("Variable {} not found", name))?;
+                            self.builder
+                                .build_store(*ptr, result)
+                                .map_err(|e| format!("Failed to store compound assignment: {}", e))?;
+                            return Ok(());
+                        }
+                        Expression::FieldAccess { object, field } => {
+                            let field_ptr = self.get_field_pointer(object, field)?;
+                            self.builder
+                                .build_store(field_ptr, result)
+                                .map_err(|e| format!("Failed to store field compound assignment: {}", e))?;
+                            return Ok(());
+                        }
+                        _ => {
+                            return Err("Unsupported compound assignment target for struct".to_string());
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Fallback: builtin types or structs without trait
+        // Desugar to: x = x + expr
         let current_val = self.compile_expression(target)?;
         let rhs_val = self.compile_expression(value)?;
 

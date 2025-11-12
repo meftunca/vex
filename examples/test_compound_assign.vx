@@ -1,0 +1,22 @@
+// Test compound assignment operators (op+=, op-=, op*=, op/=, op%=)
+
+fn main(): i32 {
+    // Test arithmetic compound assignments
+    let! x = 10;
+    x += 5;      // x = 15
+    x -= 3;      // x = 12
+    x *= 2;      // x = 24
+    x /= 4;      // x = 6
+    x %= 4;      // x = 2
+    
+    // Test bitwise compound assignments
+    let! y = 8;  // 0b1000
+    y |= 4;      // 0b1000 | 0b0100 = 0b1100 = 12
+    y &= 14;     // 0b1100 & 0b1110 = 0b1100 = 12
+    y ^= 5;      // 0b1100 ^ 0b0101 = 0b1001 = 9
+    y <<= 1;     // 0b1001 << 1 = 0b10010 = 18
+    y >>= 1;     // 0b10010 >> 1 = 0b1001 = 9
+    
+    // Total: x=2, y=9
+    return x + y;       // 2 + 9 = 11
+}

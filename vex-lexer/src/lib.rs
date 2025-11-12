@@ -250,7 +250,7 @@ pub enum Token {
     DotDot,
     #[token("..=")]
     DotDotEq,
-    #[token("->")]
+    #[token("->>")]
     Arrow,
     #[token("<-")]
     LeftArrow, // Go-style channel receive
@@ -258,6 +258,12 @@ pub enum Token {
     FatArrow,
     #[token("...")]
     DotDotDot,
+
+    // Advanced operators
+    #[token("**")]
+    StarStar,
+    #[token("??")]
+    QuestionQuestion,
 
     // Compound Assignment Operators (must come BEFORE single operators)
     #[token("+=")]
@@ -293,7 +299,7 @@ pub enum Token {
     #[token("%")]
     Percent,
 
-    // Increment/Decrement (NOT SUPPORTED - use += 1 instead)
+    // Increment/Decrement
     #[token("++")]
     Increment,
     #[token("--")]

@@ -1,0 +1,21 @@
+// Test increment/decrement operators
+
+fn main(): i32 {
+    let! x = 10;
+    
+    // Pre-increment: ++x returns new value
+    let a = ++x;  // x=11, a=11
+    
+    // Post-increment: x++ returns old value
+    let b = x++;  // b=11, x=12
+    
+    // Pre-decrement: --x returns new value  
+    let c = --x;  // x=11, c=11
+    
+    // Post-decrement: x-- returns old value
+    let d = x--;  // d=11, x=10
+    
+    // Sum: a + b + c + d = 11 + 11 + 11 + 11 = 44
+    // But return x = 10
+    return x;
+}

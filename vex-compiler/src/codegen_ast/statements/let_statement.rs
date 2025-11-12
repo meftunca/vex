@@ -407,6 +407,31 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     eprintln!("  → MapLiteral expression");
                     Some("Map".to_string())
                 }
+                Expression::MethodCall { .. } => {
+                    eprintln!("  → MethodCall expression");
+                    
+                    // Infer return type - only track if it's a struct type
+                    if let Ok(return_type) = self.infer_expression_type(value) {
+                        match return_type {
+                            Type::Named(type_name) => {
+                                // Check if return type is actually a struct
+                                if self.struct_defs.contains_key(&type_name) {
+                                    eprintln!("    ✅ Method returns struct: {}", type_name);
+                                    Some(type_name)
+                                } else {
+                                    eprintln!("    ℹ️  Method returns non-struct: {}", type_name);
+                                    None
+                                }
+                            }
+                            _ => {
+                                eprintln!("    ℹ️  Method returns primitive type");
+                                None
+                            }
+                        }
+                    } else {
+                        None
+                    }
+                }
                 Expression::Binary {
                     left, op, right, ..
                 } => {
@@ -415,14 +440,36 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     // First check for operator overloading (struct with trait impl)
                     let operator_result = if let Ok(left_type) = self.infer_expression_type(left) {
                         if let Type::Named(type_name) = &left_type {
-                            let (trait_name, _method_name) = self.binary_op_to_trait(op);
+                            let (trait_name, method_name) = self.binary_op_to_trait(op);
                             if !trait_name.is_empty() {
                                 if let Some(_) = self.has_operator_trait(type_name, trait_name) {
                                     eprintln!(
                                         "    ✅ Operator overload {} → {}",
                                         type_name, trait_name
                                     );
-                                    Some(type_name.clone())
+                                    
+                                    // Get return type from trait method signature
+                                    let mut result = None;
+                                    if let Some(trait_def) = self.trait_defs.get(trait_name) {
+                                        for method_sig in &trait_def.methods {
+                                            if method_sig.name == method_name {
+                                                if let Some(return_type) = &method_sig.return_type {
+                                                    // Only track if return type is a struct
+                                                    if let Type::Named(ret_type_name) = return_type {
+                                                        if self.struct_defs.contains_key(ret_type_name) {
+                                                            eprintln!("    ✅ Operator returns struct: {}", ret_type_name);
+                                                            result = Some(ret_type_name.clone());
+                                                        }
+                                                    }
+                                                }
+                                                if result.is_none() {
+                                                    eprintln!("    ℹ️  Operator returns primitive type");
+                                                }
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    result
                                 } else {
                                     None
                                 }
@@ -490,6 +537,33 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     // For Option, Result, etc. - track as struct
                     if enum_name == "Option" || enum_name == "Result" {
                         Some(enum_name.clone())
+                    } else {
+                        None
+                    }
+                }
+                Expression::Unary { expr, op, .. } => {
+                    eprintln!("  → Unary expression");
+                    
+                    // Check for operator overloading (struct with trait impl)
+                    if let Ok(expr_type) = self.infer_expression_type(expr) {
+                        if let Type::Named(type_name) = &expr_type {
+                            let (trait_name, _method_name) = self.unary_op_to_trait(op);
+                            if !trait_name.is_empty() {
+                                if let Some(_) = self.has_operator_trait(type_name, trait_name) {
+                                    eprintln!(
+                                        "    ✅ Unary operator overload {} → {}",
+                                        type_name, trait_name
+                                    );
+                                    Some(type_name.clone())
+                                } else {
+                                    None
+                                }
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
                     } else {
                         None
                     }

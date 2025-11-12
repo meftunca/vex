@@ -6,14 +6,30 @@ use vex_lexer::Token;
 
 impl<'a> Parser<'a> {
     pub(crate) fn parse_logical_or(&mut self) -> Result<Expression, ParseError> {
-        let mut expr = self.parse_logical_and()?;
+        let mut expr = self.parse_null_coalesce()?;
 
         while self.match_token(&Token::Or) {
-            let right = self.parse_logical_and()?;
+            let right = self.parse_null_coalesce()?;
             expr = Expression::Binary {
                 span_id: None,
                 left: Box::new(expr),
                 op: BinaryOp::Or,
+                right: Box::new(right),
+            };
+        }
+
+        Ok(expr)
+    }
+
+    pub(crate) fn parse_null_coalesce(&mut self) -> Result<Expression, ParseError> {
+        let mut expr = self.parse_logical_and()?;
+
+        while self.match_token(&Token::QuestionQuestion) {
+            let right = self.parse_logical_and()?;
+            expr = Expression::Binary {
+                span_id: None,
+                left: Box::new(expr),
+                op: BinaryOp::NullCoalesce,
                 right: Box::new(right),
             };
         }
@@ -37,31 +53,24 @@ impl<'a> Parser<'a> {
         Ok(expr)
     }
 
-    pub(crate) fn parse_comparison(&mut self) -> Result<Expression, ParseError> {
-        let mut expr = self.parse_shift()?;
+    pub(crate) fn parse_op_range(&mut self) -> Result<Expression, ParseError> {
+        let mut expr = self.parse_bitwise_or()?;
 
-        while self.match_tokens(&[
-            Token::EqEq,
-            Token::NotEq,
-            Token::Lt,
-            Token::LtEq,
-            Token::Gt,
-            Token::GtEq,
-        ]) {
-            let op = match self.previous() {
-                Token::EqEq => BinaryOp::Eq,
-                Token::NotEq => BinaryOp::NotEq,
-                Token::Lt => BinaryOp::Lt,
-                Token::LtEq => BinaryOp::LtEq,
-                Token::Gt => BinaryOp::Gt,
-                Token::GtEq => BinaryOp::GtEq,
-                _ => unreachable!(),
-            };
-            let right = self.parse_shift()?;
+        // Binary range operators for operator overloading: a..b and a..=b
+        if self.match_token(&Token::DotDotEq) {
+            let right = self.parse_bitwise_or()?;
             expr = Expression::Binary {
                 span_id: None,
                 left: Box::new(expr),
-                op,
+                op: BinaryOp::RangeInclusive,
+                right: Box::new(right),
+            };
+        } else if self.match_token(&Token::DotDot) {
+            let right = self.parse_bitwise_or()?;
+            expr = Expression::Binary {
+                span_id: None,
+                left: Box::new(expr),
+                op: BinaryOp::Range,
                 right: Box::new(right),
             };
         }
@@ -102,10 +111,10 @@ impl<'a> Parser<'a> {
     }
 
     pub(crate) fn parse_bitwise_and(&mut self) -> Result<Expression, ParseError> {
-        let mut expr = self.parse_comparison()?;
+        let mut expr = self.parse_shift()?;
 
         while self.match_token(&Token::Ampersand) {
-            let right = self.parse_comparison()?;
+            let right = self.parse_shift()?;
             expr = Expression::Binary {
                 span_id: None,
                 left: Box::new(expr),
@@ -118,12 +127,44 @@ impl<'a> Parser<'a> {
     }
 
     pub(crate) fn parse_shift(&mut self) -> Result<Expression, ParseError> {
-        let mut expr = self.parse_additive()?;
+        let mut expr = self.parse_comparison()?;
 
         while self.match_tokens(&[Token::LShift, Token::RShift]) {
             let op = match self.previous() {
                 Token::LShift => BinaryOp::Shl,
                 Token::RShift => BinaryOp::Shr,
+                _ => unreachable!(),
+            };
+            let right = self.parse_comparison()?;
+            expr = Expression::Binary {
+                span_id: None,
+                left: Box::new(expr),
+                op,
+                right: Box::new(right),
+            };
+        }
+
+        Ok(expr)
+    }
+
+    pub(crate) fn parse_comparison(&mut self) -> Result<Expression, ParseError> {
+        let mut expr = self.parse_additive()?;
+
+        while self.match_tokens(&[
+            Token::EqEq,
+            Token::NotEq,
+            Token::Lt,
+            Token::LtEq,
+            Token::Gt,
+            Token::GtEq,
+        ]) {
+            let op = match self.previous() {
+                Token::EqEq => BinaryOp::Eq,
+                Token::NotEq => BinaryOp::NotEq,
+                Token::Lt => BinaryOp::Lt,
+                Token::LtEq => BinaryOp::LtEq,
+                Token::Gt => BinaryOp::Gt,
+                Token::GtEq => BinaryOp::GtEq,
                 _ => unreachable!(),
             };
             let right = self.parse_additive()?;
@@ -160,7 +201,7 @@ impl<'a> Parser<'a> {
     }
 
     pub(crate) fn parse_multiplicative(&mut self) -> Result<Expression, ParseError> {
-        let mut expr = self.parse_cast()?;
+        let mut expr = self.parse_power()?;
 
         while self.match_tokens(&[Token::Star, Token::Slash, Token::Percent]) {
             let op = match self.previous() {
@@ -169,11 +210,28 @@ impl<'a> Parser<'a> {
                 Token::Percent => BinaryOp::Mod,
                 _ => unreachable!(),
             };
-            let right = self.parse_cast()?;
+            let right = self.parse_power()?;
             expr = Expression::Binary {
                 span_id: None,
                 left: Box::new(expr),
                 op,
+                right: Box::new(right),
+            };
+        }
+
+        Ok(expr)
+    }
+
+    pub(crate) fn parse_power(&mut self) -> Result<Expression, ParseError> {
+        let mut expr = self.parse_cast()?;
+
+        // Right-associative: 2 ** 3 ** 2 = 2 ** (3 ** 2) = 512
+        if self.match_token(&Token::StarStar) {
+            let right = self.parse_power()?;
+            expr = Expression::Binary {
+                span_id: None,
+                left: Box::new(expr),
+                op: BinaryOp::Pow,
                 right: Box::new(right),
             };
         }
@@ -211,6 +269,26 @@ impl<'a> Parser<'a> {
         if self.match_token(&Token::LeftArrow) {
             let expr = self.parse_unary()?;
             return Ok(Expression::ChannelReceive(Box::new(expr)));
+        }
+
+        // Pre-increment: ++i
+        if self.match_token(&Token::Increment) {
+            let expr = self.parse_unary()?;
+            return Ok(Expression::Unary {
+                span_id: None,
+                op: UnaryOp::PreInc,
+                expr: Box::new(expr),
+            });
+        }
+
+        // Pre-decrement: --i
+        if self.match_token(&Token::Decrement) {
+            let expr = self.parse_unary()?;
+            return Ok(Expression::Unary {
+                span_id: None,
+                op: UnaryOp::PreDec,
+                expr: Box::new(expr),
+            });
         }
 
         if self.match_tokens(&[Token::Not, Token::Minus, Token::Tilde]) {
@@ -559,12 +637,12 @@ impl<'a> Parser<'a> {
             } else if self.match_token(&Token::Increment) {
                 expr = Expression::PostfixOp {
                     expr: Box::new(expr),
-                    op: PostfixOp::Increment,
+                    op: PostfixOp::PostInc,
                 };
             } else if self.match_token(&Token::Decrement) {
                 expr = Expression::PostfixOp {
                     expr: Box::new(expr),
-                    op: PostfixOp::Decrement,
+                    op: PostfixOp::PostDec,
                 };
             } else if self.match_token(&Token::Question) {
                 // Question mark operator: expr? (Result early return)

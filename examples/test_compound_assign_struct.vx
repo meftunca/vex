@@ -1,0 +1,24 @@
+// Test compound assignment with user-defined struct
+
+contract Add {
+    op+(other: Self): Self;
+}
+
+struct Vec2 impl Add {
+    x: i32,
+    y: i32,
+    
+    op+(other: Vec2): Vec2 {
+        return Vec2 { x: self.x + other.x, y: self.y + other.y };
+    }
+}
+
+fn main(): i32 {
+    let! v1 = Vec2 { x: 10, y: 20 };
+    let v2 = Vec2 { x: 5, y: 3 };
+    
+    v1 += v2;    // Should desugar to: v1 = v1 + v2
+    
+    // v1.x should now be 15, v1.y should be 23
+    return v1.x + v1.y;  // 15 + 23 = 38
+}

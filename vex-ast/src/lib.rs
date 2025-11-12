@@ -798,6 +798,7 @@ pub enum BinaryOp {
     Mul,
     Div,
     Mod,
+    Pow,    // **
     Eq,
     NotEq,
     Lt,
@@ -811,6 +812,9 @@ pub enum BinaryOp {
     BitXor, // ^
     Shl,    // <<
     Shr,    // >>
+    Range,  // ..
+    RangeInclusive, // ..=
+    NullCoalesce, // ??
 }
 
 /// Unary operators
@@ -821,13 +825,15 @@ pub enum UnaryOp {
     BitNot, // ~
     Ref,    // &
     Deref,  // *
+    PreInc, // ++i
+    PreDec, // --i
 }
 
 /// Postfix operators
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum PostfixOp {
-    Increment, // ++
-    Decrement, // --
+    PostInc, // i++
+    PostDec, // i--
 }
 
 impl Type {

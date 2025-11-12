@@ -12,6 +12,30 @@ impl<'ctx> ASTCodeGen<'ctx> {
         op: &UnaryOp,
         expr: &Expression,
     ) -> Result<BasicValueEnum<'ctx>, String> {
+        // ⭐ NEW: Operator Overloading - Check for user-defined unary operators
+        if let Ok(expr_type) = self.infer_expression_type(expr) {
+            if let Type::Named(ref type_name) = expr_type {
+                let (contract_name, method_name) = self.unary_op_to_trait(op);
+                if !contract_name.is_empty() {
+                    // Check if builtin contract exists (e.g., i32 extends Neg)
+                    use crate::builtin_contracts;
+                    if builtin_contracts::has_builtin_contract(type_name, contract_name) {
+                        // Builtin types - use direct LLVM instructions (handled below)
+                    } else if let Some(_) = self.has_operator_trait(type_name, contract_name) {
+                        // User-defined unary operator - call the method
+                        return self.compile_method_call(
+                            expr,
+                            method_name,
+                            &[], // No generic type args
+                            &[], // No additional args for unary ops
+                            false,
+                        );
+                    }
+                }
+            }
+        }
+
+        // Fallback: Builtin unary operations
         let val = self.compile_expression(expr)?;
 
         match op {
@@ -55,6 +79,80 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     Err("Cannot apply ~ to non-integer value".to_string())
                 }
             }
+            UnaryOp::PreInc => {
+                // Pre-increment: ++x - increment then return new value
+                if let Expression::Ident(name) = expr {
+                    let ptr = *self
+                        .variables
+                        .get(name)
+                        .ok_or_else(|| format!("Variable {} not found", name))?;
+                    let var_type = *self
+                        .variable_types
+                        .get(name)
+                        .ok_or_else(|| format!("Variable type not found for {}", name))?;
+
+                    let current = self
+                        .builder
+                        .build_load(var_type, ptr, name)
+                        .map_err(|e| format!("Failed to load: {}", e))?;
+
+                    if let BasicValueEnum::IntValue(iv) = current {
+                        let one = iv.get_type().const_int(1, false);
+                        let new_val = self
+                            .builder
+                            .build_int_add(iv, one, "preinc")
+                            .map_err(|e| format!("Failed to increment: {}", e))?;
+
+                        self.builder
+                            .build_store(ptr, new_val)
+                            .map_err(|e| format!("Failed to store: {}", e))?;
+
+                        // Return new value
+                        Ok(new_val.into())
+                    } else {
+                        Err("Can only pre-increment integers".to_string())
+                    }
+                } else {
+                    Err("Can only pre-increment variables".to_string())
+                }
+            }
+            UnaryOp::PreDec => {
+                // Pre-decrement: --x - decrement then return new value
+                if let Expression::Ident(name) = expr {
+                    let ptr = *self
+                        .variables
+                        .get(name)
+                        .ok_or_else(|| format!("Variable {} not found", name))?;
+                    let var_type = *self
+                        .variable_types
+                        .get(name)
+                        .ok_or_else(|| format!("Variable type not found for {}", name))?;
+
+                    let current = self
+                        .builder
+                        .build_load(var_type, ptr, name)
+                        .map_err(|e| format!("Failed to load: {}", e))?;
+
+                    if let BasicValueEnum::IntValue(iv) = current {
+                        let one = iv.get_type().const_int(1, false);
+                        let new_val = self
+                            .builder
+                            .build_int_sub(iv, one, "predec")
+                            .map_err(|e| format!("Failed to decrement: {}", e))?;
+
+                        self.builder
+                            .build_store(ptr, new_val)
+                            .map_err(|e| format!("Failed to store: {}", e))?;
+
+                        // Return new value
+                        Ok(new_val.into())
+                    } else {
+                        Err("Can only pre-decrement integers".to_string())
+                    }
+                } else {
+                    Err("Can only pre-decrement variables".to_string())
+                }
+            }
             _ => Err(format!("Unary operation not yet implemented: {:?}", op)),
         }
     }
@@ -85,8 +183,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
             if let BasicValueEnum::IntValue(iv) = current {
                 let one = iv.get_type().const_int(1, false);
                 let new_val = match op {
-                    PostfixOp::Increment => self.builder.build_int_add(iv, one, "inc"),
-                    PostfixOp::Decrement => self.builder.build_int_sub(iv, one, "dec"),
+                    PostfixOp::PostInc => self.builder.build_int_add(iv, one, "inc"),
+                    PostfixOp::PostDec => self.builder.build_int_sub(iv, one, "dec"),
                 }
                 .map_err(|e| format!("Failed to build operation: {}", e))?;
 

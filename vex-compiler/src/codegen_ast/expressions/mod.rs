@@ -742,7 +742,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 // For now, infer the type and return a constant string
                 let inferred_type = self.infer_expression_type(expr)?;
                 let type_name = self.type_to_string(&inferred_type);
-                
+
                 // Return type name as string constant
                 let global_str = self
                     .builder
@@ -766,7 +766,6 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }
         }
     }
-
     /// Compile Range or RangeInclusive expressions
     fn compile_range(
         &mut self,
@@ -847,4 +846,3 @@ impl<'ctx> ASTCodeGen<'ctx> {
         Ok(range_val.into())
     }
 }
-

@@ -1,0 +1,58 @@
+// Test: Eq contract with op== and op!=
+// Expected: exit code = 30
+
+contract Eq {
+    op==(rhs: Self): bool;
+    op!=(rhs: Self): bool;
+}
+
+struct Point impl Eq {
+    x: i32,
+    y: i32,
+    
+    op==(other: Point): bool {
+        let x_match = self.x == other.x;
+        let y_match = self.y == other.y;
+        if x_match {
+            return y_match;
+        }
+        return false;
+    }
+    
+    op!=(other: Point): bool {
+        if self.x != other.x {
+            return true;
+        }
+        return self.y != other.y;
+    }
+}
+
+fn main(): i32 {
+    let p1 = Point { x: 1, y: 2 };
+    let p2 = Point { x: 1, y: 2 };
+    let p3 = Point { x: 3, y: 4 };
+    
+    // Test op==
+    let is_eq = p1 == p2;
+    let! eq_test = 0;
+    if is_eq {
+        eq_test = 10;
+    }
+    
+    // Test op!=
+    let is_ne = p1 != p3;
+    let! ne_test = 0;
+    if is_ne {
+        ne_test = 10;
+    }
+    
+    // Test builtin
+    let builtin_eq = 5 == 5;
+    let! builtin = 0;
+    if builtin_eq {
+        builtin = 10;
+    }
+    
+    // Total: 10 + 10 + 10 = 30
+    return eq_test + ne_test + builtin;
+}

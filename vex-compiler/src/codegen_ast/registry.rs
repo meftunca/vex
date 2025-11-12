@@ -179,6 +179,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             BinaryOp::Mul => ("Mul", "op*"),
             BinaryOp::Div => ("Div", "op/"),
             BinaryOp::Mod => ("Mod", "op%"),
+            BinaryOp::Pow => ("Pow", "op**"),
             BinaryOp::Eq => ("Eq", "op=="),
             BinaryOp::NotEq => ("Eq", "op!="),
             BinaryOp::Lt => ("Ord", "op<"),
@@ -190,7 +191,22 @@ impl<'ctx> ASTCodeGen<'ctx> {
             BinaryOp::BitXor => ("BitXor", "op^"),
             BinaryOp::Shl => ("Shl", "op<<"),
             BinaryOp::Shr => ("Shr", "op>>"),
+            BinaryOp::Range => ("Range", "op.."),
+            BinaryOp::RangeInclusive => ("RangeInclusive", "op..="),
+            BinaryOp::NullCoalesce => ("NullCoalesce", "op??"),
             _ => ("", ""), // Logical ops don't have traits
+        }
+    }
+
+    /// Get operator trait method name from unary op
+    pub(crate) fn unary_op_to_trait(&self, op: &UnaryOp) -> (&'static str, &'static str) {
+        match op {
+            UnaryOp::Neg => ("Neg", "op-"),
+            UnaryOp::Not => ("Not", "op!"),
+            UnaryOp::BitNot => ("BitNot", "op~"),
+            UnaryOp::PreInc => ("PreInc", "op++"),
+            UnaryOp::PreDec => ("PreDec", "op--"),
+            _ => ("", ""), // Ref, Deref don't have traits
         }
     }
 

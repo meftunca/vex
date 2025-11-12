@@ -629,6 +629,10 @@ impl<'a> FormattingVisitor<'a> {
             BinaryOp::BitXor => "^",
             BinaryOp::Shl => "<<",
             BinaryOp::Shr => ">>",
+            BinaryOp::Pow => "**",
+            BinaryOp::Range => "..",
+            BinaryOp::RangeInclusive => "..=",
+            _ => "/* op */",
         }
     }
 
@@ -640,6 +644,8 @@ impl<'a> FormattingVisitor<'a> {
             UnaryOp::BitNot => "~",
             UnaryOp::Ref => "&",
             UnaryOp::Deref => "*",
+            UnaryOp::PreInc => "++",
+            UnaryOp::PreDec => "--",
         }
     }
 

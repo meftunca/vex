@@ -1,0 +1,78 @@
+// Test: Comparison operators (Eq, Ord contracts)
+// Expected: exit code = 42
+
+contract Eq {
+    op==(rhs: Self): bool;
+    op!=(rhs: Self): bool;
+}
+
+contract Ord {
+    op<(rhs: Self): bool;
+    op>(rhs: Self): bool;
+    op<=(rhs: Self): bool;
+    op>=(rhs: Self): bool;
+}
+
+struct Point impl Eq, Ord {
+    x: i32,
+    y: i32,
+    
+    op==(other: Point): bool {
+        // Use builtin comparison on fields
+        let x_eq = self.x == other.x;
+        let y_eq = self.y == other.y;
+        return x_eq && y_eq;
+    }
+    
+    op!=(other: Point): bool {
+        // Manual implementation instead of !(self == other)
+        if self.x != other.x {
+            return true;
+        }
+        return self.y != other.y;
+    }
+    
+    op<(other: Point): bool {
+        // Lexicographic ordering: compare x first, then y
+        if self.x < other.x {
+            return true;
+        }
+        if self.x > other.x {
+            return false;
+        }
+        return self.y < other.y;
+    }
+    
+    op>(other: Point): bool {
+        return other < self;
+    }
+    
+    op<=(other: Point): bool {
+        return !(self > other);
+    }
+    
+    op>=(other: Point): bool {
+        return !(self < other);
+    }
+}
+
+fn main(): i32 {
+    let p1 = Point { x: 1, y: 2 };
+    let p2 = Point { x: 1, y: 2 };
+    let p3 = Point { x: 2, y: 1 };
+    
+    // Test equality
+    let eq_result = if p1 == p2 { 10 } else { 0 };
+    let ne_result = if p1 != p3 { 10 } else { 0 };
+    
+    // Test ordering
+    let lt_result = if p1 < p3 { 10 } else { 0 };
+    let le_result = if p1 <= p2 { 10 } else { 0 };
+    
+    // Builtin types should also work
+    let builtin_eq = if 5 == 5 { 1 } else { 0 };
+    let builtin_lt = if 3 < 7 { 1 } else { 0 };
+    
+    // Total: 10 + 10 + 10 + 10 + 1 + 1 = 42
+    return eq_result + ne_result + lt_result + le_result + builtin_eq + builtin_lt;
+}

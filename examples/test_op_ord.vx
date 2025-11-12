@@ -1,0 +1,92 @@
+// Test: Ord contract with comparison operators
+// Expected: exit code = 40
+
+contract Ord {
+    op<(rhs: Self): bool;
+    op>(rhs: Self): bool;
+    op<=(rhs: Self): bool;
+    op>=(rhs: Self): bool;
+}
+
+struct Point impl Ord {
+    x: i32,
+    y: i32,
+    
+    op<(other: Point): bool {
+        // Lexicographic ordering
+        if self.x < other.x {
+            return true;
+        }
+        if self.x > other.x {
+            return false;
+        }
+        return self.y < other.y;
+    }
+    
+    op>(other: Point): bool {
+        if self.x > other.x {
+            return true;
+        }
+        if self.x < other.x {
+            return false;
+        }
+        return self.y > other.y;
+    }
+    
+    op<=(other: Point): bool {
+        if self.x < other.x {
+            return true;
+        }
+        if self.x > other.x {
+            return false;
+        }
+        return self.y <= other.y;
+    }
+    
+    op>=(other: Point): bool {
+        if self.x > other.x {
+            return true;
+        }
+        if self.x < other.x {
+            return false;
+        }
+        return self.y >= other.y;
+    }
+}
+
+fn main(): i32 {
+    let p1 = Point { x: 1, y: 2 };
+    let p2 = Point { x: 2, y: 1 };
+    let p3 = Point { x: 1, y: 2 };
+    
+    // Test op<
+    let lt_12 = p1 < p2;
+    let! lt_result = 0;
+    if lt_12 {
+        lt_result = 10;
+    }
+    
+    // Test op>
+    let gt_21 = p2 > p1;
+    let! gt_result = 0;
+    if gt_21 {
+        gt_result = 10;
+    }
+    
+    // Test op<=
+    let le_13 = p1 <= p3;
+    let! le_result = 0;
+    if le_13 {
+        le_result = 10;
+    }
+    
+    // Test op>=
+    let ge_31 = p3 >= p1;
+    let! ge_result = 0;
+    if ge_31 {
+        ge_result = 10;
+    }
+    
+    // Total: 10 + 10 + 10 + 10 = 40
+    return lt_result + gt_result + le_result + ge_result;
+}

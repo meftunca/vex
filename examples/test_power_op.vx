@@ -1,0 +1,25 @@
+// Test power operator (**)
+
+contract Pow {
+    op**(rhs: Self): Self;
+}
+
+struct Int impl Pow {
+    value: i32,
+    
+    op**(exponent: Int): Int {
+        let! result = 1;
+        let! i = 0;
+        while i < exponent.value {
+            result = result * self.value;
+            i += 1;
+        }
+        return Int { value: result };
+    }
+}
+
+fn main(): i32 {
+    let base = Int { value: 2 };
+    let power = base ** Int { value: 8 };
+    return power.value;  // 2^8 = 256
+}
