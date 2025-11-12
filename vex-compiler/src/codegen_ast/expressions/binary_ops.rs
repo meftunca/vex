@@ -13,7 +13,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         op: &BinaryOp,
         right: &Expression,
     ) -> Result<BasicValueEnum<'ctx>, String> {
-        // ⭐ NEW: Operator Overloading - Check if left operand has operator trait
+        // ⭐ NEW: Operator Overloading - Check if left operand has operator contract
         if let Ok(left_type) = self.infer_expression_type(left) {
             // ⭐ BUILTIN: Check for Vec + Vec (if both are Vec)
             if let Type::Generic { ref name, .. } = left_type {
@@ -47,12 +47,34 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 }
             }
 
-            if let Type::Named(type_name) = left_type {
-                let (trait_name, method_name) = self.binary_op_to_trait(op);
-                if !trait_name.is_empty() {
-                    if let Some(_) = self.has_operator_trait(&type_name, trait_name) {
-                        // Desugar to method call: left.add(right)
-                        eprintln!("🎯 Operator overloading: {}.{}()", type_name, method_name);
+            // ⭐ Phase 1 Day 3-4: Builtin contract operator dispatch
+            if let Type::Named(ref type_name) = left_type {
+                let (contract_name, method_name) = self.binary_op_to_trait(op);
+                if !contract_name.is_empty() {
+                    // Check if builtin contract exists (e.g., i32 extends Add)
+                    use crate::builtin_contracts;
+                    if builtin_contracts::has_builtin_contract(type_name, contract_name) {
+                        eprintln!("🎯 Builtin operator contract: {}.{}()", type_name, method_name);
+                        
+                        // Compile operands
+                        let left_val = self.compile_expression(left)?;
+                        let right_val = self.compile_expression(right)?;
+                        
+                        // Dispatch to builtin contract codegen
+                        if let Some(result) = builtin_contracts::codegen_builtin_contract_method(
+                            type_name,
+                            contract_name,
+                            method_name,
+                            left_val,
+                            &[right_val],
+                        ) {
+                            return Ok(result);
+                        }
+                    }
+                    
+                    // Otherwise check for user-defined contract implementation
+                    if let Some(_) = self.has_operator_trait(type_name, contract_name) {
+                        eprintln!("🎯 User operator contract: {}.{}()", type_name, method_name);
                         return self.compile_method_call(
                             left,
                             method_name,
