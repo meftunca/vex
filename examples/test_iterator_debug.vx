@@ -1,4 +1,4 @@
-// Test Iterator trait - Simplified debug version
+// Test Iterator contract - Simplified debug version
 import { Iterator, Option } from "core";
 
 struct Counter impl Iterator {

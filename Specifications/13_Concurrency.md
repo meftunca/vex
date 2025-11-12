@@ -452,7 +452,7 @@ fn worker_pool(work: [Task], num_workers: i32): [Result] {
 
 ## Thread Safety
 
-### Send Trait (Future)
+### Send Contract (Future)
 
 Types safe to transfer across threads:
 
@@ -469,7 +469,7 @@ struct HasReference {
 }
 ```
 
-### Sync Trait (Future)
+### Sync Contract (Future)
 
 Types safe to share across threads:
 

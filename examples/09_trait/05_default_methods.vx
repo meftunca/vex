@@ -1,11 +1,11 @@
-// Test trait methods (signature only - simplified syntax)
-// Traits can only have method signatures, no body
+// Test contract methods (signature only - simplified syntax)
+// contracts can only have method signatures, no body
 
 contract Logger {
     // Simplified syntax - no explicit receiver
-    fn log(msg: string);
-    fn info(msg: string);
-    fn debug(msg: string);
+    log(msg: string);
+    info(msg: string);
+    debug(msg: string);
 }
 
 fn log2(msg: string) {
@@ -17,7 +17,7 @@ fn log2(msg: string) {
 struct ConsoleLogger impl Logger {
     prefix: string,
     
-    // Implement all methods from trait (simplified syntax)
+    // Implement all methods from contract (simplified syntax)
     fn log(msg: string) {
         log2(msg);
         return;

@@ -1,4 +1,4 @@
-// Test Clone trait - Multiple clones
+// Test Clone contract - Multiple clones
 // Test that multiple clones work independently
 
 import { Clone } from "core";

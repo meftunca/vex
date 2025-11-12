@@ -1,4 +1,4 @@
-// Comprehensive Display trait test
+// Comprehensive Display contract test
 
 import { Display, i32_to_string, f64_to_string, bool_to_string } from "fmt";
 

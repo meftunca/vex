@@ -4,7 +4,7 @@
 contract Container {
     type Item;
     
-    fn get_value(): i32;
+    get_value(): i32;
 }
 
 struct IntBox impl Container {

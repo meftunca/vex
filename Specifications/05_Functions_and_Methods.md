@@ -115,7 +115,7 @@ fn main(): i32 {
 
 Vex, metodun tanımlandığı bağlama göre değişen, esnek ve pragmatik bir mutasyon sözdizimi kullanır. Bu "Hibrit Model" olarak adlandırılır.
 
-### Kural 1: Inline Metodlar (Struct ve Trait İçinde)
+### Kural 1: Inline Metodlar (Struct ve Contract İçinde)
 
 **Amaç:** Kod tekrarını önlemek ve `struct`/`trait` tanımlarını temiz tutmak.
 
@@ -191,7 +191,7 @@ let! rect_mut = Rectangle { width: 10, height: 5};
 rect_mut.scale(2); // '!' yok
 ```
 
-### Trait Method Implementation
+### Contract Method Implementation
 
 ```vex
 trait Display {
@@ -203,7 +203,7 @@ struct User impl Display {
     name: string,
     age: i32,
 
-    // Trait methods MUST be here (in struct body)
+    // Contract methods MUST be here (in struct body)
     fn show() {
         print(self.name, " - ", self.age);
     }
@@ -214,10 +214,10 @@ struct User impl Display {
 }
 ```
 
-**Error**: Trait methods cannot be external
+**Error**: Contract methods cannot be external
 
 ```vex
-// ❌ COMPILE ERROR: Trait method cannot be external
+// ❌ COMPILE ERROR: Contract method cannot be external
 fn (u: &User) show() {
     print(u.name);
 }

@@ -129,10 +129,10 @@ let c = a + b;  // Automatically vectorized!
 ### Traits and Interfaces
 
 - Trait-based polymorphism
-- Multiple trait implementation
-- Default trait methods (implemented)
-- Trait inheritance with supertraits (implemented)
-- Trait bounds on generics (partial)
+- Multiple contract implementation
+- Default contract methods (implemented)
+- Contract inheritance with supertraits (implemented)
+- Contract bounds on generics (partial)
 
 ### Policy System
 
@@ -202,7 +202,7 @@ struct Point impl Display, Eq {
     y: i32,
 
     fn (self: &Point) show() {
-        // Display trait method
+        // Display contract method
     }
 }
 ```
@@ -345,7 +345,7 @@ Source (.vx) → AST → Borrow Check → LLVM IR → Object File (.o) → Execu
 
 ### In Progress
 
-- 🚧 Intersection types for trait composition
+- 🚧 Intersection types for contract composition
 
 ### Planned
 
@@ -365,7 +365,7 @@ Source (.vx) → AST → Borrow Check → LLVM IR → Object File (.o) → Execu
 - Functions: Recursion, methods, generics, closures
 - Control Flow: If/elif/else, while, for, match, switch
 - Types: Structs, enums, tuples, references
-- Generics: Type parameters, monomorphization, trait bounds
+- Generics: Type parameters, monomorphization, contract bounds
 - Patterns: Destructuring, OR patterns, guards, rest patterns
 - Strings: F-strings, operations, UTF-8 support
 - Algorithms: Fibonacci, factorial, GCD, sorting
@@ -458,11 +458,11 @@ This section documents features available in Rust and Go but not yet implemented
 | ----------------------------------- | ----------------------------- | ---------------------- | ------------------------------------ |
 | **Closures/Lambdas**                | ✅ `\|x\| x + 1`              | ✅ Complete            | Full capture mode analysis           |
 | **Lifetime Annotations**            | ✅ `'a, 'static`              | ✅ Automatic (Phase 4) | Borrow checker handles automatically |
-| **Trait Objects**                   | ✅ `&dyn Trait`               | ❌ Not implemented     | Dynamic dispatch pending             |
+| **Contract Objects**                   | ✅ `&dyn Trait`               | ❌ Not implemented     | Dynamic dispatch pending             |
 | **Async/Await Runtime**             | ✅ Full tokio support         | ✅ Complete            | Core async runtime implemented       |
 | **Macros**                          | ✅ Declarative + Procedural   | ❌ Not implemented     | Low priority                         |
 | **Const Generics**                  | ✅ `[T; N]`                   | ❌ Not implemented     | Array size flexibility               |
-| **Higher-Ranked Trait Bounds**      | ✅ `for<'a>`                  | ❌ Not implemented     | Advanced feature                     |
+| **Higher-Ranked Contract Bounds**      | ✅ `for<'a>`                  | ❌ Not implemented     | Advanced feature                     |
 | **Associated Constants**            | ✅ `const X: i32;`            | ❌ Not implemented     | Trait-level constants                |
 | **Drop Trait**                      | ✅ RAII destructors           | ❌ Not implemented     | Resource cleanup                     |
 | **Deref Coercion**                  | ✅ Automatic `&String → &str` | ✅ Field access        | Auto-deref for field access complete |
@@ -483,7 +483,7 @@ This section documents features available in Rust and Go but not yet implemented
 | Feature                    | Rust                           | Vex v0.1             | Notes                                   |
 | -------------------------- | ------------------------------ | -------------------- | --------------------------------------- |
 | **Collections**            | ✅ Vec, HashMap, HashSet, etc. | ✅ Implemented       | Vec, Map, Set, Box                      |
-| **Iterators**              | ✅ Full Iterator trait         | ✅ Complete          | Basic iteration working                 |
+| **Iterators**              | ✅ Full Iterator contract         | ✅ Complete          | Basic iteration working                 |
 | **Option Type**            | ✅ `Option<T>`                 | ✅ Complete          | Some/None constructors                  |
 | **Result Type**            | ✅ `Result<T, E>`              | ✅ Complete          | Ok/Err constructors                     |
 | **Error Handling**         | ✅ `?` operator                | ✅ Complete (v0.1.2) | Result unwrapping with auto-propagation |
@@ -568,9 +568,9 @@ While Vex is missing many features, it combines aspects from both languages in n
 | **Mutable References**   | `&T!` syntax                 | `&mut T`              | All references mutable |
 | **Method Syntax**        | Both inline and golang-style | Impl blocks only      | Receiver syntax only   |
 | **Elif Keyword**         | ✅ Native `elif`             | `else if`             | `else if`              |
-| **Trait Implementation** | `struct S impl T { }` inline | Separate `impl` block | Implicit satisfaction  |
+| **Contract Implementation** | `struct S impl T { }` inline | Separate `impl` block | Implicit satisfaction  |
 | **Union Types**          | `(T \| U)` planned           | `enum` workaround     | `interface{}`          |
-| **Intersection Types**   | `(T & U)` planned            | Trait bounds          | Not available          |
+| **Intersection Types**   | `(T & U)` planned            | Contract bounds          | Not available          |
 | **GPU Functions**        | `gpu fn` keyword             | Via compute crates    | Via CGO                |
 
 ### Roadmap Priority
@@ -581,7 +581,7 @@ While Vex is missing many features, it combines aspects from both languages in n
 2. 🟡 Phase 4: Lifetime Analysis (in progress)
 3. ✅ Closures and lambdas (COMPLETE)
 4. ✅ Option/Result types with pattern matching (COMPLETE)
-5. ✅ Iterator trait and collection methods (builtin collections implemented)
+5. ✅ Iterator contract and collection methods (builtin collections implemented)
 6. ✅ Async runtime integration (COMPLETE - goroutines and channels)
 7. ✅ Standard library completion (I/O, networking - extensive builtins added)
 

@@ -1,9 +1,9 @@
 // Iterator Adapters
 // Lazy transformation methods: map, filter, take, skip
 //
-// NOTE: These adapters currently don't support generic functions (Fn trait).
+// NOTE: These adapters currently don't support generic functions (Fn contract).
 // They are concrete implementations that work with i32 only.
-// See examples/09_trait/test_map_simple.vx for usage pattern.
+// See examples/09_contract/test_map_simple.vx for usage pattern.
 
 // ===== Map Adapter =====
 

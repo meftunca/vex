@@ -1,4 +1,4 @@
-// Test Ord trait - Ordering comparison
+// Test Ord contract - Ordering comparison
 // Test custom ordering with .compare()
 
 import { Ord } from "core";
@@ -58,9 +58,9 @@ fn main(): i32 {
         return 1;
     }
     
-    println("✅ PASSED: Ord trait works correctly");
+    println("✅ PASSED: Ord contract works correctly");
     return 0;
 }
 
 // Expected output:
-// ✅ PASSED: Ord trait works correctly
+// ✅ PASSED: Ord contract works correctly

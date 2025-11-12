@@ -48,9 +48,15 @@ impl<'a> Parser<'a> {
 
         // Parse fields and methods
         while !self.check(&Token::RBrace) && !self.is_at_end() {
-            // Check if this is a method (fn keyword - optional), associated type (type keyword), or field
+            // Check if this is a method (fn keyword - DEPRECATED), associated type (type keyword), or field
             if self.check(&Token::Fn) {
-                // Parse method with 'fn' keyword
+                // ⚠️ DEPRECATED: Inline struct methods are deprecated!
+                // Emit warning but still parse for now
+                eprintln!("⚠️  WARNING: Inline struct methods are deprecated in struct '{}'", name);
+                eprintln!("   → Use Go-style external methods instead:");
+                eprintln!("   → fn (self: &{}) method_name() {{ }}", name);
+                eprintln!("   → See VEX_IDENTITY.md for migration guide");
+                
                 methods.push(self.parse_struct_method()?);
             } else if self.check(&Token::Type) {
                 // ⭐ NEW: Parse associated type binding: type Item = i32;
@@ -68,10 +74,16 @@ impl<'a> Parser<'a> {
                 // Could be a method without 'fn' or a field - need to disambiguate
                 // Look ahead: if next token is '(' it's a method, if ':' it's a field
                 let checkpoint = self.current;
-                let name = self.consume_identifier()?;
+                let field_or_method_name = self.consume_identifier()?;
                 
                 if self.check(&Token::LParen) {
-                    // It's a method without 'fn' prefix! Backtrack and parse as method
+                    // ⚠️ DEPRECATED: It's a method without 'fn' prefix!
+                    eprintln!("⚠️  WARNING: Inline struct methods are deprecated in struct '{}'", name);
+                    eprintln!("   → Method '{}' should be defined outside the struct", field_or_method_name);
+                    eprintln!("   → Use Go-style: fn (self: &{}) {}() {{ }}", name, field_or_method_name);
+                    eprintln!("   → See VEX_IDENTITY.md for migration guide");
+                    
+                    // Backtrack and parse as method
                     self.current = checkpoint;
                     methods.push(self.parse_struct_method()?);
                 } else if self.check(&Token::Colon) {
@@ -91,7 +103,7 @@ impl<'a> Parser<'a> {
                     };
 
                     fields.push(Field {
-                        name,
+                        name: field_or_method_name,
                         ty: field_type,
                         tag: None,
                         metadata, // Inline backtick metadata

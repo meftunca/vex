@@ -1,22 +1,22 @@
-// Traits (formerly interfaces)
-// Demonstrates: trait definitions, method signatures
+// contracts (formerly interfaces)
+// Demonstrates: contract definitions, method signatures
 
-// Simple trait
+// Simple contract
 contract Writer {
-    fn write(data: i32): i32;
+    write(data: i32): i32;
 }
 
-// Generic trait
+// Generic contract
 contract Container<T> {
-    fn get(): T;
-    fn set(value: T): i32;
+    get(): T;
+    set(value: T): i32;
 }
 
-// Multiple method trait
+// Multiple method contract
 contract Storage {
-    fn read(): i32;
-    fn write(value: i32): i32;
-    fn clear(): i32;
+    read(): i32;
+    write(value: i32): i32;
+    clear(): i32;
 }
 
 // Struct that implements Writer

@@ -1,4 +1,4 @@
-// Test Clone trait - Nested structs (deep copy)
+// Test Clone contract - Nested structs (deep copy)
 // Test that clone() properly copies nested structures
 
 import { Clone } from "core";

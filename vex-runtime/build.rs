@@ -33,6 +33,7 @@ fn main() {
         c_dir.join("vex_file.c"),    // File system operations
         c_dir.join("vex_display.c"), // Display trait - type to string conversions
         c_dir.join("vex_value_helpers.c"), // VexValue constructor helpers
+        c_dir.join("vex_format.c"),  // Format buffer for type-safe formatting
     ];
 
     // Detect platform and add appropriate poller

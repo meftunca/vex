@@ -1,8 +1,8 @@
-// Test trait bounds enforcement - SHOULD FAIL
+// Test contract bounds enforcement - SHOULD FAIL
 // Vector does NOT implement Display
 
 contract Display {
-    fn to_string(): string;
+    to_string(): string;
 }
 
 struct Point impl Display {

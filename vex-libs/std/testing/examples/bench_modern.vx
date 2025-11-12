@@ -1,18 +1,18 @@
 // Modern Vex Benchmark Example
-// Demonstrates trait-based testing framework with struct impl pattern
+// Demonstrates contract-based testing framework with struct impl pattern
 
 import {monotonic_now} from "time";
 
-// Benchmarkable trait - defines benchmark interface
+// Benchmarkable contract - defines benchmark interface
 contract Benchmarkable {
-    fn stop_timer();
-    fn start_timer();
-    fn reset_timer();
-    fn ns_per_op(): i64;
-    fn ops_per_sec(): i64;
+    stop_timer();
+    start_timer();
+    reset_timer();
+    ns_per_op(): i64;
+    ops_per_sec(): i64;
 }
 
-// Modern B struct with trait implementation
+// Modern B struct with contract implementation
 struct B impl Benchmarkable {
     name: String,
     n: i64,
@@ -58,7 +58,7 @@ struct B impl Benchmarkable {
 
 fn main() {
     print("=== Modern Vex Benchmark Suite ===\n");
-    print("Using: struct impl trait pattern\n");
+    print("Using: struct impl contract pattern\n");
     print("goos: vex\n");
     print("goarch: native\n\n");
     

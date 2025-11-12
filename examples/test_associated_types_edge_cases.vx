@@ -1,29 +1,29 @@
 // Edge cases for associated types parsing (Self.Item syntax)
 
-// Edge Case 1: Multiple associated types in one trait
+// Edge Case 1: Multiple associated types in one contract
 contract KeyValue {
     type Key;
     type Value;
     
-    fn get(key: Self.Key): Option<Self.Value>;
-    fn set(key: Self.Key, value: Self.Value);
+    get(key: Self.Key): Option<Self.Value>;
+    set(key: Self.Key, value: Self.Value);
 }
 
 // Edge Case 2: Associated types in generic contexts
 contract Container {
     type Item;
     
-    fn get_all(): Vec<Self.Item>;
-    fn get_first(): Option<Self.Item>;
-    fn get_many(): Result<Vec<Self.Item>, i32>;
+    get_all(): Vec<Self.Item>;
+    get_first(): Option<Self.Item>;
+    get_many(): Result<Vec<Self.Item>, i32>;
 }
 
 // Edge Case 3: Associated types with references
 contract RefContainer {
     type Item;
     
-    fn borrow_item(): Option<Self.Item>;
-    fn get_slice(): Option<Self.Item>;
+    borrow_item(): Option<Self.Item>;
+    get_slice(): Option<Self.Item>;
 }
 
 // Edge Case 4: Nested generics with associated types
@@ -32,8 +32,8 @@ contract Processor {
     type Output;
     type Error;
     
-    fn process(input: Self.Input): Result<Self.Output, Self.Error>;
-    fn batch_process(inputs: Vec<Self.Input>): Vec<Result<Self.Output, Self.Error>>;
+    process(input: Self.Input): Result<Self.Output, Self.Error>;
+    batch_process(inputs: Vec<Self.Input>): Vec<Result<Self.Output, Self.Error>>;
 }
 
 // Edge Case 5: Implementation with concrete types
@@ -75,14 +75,14 @@ contract Transformer {
     type Input;
     type Output;
     
-    fn transform(): fn(Self.Input): Self.Output;
+    transform(): fn(Self.Input): Self.Output;
 }
 
 // Edge Case 8: Array of associated types
 contract ArrayContainer {
     type Item;
     
-    fn get_array(): Option<Self.Item>;
+    get_array(): Option<Self.Item>;
 }
 
 fn main(): i32 {

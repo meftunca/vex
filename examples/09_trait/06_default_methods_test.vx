@@ -1,10 +1,10 @@
-// Test trait methods (simplified syntax)
+// Test contract methods (simplified syntax)
 
 contract Greeter {
     // Simplified syntax - no explicit receiver
-    fn get_name(): string;
-    fn greet(): i32;
-    fn farewell(): i32;
+    get_name(): string;
+    greet(): i32;
+    farewell(): i32;
 }
 
 struct Person impl Greeter {
@@ -36,7 +36,7 @@ fn main(): i32 {
     let name = person.get_name();
     print("Name from explicit method");
     
-    // Call default methods (should use trait's implementation)
+    // Call default methods (should use contract's implementation)
     let r1 = person.greet();
     let r2 = person.farewell();
     

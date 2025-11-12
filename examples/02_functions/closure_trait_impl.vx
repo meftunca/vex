@@ -1,5 +1,5 @@
-// Test closure trait implementation codegen
-// Demonstrates automatic trait impl generation for closures
+// Test closure contract implementation codegen
+// Demonstrates automatic contract impl generation for closures
 
 fn main(): i32 {
     // Test 1: Immutable closure (Callable)
@@ -10,7 +10,7 @@ fn main(): i32 {
     let pure_closure = |a: i32, b: i32| a * b;
     
     // For now, just test that closures compile
-    // Next step: Enable calling closures through trait methods
+    // Next step: Enable calling closures through contract methods
     
     return 42;
 }

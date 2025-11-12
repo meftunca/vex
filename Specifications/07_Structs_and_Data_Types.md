@@ -375,9 +375,9 @@ let! circle = Circle { radius: 5.0 };
 circle.set_radius(10.0);
 ```
 
-### Trait Methods vs Extra Methods
+### Contract Methods vs Extra Methods
 
-**Trait Methods**: MUST be in struct body
+**Contract Methods**: MUST be in struct body
 
 ```vex
 trait Shape {
@@ -389,7 +389,7 @@ struct Rectangle impl Shape {
     width: f64,
     height: f64,
 
-    // Trait methods MUST be here
+    // Contract methods MUST be here
     fn area(): f64 {
         return self.width * self.height;
     }
@@ -400,7 +400,7 @@ struct Rectangle impl Shape {
     }
 }
 
-// ❌ ERROR: Trait methods cannot be external
+// ❌ ERROR: Contract methods cannot be external
 fn (r: &Rectangle) area(): f64 {
     return r.width * r.height;
 }

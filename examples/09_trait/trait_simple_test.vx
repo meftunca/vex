@@ -1,12 +1,12 @@
-// Simple trait test - inline implementation without default methods
-// struct ... impl Trait { ... methods ... }
+// Simple contract test - inline implementation without default methods
+// struct ... impl contract { ... methods ... }
 
-// 1. Define a trait with only required methods
+// 1. Define a contract with only required methods
 contract Printer {
-    fn print();
+    print();
 }
 
-// 2. Struct with inline trait implementation
+// 2. Struct with inline contract implementation
 struct Message impl Printer {
     text: string,
     

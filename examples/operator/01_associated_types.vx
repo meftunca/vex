@@ -1,14 +1,14 @@
-// Test: Associated Types in Traits
+// Test: Associated Types in contracts
 
 contract Container {
     type Item;  // Associated type
-    fn get(index: i32): Item;
-    fn len(): i32;
+    get(index: i32): Item;
+    len(): i32;
 }
 
 contract Index<Idx> {
     type Output;  // Return type depends on impl
-    fn index(idx: Idx): &Output;
+    index(idx: Idx): &Output;
 }
 
 // Simple test: parse only (codegen not yet implemented)

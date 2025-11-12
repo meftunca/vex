@@ -44,7 +44,7 @@ struct Nested<T> {
 }
 
 // 7. Generic with Constraints (if supported)
-// trait Printable {
+// contract Printable {
 //     fn print();
 // }
 

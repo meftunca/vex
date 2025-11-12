@@ -1,8 +1,8 @@
-// Test: Basic trait bounds parsing and compilation
+// Test: Basic contract bounds parsing and compilation
 // Expected: Compiles successfully (runtime checking not yet implemented)
 
 contract Display {
-    fn display(): string;
+    display(): string;
 }
 
 struct Point impl Display {
@@ -15,7 +15,7 @@ struct Point impl Display {
 
  
 
-// Function with trait bound
+// Function with contract bound
 fn print_value<T: Display>(value: T): i32 {
     return 42;
 }

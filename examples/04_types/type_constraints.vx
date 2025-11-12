@@ -1,10 +1,10 @@
 // Type Constraints in Type Aliases
-// Syntax: type Name<T: Trait1 + Trait2> = ...
+// Syntax: type Name<T: contract1 + contract2> = ...
 
-// Simple trait bound
+// Simple contract bound
 type Displayable<T: Display> = T;
 
-// Multiple trait bounds
+// Multiple contract bounds
 type ComparableNumber<T: Ord + Clone> = T;
 
 // Nested constraints
@@ -26,6 +26,6 @@ fn main(): i32 {
     // ❌ Invalid: Vec doesn't implement Display
     // let y: Displayable<Vec<i32>> = Vec.new();
     
-    println("Type constraints enforce trait bounds!");
+    println("Type constraints enforce contract bounds!");
     return 0;
 }

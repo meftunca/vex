@@ -1,12 +1,12 @@
-// Test multiple trait bounds (T: Display + Clone pattern)
+// Test multiple contract bounds (T: Display + Clone pattern)
 // Note: Current parser might not support + syntax yet
 
 contract Display {
-    fn to_string(): string;
+    to_string(): string;
 }
 
 contract Clone {
-    fn clone(): Self;
+    clone(): Self;
 }
 
 struct Point impl Display {

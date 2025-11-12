@@ -1,8 +1,8 @@
-// Test trait bounds enforcement
+// Test contract bounds enforcement
 // This should compile successfully - Point implements Display
 
 contract Display {
-    fn to_string(): string;
+    to_string(): string;
 }
 
 struct Point impl Display {
@@ -14,7 +14,7 @@ struct Point impl Display {
     }
 }
 
-// Generic function with trait bound
+// Generic function with contract bound
 fn print_value<T: Display>(value: T) {
     // Should only accept types that implement Display
 }

@@ -144,7 +144,7 @@ continue    defer
 
 ```
 fn          let         const       struct
-enum        type        trait       impl
+enum        type        contract       impl
 extern
 ```
 

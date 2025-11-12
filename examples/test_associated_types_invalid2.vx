@@ -2,7 +2,7 @@
 
 contract BadIterator2 {
     type Item;
-    fn next(): Option<Self.>;  // ❌ Should error: incomplete
+    next(): Option<Self.>;  // ❌ Should error: incomplete
 }
 
 fn main(): i32 {

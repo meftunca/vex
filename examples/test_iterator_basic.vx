@@ -1,5 +1,5 @@
-// Test Iterator trait - Basic implementation
-// Test that Iterator trait with associated types works
+// Test Iterator contract - Basic implementation
+// Test that Iterator contract with associated types works
 
 import { Iterator, Option } from "core";
 
@@ -79,7 +79,7 @@ fn main(): i32 {
             return 1;
         },
         None => {
-            println("✅ PASSED: Iterator trait works correctly");
+            println("✅ PASSED: Iterator contract works correctly");
         },
     }
     
@@ -87,4 +87,4 @@ fn main(): i32 {
 }
 
 // Expected output:
-// ✅ PASSED: Iterator trait works correctly
+// ✅ PASSED: Iterator contract works correctly

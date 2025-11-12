@@ -128,14 +128,14 @@ fn add(x: i32, y: i32): i32 {
 }
 
 // ============================================================
-// 13. TRAITS
+// 13. contractS
 // ============================================================
 contract Drawable {
-    fn draw(): nil;
+    draw(): nil;
 }
 
 // ============================================================
-// 14. STRUCT IMPLEMENTING TRAITS
+// 14. STRUCT IMPLEMENTING contractS
 // ============================================================
 struct Canvas {
     width: i32,
@@ -241,11 +241,11 @@ fn main(): i32 {
     println("  ✓ Option<T> & Result<T,E>");
     println("  ✓ Generics (functions, structs, enums)");
     println("  ✓ Type Aliases & Generic Aliases");
-    println("  ✓ Type Constraints (T: Trait)");
+    println("  ✓ Type Constraints (T: contract)");
     println("  ✓ Conditional Types (T extends U ? X : Y)");
     println("  ✓ Union Types (T | U)");
     println("  ✓ Function Types fn(T): U");
-    println("  ✓ Traits & Implementations");
+    println("  ✓ contracts & Implementations");
     println("  ✓ Pattern Matching");
     println("  ✓ Type Inference");
     println("  ✓ Higher-Order Functions");

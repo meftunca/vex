@@ -317,7 +317,7 @@ let right: Either<i32, string> = Either::Right("text");
 
 ## Generic Traits
 
-### Generic Trait Definition (Future)
+### Generic Contract Definition (Future)
 
 ```vex
 trait Container<T> {
@@ -362,7 +362,7 @@ struct Value impl Converter {
 
 ## Type Constraints
 
-### Trait Bounds (Future)
+### Contract Bounds (Future)
 
 Restrict generic types to those implementing specific traits:
 
@@ -783,9 +783,9 @@ fn create<T: Clone>(value: T): Container<T> {
 | Generic Methods     | `fn (self: &S<T>)` | ✅ Working | Methods on generic types       |
 | Monomorphization    | Automatic          | ✅ Working | Zero runtime cost              |
 | Generic Enums       | `enum E<T> { }`    | ✅ Working | `Option<T>`, `Result<T,E>`     |
-| Trait Bounds        | `<T: Trait>`       | ✅ Working | Constrained types              |
+| Contract Bounds        | `<T: Trait>`       | ✅ Working | Constrained types              |
 | Where Clauses       | `where T: Trait`   | ✅ v0.1.2  | Complex constraints            |
-| Associated Types    | `type Item;`       | ✅ Working | Trait associated types working |
+| Associated Types    | `type Item;`       | ✅ Working | Contract associated types working |
 | Higher-Kinded       | `F<T>`             | ❌ Future  | Generic over generics          |
 | Const Generics      | `[T; N]`           | ❌ Future  | Array size parameter           |
 

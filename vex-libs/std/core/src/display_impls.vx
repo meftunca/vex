@@ -1,4 +1,4 @@
-// Display trait implementations for primitive types
+// Display contract implementations for primitive types
 // This file provides to_string() implementations for built-in types
 
 import { Display } from "./lib.vx";

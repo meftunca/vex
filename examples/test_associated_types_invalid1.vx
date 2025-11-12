@@ -3,7 +3,7 @@
 // Test 1: Double colon (Rust syntax) - should fail
 contract BadIterator1 {
     type Item;
-    fn next(): Option<Self::Item>;  // ❌ Should error: Use . not ::
+    next(): Option<Self::Item>;  // ❌ Should error: Use . not ::
 }
 
 fn main(): i32 {

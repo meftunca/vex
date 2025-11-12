@@ -5,7 +5,7 @@ import { Option } from "core";
 
 contract Iterator {
     type Item;
-    fn next()!: Option<i32>;
+    next()!: Option<i32>;
 }
 
 // Simple range iterator for testing

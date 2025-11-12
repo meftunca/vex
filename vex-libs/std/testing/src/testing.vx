@@ -1,33 +1,33 @@
-// Vex Testing Framework - Modern trait-based design
-// Version 1.0.0 - Golang-style DX with Vex traits & methods
+// Vex Testing Framework - Modern contract-based design
+// Version 1.0.0 - Golang-style DX with Vex contracts & methods
 // Zero C FFI, pure Vex implementation
 
 import {monotonic_now} from "time";
 
 // ============================================================================
-// Core Traits - Testing interface contracts
+// Core contracts - Testing interface contracts
 // ============================================================================
 
 // Testable defines the interface for test contexts
 contract Testable {
-    fn error(msg: String);
-    fn skip(msg: String);
-    fn log(msg: String);
-    fn failed(): bool;
+    error(msg: String);
+    skip(msg: String);
+    log(msg: String);
+    failed(): bool;
 }
 
 // Benchmarkable defines the interface for benchmark contexts
 contract Benchmarkable {
-    fn reset_timer();
-    fn start_timer();
-    fn stop_timer();
-    fn ns_per_op(): i64;
-    fn ops_per_sec(): i64;
-    fn set_bytes(bytes: i64);
+    reset_timer();
+    start_timer();
+    stop_timer();
+    ns_per_op(): i64;
+    ops_per_sec(): i64;
+    set_bytes(bytes: i64);
 }
 
 // ============================================================================
-// Test Context - Modern struct with trait implementation
+// Test Context - Modern struct with contract implementation
 // ============================================================================
 
 export struct T impl Testable {
@@ -69,7 +69,7 @@ export fn (self:&T) failed(): bool {
     return self.failed;
 }
 // ============================================================================
-// Benchmark Context - Modern struct with trait implementation
+// Benchmark Context - Modern struct with contract implementation
 // ============================================================================
 
 export struct B impl Benchmarkable {

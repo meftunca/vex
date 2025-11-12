@@ -1,4 +1,4 @@
-// Test Drop trait - Early return cleanup
+// Test Drop contract - Early return cleanup
 // Drop should be called even on early return
 
 import { Drop } from "core";

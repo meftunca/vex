@@ -152,31 +152,31 @@ fn apply_binary(f: BinaryOp, x: i32, y: i32): i32 {
 }
 
 // ============================================================
-// 13. TRAITS
+// 13. contractS
 // ============================================================
 contract Drawable {
-    fn draw(): nil;
+    draw(): nil;
 }
 
 contract Resizable {
-    fn resize(width: i32, height: i32): nil;
+    resize(width: i32, height: i32): nil;
 }
 
 // ============================================================
-// 14. TRAIT WITH GENERICS
+// 14. contract WITH GENERICS
 // ============================================================
 contract MyContainer<T> {
-    fn add(item: T): nil;
-    fn get(index: i32): Option<T>;
-    fn len(): i32;
+    add(item: T): nil;
+    get(index: i32): Option<T>;
+    len(): i32;
 }
 
 contract Mapper<T, U> {
-    fn map(f: fn(T): U): U;
+    map(f: fn(T): U): U;
 }
 
 // ============================================================
-// 15. STRUCT IMPLEMENTING TRAITS
+// 15. STRUCT IMPLEMENTING contractS
 // ============================================================
 struct Canvas {
     width: i32,
@@ -196,7 +196,7 @@ struct Canvas impl Resizable {
 }
 
 // ============================================================
-// 16. GENERIC STRUCT WITH TRAIT BOUNDS
+// 16. GENERIC STRUCT WITH contract BOUNDS
 // ============================================================
 struct Storage<T: Clone> {
     data: Vec<T>,
@@ -273,12 +273,12 @@ fn match_either<L, R>(e: Either<L, R>): string {
 // ============================================================
 // 20. ASSOCIATED TYPES (if implemented)
 // ============================================================
-// trait Iterator {
+// contract Iterator {
 //     type Item;
 //     fn next(): Option<Self.Item>;
 // }
 
-// trait Container2 {
+// contract Container2 {
 //     type Element;
 //     fn get(index: i32): Option<Self.Element>;
 // }
@@ -384,12 +384,12 @@ fn main(): i32 {
     println("  - Compound (tuples, arrays)");
     println("  - References (&T, &T!) and raw pointers (*T, *T!)");
     println("  - Algebraic types (Option, Result, custom enums)");
-    println("  - Generics (functions, structs, enums, traits)");
-    println("  - Type constraints (T: Trait + Trait2)");
+    println("  - Generics (functions, structs, enums, contracts)");
+    println("  - Type constraints (T: contract + contract2)");
     println("  - Conditional types (T extends U ? X : Y)");
     println("  - Union types (T | U)");
     println("  - Function types & higher-order functions");
-    println("  - Traits & implementations");
+    println("  - contracts & implementations");
     println("  - Associated types");
     println("  - Type inference");
     println("  - Never type (!)");

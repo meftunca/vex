@@ -1,4 +1,4 @@
-// Test Display trait with primitive types
+// Test Display contract with primitive types
 // Testing built-in Display implementations
 
 import { Display } from "fmt";

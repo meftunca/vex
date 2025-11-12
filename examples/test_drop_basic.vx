@@ -1,4 +1,4 @@
-// Test Drop trait - Basic RAII pattern
+// Test Drop contract - Basic RAII pattern
 // Variables implementing Drop should have drop() called automatically
 
 import { Drop } from "core";

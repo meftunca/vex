@@ -1,4 +1,4 @@
-// Test mutable closure (CallableMut trait)
+// Test mutable closure (CallableMut contract)
 // Demonstrates: Closure with mutable captures implements CallableMut
 
 fn main(): i32 {

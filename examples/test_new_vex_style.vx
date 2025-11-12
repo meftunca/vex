@@ -1,0 +1,59 @@
+// ✅ NEW VEX SYNTAX - Recommended Style
+// Contract keyword, no fn prefix, Go-style external methods
+
+// 1. Contract = Pure Interface (signatures only, no fn prefix)
+contract Display {
+    show();
+    format(): string;
+}
+
+contract Geometry {
+    area(): f64;
+    perimeter(): f64;
+}
+
+// 2. Struct = Data only (no inline methods)
+struct Point {
+    x: i32,
+    y: i32,
+}
+
+// 3. Go-style external methods
+fn (p: &Point) show() {
+    print("Point(", p.x, ",", p.y, ")");
+    return;
+}
+
+fn (p: &Point) format(): string {
+    return "Point";
+}
+
+fn (p: &Point) area(): f64 {
+    return 0.0; // Point has no area
+}
+
+fn (p: &Point) perimeter(): f64 {
+    return 0.0; // Point has no perimeter
+}
+
+// Mutable method - use &Type! for receiver
+fn (p: &Point!) translate(dx: i32, dy: i32) {
+    p.x = p.x + dx;
+    p.y = p.y + dy;
+    return;
+}
+
+fn main(): i32 {
+    let! p = Point { x: 10, y: 20 };
+    p.show();
+    return 0;
+}
+
+fn main(): i32 {
+    let! p = Point { x: 10, y: 20 };
+    p.show();
+    p.translate(5, 5);
+    p.show();
+    
+    return 0;
+}

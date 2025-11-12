@@ -1,6 +1,6 @@
 // Test new Vex syntax: contract keyword and optional fn in methods
 
-// 1. Contract definition (not trait)
+// 1. Contract definition (not contract)
 contract Display {
     show();
     format(): string;

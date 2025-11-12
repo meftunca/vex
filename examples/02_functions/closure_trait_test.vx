@@ -1,8 +1,8 @@
-// Test closure trait analysis
-// Demonstrates immutable capture (Callable trait)
+// Test closure contract analysis
+// Demonstrates immutable capture (Callable contract)
 
 fn main(): i32 {
-    // Test 1: Immutable capture (Callable trait)
+    // Test 1: Immutable capture (Callable contract)
     let x = 10;
     let add_x = |y: i32|: i32 { x + y };
     

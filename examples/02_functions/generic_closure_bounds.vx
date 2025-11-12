@@ -1,15 +1,15 @@
-// Test generic function with closure trait bounds
+// Test generic function with closure contract bounds
 // Demonstrates: fn map<T, U, F: Callable(T): U>(items: i32, f: F): i32
 
-// Simple test: just validates parser accepts closure trait bounds
+// Simple test: just validates parser accepts closure contract bounds
 fn apply<T, U, F: Callable(T): U>(value: T, func: F): U {
     // For now, return default value
-    // Once we implement trait method calls, this will be: func.call(value)
+    // Once we implement contract method calls, this will be: func.call(value)
     return value;
 }
 
 fn main(): i32 {
-    // Test: Closure trait bounds parse correctly
+    // Test: Closure contract bounds parse correctly
     let x = 10;
     let doubler = |n: i32| n * 2;
     

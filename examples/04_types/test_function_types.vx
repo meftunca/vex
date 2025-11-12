@@ -1,5 +1,5 @@
 // Function Types & Callbacks Test
-// Tests: type aliases, generics, struct fields, trait params
+// Tests: type aliases, generics, struct fields, contract params
 
 // 1. Basic function type alias
 type Callback = fn(i32): i32;
@@ -21,14 +21,14 @@ struct EventHandler<T> {
     callback: fn(T): T,
 }
 
-// 5. Trait with function type
+// 5. contract with function type
 contract Processor {
-    fn process(handler: Callback): i32;
+    process(handler: Callback): i32;
 }
 
-// 6. Generic trait with function parameter
+// 6. Generic contract with function parameter
 contract GenericProcessor<T> {
-    fn apply(func: fn(T): T, value: T): T;
+    apply(func: fn(T): T, value: T): T;
 }
 
 // Test implementations

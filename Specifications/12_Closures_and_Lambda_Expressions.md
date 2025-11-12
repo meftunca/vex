@@ -311,7 +311,7 @@ The compiler performs static analysis to determine closure capture modes:
 
 1. **Variable Usage Tracking**: Tracks how each captured variable is used
 2. **Mode Inference**: Determines the most restrictive mode required
-3. **Trait Assignment**: Assigns the appropriate closure trait
+3. **Contract Assignment**: Assigns the appropriate closure trait
 
 ### Memory Management
 

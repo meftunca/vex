@@ -1,4 +1,4 @@
-// Test trait-based automatic cleanup
+// Test contract-based automatic cleanup
 // Vec and Box should be cleaned up automatically at scope exit
 
 fn test_vec_cleanup() {

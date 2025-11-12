@@ -1,105 +1,106 @@
-# Traits
+# Contracts
 
-**Version:** 0.1.0  
-**Last Updated:** November 3, 2025
+**Version:** 0.2.0  
+**Last Updated:** December 16, 2025
 
-This document defines the trait system in the Vex programming language. Traits provide polymorphism through shared behavior definitions.
+This document defines the contract system in the Vex programming language. Contracts provide polymorphism through shared behavior definitions.
+
+**⚠️ BREAKING CHANGE (v0.2.0)**: The `trait` keyword has been replaced with `contract`. This change was made to better reflect Vex's unique identity and to distinguish contracts (pure interfaces) from implementation.
 
 ---
 
 ## Table of Contents
 
-1. [Trait Definitions](#trait-definitions)
-2. [Trait Implementation](#trait-implementation)
+1. [Contract Definitions](#contract-definitions)
+2. [Contract Implementation](#contract-implementation)
 3. [Default Methods](#default-methods)
-4. [Trait Bounds](#trait-bounds)
+4. [Contract Bounds](#contract-bounds)
 5. [Associated Types](#associated-types)
-6. [Trait Inheritance](#trait-inheritance)
-7. [Standard Traits](#standard-traits)
+6. [Contract Inheritance](#contract-inheritance)
+7. [Standard Contracts](#standard-contracts)
 
 ---
 
-## Trait Definitions
+## Contract Definitions
 
 ### Basic Syntax
 
-**Syntax**: `trait Name { methods }`
+**Syntax**: `contract Name { methods }`
 
 ```vex
-trait Display {
-    fn show();
+contract Display {
+    show();
 }
 
-trait Comparable {
-    fn compare(other: &Self): i32;
+contract Comparable {
+    compare(other: &Self): i32;
 }
 ```
 
 **Properties**:
 
-- `trait` keyword
+- `contract` keyword (pure interface, signatures only)
 - Name in PascalCase (convention)
-- Method signatures (no body by default)
+- Method signatures (no body, no `fn` prefix)
 - `Self` type refers to implementing type
 - Can have default method implementations
 
-### Simple Trait
+### Simple Contract
 
 ```vex
-trait Greet {
-    fn say_hello();
+contract Greet {
+    say_hello();
 }
 ```
 
-**Note**: `interface` keyword is deprecated in v0.1, use `trait` instead.
+**Note**: `interface` and `trait` keywords are deprecated in v0.2.0, use `contract` instead.
 
 ### Multiple Methods
 
 ```vex
-trait Shape {
-    fn area(): f64;
-    fn perimeter(): f64;
-    fn name(): string;
+contract Shape {
+    area(): f64;
+    perimeter(): f64;
+    name(): string;
 }
 ```
 
 ### Self Type
 
-`Self` represents the type implementing the trait:
+`Self` represents the type implementing the contract:
 
 ```vex
-trait Cloneable {
-    fn clone(): Self;
+contract Cloneable {
+    clone(): Self;
 }
 
-trait Comparable {
-    fn equals(other: &Self): bool;
+contract Comparable {
+    equals(other: &Self): bool;
 }
 ```
 
 ---
 
-## Trait Implementation
+## Contract Implementation
 
-### Method Mutability in Traits
+### Method Mutability in Contracts
 
-Trait method signatures define a contract for mutability. To declare a method that can mutate the implementing type's state, the `!` suffix is used.
+Contract method signatures define a contract for mutability. To declare a method that can mutate the implementing type's state, the `!` suffix is used.
 
 **Syntax**:
 
-- **Immutable Method**: `fn method_name(args...): ReturnType;`
-- **Mutable Method**: `fn method_name(args...)!;` or `fn method_name(args...)!: ReturnType;`
+- **Immutable Method**: `method_name(args...): ReturnType;`
+- **Mutable Method**: `method_name(args...)!;` or `method_name(args...)!: ReturnType;`
 
 The `!` indicates that the method requires a mutable reference to `self`, allowing for modifications.
 
 ```vex
-// Kural 1 (Inline) applies to trait definitions
-trait Logger {
+contract Logger {
     // Immutable contract: cannot modify `self`
-    fn log(msg: string);
+    log(msg: string);
 
     // Mutable contract: can modify `self`
-    fn clear()!;
+    clear()!;
 }
 ```
 
@@ -107,26 +108,60 @@ This contract must be respected by all implementing types.
 
 ---
 
-## Trait Implementation
+## Contract Implementation
 
-### Inline Implementation
+### Go-Style External Implementation (RECOMMENDED v0.2.0)
 
-Vex follows an "inline" implementation model, where methods for a trait are defined directly within the `struct` body that implements it.
+**⚠️ IMPORTANT**: Vex v0.2.0 deprecates inline struct methods and recommends Go-style external methods.
 
-**Syntax**: `struct MyStruct impl MyTrait { ... methods ... }`
+**Recommended Syntax**: External methods with `contract` as pure interface
+
+```vex
+// 1. Define contract (pure interface, no fn prefix)
+contract Logger {
+    log(msg: string);
+    clear()!;
+}
+
+// 2. Define struct (data only)
+struct ConsoleLogger {
+    prefix: string,
+}
+
+// 3. Implement contract via external methods (Go-style)
+fn (self: ConsoleLogger) log(msg: string) {
+    println(self.prefix, ": ", msg);
+}
+
+fn (self: ConsoleLogger!) clear() {
+    println("Logger cleared.");
+}
+```
+
+**Benefits**:
+- Keeps struct definitions small (400-line limit)
+- Separates data from behavior
+- More modular and testable
+- Follows Go and Odin conventions
+
+### Inline Implementation (DEPRECATED v0.2.0)
+
+**⚠️ DEPRECATED**: Inline struct methods will be removed in a future version.
+
+**Old Syntax**: `struct MyStruct impl MyContract { ... methods ... }`
 
 ```vex
 struct ConsoleLogger impl Logger {
     prefix: string,
 
     // Implementation of the `log` method from the `Logger` trait.
-    fn log(msg: string) {
+    log(msg: string) {
         println(self.prefix, ": ", msg);
     }
 
     // Implementation of the mutable `clear` method.
     // The `!` is required in the implementation as well.
-    fn clear()! {
+    clear()! {
         // This method can now mutate `self`.
         // For example, if we had a mutable field:
         // self.buffer = "";
@@ -137,8 +172,8 @@ struct ConsoleLogger impl Logger {
 
 **Key Rules**:
 
-- Trait methods **MUST** be implemented directly inside the `struct`'s body.
-- The method signatures in the implementation must match the trait definition, including the `!` for mutability.
+- Contract methods **MUST** be implemented directly inside the `struct`'s body.
+- The method signatures in the implementation must match the contract definition, including the `!` for mutability.
 
 ### Multiple Traits (Future)
 
@@ -146,12 +181,12 @@ struct ConsoleLogger impl Logger {
 struct FileLogger impl Logger, Closeable {
     path: string,
 
-    // All trait methods must be in struct body
-    fn log(msg: string) {
+    // All contract methods must be in struct body
+    log(msg: string) {
         // Logger implementation
     }
 
-    fn clear()! {
+    clear()! {
         // Logger implementation
     }
 
@@ -163,19 +198,19 @@ struct FileLogger impl Logger, Closeable {
 
 ### Implementation Requirements
 
-All trait methods must be implemented:
+All contract methods must be implemented:
 
 ```vex
-trait Shape {
-    fn area(): f64;
-    fn perimeter(): f64;
+contract Shape {
+    area(): f64;
+    perimeter(): f64;
 }
 
 // ERROR: Missing perimeter() implementation
 struct Circle impl Shape {
     radius: f64,
 
-    fn area(): f64 {
+    area(): f64 {
         return 3.14159 * self.radius * self.radius;
     }
     // Missing perimeter()!
@@ -191,15 +226,15 @@ struct Circle impl Shape {
 Traits can provide default implementations:
 
 ```vex
-trait Logger {
-    fn log(msg: string);        // Required (immutable)
-    fn clear()!;                // Required (mutable)
+contract Logger {
+    log(msg: string);        // Required (immutable)
+    clear()!;                // Required (mutable)
 
-    fn info(msg: string) {      // Default (immutable)
+    info(msg: string) {      // Default (immutable)
         self.log(msg);
     }
 
-    fn debug(msg: string) {     // Default (immutable)
+    debug(msg: string) {     // Default (immutable)
         self.log(msg);
     }
 }
@@ -218,11 +253,11 @@ Structs automatically get default methods:
 
 ```vex
 struct ConsoleLogger impl Logger {
-    fn log(msg: string) {
+    log(msg: string) {
         // Only implement required method
     }
 
-    fn clear()! {
+    clear()! {
         // Required mutable method
     }
 
@@ -245,15 +280,15 @@ Implementing types can override default methods:
 
 ```vex
 struct CustomLogger impl Logger {
-    fn log(msg: string) {
+    log(msg: string) {
         // Required method
     }
 
-    fn clear()! {
+    clear()! {
         // Required method
     }
 
-    fn info(msg: string) {
+    info(msg: string) {
         // Override default implementation
         self.log("[INFO] " + msg);
     }
@@ -264,17 +299,17 @@ struct CustomLogger impl Logger {
 
 ### Default Method Access
 
-Default methods can call other trait methods:
+Default methods can call other contract methods:
 
 ```vex
-trait Formatter {
-    fn format(): string;  // Required
+contract Formatter {
+    format(): string;  // Required
 
-    fn format_bold(): string {
+    format_bold(): string {
         return "**" + self.format() + "**";
     }
 
-    fn format_italic(): string {
+    format_italic(): string {
         return "_" + self.format() + "_";
     }
 }
@@ -282,7 +317,7 @@ trait Formatter {
 
 ---
 
-## Trait Bounds
+## Contract Bounds
 
 ### Generic Constraints (Future)
 
@@ -372,10 +407,10 @@ struct Container<T> {
 Traits can have associated types:
 
 ```vex
-trait Iterator {
+contract Iterator {
     type Item;
 
-    fn next(): Option<Self.Item>;
+    next(): Option<Self.Item>;
 }
 ```
 
@@ -383,7 +418,7 @@ trait Iterator {
 
 - `type Name` declares associated type
 - Implementing types specify concrete type
-- Used for output types in trait methods
+- Used for output types in contract methods
 
 ### Implementation (IMPLEMENTED ✅)
 
@@ -393,7 +428,7 @@ struct Counter impl Iterator {
 
     current: i32,
 
-    fn next()!: Option<i32> {
+    next()!: Option<i32> {
         let value = self.current;
         self.current = self.current + 1;
         return Some(value);
@@ -404,7 +439,7 @@ struct Counter impl Iterator {
 ### Generic Associated Types (Future)
 
 ```vex
-trait Container {
+contract Container {
     type Item<T>;
 
     fn get<T>(): Self.Item<T>;
@@ -413,18 +448,18 @@ trait Container {
 
 ---
 
-## Trait Inheritance
+## Contract Inheritance
 
 ### Supertraits
 
 Traits can require other traits:
 
 ```vex
-trait Eq {
-    fn equals(other: &Self): bool;
+contract Eq {
+    equals(other: &Self): bool;
 }
 
-trait Ord: Eq {
+contract Ord: Eq {
     // Ord requires Eq
     fn less_than(other: &Self): bool;
 }
@@ -451,8 +486,8 @@ struct Number impl Ord {
 ### Multiple Supertraits
 
 ```vex
-trait Serializable: Display & Cloneable {
-    fn serialize(): string;
+contract Serializable: Display & Cloneable {
+    serialize(): string;
 }
 ```
 
@@ -460,20 +495,20 @@ trait Serializable: Display & Cloneable {
 
 ## Standard Traits
 
-### Drop Trait ✅ IMPLEMENTED
+### Drop Contract ✅ IMPLEMENTED
 
 Automatic resource cleanup when value goes out of scope:
 
 ```vex
-trait Drop {
-    fn drop()!;  // Called automatically
+contract Drop {
+    drop()!;  // Called automatically
 }
 
 struct File impl Drop {
     handle: i32,
     path: string,
 
-    fn drop()! {
+    drop()! {
         // Cleanup logic - called automatically when File goes out of scope
         close_file(self.handle);
         print("Closed file: ", self.path);
@@ -487,22 +522,22 @@ struct File impl Drop {
 }  // drop() called automatically here
 ```
 
-**Status**: Fully functional, automatic Drop trait implementation detection.
+**Status**: Fully functional, automatic Drop contract implementation detection.
 
-### Clone Trait ✅ IMPLEMENTED
+### Clone Contract ✅ IMPLEMENTED
 
 Explicit deep copying:
 
 ```vex
-trait Clone {
-    fn clone(): Self;
+contract Clone {
+    clone(): Self;
 }
 
 struct Point impl Clone {
     x: i32,
     y: i32,
 
-    fn clone(): Point {
+    clone(): Point {
         return Point { x: self.x, y: self.y };
     }
 }
@@ -514,20 +549,20 @@ let p2 = p1.clone();  // Deep copy
 
 **Status**: Fully functional, used for explicit copying.
 
-### Eq Trait ✅ IMPLEMENTED
+### Eq Contract ✅ IMPLEMENTED
 
 Equality comparison:
 
 ```vex
-trait Eq {
-    fn eq(other: Self): bool;
+contract Eq {
+    eq(other: Self): bool;
 }
 
 struct Point impl Eq {
     x: i32,
     y: i32,
 
-    fn eq(other: Point): bool {
+    eq(other: Point): bool {
         return self.x == other.x && self.y == other.y;
     }
 }
@@ -542,20 +577,20 @@ if p1.eq(p2) {
 
 **Status**: Fully functional, used for custom equality.
 
-### Ord Trait ✅ IMPLEMENTED
+### Ord Contract ✅ IMPLEMENTED
 
 Ordering comparison:
 
 ```vex
-trait Ord {
-    fn cmp(other: Self): i32;
+contract Ord {
+    cmp(other: Self): i32;
     // Returns: -1 (less), 0 (equal), 1 (greater)
 }
 
 struct Number impl Ord {
     value: i32,
 
-    fn cmp(other: Number): i32 {
+    cmp(other: Number): i32 {
         if self.value < other.value {
             return -1;
         } else if self.value > other.value {
@@ -573,15 +608,15 @@ let result = n1.cmp(n2);  // Returns -1
 
 **Status**: Fully functional, used for ordering operations.
 
-### Iterator Trait ✅ IMPLEMENTED
+### Iterator Contract ✅ IMPLEMENTED
 
 Lazy iteration protocol:
 
 ```vex
-trait Iterator {
+contract Iterator {
     type Item;  // Associated type
 
-    fn next()!: Option<Self.Item>;  // Returns next element or None
+    next()!: Option<Self.Item>;  // Returns next element or None
 }
 
 struct Counter impl Iterator {
@@ -590,7 +625,7 @@ struct Counter impl Iterator {
 
     type Item = i32;
 
-    fn next()!: Option<i32> {
+    next()!: Option<i32> {
         if self.count < self.limit {
             let current = self.count;
             self.count = self.count + 1;
@@ -612,20 +647,20 @@ loop {
 
 **Status**: Fully functional with Option<T> support. Associated type `Self.Item` temporarily uses concrete type (Option<i32>) until full generic support.
 
-### Display Trait (Future)
+### Display Contract (Future)
 
 Format types for display:
 
 ```vex
-trait Display {
-    fn show();
+contract Display {
+    show();
 }
 
 struct Point impl Display {
     x: i32,
     y: i32,
 
-    fn show() {
+    show() {
         print("Point(", self.x, ", ", self.y, ")");
     }
 }
@@ -640,8 +675,8 @@ struct Point impl Display {
 ### Basic Trait
 
 ```vex
-trait Greet {
-    fn say_hello();
+contract Greet {
+    say_hello();
 }
 
 struct Person impl Greet {
@@ -662,14 +697,14 @@ fn main(): i32 {
 ### Default Methods
 
 ```vex
-trait Logger {
-    fn log(msg: string);
+contract Logger {
+    log(msg: string);
 
-    fn info(msg: string) {
+    info(msg: string) {
         self.log(msg);
     }
 
-    fn debug(msg: string) {
+    debug(msg: string) {
         self.log(msg);
     }
 }
@@ -694,9 +729,9 @@ fn main(): i32 {
 ### Multiple Methods
 
 ```vex
-trait Shape {
-    fn area(): i32;
-    fn perimeter(): i32;
+contract Shape {
+    area(): i32;
+    perimeter(): i32;
 }
 
 struct Rectangle impl Shape {
@@ -723,10 +758,10 @@ fn main(): i32 {
 ### Overriding Defaults
 
 ```vex
-trait Counter {
-    fn count(): i32;
+contract Counter {
+    count(): i32;
 
-    fn count_double(): i32 {
+    count_double(): i32 {
         return self.count() * 2;
     }
 }
@@ -753,20 +788,20 @@ struct SimpleCounter impl Counter {
 
 ```vex
 // Good: Focused trait
-trait Serializable {
-    fn serialize(): string;
+contract Serializable {
+    serialize(): string;
 }
 
-trait Deserializable {
-    fn from_string(s: string): Self;
+contract Deserializable {
+    from_string(s: string): Self;
 }
 
 // Bad: Too many responsibilities
-trait DataHandler {
-    fn serialize(): string;
-    fn from_string(s: string): Self;
-    fn validate(): bool;
-    fn transform(): Self;
+contract DataHandler {
+    serialize(): string;
+    from_string(s: string): Self;
+    validate(): bool;
+    transform(): Self;
 }
 ```
 
@@ -774,17 +809,17 @@ trait DataHandler {
 
 ```vex
 // Good: Clear purpose
-trait Drawable {
-    fn draw();
+contract Drawable {
+    draw();
 }
 
-trait Comparable {
-    fn compare(other: &Self): i32;
+contract Comparable {
+    compare(other: &Self): i32;
 }
 
 // Bad: Vague
-trait Handler {
-    fn handle();
+contract Handler {
+    handle();
 }
 ```
 
@@ -792,19 +827,19 @@ trait Handler {
 
 ```vex
 // Good: Provide defaults when sensible
-trait Logger {
-    fn log(msg: string);
+contract Logger {
+    log(msg: string);
 
-    fn info(msg: string) {
+    info(msg: string) {
         self.log("[INFO] " + msg);
     }
 }
 
 // Bad: Force implementation of similar methods
-trait Logger {
-    fn log(msg: string);
-    fn info(msg: string);  // No default
-    fn debug(msg: string); // No default
+contract Logger {
+    log(msg: string);
+    info(msg: string);  // No default
+    debug(msg: string); // No default
 }
 ```
 
@@ -812,12 +847,12 @@ trait Logger {
 
 ```vex
 // Good: Composable traits
-trait Display {
-    fn show();
+contract Display {
+    show();
 }
 
-trait Clone {
-    fn clone(): Self;
+contract Clone {
+    clone(): Self;
 }
 
 struct Data impl Display, Clone {
@@ -825,58 +860,58 @@ struct Data impl Display, Clone {
 }
 
 // Bad: Monolithic trait
-trait Everything {
-    fn show();
-    fn clone(): Self;
-    fn serialize(): string;
-    fn validate(): bool;
+contract Everything {
+    show();
+    clone(): Self;
+    serialize(): string;
+    validate(): bool;
 }
 ```
 
 ### 5. Document Requirements
 
 ```vex
-// Document trait purpose and requirements
+// Document contract purpose and requirements
 /// Represents types that can be displayed to the user.
 /// Implementations should provide a human-readable representation.
-trait Display {
-    fn show();
+contract Display {
+    show();
 }
 
 /// Represents types that can be compared for ordering.
 /// Returns: -1 if self < other, 0 if equal, 1 if self > other
-trait Ord {
-    fn compare(other: &Self): i32;
+contract Ord {
+    compare(other: &Self): i32;
 }
 ```
 
 ---
 
-## Trait Features Summary
+## Contract Features Summary
 
 | Feature               | Syntax                 | Status     | Example               |
 | --------------------- | ---------------------- | ---------- | --------------------- |
-| Trait Definition      | `trait Name { }`       | ✅ Working | Method signatures     |
+| Contract Definition      | `trait Name { }`       | ✅ Working | Method signatures     |
 | Inline Implementation | `struct S impl T { }`  | ✅ Working | v1.3 syntax           |
 | Default Methods       | `fn (self) { body }`   | ✅ Working | With implementation   |
 | Self Type             | `Self`                 | ✅ Working | Refers to implementer |
-| Multiple Methods      | Multiple fn signatures | ✅ Working | In trait body         |
-| Trait Bounds          | `<T: Trait>`           | ✅ Working | Generic constraints   |
+| Multiple Methods      | Multiple fn signatures | ✅ Working | In contract body         |
+| Contract Bounds          | `<T: Trait>`           | ✅ Working | Generic constraints   |
 | Associated Types      | `type Item;`           | ✅ Working | Type members          |
-| Supertraits           | `trait T: U { }`       | ✅ Working | Trait inheritance     |
+| Supertraits           | `trait T: U { }`       | ✅ Working | Contract inheritance     |
 | Where Clauses         | `where T: Trait`       | ✅ v0.1.2  | Complex bounds        |
 
 ---
 
-## Trait System Architecture
+## Contract System Architecture
 
 ### Current Implementation (v1.3)
 
 ```vex
 // 1. Define trait
-trait Logger {
-    fn log(msg: string);
-    fn info(msg: string) {
+contract Logger {
+    log(msg: string);
+    info(msg: string) {
         self.log(msg);  // Default method
     }
 }
@@ -892,7 +927,7 @@ struct ConsoleLogger impl Logger {
     // info() inherited automatically
 }
 
-// 3. Use trait methods
+// 3. Use contract methods
 fn main(): i32 {
     let! logger = ConsoleLogger { prefix: "[LOG]" };
     logger.log("Direct call");
@@ -903,8 +938,8 @@ fn main(): i32 {
 
 ### Compilation Process
 
-1. **Parse**: Trait definition → AST
-2. **Register**: Store trait in `trait_defs` HashMap
+1. **Parse**: Contract definition → AST
+2. **Register**: Store contract in `trait_defs` HashMap
 3. **Implement**: Inline `impl Trait` → `trait_impls` HashMap
 4. **Codegen**: Generate LLVM IR for methods
 5. **Link**: Default methods compiled on-demand

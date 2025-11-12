@@ -1,4 +1,4 @@
-// Test: Builtin Add Trait for String and Vec
+// Test: Builtin Add contract for String and Vec
 
 // String concatenation
 fn test_string_add(): i32 {
@@ -24,6 +24,6 @@ fn test_vec_add(): i32 {
 fn main(): i32 {
     test_string_add();
     test_vec_add();
-    println("✅ Builtin Add trait works");
+    println("✅ Builtin Add contract works");
     return 0;
 }

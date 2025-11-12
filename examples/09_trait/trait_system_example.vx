@@ -1,20 +1,20 @@
-// Vex v1.3 Trait System Example
-// struct ... impl Trait { ... methods ... }
+// Vex v1.3 contract System Example
+// struct ... impl contract { ... methods ... }
 
-// 1. Define a trait (simplified syntax - no explicit receiver)
+// 1. Define a contract (simplified syntax - no explicit receiver)
 contract Logger {
     // All methods are signatures only (no body)
-    fn log(level: string, msg: string);
-    fn info(msg: string);
-    fn warn(msg: string);
+    log(level: string, msg: string);
+    info(msg: string);
+    warn(msg: string);
 }
 
-// 2. Struct with inline trait implementation (simplified syntax)
+// 2. Struct with inline contract implementation (simplified syntax)
 struct FileLogger impl Logger {
     // Fields
     path: string,
     
-    // Implement all trait methods (simplified syntax - no explicit receiver)
+    // Implement all contract methods (simplified syntax - no explicit receiver)
     fn log(level: string, msg: string) {
         // Implementation here
         print("[", level, "] ", msg);
@@ -31,7 +31,7 @@ struct FileLogger impl Logger {
         return;
     }
     
-    // Struct-specific method (not from trait)
+    // Struct-specific method (not from contract)
     fn close() {
         // Close file
         return;

@@ -1043,7 +1043,7 @@ let s = "hello";         // Inferred as string
 ### From Context
 
 ```vex
-fn add(a: i32, b: i32): i32 {
+add(a: i32, b: i32): i32 {
     return a + b;
 }
 
@@ -1243,13 +1243,13 @@ let p: Point = Point { x: 1, y: 2 };
 // let v: Vector = p;  // ERROR: Different types
 ```
 
-### Trait Compatibility
+### Contract Compatibility
 
 Types are compatible if they implement required traits:
 
 ```vex
-trait Display {
-    fn show();
+contract Display {
+    show();
 }
 
 fn print_it<T: Display>(value: T) {
@@ -1273,11 +1273,11 @@ fn longest<'a>(x: &'a string, y: &'a string): &'a string {
 
 ### Overview
 
-Vex supports **trait-based operator overloading**, allowing custom types to define behavior for built-in operators. This enables intuitive APIs for mathematical types, collections, and domain-specific types.
+Vex supports **contract-based operator overloading**, allowing custom types to define behavior for built-in operators. This enables intuitive APIs for mathematical types, collections, and domain-specific types.
 
 ### Supported Operators
 
-| Operator | Trait Method | Description      |
+| Operator | Contract Method | Description      |
 | -------- | ------------ | ---------------- |
 | `+`      | `add`        | Addition         |
 | `-`      | `sub`        | Subtraction      |
@@ -1299,12 +1299,12 @@ Vex supports **trait-based operator overloading**, allowing custom types to defi
 ### Defining Operator Overloads
 
 ```vex
-trait Add<Rhs, Output> {
-    fn add(self: &Self, rhs: Rhs): Output;
+contract Add<Rhs, Output> {
+    add(self: &Self, rhs: Rhs): Output;
 }
 
-trait AddAssign<Rhs> {
-    fn add_assign(self: &Self!, rhs: Rhs);
+contract AddAssign<Rhs> {
+    add_assign(self: &Self!, rhs: Rhs);
 }
 
 // Implementation for custom Point type
@@ -1314,7 +1314,7 @@ struct Point {
 }
 
 impl Add<Point, Point> for Point {
-    fn add(self: &Point, rhs: Point): Point {
+    add(self: &Point, rhs: Point): Point {
         Point {
             x: self.x + rhs.x,
             y: self.y + rhs.y,
@@ -1323,7 +1323,7 @@ impl Add<Point, Point> for Point {
 }
 
 impl AddAssign<Point> for Point {
-    fn add_assign(self: &Point!, rhs: Point) {
+    add_assign(self: &Point!, rhs: Point) {
         self.x = self.x + rhs.x;
         self.y = self.y + rhs.y;
     }
@@ -1383,7 +1383,7 @@ Operators maintain standard mathematical precedence:
 
 ### Current Status
 
-**Implementation**: ✅ Complete (trait-based system)  
+**Implementation**: ✅ Complete (contract-based system)  
 **Test Coverage**: ✅ 8 tests passing (builtin operators)  
 **Builtin Support**: ✅ String `+`, Vec `+`, Struct operators
 

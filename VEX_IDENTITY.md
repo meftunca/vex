@@ -85,13 +85,16 @@ struct Point {
 
 **Rules:**
 - Top-level functions: `fn name() { }` - `fn` **required**
-- Struct/contract methods: `name() { }` - `fn` **removed**
+- Contract methods: `name() { }` - `fn` **removed** ✅
+- Struct methods: **DEPRECATED** - use Go-style external methods
 - Static vs instance: determined by presence of `self` usage
 - Mutable methods: `!` suffix
 
+**Status:** ✅ COMPLETED - `fn` prefix removed from contracts, struct methods deprecated
+
 ---
 
-### 3. `self` is implicit (already implemented) ✅
+### 3. Deprecate Inline Struct Methods → Go-Style External Methods ✅ IN PROGRESS
 **Rationale:** Less noise, Vex already does this
 
 ```vex
@@ -110,7 +113,7 @@ struct Point {
 
 ## 💡 Under Consideration
 
-### 4. Deprecate Inline Struct Methods → Go-Style External Methods ⚠️
+### 5. Deprecate Inline Struct Methods → Go-Style External Methods ⚠️ DEPRECATED
 **Major architectural change - needs careful consideration**
 
 **Current state:** Methods can be defined inside struct body (inline)
@@ -235,11 +238,16 @@ struct Logger impl Loggable {
 4. Impact on generic method instantiation?
 5. LSP/IDE support for "jump to implementation"?
 
-**Status:** 🚨 **NEEDS DISCUSSION** - Major breaking change
+**Status:** ⚠️ **DEPRECATED** - Compiler now warns, will be removed in future version
+
+**Current behavior:**
+- ⚠️ Parser accepts inline methods but emits deprecation warnings
+- ✅ Go-style external methods are the recommended approach
+- 📋 Migration guide available in this document
 
 ---
 
-### 6. Loop Syntax Simplification
+### 7. Loop Syntax Simplification
 **Current state:** Too many loop keywords
 
 ```vex
@@ -533,13 +541,66 @@ struct Point {
 ## 🤔 Open Questions
 
 1. ~~**Variable syntax:**~~ ✅ Keeping `let`/`let!`
-2. **Inline methods deprecation:** Should we move to Go-style external methods only? 🚨
-3. **Contract vs Trait:** If we deprecate inline methods, contracts become pure interfaces
+2. ~~**Inline methods deprecation:**~~ ⚠️ Deprecated - warnings active
+3. **Contract vs Trait:** Contracts are now pure interfaces (signature only)
 4. **Loop unification:** Keep 4 loops or reduce to 3?
 5. **Pattern matching:** Keep `match` or use `inspect`/`switch`/`when`?
 6. **Error handling:** Result-heavy or exception-friendly?
 7. **Module system:** Pure JS-style or add Vex-specific features?
 8. **Parameter grouping:** Implement Go-style `(a, b, c: i32)` syntax?
+
+---
+
+## 📋 Migration Guide: Inline Methods → Go-Style External
+
+**Old style (DEPRECATED):**
+```vex
+struct Point {
+    x: i32,
+    y: i32,
+    
+    // ⚠️ DEPRECATED - Inline method
+    distance(other: Point): f64 {
+        return sqrt((self.x - other.x)^2);
+    }
+}
+```
+
+**New style (RECOMMENDED):**
+```vex
+// 1. Struct has only data
+struct Point {
+    x: i32,
+    y: i32,
+}
+
+// 2. Contract defines interface
+contract Geometry {
+    distance(other: Point): f64;
+}
+
+// 3. Method defined externally (Go-style)
+fn (p: &Point) distance(other: Point): f64 {
+    return sqrt((p.x - other.x)^2 + (p.y - other.y)^2);
+}
+
+// 4. Struct declares contract implementation
+struct Point impl Geometry {
+    x: i32,
+    y: i32,
+}
+```
+
+**Benefits:**
+- ✅ Clear separation: data vs behavior
+- ✅ Methods can be in separate files
+- ✅ Easier to maintain (400 line limit per file)
+- ✅ Go developers will find it familiar
+- ✅ Contracts truly define "contracts"
+
+---
+
+## 🤔 Open Questions (continued)
 
 ---
 

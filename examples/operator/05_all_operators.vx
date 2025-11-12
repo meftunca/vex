@@ -2,65 +2,65 @@
 
 // Arithmetic operators
 contract Add {
-    fn add(other: Self): Self;
+    add(other: Self): Self;
 }
 
 contract Sub {
-    fn sub(other: Self): Self;
+    sub(other: Self): Self;
 }
 
 contract Mul {
-    fn mul(other: Self): Self;
+    mul(other: Self): Self;
 }
 
 contract Div {
-    fn div(other: Self): Self;
+    div(other: Self): Self;
 }
 
 contract Rem {
-    fn rem(other: Self): Self;
+    rem(other: Self): Self;
 }
 
 // Comparison operators
 contract Eq {
-    fn eq(other: Self): bool;
+    eq(other: Self): bool;
 }
 
 contract Ord {
-    fn lt(other: Self): bool;
-    fn le(other: Self): bool;
-    fn gt(other: Self): bool;
-    fn ge(other: Self): bool;
+    lt(other: Self): bool;
+    le(other: Self): bool;
+    gt(other: Self): bool;
+    ge(other: Self): bool;
 }
 
 // Bitwise operators
 contract BitAnd {
-    fn bitand(other: Self): Self;
+    bitand(other: Self): Self;
 }
 
 contract BitOr {
-    fn bitor(other: Self): Self;
+    bitor(other: Self): Self;
 }
 
 contract BitXor {
-    fn bitxor(other: Self): Self;
+    bitxor(other: Self): Self;
 }
 
 contract Shl {
-    fn shl(amount: i32): Self;
+    shl(amount: i32): Self;
 }
 
 contract Shr {
-    fn shr(amount: i32): Self;
+    shr(amount: i32): Self;
 }
 
 // Unary operators
 contract Neg {
-    fn neg(): Self;
+    neg(): Self;
 }
 
 contract Not {
-    fn not(): bool;
+    not(): bool;
 }
 
 struct Point impl Add, Sub, Mul, Eq {

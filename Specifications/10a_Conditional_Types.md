@@ -279,7 +279,7 @@ type AddParams = GetParams<typeof add>;  // [i32, i32]
 | Feature       | TypeScript            | Vex (Planned)          |
 | ------------- | --------------------- | ---------------------- | ------------------------ |
 | Type Aliases  | `type X = ...`        | `type X = ...` (same)  |
-| Trait Bounds  | Interface constraints | `T: Trait` constraints |
+| Contract Bounds  | Interface constraints | `T: Trait` constraints |
 | Literal Types | `"string"             | "number"`              | String literals as types |
 | Never Type    | `never`               | `never` (same)         |
 
@@ -366,7 +366,7 @@ fn on<E>(event_name: String, handler: EventHandler<E>) {
 
 - ✅ Type system (implemented)
 - ✅ Generics (implemented)
-- ✅ Trait bounds (implemented)
+- ✅ Contract bounds (implemented)
 - ❌ Advanced type inference (planned)
 
 ---

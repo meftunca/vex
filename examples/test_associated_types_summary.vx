@@ -2,7 +2,7 @@
 // Testing comprehensive parsing of Self.Item syntax
 
 // ✅ Test 1: Multiple associated types - PASSED
-// KeyValue trait with Self.Key and Self.Value
+// KeyValue contract with Self.Key and Self.Value
 
 // ✅ Test 2: Generic containers - PASSED  
 // Vec<Self.Item>, Option<Self.Item>, Result<Self.Item, i32>

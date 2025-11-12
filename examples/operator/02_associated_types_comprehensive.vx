@@ -1,22 +1,22 @@
 // Test: Associated Types - Comprehensive Example
 
-// Basic trait with associated type
+// Basic contract with associated type
 contract Container {
     type Item;
-    fn get(index: i32): Item;
-    fn len(): i32;
+    get(index: i32): Item;
+    len(): i32;
 }
 
-// Trait for indexing operations
+// contract for indexing operations
 contract Index<Idx> {
     type Output;
-    fn index(idx: Idx): &Output;
+    index(idx: Idx): &Output;
 }
 
-// Trait for conversion
+// contract for conversion
 contract Into<T> {
     type Output;
-    fn into(): Output;
+    into(): Output;
 }
 
 // Test: Vec<i32> impl Container

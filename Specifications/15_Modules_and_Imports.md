@@ -168,7 +168,7 @@ export enum Status {
 ### Export Traits
 
 ```vex
-export trait Display {
+export contract Display {
     fn show();
 }
 ```

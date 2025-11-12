@@ -2,9 +2,9 @@
 import {monotonic_now} from "time";
 
 contract Benchmarkable {
-    fn stop_timer();
-    fn ns_per_op(): i64;
-    fn ops_per_sec(): i64;
+    stop_timer();
+    ns_per_op(): i64;
+    ops_per_sec(): i64;
 }
 
 struct B impl Benchmarkable {

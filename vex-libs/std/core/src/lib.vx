@@ -1,46 +1,46 @@
 // Core Module
-// Essential types and traits: Box, Vec, Option, Result, Drop, Clone, Eq, Ord, Iterator
+// Essential types and contracts: Box, Vec, Option, Result, Drop, Clone, Eq, Ord, Iterator
 //
 // Usage:
 //   import { Box, Vec, Option, Result, Drop, Clone, Eq, Ord, Iterator } from "core";
 
-// ===== Core Traits =====
+// ===== Core contracts =====
 
-// Drop trait - Automatic cleanup on scope exit (RAII pattern)
+// Drop contract - Automatic cleanup on scope exit (RAII pattern)
 // Types implementing Drop will have drop() called automatically when going out of scope
-export trait Drop {
+export contract Drop {
     fn drop();  // Called automatically, no parameters
 }
 
-// Clone trait - Explicit deep copying
+// Clone contract - Explicit deep copying
 // Types implementing Clone can be duplicated with .clone()
-export trait Clone {
+export contract Clone {
     fn clone(): Self;  // Returns a copy of self
 }
 
-// Eq trait - Equality comparison
+// Eq contract - Equality comparison
 // Types implementing Eq can be compared for equality
-export trait Eq {
+export contract Eq {
     fn equals(other: Self): bool;  // Returns true if self == other
 }
 
-// Ord trait - Ordering comparison
+// Ord contract - Ordering comparison
 // Types implementing Ord can be compared for ordering
-export trait Ord {
+export contract Ord {
     fn compare(other: Self): i32;  // Returns -1 (less), 0 (equal), 1 (greater)
 }
 
-// Iterator trait - Iteration over sequences
+// Iterator contract - Iteration over sequences
 // Types implementing Iterator can be iterated with for-in loops
-export trait Iterator {
+export contract Iterator {
     type Item;  // Associated type for elements
     
     fn next()!: Option<i32>;  // Returns next element or None (mutable) - TEMPORARY: use i32 instead of Self.Item
 }
 
-// Display trait - String representation for debugging and display
+// Display contract - String representation for debugging and display
 // Types implementing Display can be converted to string for printing
-export trait Display {
+export contract Display {
     fn to_string(): string;  // Returns string representation of self
 }
 

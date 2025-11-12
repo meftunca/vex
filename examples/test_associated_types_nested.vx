@@ -5,7 +5,7 @@ contract NestedIterator {
     type Item;
     type Inner;
     
-    fn get_nested(): Self.Item;  // Simple case
+    get_nested(): Self.Item;  // Simple case
 }
 
 // Test if we can chain (probably won't work yet)

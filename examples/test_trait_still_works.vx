@@ -1,4 +1,4 @@
-// Test: trait keyword hala çalışıyor mu?
+// Test: contract keyword hala çalışıyor mu?
 
 contract Logger {
     log(msg: string);
@@ -15,6 +15,6 @@ struct ConsoleLogger impl Logger {
 
 fn main(): i32 {
     let logger = ConsoleLogger { prefix: "INFO" };
-    logger.log("trait keyword works!");
+    logger.log("contract keyword works!");
     return 0;
 }

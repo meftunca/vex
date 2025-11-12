@@ -1,14 +1,14 @@
-// Test Iterator trait with Range
-// Demonstrates: trait definition, struct impl trait, associated types
+// Test Iterator contract with Range
+// Demonstrates: contract definition, struct impl contract, associated types
 
 import { Vec } from "core";
 
 contract Iterator {
     type Item;
-    fn next()!: Option<i32>;
+    next()!: Option<i32>;
 }
 
-// Simple range iterator implementing Iterator trait
+// Simple range iterator implementing Iterator contract
 struct Range impl Iterator {
     current: i32,
     end: i32,
@@ -50,10 +50,10 @@ struct Range impl Iterator {
 }
 
 fn main(): i32 {
-    // Test 1: Struct creation with trait implementation
+    // Test 1: Struct creation with contract implementation
     let range = Range { current: 0, end: 3 };
     
-    println("✅ Test 1: Range struct created (implements Iterator trait)");
+    println("✅ Test 1: Range struct created (implements Iterator contract)");
     println("   - Type: Range");
     println("   - Implements: Iterator");
     println("   - Associated type: Item = i32");
@@ -70,7 +70,7 @@ fn main(): i32 {
     // - let val2 = range.next();  // Returns Some(1)
     // - let values = range.collect();  // Gathers remaining into Vec
     
-    println("✅ Iterator trait + Range struct test complete!");
+    println("✅ Iterator contract + Range struct test complete!");
     println("   (Method execution pending compiler fixes)");
     
     return 0;

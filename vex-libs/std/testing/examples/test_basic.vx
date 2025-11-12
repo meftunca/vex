@@ -1,5 +1,5 @@
 // Basic Test Example
-// Demonstrates trait-based testing framework
+// Demonstrates contract-based testing framework
 
 import {T, run_test} from "testing";
 

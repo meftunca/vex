@@ -1,12 +1,12 @@
-// Test: Multiple trait bounds
+// Test: Multiple contract bounds
 // Expected: Compiles successfully
 
 contract Display {
-    fn display(): string;
+    display(): string;
 }
 
 contract Clone {
-    fn clone(): Self;
+    clone(): Self;
 }
 
 struct Point impl Display, Clone {
@@ -22,7 +22,7 @@ struct Point impl Display, Clone {
     }
 }
 
-// Function with multiple trait bounds
+// Function with multiple contract bounds
 fn print_and_clone<T: Display + Clone>(value: T): i32 {
     return 100;
 }

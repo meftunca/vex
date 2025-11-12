@@ -1,11 +1,11 @@
-// Test multiple trait bounds with + syntax
+// Test multiple contract bounds with + syntax
 
 contract Display {
-    fn to_string(): string;
+    to_string(): string;
 }
 
 contract Clone {
-    fn clone(): Self;
+    clone(): Self;
 }
 
 struct Point impl Display, Clone {

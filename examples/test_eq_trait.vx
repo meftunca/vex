@@ -1,4 +1,4 @@
-// Test Eq trait - Basic equality comparison
+// Test Eq contract - Basic equality comparison
 // Test custom equality with .equals()
 
 import { Eq } from "core";
@@ -33,9 +33,9 @@ fn main(): i32 {
         return 1;
     }
     
-    println("✅ PASSED: Eq trait works correctly");
+    println("✅ PASSED: Eq contract works correctly");
     return 0;
 }
 
 // Expected output:
-// ✅ PASSED: Eq trait works correctly
+// ✅ PASSED: Eq contract works correctly

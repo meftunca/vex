@@ -1,4 +1,4 @@
-// Test Drop trait - LIFO (Last In First Out) order
+// Test Drop contract - LIFO (Last In First Out) order
 // Resources should be dropped in reverse order of creation
 
 import { Drop } from "core";

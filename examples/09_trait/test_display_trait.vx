@@ -1,9 +1,9 @@
-// Test Display trait implementation
+// Test Display contract implementation
 // Tests basic to_string() functionality
 
-// Define Display trait locally (since stdlib import not working yet)
+// Define Display contract locally (since stdlib import not working yet)
 contract Display {
-    fn to_string(): string;
+    to_string(): string;
 }
 
 // Simple Point struct with Display
@@ -24,10 +24,10 @@ fn main(): i32 {
     
     // Verify to_string() works
     if s == "Point" {
-        println("✅ Display trait works!");
+        println("✅ Display contract works!");
         return 0;
     }
     
-    println("❌ Display trait failed");
+    println("❌ Display contract failed");
     return 1;
 }

@@ -1,5 +1,5 @@
-// Test generic max function with Ord trait
-// Test trait bounds with generic functions
+// Test generic max function with Ord contract
+// Test contract bounds with generic functions
 
 import { Ord } from "core";
 
@@ -29,9 +29,9 @@ fn main(): i32 {
         return 1;
     }
     
-    println("✅ PASSED: Ord trait works in generic context");
+    println("✅ PASSED: Ord contract works in generic context");
     return 0;
 }
 
 // Expected output:
-// ✅ PASSED: Ord trait works in generic context
+// ✅ PASSED: Ord contract works in generic context

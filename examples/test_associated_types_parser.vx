@@ -4,7 +4,7 @@
 contract Iterator {
     type Item;
     
-    fn next(): Option<Self.Item>;
+    next(): Option<Self.Item>;
 }
 
 struct Counter impl Iterator {

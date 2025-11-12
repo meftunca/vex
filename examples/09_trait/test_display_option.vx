@@ -1,8 +1,8 @@
-// Test Display trait with Option<T>
+// Test Display contract with Option<T>
 // Demonstrates Display for enum types
 
 contract Display {
-    fn to_string(): string;
+    to_string(): string;
 }
 
 // Define Option enum

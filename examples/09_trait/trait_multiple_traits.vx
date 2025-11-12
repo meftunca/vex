@@ -1,20 +1,20 @@
-// Multiple Trait Implementation Test
-// struct Foo impl Trait1, Trait2, Trait3 { ... }
+// Multiple contract Implementation Test
+// struct Foo impl contract1, contract2, contract3 { ... }
 
-// Define multiple traits
+// Define multiple contracts
 contract Display {
-    fn show();
+    show();
 }
 
 contract Serializable {
-    fn serialize() : i32;
+    serialize() : i32;
 }
 
 contract Comparable {
-    fn compare(other: &Self) : i32;
+    compare(other: &Self) : i32;
 }
 
-// Struct implementing multiple traits at once
+// Struct implementing multiple contracts at once
 struct Person impl Display, Serializable, Comparable {
     name: string,
     age: i32,
@@ -44,10 +44,10 @@ struct Person impl Display, Serializable, Comparable {
 fn main() {
     let! p = Person { name: "Alice", age: 30 };
     
-    // Call methods from different traits
-    p.show();           // Display trait
-    let s = p.serialize();    // Serializable trait
-    // let c = p.compare(&p);    // Comparable trait - TODO: reference expression in codegen
+    // Call methods from different contracts
+    p.show();           // Display contract
+    let s = p.serialize();    // Serializable contract
+    // let c = p.compare(&p);    // Comparable contract - TODO: reference expression in codegen
     
     // Call struct-specific method
     p.birthday();

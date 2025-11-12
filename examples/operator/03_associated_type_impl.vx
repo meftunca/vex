@@ -1,9 +1,9 @@
-// Test: Associated Types in Traits
+// Test: Associated Types in contracts
 // Full implementation with type bindings
 
 contract Container {
     type Item;  // ✅ Associated type declaration
-    fn size(): i32;
+    size(): i32;
 }
 
 struct IntBox impl Container {

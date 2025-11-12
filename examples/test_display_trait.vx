@@ -1,4 +1,4 @@
-// Test Display trait definition and basic usage
+// Test Display contract definition and basic usage
 
 import { Display } from "fmt";
 
@@ -12,7 +12,7 @@ struct Point impl Display {
 }
 
 fn print_value<T: Display>(value: T) {
-    // Generic print using Display trait
+    // Generic print using Display contract
     let s = value.to_string();
     print(s);
 }

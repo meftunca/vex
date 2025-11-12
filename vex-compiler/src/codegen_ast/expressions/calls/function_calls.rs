@@ -103,9 +103,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 }
             }
 
-            // Special case: print() with format string detection
-            // println() is handled in stdlib (calls print() + newline)
-            if func_name == "print" {
+            // Special case: print() and println() with format string detection
+            if func_name == "print" || func_name == "println" {
                 return self.compile_print_call(func_name, args, &arg_basic_vals);
             }
 
