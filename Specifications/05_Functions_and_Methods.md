@@ -1,7 +1,7 @@
 # Functions and Methods
 
-**Version:** 0.1.0  
-**Last Updated:** November 3, 2025
+**Version:** 0.2.0  
+**Last Updated:** November 12, 2025
 
 This document defines functions, methods, and related concepts in the Vex programming language.
 
@@ -12,6 +12,7 @@ This document defines functions, methods, and related concepts in the Vex progra
 1. [Function Declarations](#function-declarations)
 2. [Method Definitions](#method-definitions)
 3. [Parameters and Arguments](#parameters-and-arguments)
+   - [Go-Style Parameter Grouping](#go-style-parameter-grouping) ⭐ NEW
 4. [Return Values](#return-values)
 5. [Generic Functions](#generic-functions)
 6. [Function Overloading](#function-overloading)
@@ -222,3 +223,134 @@ fn (u: &User) show() {
     print(u.name);
 }
 ```
+
+---
+
+## Parameters and Arguments
+
+### Basic Parameter Syntax
+
+Parameters are declared with a name and type, separated by colon:
+
+```vex
+fn add(x: i32, y: i32): i32 {
+    return x + y;
+}
+
+fn greet(name: string, age: i32) {
+    print("Hello ", name, ", age ", age);
+}
+```
+
+### Go-Style Parameter Grouping
+
+⭐ **NEW in v0.2.0**: Consecutive parameters of the same type can be grouped together.
+
+**Syntax**: `(name1, name2, name3: type)`
+
+```vex
+// Traditional syntax (still supported)
+fn add(a: i32, b: i32, c: i32): i32 {
+    return a + b + c;
+}
+
+// Go-style grouping (new!)
+fn add(a, b, c: i32): i32 {
+    return a + b + c;
+}
+```
+
+Both syntaxes are equivalent and produce identical AST nodes.
+
+**Multiple Groups**:
+
+```vex
+fn process(x, y, z: f64, name, tag: string): void {
+    let sum = x + y + z;
+    println(name, ": ", tag, " = ", sum);
+}
+```
+
+**Mixed Parameters**:
+
+```vex
+fn compute(a, b: i32, factor: f64, c, d: i32): f64 {
+    let sum = a + b + c + d;
+    return (sum as f64) * factor;
+}
+```
+
+**In Methods**:
+
+```vex
+struct Point {
+    x: f64,
+    y: f64,
+    
+    // Grouping works in methods
+    distance_to(x1, y1: f64): f64 {
+        let dx = self.x - x1;
+        let dy = self.y - y1;
+        return sqrt(dx * dx + dy * dy);
+    }
+}
+
+// Also in external methods
+fn (p: &Point!) translate(dx, dy: f64) {
+    p.x = p.x + dx;
+    p.y = p.y + dy;
+}
+```
+
+**In Contracts**:
+
+```vex
+contract Geometry {
+    distance(x1, y1, x2, y2: f64): f64;
+    translate(dx, dy: f64)!;
+}
+```
+
+**Benefits**:
+- ✅ Reduces repetition for same-typed parameters
+- ✅ Cleaner, more readable function signatures
+- ✅ Familiar to Go developers
+- ✅ Purely syntactic sugar (no runtime overhead)
+- ✅ Optional - traditional syntax still supported
+
+**Implementation Note**: The parser automatically expands grouped parameters to individual `Param` AST nodes during parsing, so the rest of the compiler sees fully expanded parameters.
+
+### Parameter Passing
+
+Vex uses **pass-by-value** semantics by default:
+
+```vex
+fn modify(x: i32) {
+    x = 10;  // Only modifies local copy
+}
+
+let y = 5;
+modify(y);
+// y is still 5
+```
+
+For reference semantics, use pointers or references (see [21_Mutability_and_Pointers.md](21_Mutability_and_Pointers.md)).
+
+### Variadic Parameters
+
+**Status**: Not yet implemented (future feature)
+
+```vex
+// Future syntax
+fn sum(values...: i32): i32 {
+    let total = 0;
+    for val in values {
+        total = total + val;
+    }
+    return total;
+}
+```
+
+---
+
+## Return Values
