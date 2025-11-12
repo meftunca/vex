@@ -1,0 +1,17 @@
+// Test: typeof operator
+
+fn main(): i32 {
+    let x = 42;
+    let y = 3.14;
+    let z = "hello";
+    let b = true;
+    
+    println("Testing typeof operator:");
+    println(typeof(x));
+    println(typeof(y));
+    println(typeof(z));
+    println(typeof(b));
+    println(typeof(42 + 10));
+    
+    return 0;
+}

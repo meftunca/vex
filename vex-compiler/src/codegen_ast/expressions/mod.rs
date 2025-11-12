@@ -737,6 +737,20 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 self.compile_expression(&method_call)
             }
 
+            Expression::Typeof(expr) => {
+                // typeof(expr) - returns type name as string (compile-time)
+                // For now, infer the type and return a constant string
+                let inferred_type = self.infer_expression_type(expr)?;
+                let type_name = self.type_to_string(&inferred_type);
+                
+                // Return type name as string constant
+                let global_str = self
+                    .builder
+                    .build_global_string_ptr(&type_name, "typeof_str")
+                    .map_err(|e| format!("Failed to create typeof string: {}", e))?;
+                Ok(global_str.as_pointer_value().into())
+            }
+
             _ => {
                 let expr_str = format!("{:?}", expr);
                 self.diagnostics.emit(Diagnostic {
@@ -833,3 +847,4 @@ impl<'ctx> ASTCodeGen<'ctx> {
         Ok(range_val.into())
     }
 }
+

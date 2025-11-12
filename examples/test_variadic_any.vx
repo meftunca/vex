@@ -1,0 +1,13 @@
+// Test: variadic any type parsing and compilation
+
+fn log_all(items: ...any) {
+    print("Logging variadic any items\n");
+}
+
+fn main(): i32 {
+    print("Testing variadic any\n");
+    // Will fail at runtime but should parse and compile
+    // log_all(1, 2.5, "hello", true);
+    print("Compiled successfully\n");
+    return 0;
+}

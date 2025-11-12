@@ -1,4 +1,5 @@
 pub mod borrow_checker; // v0.1: Borrow checker for safety
+pub mod builtin_contracts; // Builtin contract implementations for primitives
 pub mod codegen_ast; // Modular LLVM codegen
 pub mod module_resolver;
 pub mod resolver; // Platform detection & stdlib resolution

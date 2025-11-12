@@ -1,0 +1,83 @@
+// Test: Variadic type support - comprehensive
+
+struct Point {
+    x: i32,
+    y: i32,
+}
+
+// 1. Variadic with primitives
+fn sum_i32(nums: ...i32): i32 {
+    return 0;
+}
+
+fn sum_f64(nums: ...f64): f64 {
+    return 0.0;
+}
+
+// 2. Variadic with pointers
+fn process_int_ptrs(ptrs: ...*i32) {
+    print("Int pointers\n");
+}
+
+fn process_str_ptrs(ptrs: ...*string) {
+    print("String pointers\n");
+}
+
+// 3. Variadic with references (immutable)
+fn read_strings(strs: ...&string) {
+    print("Reading strings\n");
+}
+
+fn read_ints(nums: ...&i32) {
+    print("Reading ints\n");
+}
+
+// 4. Variadic with mutable references
+fn modify_strings(strs: ...&string!) {
+    print("Modifying strings\n");
+}
+
+fn modify_ints(nums: ...&i32!) {
+    print("Modifying ints\n");
+}
+
+// 5. Variadic with custom types
+fn process_points(points: ...Point) {
+    print("Processing points\n");
+}
+
+// 6. Variadic with custom type references
+fn read_points(points: ...&Point) {
+    print("Reading points\n");
+}
+
+fn modify_points(points: ...&Point!) {
+    print("Modifying points\n");
+}
+
+// 7. Variadic with generic type
+fn print_all<T>(items: ...T) {
+    print("Generic items\n");
+}
+
+// 8. Variadic with "any" (if supported)
+fn handle_any(items: ...any) {
+    print("Any type items\n");
+}
+
+fn main(): i32 {
+    println("✅ All variadic type variations parse successfully!");
+    
+    // Test calls (commented until runtime support)
+    // sum_i32(1, 2, 3, 4, 5);
+    // sum_f64(1.1, 2.2, 3.3);
+    
+    // let p1 = Point { x: 1, y: 2 };
+    // let p2 = Point { x: 3, y: 4 };
+    // process_points(p1, p2);
+    
+    // print_all<i32>(1, 2, 3, 4);
+    // print_all<string>("a", "b", "c");
+    
+    return 0;
+}

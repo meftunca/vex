@@ -60,6 +60,7 @@ impl<'a> FormattingVisitor<'a> {
             Item::Enum(enum_def) => self.visit_enum(enum_def),
             Item::Contract(contract_def) => self.visit_trait(contract_def),
             Item::TraitImpl(impl_block) => self.visit_trait_impl(impl_block),
+            Item::BuiltinExtension(_) => self.write_line("// builtin extension"),
             Item::Const(const_decl) => self.visit_const(const_decl),
             Item::Export(_) => self.write_line("// export"),
             Item::TypeAlias(_) => self.write_line("// type alias"),

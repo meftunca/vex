@@ -102,6 +102,9 @@ impl<'a> Parser<'a> {
                 items.push(self.parse_trait()?);
             } else if self.check(&Token::Impl) {
                 items.push(self.parse_trait_impl()?);
+            } else if self.is_builtin_type_token() {
+                // Check for builtin extension: i32 extends Display, Clone;
+                items.push(self.parse_builtin_extension()?);
             } else if self.check(&Token::Policy) {
                 items.push(Item::Policy(self.parse_policy()?));
             } else if self.check(&Token::Extern) {
@@ -155,6 +158,19 @@ impl<'a> Parser<'a> {
 
     pub(crate) fn is_at_end(&self) -> bool {
         self.current >= self.tokens.len()
+    }
+
+    /// Check if current token is a builtin primitive type
+    pub(crate) fn is_builtin_type_token(&self) -> bool {
+        if self.is_at_end() {
+            return false;
+        }
+        matches!(
+            self.peek(),
+            Token::I8 | Token::I16 | Token::I32 | Token::I64 | Token::I128 |
+            Token::U8 | Token::U16 | Token::U32 | Token::U64 | Token::U128 |
+            Token::F32 | Token::F64 | Token::Bool | Token::String
+        )
     }
 
     pub(crate) fn peek_span(&self) -> &TokenSpan {

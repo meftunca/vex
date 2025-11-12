@@ -121,6 +121,7 @@ pub enum Item {
     Struct(Struct),
     Contract(Trait), // Renamed from Trait - using Contract keyword only
     TraitImpl(TraitImpl),
+    BuiltinExtension(BuiltinExtension), // NEW: Type extends Contract declarations
     TypeAlias(TypeAlias),
     Enum(Enum),
     Const(Const),
@@ -258,6 +259,13 @@ pub struct Trait {
     pub methods: Vec<TraitMethod>,
 }
 
+/// Builtin type contract extension: i32 extends Display, Clone, Eq;
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct BuiltinExtension {
+    pub type_name: String,        // i32, f64, bool, string
+    pub contracts: Vec<String>,   // Display, Clone, Eq, Debug
+}
+
 /// Type alias inside a trait
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TraitTypeAlias {
@@ -363,6 +371,9 @@ pub enum Type {
 
     /// Never type (!) - for diverging functions (panic, exit, infinite loop)
     Never,
+
+    /// Any type - dynamic type that can hold any value (runtime type erasure)
+    Any,
 
     /// Self type - used in trait definitions and implementations
     SelfType,

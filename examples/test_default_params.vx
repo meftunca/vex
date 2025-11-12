@@ -15,8 +15,13 @@ fn add_numbers(a: i32, b: i32 = 10, c: i32 = 20): i32 {
     return a + b + c;
 }
 
-// Go-style grouping with defaults
-fn process(x, y: f64 = 1.0): f64 {
+// Grouped parameters (no defaults when grouped)
+fn multiply(x, y: f64): f64 {
+    return x * y;
+}
+
+// Separate parameters with defaults
+fn process(x: f64, y: f64 = 1.0): f64 {
     return x * y;
 }
 
@@ -55,12 +60,16 @@ fn main(): i32 {
     println("Test 6b: ", sum2);
     println("Test 6c: ", sum3);
     
-    // Test 7: Grouped parameters with defaults
+    // Test 7: Grouped parameters (no defaults)
+    let product = multiply(5.0, 2.0);    // 5.0 * 2.0 = 10.0
+    println("Test 7: ", product);
+    
+    // Test 8: Separate parameters with defaults
     let result1 = process(5.0);          // 5.0 * 1.0 = 5.0
     let result2 = process(5.0, 2.0);     // 5.0 * 2.0 = 10.0
     
-    println("Test 7a: ", result1);
-    println("Test 7b: ", result2);
+    println("Test 8a: ", result1);
+    println("Test 8b: ", result2);
     
     println("✅ All default parameter tests completed!");
     return 0;

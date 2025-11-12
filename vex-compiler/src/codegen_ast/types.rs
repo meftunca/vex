@@ -29,6 +29,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 // String as ptr (C-style string pointer)
                 BasicTypeEnum::PointerType(self.context.ptr_type(inkwell::AddressSpace::default()))
             }
+            Type::Any => {
+                // Any type as opaque pointer (void* equivalent)
+                BasicTypeEnum::PointerType(self.context.ptr_type(inkwell::AddressSpace::default()))
+            }
             Type::Nil => {
                 // Nil as void/i8 (placeholder)
                 // In LLVM, we use i8 as a minimal type
@@ -722,6 +726,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             Type::Bool => "bool".to_string(),
             Type::Byte => "byte".to_string(),
             Type::String => "string".to_string(),
+            Type::Any => "any".to_string(),
             Type::Nil => "nil".to_string(),
             Type::Error => "error".to_string(),
             Type::Named(name) => name.clone(),

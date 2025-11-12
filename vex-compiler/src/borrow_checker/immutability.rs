@@ -148,6 +148,7 @@ impl ImmutabilityChecker {
             | Item::Enum(_)
             | Item::Contract(_)
             | Item::TraitImpl(_)
+            | Item::BuiltinExtension(_)
             | Item::TypeAlias(_)
             | Item::Policy(_)
             | Item::ExternBlock(_)

@@ -74,8 +74,41 @@ impl<'ctx> ASTCodeGen<'ctx> {
         // Compile arguments
         let mut arg_vals: Vec<BasicMetadataValueEnum> = Vec::new();
         let mut arg_basic_vals: Vec<BasicValueEnum> = Vec::new();
-        for arg in &final_args {
+        
+        for (i, arg) in final_args.iter().enumerate() {
             let val = self.compile_expression(arg)?;
+
+            // Check if parameter expects 'any' type
+            let expects_any = if let Some(func_def) = &func_def_opt {
+                if i < func_def.params.len() {
+                    matches!(func_def.params[i].ty, Type::Any)
+                } else if func_def.is_variadic {
+                    // Variadic parameter type
+                    matches!(func_def.variadic_type, Some(Type::Any))
+                } else {
+                    false
+                }
+            } else {
+                false
+            };
+
+            // If parameter expects 'any', box the value (allocate on stack and pass pointer)
+            if expects_any {
+                let val_type = val.get_type();
+                let alloca = self
+                    .builder
+                    .build_alloca(val_type, "any_box")
+                    .map_err(|e| format!("Failed to allocate any box: {}", e))?;
+                
+                self.builder
+                    .build_store(alloca, val)
+                    .map_err(|e| format!("Failed to store to any box: {}", e))?;
+                
+                // Pass pointer as any
+                arg_vals.push(alloca.into());
+                arg_basic_vals.push(alloca.into());
+                continue;
+            }
 
             // If argument is a struct, we need to pass it by pointer (alloca)
             // Check if this is a struct variable

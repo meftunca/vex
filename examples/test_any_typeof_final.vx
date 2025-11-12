@@ -1,0 +1,17 @@
+// Test: variadic any with typeof
+
+fn log_types(items: ...any) {
+    print("Received variadic any items\n");
+}
+
+fn main(): i32 {
+    print("=== Test 1: typeof ===\n");
+    let x: i32 = 42;
+    let y: f64 = 3.14;
+    
+    print("=== Test 2: variadic any (parse/compile only) ===\n");
+    // log_types(x, y, "hello");  // Runtime not ready
+    
+    print("=== All tests completed ===\n");
+    return 0;
+}

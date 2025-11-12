@@ -1,0 +1,12 @@
+// Test: any type simple usage
+
+fn accept_any(value: any) {
+    print("Got any value\n");
+}
+
+fn main(): i32 {
+    print("Testing any type\n");
+    accept_any(42);
+    accept_any(3.14);
+    return 0;
+}

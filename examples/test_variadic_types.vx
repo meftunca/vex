@@ -1,0 +1,58 @@
+// Test: Variadic with different types
+
+// Variadic with pointer
+fn process_ptrs(items: ...*i32) {
+    print("Processing pointers\n");
+}
+
+// Variadic with reference
+fn process_refs(items: ...&string) {
+    print("Processing references\n");
+}
+
+// Variadic with mutable reference
+fn process_mut_refs(items: ...&string!) {
+    print("Processing mutable references\n");
+}
+
+// Variadic with generic (if supported)
+fn process_any<T>(items: ...T) {
+    print("Processing generic items\n");
+}
+
+// Variadic with "any" type (if exists)
+fn process_anything(items: ...any) {
+    print("Processing any type\n");
+}
+
+struct Point {
+    x: i32,
+    y: i32,
+}
+
+// Variadic with custom type
+fn process_points(items: ...Point) {
+    print("Processing points\n");
+}
+
+// Variadic with reference to custom type
+fn process_point_refs(items: ...&Point) {
+    print("Processing point refs\n");
+}
+
+fn main(): i32 {
+    print("Testing variadic type variations...\n");
+    
+    // Test with pointers (if syntax works)
+    // process_ptrs(ptr1, ptr2, ptr3);
+    
+    // Test with references (if syntax works)
+    // process_refs(&str1, &str2);
+    
+    // Test with custom types
+    let p1 = Point { x: 1, y: 2 };
+    let p2 = Point { x: 3, y: 4 };
+    // process_points(p1, p2);
+    
+    return 0;
+}

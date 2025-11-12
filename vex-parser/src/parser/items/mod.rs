@@ -4,6 +4,7 @@ mod aliases;
 mod consts;
 mod enums;
 mod exports;
+mod extensions;
 mod externs;
 mod functions;
 mod helpers;

@@ -1,0 +1,37 @@
+// Test: any type basic usage
+
+fn accept_any(value: any) {
+    println("Received any value");
+}
+
+fn return_any(): any {
+    // For now, return a simple value
+    // Runtime will cast to any
+    return 42;
+}
+
+fn process_variadic_any(items: ...any) {
+    println("Processing variadic any items");
+}
+
+fn main(): i32 {
+    println("=== Testing 'any' type ===\n");
+    
+    // Test 1: Pass different types to any parameter
+    println("Test 1: Passing values to any parameter");
+    accept_any(42);
+    accept_any(3.14);
+    accept_any("hello");
+    accept_any(true);
+    
+    // Test 2: Return any type
+    println("\nTest 2: Returning any type");
+    let result = return_any();
+    
+    // Test 3: Variadic any
+    println("\nTest 3: Variadic any parameters");
+    process_variadic_any(1, 2.5, "test", false);
+    
+    println("\n✅ All any type tests completed!");
+    return 0;
+}

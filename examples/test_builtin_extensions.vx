@@ -1,0 +1,28 @@
+// Builtin contract extensions for primitive types
+// Syntax: Type extends Contract1, Contract2, Contract3;
+//
+// These declarations tell the compiler which contracts are available
+// for primitive types. The actual implementations are in the compiler.
+
+// Integer types
+i32 extends Display, Clone, Eq, Debug;
+i64 extends Display, Clone, Eq, Debug;
+i8 extends Display, Clone, Eq, Debug;
+i16 extends Display, Clone, Eq, Debug;
+i128 extends Display, Clone, Eq, Debug;
+
+u8 extends Display, Clone, Eq, Debug;
+u16 extends Display, Clone, Eq, Debug;
+u32 extends Display, Clone, Eq, Debug;
+u64 extends Display, Clone, Eq, Debug;
+u128 extends Display, Clone, Eq, Debug;
+
+// Floating point types
+f32 extends Display, Clone, Eq, Debug;
+f64 extends Display, Clone, Eq, Debug;
+
+// Boolean type
+bool extends Display, Clone, Eq, Debug;
+
+// String type
+string extends Display, Clone, Eq, Debug;

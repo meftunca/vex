@@ -566,6 +566,9 @@ impl MoveChecker {
             // String is Move
             Type::String => true,
 
+            // Any is Move (heap allocated, dynamic type)
+            Type::Any => true,
+
             // Builtin types are Move (Phase 0)
             Type::Option(_) => true,    // Option<T> is Move (contains T)
             Type::Result(_, _) => true, // Result<T,E> is Move

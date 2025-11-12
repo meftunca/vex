@@ -1,4 +1,21 @@
-# Todo List
+# Vex Development TODO
+
+**Status:** DEPRECATED - See CORE_STRATEGY.md for current roadmap
+
+This file is kept for historical reference only.
+All active tasks are now tracked in CORE_STRATEGY.md.
+
+---
+
+## Current Focus: Foundation First
+
+**Critical Priority:** Contract System & Builtin Standardization
+
+See: `CORE_STRATEGY.md` - The Two Critical Blockers
+
+---
+
+## Historical TODO Items (Reference Only)
 
 - [x] **Loop syntax support** (2 hours) - PARSER MISSING FEATURE
 

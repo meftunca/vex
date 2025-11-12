@@ -170,6 +170,8 @@ pub enum Token {
     Bool,
     #[token("string")]
     String,
+    #[token("any")]
+    Any,
     #[token("byte")]
     Byte,
     #[token("error")]

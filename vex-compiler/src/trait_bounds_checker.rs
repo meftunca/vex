@@ -189,6 +189,7 @@ impl TraitBoundsChecker {
             Type::F64 => "f64".to_string(),
             Type::Bool => "bool".to_string(),
             Type::String => "string".to_string(),
+            Type::Any => "any".to_string(),
             Type::Byte => "byte".to_string(),
             Type::Array(_, _) => "Array".to_string(),
             Type::Slice(_, _) => "Slice".to_string(),

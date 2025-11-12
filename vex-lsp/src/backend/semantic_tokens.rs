@@ -60,6 +60,9 @@ impl VexBackend {
                 vex_ast::Item::TraitImpl(impl_block) => {
                     self.add_trait_impl_tokens(impl_block, source, tokens);
                 }
+                vex_ast::Item::BuiltinExtension(_) => {
+                    // Skip builtin extensions - no tokens needed
+                }
                 vex_ast::Item::TypeAlias(alias) => {
                     self.add_type_alias_tokens(alias, source, tokens);
                 }

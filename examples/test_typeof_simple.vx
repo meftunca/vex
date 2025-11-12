@@ -1,0 +1,9 @@
+// Test: typeof operator simple
+
+fn main(): i32 {
+    let x = 42;
+    print("Type of x: ");
+    print(typeof(x));
+    print("\n");
+    return 0;
+}

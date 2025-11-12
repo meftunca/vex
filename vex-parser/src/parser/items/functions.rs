@@ -183,19 +183,43 @@ impl<'a> Parser<'a> {
         }
 
         loop {
-            // Check if this is a variadic parameter: name: ...Type
-            let param_name = self.consume_identifier()?;
+            // Collect parameter names (supports grouping: a, b, c: i32)
+            let mut param_names = vec![self.consume_identifier()?];
+            
+            // Check for grouped parameters: name1, name2, name3: type
+            while self.match_token(&Token::Comma) && !self.check(&Token::RParen) {
+                // Peek ahead to see if this is a new parameter or grouped name
+                let next_name = self.consume_identifier()?;
+                
+                // If followed by colon, it's the type. Otherwise it's another grouped name
+                if self.check(&Token::Colon) {
+                    // This is the last name in the group, followed by type
+                    param_names.push(next_name);
+                    break;
+                } else {
+                    // This could be another grouped name, continue collecting
+                    param_names.push(next_name);
+                }
+            }
             
             if !self.match_token(&Token::Colon) {
                 return Err(ParseError::Other(format!(
-                    "Expected ':' after parameter name '{}'",
-                    param_name
+                    "Expected ':' after parameter name(s) '{}'",
+                    param_names.join(", ")
                 )));
             }
 
             // Check for variadic: ...Type
             if self.match_token(&Token::DotDotDot) {
                 let var_type = self.parse_type()?;
+                
+                // Grouped parameters cannot be variadic
+                if param_names.len() > 1 {
+                    return Err(ParseError::Other(
+                        "Cannot use parameter grouping with variadic parameters".to_string(),
+                    ));
+                }
+                
                 // Variadic must be the last parameter
                 if self.match_token(&Token::Comma) {
                     return Err(ParseError::Other(
@@ -210,16 +234,25 @@ impl<'a> Parser<'a> {
 
             // Check for default value: = expr
             let default_value = if self.match_token(&Token::Eq) {
+                // Grouped parameters cannot have default values
+                if param_names.len() > 1 {
+                    return Err(ParseError::Other(
+                        "Cannot use default values with grouped parameters. Each parameter must be declared separately.".to_string(),
+                    ));
+                }
                 Some(Box::new(self.parse_expression()?))
             } else {
                 None
             };
 
-            params.push(Param {
-                name: param_name,
-                ty: ty.clone(),
-                default_value,
-            });
+            // Expand grouped parameters into individual Param entries
+            for param_name in param_names {
+                params.push(Param {
+                    name: param_name,
+                    ty: ty.clone(),
+                    default_value: default_value.clone(),
+                });
+            }
 
             if !self.match_token(&Token::Comma) {
                 break;

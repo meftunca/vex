@@ -200,6 +200,10 @@ impl<'a> Parser<'a> {
                 self.advance();
                 Type::String
             }
+            Token::Any => {
+                self.advance();
+                Type::Any
+            }
             Token::Byte => {
                 self.advance();
                 Type::U8 // byte is an alias for u8
@@ -584,6 +588,10 @@ impl<'a> Parser<'a> {
             Token::String => {
                 self.advance();
                 Type::String
+            }
+            Token::Any => {
+                self.advance();
+                Type::Any
             }
             Token::Byte => {
                 self.advance();
