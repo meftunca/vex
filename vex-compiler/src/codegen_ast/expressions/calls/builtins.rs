@@ -1,10 +1,55 @@
 // Builtin type method compilation (Vec, Box, etc.)
 
+use crate::builtin_contracts;
 use crate::codegen_ast::ASTCodeGen;
 use inkwell::values::BasicValueEnum;
 use vex_ast::*;
 
 impl<'ctx> ASTCodeGen<'ctx> {
+    /// Try to compile builtin contract methods (i32.to_string(), bool.clone(), etc.)
+    /// Returns Some(value) if handled, None if not a builtin contract method
+    pub(super) fn try_compile_builtin_contract_method(
+        &mut self,
+        receiver: &Expression,
+        method: &str,
+        args: &[Expression],
+    ) -> Result<Option<BasicValueEnum<'ctx>>, String> {
+        // Get receiver type
+        let receiver_type = self.infer_expression_type(receiver)?;
+        let type_name = self.type_to_string(&receiver_type);
+
+        // Check all known contracts to find matching method
+        let contracts = ["Display", "Clone", "Debug", "Eq"];
+        
+        for contract in &contracts {
+            if let Some(contract_method) = builtin_contracts::get_builtin_contract_method(contract) {
+                if contract_method == method && builtin_contracts::has_builtin_contract(&type_name, contract) {
+                    // Found builtin contract method!
+                    let receiver_val = self.compile_expression(receiver)?;
+                    
+                    // Compile arguments
+                    let arg_vals: Vec<BasicValueEnum> = args
+                        .iter()
+                        .map(|arg| self.compile_expression(arg))
+                        .collect::<Result<Vec<_>, _>>()?;
+
+                    // Dispatch to builtin contract codegen
+                    if let Some(result) = builtin_contracts::codegen_builtin_contract_method(
+                        &type_name,
+                        contract,
+                        method,
+                        receiver_val,
+                        &arg_vals,
+                    ) {
+                        return Ok(Some(result));
+                    }
+                }
+            }
+        }
+
+        Ok(None) // Not a builtin contract method
+    }
+
     /// Try to compile builtin type methods (Vec.push, Vec.len, Box.get, etc.)
     /// Returns Some(value) if the method was handled, None if not a builtin method
     pub(super) fn try_compile_builtin_method(

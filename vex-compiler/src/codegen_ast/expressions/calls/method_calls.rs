@@ -13,6 +13,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
         args: &[Expression],
         is_mutable_call: bool,
     ) -> Result<BasicValueEnum<'ctx>, String> {
+        // ⭐ NEW: Phase 0: Check for builtin contract methods (i32.to_string(), bool.clone(), etc.)
+        // This must come BEFORE builtin type methods to support contract-based dispatch
+        if let Some(result) = self.try_compile_builtin_contract_method(receiver, method, args)? {
+            return Ok(result);
+        }
+
         // Phase 0.4c: Check for builtin type instance methods (vec.push, vec.len, etc.)
         // This MUST come first before struct name checking
         if let Some(result) = self.try_compile_builtin_method(receiver, method, args)? {

@@ -702,6 +702,27 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     Ok(Type::I32) // Default fallback
                 }
             }
+            Expression::FieldAccess { object, field } => {
+                // Infer type of field access (self.x, obj.field)
+                let base_type = self.infer_expression_type(object)?;
+                
+                // Get struct definition to find field type
+                let struct_name = match &base_type {
+                    Type::Named(name) => name.clone(),
+                    _ => return Ok(Type::I32), // Fallback
+                };
+                
+                if let Some(struct_def) = self.struct_ast_defs.get(&struct_name) {
+                    // Find field in struct definition
+                    for field_def in &struct_def.fields {
+                        if field_def.name == *field {
+                            return Ok(field_def.ty.clone());
+                        }
+                    }
+                }
+                
+                Ok(Type::I32) // Fallback if field not found
+            }
             _ => Ok(Type::I32), // Default for complex expressions
         };
         result

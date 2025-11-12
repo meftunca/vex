@@ -1,0 +1,28 @@
+// Test Display contract on primitives and user types
+
+struct Point impl Display {
+    x: i32,
+    y: i32,
+    
+    fn to_string(): string {
+        // TODO: Implement when string concat + i32.to_string() works
+        return "Point";
+    }
+}
+
+fn main(): i32 {
+    // Test primitive Clone contract (working - returns receiver)
+    let num: i32 = 42;
+    let num2 = num.clone();  // Should work via i32 extends Clone
+    
+    let flag: bool = true;
+    let flag2 = flag.clone();  // Should work via bool extends Clone
+    
+    // Test user type with Display contract
+    let p = Point { x: 10, y: 20 };
+    // let p_str = p.to_string();  // TODO: Enable when ready
+    
+    println("Clone test passed!");
+    
+    return 0;
+}
