@@ -1,0 +1,125 @@
+// Proposal: C++ Style Operator Overloading Syntax
+// Alternative syntax with multiple parameter types
+
+// Current Vex syntax (contract-based)
+contract Add {
+    fn add(other: Self): Self;
+}
+
+struct Point impl Add {
+    x: i32,
+    y: i32,
+    
+    fn add(other: Point): Point {
+        return Point { x: self.x + other.x, y: self.y + other.y };
+    }
+}
+
+// PROPOSAL: C++ style operator syntax
+// Allow direct operator definition with multiple overloads
+
+struct Vector {
+    x: i32,
+    y: i32,
+}
+
+// Syntax Option 1: Direct operator methods
+impl Vector {
+    // Same type addition
+    fn op+(other: Vector): Vector {
+        return Vector { x: self.x + other.x, y: self.y + other.y };
+    }
+    
+    // Scalar multiplication (Vector * i32)
+    fn op*(scalar: i32): Vector {
+        return Vector { x: self.x * scalar, y: self.y * scalar };
+    }
+    
+    // Different overload (Vector * f64)
+    fn op*(factor: f64): Vector {
+        let fx = (self.x as f64) * factor;
+        let fy = (self.y as f64) * factor;
+        return Vector { x: fx as i32, y: fy as i32 };
+    }
+    
+    // Comparison operators
+    fn op==(other: Vector): bool {
+        return self.x == other.x && self.y == other.y;
+    }
+    
+    // Index operator
+    fn op[](index: i32): i32 {
+        if index == 0 {
+            return self.x;
+        } else {
+            return self.y;
+        }
+    }
+}
+
+// Syntax Option 2: operator keyword (more explicit)
+impl Vector {
+    operator +(other: Vector): Vector {
+        return Vector { x: self.x + other.x, y: self.y + other.y };
+    }
+    
+    operator *(scalar: i32): Vector {
+        return Vector { x: self.x * scalar, y: self.y * scalar };
+    }
+    
+    operator *(factor: f64): Vector {
+        let fx = (self.x as f64) * factor;
+        let fy = (self.y as f64) * factor;
+        return Vector { x: fx as i32, y: fy as i32 };
+    }
+}
+
+// Usage would be natural:
+fn test_proposal(): i32 {
+    let v1 = Vector { x: 10, y: 20 };
+    let v2 = Vector { x: 5, y: 15 };
+    
+    // All of these would work:
+    let v3 = v1 + v2;      // op+(Vector): Vector
+    let v4 = v1 * 5;       // op*(i32): Vector
+    let v5 = v1 * 2.5;     // op*(f64): Vector
+    let eq = v1 == v2;     // op==(Vector): bool
+    let x = v1[0];         // op[](i32): i32
+    
+    return 0;
+}
+
+// Benefits:
+// 1. Multiple overloads for different types (like C++)
+// 2. Natural operator syntax
+// 3. No need for separate contracts
+// 4. More concise than contract-based approach
+// 5. Type inference works naturally
+
+// Drawbacks:
+// 1. Less explicit than contract system
+// 2. Can't enforce trait bounds across multiple types
+// 3. Harder to require operator implementation at compile time
+// 4. No interface/contract abstraction
+
+// Hybrid Approach: Keep contracts, add operator syntax sugar
+contract Add<Rhs = Self> {
+    type Output;
+    fn add(rhs: Rhs): Output;
+}
+
+struct Vector impl Add<i32>, Add<f64> {
+    x: i32,
+    y: i32,
+    
+    // Desugar operator syntax to contract methods
+    fn op+(scalar: i32): Vector {  // Implements Add<i32>
+        return Vector { x: self.x + scalar, y: self.y + scalar };
+    }
+    
+    fn op+(factor: f64): Vector {  // Implements Add<f64>
+        let fx = (self.x as f64) + factor;
+        let fy = (self.y as f64) + factor;
+        return Vector { x: fx as i32, y: fy as i32 };
+    }
+}
