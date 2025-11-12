@@ -23,6 +23,7 @@ pub struct Parser<'a> {
     pub(crate) file_name: String, // Track filename for error reporting
     pub(crate) in_method_body: bool,
     pub(crate) span_map: vex_diagnostics::SpanMap, // ⭐ NEW: Track spans for AST nodes
+    pub(crate) diagnostics: Vec<vex_diagnostics::Diagnostic>, // ⭐ NEW: Collect warnings/errors
 }
 
 impl<'a> Parser<'a> {
@@ -42,12 +43,28 @@ impl<'a> Parser<'a> {
             file_name: file_name.to_string(),
             in_method_body: false,
             span_map: vex_diagnostics::SpanMap::new(),
+            diagnostics: Vec::new(),
         })
     }
 
     /// Get the span map (for passing to compiler)
     pub fn span_map(&self) -> &vex_diagnostics::SpanMap {
         &self.span_map
+    }
+
+    /// Get diagnostics (warnings, errors)
+    pub fn diagnostics(&self) -> &[vex_diagnostics::Diagnostic] {
+        &self.diagnostics
+    }
+
+    /// Emit a warning diagnostic
+    pub(crate) fn emit_warning(&mut self, code: &str, message: String, span: vex_diagnostics::Span) {
+        self.diagnostics.push(vex_diagnostics::Diagnostic::warning(code, message, span));
+    }
+
+    /// Convert lexer span to diagnostic span
+    pub(crate) fn token_to_diag_span(&self, token_span: &std::ops::Range<usize>) -> vex_diagnostics::Span {
+        vex_diagnostics::Span::from_file_and_span(&self.file_name, self.source, token_span.clone())
     }
 
     /// Take ownership of span map

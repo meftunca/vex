@@ -393,6 +393,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                             is_async: false,
                             is_gpu: false,
                             is_mutable: trait_method.is_mutable, // ⭐ NEW: Copy mutability from trait
+                            is_operator: trait_method.is_operator, // ⭐ NEW: Copy operator flag from trait
                             name: method.to_string(),
                             type_params: vec![],
                             where_clause: vec![],

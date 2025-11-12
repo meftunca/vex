@@ -70,6 +70,42 @@ impl<'a> Parser<'a> {
                 )?;
 
                 associated_type_bindings.push((type_name, bound_type));
+            } else if matches!(self.peek(), Token::LParen) {
+                // ⭐ Emit deprecation warning for inline methods with receiver
+                let span = self.token_to_diag_span(&self.peek_span().span);
+                let warning = vex_diagnostics::Diagnostic::warning(
+                    "W0001",
+                    format!(
+                        "Inline struct methods are deprecated",
+                    ),
+                    span,
+                )
+                .with_help(format!(
+                    "Define methods outside the struct using Go-style syntax: fn (self: &{}) method_name(...) {{ }}",
+                    name
+                ))
+                .with_note("See docs/REFERENCE.md (Method Definitions & Calls) for migration guide".to_string());
+                
+                self.diagnostics.push(warning);
+                methods.push(self.parse_struct_method()?);
+            } else if matches!(self.peek(), Token::OperatorMethod(_)) {
+                // ⭐ Emit deprecation warning for inline operator methods
+                let span = self.token_to_diag_span(&self.peek_span().span);
+                let warning = vex_diagnostics::Diagnostic::warning(
+                    "W0001",
+                    format!(
+                        "Inline struct methods are deprecated",
+                    ),
+                    span,
+                )
+                .with_help(format!(
+                    "Define operator methods outside the struct: fn (self: &{}) op+(...) {{ }}",
+                    name
+                ))
+                .with_note("See docs/REFERENCE.md (Method Definitions & Calls) for migration guide".to_string());
+                
+                self.diagnostics.push(warning);
+                methods.push(self.parse_struct_method()?);
             } else if matches!(self.peek(), Token::Ident(_)) {
                 // Could be a method without 'fn' or a field - need to disambiguate
                 // Look ahead: if next token is '(' it's a method, if ':' it's a field
@@ -77,14 +113,23 @@ impl<'a> Parser<'a> {
                 let field_or_method_name = self.consume_identifier()?;
                 
                 if self.check(&Token::LParen) {
-                    // ⚠️ DEPRECATED: It's a method without 'fn' prefix!
-                    eprintln!("⚠️  WARNING: Inline struct methods are deprecated in struct '{}'", name);
-                    eprintln!("   → Method '{}' should be defined outside the struct", field_or_method_name);
-                    eprintln!("   → Use Go-style: fn (self: &{}) {}() {{ }}", name, field_or_method_name);
-                    eprintln!("   → See VEX_IDENTITY.md for migration guide");
+                    // ⚠️ Emit deprecation warning for inline methods
+                    self.current = checkpoint; // Backtrack first to get correct span
+                    let span = self.token_to_diag_span(&self.peek_span().span);
+                    let warning = vex_diagnostics::Diagnostic::warning(
+                        "W0001",
+                        format!(
+                            "Inline struct methods are deprecated",
+                        ),
+                        span,
+                    )
+                    .with_help(format!(
+                        "Define '{}' outside the struct: fn (self: &{}) {}(...) {{ }}",
+                        field_or_method_name, name, field_or_method_name
+                    ))
+                    .with_note("See docs/REFERENCE.md (Method Definitions & Calls) for migration guide".to_string());
                     
-                    // Backtrack and parse as method
-                    self.current = checkpoint;
+                    self.diagnostics.push(warning);
                     methods.push(self.parse_struct_method()?);
                 } else if self.check(&Token::Colon) {
                     // It's a field - continue with field parsing
@@ -189,8 +234,14 @@ impl<'a> Parser<'a> {
             None
         };
 
-        // Method name (comes after receiver in golang-style, or directly after 'fn' in simplified)
-        let name = self.consume_identifier()?;
+        // ⭐ NEW: Check for operator method AFTER receiver: op+, op-, op*, etc.
+        let (is_operator, name) = if let Token::OperatorMethod(op_name) = self.peek() {
+            let op_name_owned = op_name.clone();
+            self.advance(); // consume operator token
+            (true, op_name_owned)
+        } else {
+            (false, self.consume_identifier()?)
+        };
 
         // Parameters: (param1: T1, param2: T2)
         self.consume(&Token::LParen, "Expected '('")?;
@@ -219,6 +270,7 @@ impl<'a> Parser<'a> {
             is_async: false,
             is_gpu: false,
             is_mutable, // ⭐ NEW: Store mutability flag
+            is_operator, // ⭐ NEW: Store operator flag
             receiver,
             name,
             type_params: Vec::new(),

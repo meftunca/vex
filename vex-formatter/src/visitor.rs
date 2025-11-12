@@ -637,6 +637,7 @@ impl<'a> FormattingVisitor<'a> {
         match op {
             UnaryOp::Neg => "-",
             UnaryOp::Not => "!",
+            UnaryOp::BitNot => "~",
             UnaryOp::Ref => "&",
             UnaryOp::Deref => "*",
         }

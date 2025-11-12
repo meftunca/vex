@@ -1,0 +1,248 @@
+// Operator Overloading Contracts for Vex Language
+// Syntax Version: 0.2.0
+//
+// This file defines the standard operator contracts used for operator overloading.
+// User types implement these contracts to define custom operator behavior.
+// Builtin types (i32, f64, etc.) extend these contracts via compiler magic (zero overhead).
+
+// ============================================================================
+// PHASE 1: Arithmetic Operators
+// ============================================================================
+
+/// Addition operator: a + b
+contract Add {
+    op+(rhs: Self): Self;
+}
+
+/// Subtraction operator: a - b
+contract Sub {
+    op-(rhs: Self): Self;
+}
+
+/// Multiplication operator: a * b
+contract Mul {
+    op*(rhs: Self): Self;
+}
+
+/// Division operator: a / b
+contract Div {
+    op/(rhs: Self): Self;
+}
+
+/// Modulo operator: a % b (integers only)
+contract Mod {
+    op%(rhs: Self): Self;
+}
+
+/// Unary negation operator: -a
+contract Neg {
+    op-(): Self;
+}
+
+// ============================================================================
+// PHASE 1.5: Bitwise Operators
+// ============================================================================
+
+/// Bitwise AND: a & b
+contract BitAnd {
+    op&(rhs: Self): Self;
+}
+
+/// Bitwise OR: a | b
+contract BitOr {
+    op|(rhs: Self): Self;
+}
+
+/// Bitwise XOR: a ^ b
+contract BitXor {
+    op^(rhs: Self): Self;
+}
+
+/// Bitwise NOT: ~a
+contract BitNot {
+    op~(): Self;
+}
+
+/// Left shift: a << b
+contract Shl {
+    op<<(rhs: i32): Self;
+}
+
+/// Right shift: a >> b
+contract Shr {
+    op>>(rhs: i32): Self;
+}
+
+// ============================================================================
+// PHASE 2: Comparison Operators
+// ============================================================================
+
+/// Equality comparison: a == b, a != b
+contract Eq {
+    op==(rhs: Self): bool;
+    op!=(rhs: Self): bool;  // Optional: auto-implemented as !op==(rhs)
+}
+
+/// Ordering comparison: a < b, a > b, a <= b, a >= b
+contract Ord {
+    op<(rhs: Self): bool;
+    op>(rhs: Self): bool;
+    op<=(rhs: Self): bool;
+    op>=(rhs: Self): bool;
+}
+
+/// Logical NOT: !a
+contract Not {
+    op!(): bool;
+}
+
+// ============================================================================
+// PHASE 3: Compound Assignment Operators
+// ============================================================================
+
+/// Add-assign: a += b
+contract AddAssign {
+    op+=(rhs: Self);
+}
+
+/// Subtract-assign: a -= b
+contract SubAssign {
+    op-=(rhs: Self);
+}
+
+/// Multiply-assign: a *= b
+contract MulAssign {
+    op*=(rhs: Self);
+}
+
+/// Divide-assign: a /= b
+contract DivAssign {
+    op/=(rhs: Self);
+}
+
+/// Modulo-assign: a %= b
+contract ModAssign {
+    op%=(rhs: Self);
+}
+
+/// Bitwise AND-assign: a &= b
+contract BitAndAssign {
+    op&=(rhs: Self);
+}
+
+/// Bitwise OR-assign: a |= b
+contract BitOrAssign {
+    op|=(rhs: Self);
+}
+
+/// Bitwise XOR-assign: a ^= b
+contract BitXorAssign {
+    op^=(rhs: Self);
+}
+
+/// Left shift-assign: a <<= b
+contract ShlAssign {
+    op<<=(rhs: i32);
+}
+
+/// Right shift-assign: a >>= b
+contract ShrAssign {
+    op>>=(rhs: i32);
+}
+
+// ============================================================================
+// PHASE 3.5: Index Operators
+// ============================================================================
+
+/// Index read: a[i]
+contract Index {
+    type Output;  // Associated type for return value
+    op[](index: i32): Output;
+}
+
+/// Index write: a[i] = value
+contract IndexMut {
+    op[]=(index: i32, value: Self);
+}
+
+// ============================================================================
+// PHASE 4: Advanced Operators
+// ============================================================================
+
+/// Exponentiation: a ** b
+contract Pow {
+    op**(exp: i32): Self;
+}
+
+/// Pre-increment: ++a
+contract PreInc {
+    op++(): Self;
+}
+
+/// Post-increment: a++
+contract PostInc {
+    op++(): Self;
+}
+
+/// Pre-decrement: --a
+contract PreDec {
+    op--(): Self;
+}
+
+/// Post-decrement: a--
+contract PostDec {
+    op--(): Self;
+}
+
+/// Range operator: a..b
+contract Range {
+    op..(end: Self): Range<Self>;
+}
+
+/// Inclusive range: a..=b
+contract RangeInclusive {
+    op..=(end: Self): RangeInclusive<Self>;
+}
+
+/// Null coalescing: a ?? b
+contract NullCoalesce {
+    op??(default: Self): Self;
+}
+
+// ============================================================================
+// USAGE EXAMPLES
+// ============================================================================
+
+// Example 1: Vec2 with arithmetic operators
+// struct Vec2 impl Add, Sub, Mul {
+//     x: f32,
+//     y: f32,
+//     
+//     op+(other: Vec2): Vec2 {
+//         return Vec2 { x: self.x + other.x, y: self.y + other.y };
+//     }
+//     
+//     op-(other: Vec2): Vec2 {
+//         return Vec2 { x: self.x - other.x, y: self.y - other.y };
+//     }
+//     
+//     op*(scalar: f32): Vec2 {
+//         return Vec2 { x: self.x * scalar, y: self.y * scalar };
+//     }
+// }
+
+// Example 2: Matrix with index operators
+// struct Matrix impl Index, IndexMut {
+//     type Output = f64;
+//     data: Vec<f64>,
+//     rows: i32,
+//     cols: i32,
+//     
+//     op[](index: i32): f64 {
+//         return self.data[index];
+//     }
+//     
+//     op[]=(index: i32, value: f64) {
+//         self.data[index] = value;
+//     }
+// }

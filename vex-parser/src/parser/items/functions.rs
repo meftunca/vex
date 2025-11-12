@@ -50,7 +50,14 @@ impl<'a> Parser<'a> {
             None
         };
 
-        let name = self.consume_identifier()?;
+        // ⭐ NEW: Check for operator method: op+, op-, op*, etc.
+        let (is_operator, name) = if let Token::OperatorMethod(op_name) = self.peek() {
+            let op_name_owned = op_name.clone();
+            self.advance(); // consume operator token
+            (true, op_name_owned)
+        } else {
+            (false, self.consume_identifier()?)
+        };
 
         // Optional generic type parameters with bounds: fn foo<T: Display, U: Clone>()
         let type_params = self.parse_type_params()?;
@@ -93,6 +100,7 @@ impl<'a> Parser<'a> {
             is_async: false,
             is_gpu: false,
             is_mutable, // ⭐ NEW: Store mutability flag
+            is_operator, // ⭐ NEW: Store operator flag
             receiver,
             name,
             type_params,

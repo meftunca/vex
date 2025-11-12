@@ -886,6 +886,14 @@ fn main() -> Result<()> {
 
             match parser.parse_file() {
                 Ok(_) => {
+                    // Print warnings if any
+                    let diagnostics = parser.diagnostics();
+                    if !diagnostics.is_empty() {
+                        for diag in diagnostics {
+                            println!("{}", diag);
+                        }
+                    }
+                    
                     println!("✅ Syntax OK");
                     Ok(())
                 }

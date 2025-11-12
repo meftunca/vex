@@ -213,10 +213,11 @@ impl<'a> Parser<'a> {
             return Ok(Expression::ChannelReceive(Box::new(expr)));
         }
 
-        if self.match_tokens(&[Token::Not, Token::Minus]) {
+        if self.match_tokens(&[Token::Not, Token::Minus, Token::Tilde]) {
             let op = match self.previous() {
                 Token::Not => UnaryOp::Not,
                 Token::Minus => UnaryOp::Neg,
+                Token::Tilde => UnaryOp::BitNot,
                 _ => unreachable!(),
             };
             let expr = self.parse_unary()?;

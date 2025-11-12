@@ -1,0 +1,9 @@
+// Minimal bitwise test
+fn main(): i32 {
+    let a = 12;
+    let b = 10;
+    println("{}", a & b);  // 8
+    println("{}", a | b);  // 14
+    println("{}", a ^ b);  // 6
+    return 0;
+}

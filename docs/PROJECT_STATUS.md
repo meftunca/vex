@@ -2,7 +2,7 @@
 
 **Version:** 0.2.0 (Syntax v0.1.2)
 **Last Updated:** November 12, 2025
-**Test Status:** 339/339 passing (100%) ✅🎉 - PRODUCTION READY!
+**Test Status:** 347/347 passing (100%) ✅🎉 - PRODUCTION READY!
 
 ## 📊 Code Metrics
 
@@ -10,8 +10,8 @@
 
 | Component | File | Lines |
 |-----------|------|-------|
-| AST | vex-ast/src/lib.rs | 885 |
-| Parser | vex-parser/src/parser/mod.rs | 423 |
+| AST | vex-ast/src/lib.rs | 888 |
+| Parser | vex-parser/src/parser/mod.rs | 440 |
 | Codegen | vex-compiler/src/codegen_ast/mod.rs | 979 |
 | Types | vex-compiler/src/codegen_ast/types.rs | 911 |
 | Pattern Matching | vex-compiler/src/codegen_ast/expressions/pattern_matching.rs | 1464 |

@@ -60,13 +60,14 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         let left_val = self.compile_expression(left)?;
                         let right_val = self.compile_expression(right)?;
                         
-                        // Dispatch to builtin contract codegen
-                        if let Some(result) = builtin_contracts::codegen_builtin_contract_method(
+                        // ⭐ NEW: Dispatch to builtin operator codegen (zero overhead LLVM IR)
+                        if let Some(result) = builtin_contracts::codegen_builtin_operator(
+                            &self.builder,
                             type_name,
                             contract_name,
                             method_name,
                             left_val,
-                            &[right_val],
+                            right_val,
                         ) {
                             return Ok(result);
                         }

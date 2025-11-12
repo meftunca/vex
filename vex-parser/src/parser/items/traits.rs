@@ -36,7 +36,9 @@ impl<'a> Parser<'a> {
 
         while !self.check(&Token::RBrace) && !self.is_at_end() {
             // ⭐ NEW: 'fn' keyword is now OPTIONAL in contract/trait methods
-            let is_method = self.check(&Token::Fn) || matches!(self.peek(), Token::Ident(_));
+            let is_method = self.check(&Token::Fn) 
+                || matches!(self.peek(), Token::Ident(_))
+                || matches!(self.peek(), Token::OperatorMethod(_));  // ⭐ NEW: Operator methods
             
             if is_method {
                 // If 'fn' present, consume it; otherwise continue (method name will be next)
@@ -150,8 +152,14 @@ impl<'a> Parser<'a> {
             None
         };
 
-        // Parse method name
-        let name = self.consume_identifier()?;
+        // ⭐ NEW: Check for operator method: op+, op-, op*, etc.
+        let (is_operator, name) = if let Token::OperatorMethod(op_name) = self.peek() {
+            let op_name_owned = op_name.clone();
+            self.advance(); // consume operator token
+            (true, op_name_owned)
+        } else {
+            (false, self.consume_identifier()?)
+        };
 
         // Parse parameters
         self.consume(&Token::LParen, "Expected '('")?;
@@ -183,6 +191,7 @@ impl<'a> Parser<'a> {
         Ok(TraitMethod {
             name,
             is_mutable, // ⭐ NEW: Store mutability flag
+            is_operator, // ⭐ NEW: Store operator flag
             receiver,
             params,
             return_type,

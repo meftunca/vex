@@ -534,19 +534,23 @@ Vex, metodun tanımlandığı bağlama göre değişen, esnek ve pragmatik bir m
 
 ### Method Definitions & Calls
 
-#### 1. Inline (Struct İçinde)
+> **⚠️ DEPRECATION WARNING**: Inline struct methods (defined inside `struct { }`) are deprecated.  
+> Use **Go-style external methods** instead: `fn (self: &Type) method_name(...) { }`  
+> See migration examples below.
+
+#### 1. ~~Inline (Struct İçinde)~~ [DEPRECATED]
 
 ```vex
 struct Point {
     x: i32,
     y: i32,
 
-    // Immutable method (implicit self)
+    // ⚠️ DEPRECATED: Inline methods are no longer recommended
     fn distance(): f64 {
         return sqrt(self.x * self.x + self.y * self.y);
     }
 
-    // Mutable method (implicit self)
+    // ⚠️ DEPRECATED: Use external method instead
     fn move_to(new_x: i32, new_y: i32)! {
         self.x = new_x;
         self.y = new_y;
@@ -561,7 +565,7 @@ let! p_mut = Point { x: 0, y: 0 };
 p_mut.move_to(30, 40); // '!' yok
 ```
 
-#### 2. External (Golang-style)
+#### 2. External (Golang-style) [RECOMMENDED ✅]
 
 ```vex
 struct Rectangle {

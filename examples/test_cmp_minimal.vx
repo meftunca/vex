@@ -1,0 +1,15 @@
+// Minimal comparison test
+fn main(): i32 {
+    let a = 10;
+    let b = 20;
+    
+    if a < b {
+        println("OK");
+    }
+    
+    if a == 10 {
+        println("OK");
+    }
+    
+    return 0;
+}

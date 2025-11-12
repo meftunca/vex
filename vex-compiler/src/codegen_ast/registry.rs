@@ -173,22 +173,23 @@ impl<'ctx> ASTCodeGen<'ctx> {
     /// Get operator trait method name from binary op
     pub(crate) fn binary_op_to_trait(&self, op: &BinaryOp) -> (&'static str, &'static str) {
         match op {
-            BinaryOp::Add => ("Add", "add"),
-            BinaryOp::Sub => ("Sub", "sub"),
-            BinaryOp::Mul => ("Mul", "mul"),
-            BinaryOp::Div => ("Div", "div"),
-            BinaryOp::Mod => ("Rem", "rem"),
-            BinaryOp::Eq => ("Eq", "eq"),
-            BinaryOp::NotEq => ("Ne", "ne"),
-            BinaryOp::Lt => ("Lt", "lt"),
-            BinaryOp::LtEq => ("Le", "le"),
-            BinaryOp::Gt => ("Gt", "gt"),
-            BinaryOp::GtEq => ("Ge", "ge"),
-            BinaryOp::BitAnd => ("BitAnd", "bitand"),
-            BinaryOp::BitOr => ("BitOr", "bitor"),
-            BinaryOp::BitXor => ("BitXor", "bitxor"),
-            BinaryOp::Shl => ("Shl", "shl"),
-            BinaryOp::Shr => ("Shr", "shr"),
+            // ⭐ UPDATED: Operator overloading uses op+ syntax, not method names
+            BinaryOp::Add => ("Add", "op+"),
+            BinaryOp::Sub => ("Sub", "op-"),
+            BinaryOp::Mul => ("Mul", "op*"),
+            BinaryOp::Div => ("Div", "op/"),
+            BinaryOp::Mod => ("Mod", "op%"),
+            BinaryOp::Eq => ("Eq", "op=="),
+            BinaryOp::NotEq => ("Eq", "op!="),
+            BinaryOp::Lt => ("Ord", "op<"),
+            BinaryOp::LtEq => ("Ord", "op<="),
+            BinaryOp::Gt => ("Ord", "op>"),
+            BinaryOp::GtEq => ("Ord", "op>="),
+            BinaryOp::BitAnd => ("BitAnd", "op&"),
+            BinaryOp::BitOr => ("BitOr", "op|"),
+            BinaryOp::BitXor => ("BitXor", "op^"),
+            BinaryOp::Shl => ("Shl", "op<<"),
+            BinaryOp::Shr => ("Shr", "op>>"),
             _ => ("", ""), // Logical ops don't have traits
         }
     }

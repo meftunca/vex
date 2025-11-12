@@ -136,6 +136,7 @@ pub struct Function {
     pub is_async: bool,
     pub is_gpu: bool,
     pub is_mutable: bool, // ⭐ NEW: Method-level mutability (fn method()!)
+    pub is_operator: bool, // ⭐ NEW: Operator overload method (fn op+(...))
     pub receiver: Option<Receiver>, // For methods
     pub name: String,
     pub type_params: Vec<TypeParam>, // Generic type parameters with bounds: <T: Display, U: Clone>
@@ -280,6 +281,7 @@ pub struct TraitTypeAlias {
 pub struct TraitMethod {
     pub name: String,
     pub is_mutable: bool, // ⭐ NEW: Method-level mutability (fn method()!)
+    pub is_operator: bool, // ⭐ NEW: Operator overload method (fn op+(...))
     pub receiver: Option<Receiver>, // self parameter (must use Self type)
     pub params: Vec<Param>,
     pub return_type: Option<Type>,
@@ -814,10 +816,11 @@ pub enum BinaryOp {
 /// Unary operators
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum UnaryOp {
-    Neg,   // -
-    Not,   // !
-    Ref,   // &
-    Deref, // *
+    Neg,    // -
+    Not,    // !
+    BitNot, // ~
+    Ref,    // &
+    Deref,  // *
 }
 
 /// Postfix operators

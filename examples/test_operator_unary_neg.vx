@@ -1,0 +1,30 @@
+// Test Unary Operator Overloading
+// Tests negation operator on custom struct
+
+contract Neg {
+    op-(): Self;
+}
+
+struct Vec2 impl Neg {
+    x: f32,
+    y: f32,
+    
+    op-(): Vec2 {
+        return Vec2 { x: -self.x, y: -self.y };
+    }
+}
+
+fn main(): i32 {
+    let v = Vec2 { x: 10.0, y: 20.0 };
+    let neg_v = -v;
+    
+    println("v = Vec2({}, {})", v.x, v.y);
+    println("-v = Vec2({}, {})", neg_v.x, neg_v.y);
+    
+    // Test with builtin
+    let a = 42;
+    let b = -a;
+    println("a = {}, -a = {}", a, b);
+    
+    return 0;
+}

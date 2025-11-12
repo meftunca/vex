@@ -218,6 +218,8 @@ pub enum Token {
     Pipe,
     #[token("^")]
     Caret,
+    #[token("~")]
+    Tilde,
     #[token("?")]
     Question,
 
@@ -342,7 +344,13 @@ pub enum Token {
     })]
     Tag(String),
 
-    // Identifiers - defined first
+    // Operator methods: op+, op-, op*, op/, op%, op==, op[], op++, etc.
+    // Must come BEFORE regular identifiers to match first
+    // Order matters: longer operators first (op<<= before op<<, op[]= before op[])
+    #[regex(r"op(\+\+|--|\*\*|<<=|>>=|\.\.=|\?\?|\[\]=|\[\]|[+\-*/%&|^]=|==|!=|<=|>=|<<|>>|&&|\|\||\.\.|\^|~|[+\-*/%<>&|!()])", |lex| lex.slice().to_string(), priority = 15)]
+    OperatorMethod(String),
+
+    // Identifiers - defined after operator methods
     #[regex(r"[a-zA-Z_][a-zA-Z0-9_]*", |lex| lex.slice().to_string())]
     Ident(String),
 

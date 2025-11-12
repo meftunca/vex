@@ -44,6 +44,17 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     Err("Cannot apply ! to non-integer value".to_string())
                 }
             }
+            UnaryOp::BitNot => {
+                if let BasicValueEnum::IntValue(iv) = val {
+                    Ok(self
+                        .builder
+                        .build_not(iv, "bitnot")
+                        .map_err(|e| format!("Failed to build bitwise NOT: {}", e))?
+                        .into())
+                } else {
+                    Err("Cannot apply ~ to non-integer value".to_string())
+                }
+            }
             _ => Err(format!("Unary operation not yet implemented: {:?}", op)),
         }
     }

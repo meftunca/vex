@@ -456,6 +456,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             is_async: false,
             is_gpu: false,
             is_mutable, // ⭐ NEW: Method mutability matches closure capture mode
+            is_operator: false, // Closures are not operators
             receiver: Some(Receiver {
                 is_mutable,
                 ty: Type::Reference(Box::new(Type::Named(struct_name.clone())), is_mutable),

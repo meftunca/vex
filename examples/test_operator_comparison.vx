@@ -1,0 +1,55 @@
+// Test Comparison Operator Overloading (Phase 2)
+// Tests: ==, !=, <, >, <=, >=
+
+fn main(): i32 {
+    // Test builtin i32 comparison operators
+    let a = 10;
+    let b = 20;
+    let c = 10;
+    
+    println("Comparison Operations:");
+    println("a = {}, b = {}, c = {}", a, b, c);
+    
+    // Equality
+    if a == c {
+        println("✅ a == c (Eq works!)");
+    }
+    
+    if a != b {
+        println("✅ a != b (Ne works!)");
+    }
+    
+    // Ordering
+    if a < b {
+        println("✅ a < b (Lt works!)");
+    }
+    
+    if b > a {
+        println("✅ b > a (Gt works!)");
+    }
+    
+    if a <= c {
+        println("✅ a <= c (Le works!)");
+    }
+    
+    if b >= a {
+        println("✅ b >= a (Ge works!)");
+    }
+    
+    // Test with floats
+    let x = 3.14;
+    let y = 2.71;
+    
+    println("\nFloat comparisons:");
+    println("x = {}, y = {}", x, y);
+    
+    if x > y {
+        println("✅ x > y (float comparison works!)");
+    }
+    
+    if x != y {
+        println("✅ x != y (float equality works!)");
+    }
+    
+    return 0;
+}

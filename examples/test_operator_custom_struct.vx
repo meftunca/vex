@@ -1,0 +1,77 @@
+// Test Custom Struct Operator Overloading
+// User-defined Vec2 with all arithmetic operators
+
+contract Add {
+    op+(rhs: Self): Self;
+}
+
+contract Sub {
+    op-(rhs: Self): Self;
+}
+
+contract Mul {
+    op*(rhs: Self): Self;
+}
+
+contract Neg {
+    op-(): Self;
+}
+
+struct Vec2 impl Add, Sub, Mul, Neg {
+    x: f32,
+    y: f32,
+    
+    // Inline operator methods (will show deprecation warning)
+    op+(other: Vec2): Vec2 {
+        return Vec2 { x: self.x + other.x, y: self.y + other.y };
+    }
+    
+    op-(other: Vec2): Vec2 {
+        return Vec2 { x: self.x - other.x, y: self.y - other.y };
+    }
+    
+    op*(other: Vec2): Vec2 {
+        return Vec2 { x: self.x * other.x, y: self.y * other.y };
+    }
+    
+    op-(): Vec2 {
+        return Vec2 { x: -self.x, y: -self.y };
+    }
+    
+    display() {
+        println("Vec2({}, {})", self.x, self.y);
+    }
+}
+
+fn main(): i32 {
+    let v1 = Vec2 { x: 10.0, y: 20.0 };
+    let v2 = Vec2 { x: 5.0, y: 3.0 };
+    
+    println("=== Vec2 Operator Overloading Test ===");
+    
+    print("v1 = ");
+    v1.display();
+    
+    print("v2 = ");
+    v2.display();
+    
+    let sum = v1 + v2;
+    print("v1 + v2 = ");
+    sum.display();
+    
+    let diff = v1 - v2;
+    print("v1 - v2 = ");
+    diff.display();
+    
+    let prod = v1 * v2;
+    print("v1 * v2 = ");
+    prod.display();
+    
+    let neg = -v1;
+    print("-v1 = ");
+    neg.display();
+    
+    println("\n=== All tests passed! ===");
+    
+    return 0;
+}
