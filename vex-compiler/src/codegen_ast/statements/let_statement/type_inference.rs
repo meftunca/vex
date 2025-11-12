@@ -415,9 +415,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 let llvm_type = self.ast_type_to_llvm(ty.unwrap());
                 self.variables.insert(name.to_string(), alloca);
                 self.variable_types.insert(name.to_string(), llvm_type);
+                self.variable_ast_types
+                    .insert(name.to_string(), (*ty.unwrap()).clone());
 
-                // Return a dummy value since we've already registered the variable
-                return Ok(self.context.i32_type().const_zero().into());
+                // Return the alloca pointer (already registered)
+                return Ok(alloca.into());
             } else if let Expression::Array(elements) = adjusted_value {
                 if elements.len() > 100 {
                     let alloca = self.create_entry_block_alloca(name, ty.unwrap(), is_mutable)?;
@@ -429,7 +431,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     self.variable_ast_types
                         .insert(name.to_string(), (*ty.unwrap()).clone());
 
-                    return Ok(self.context.i32_type().const_zero().into());
+                    // Return the alloca pointer (already registered)
+                    return Ok(alloca.into());
                 }
             }
         }

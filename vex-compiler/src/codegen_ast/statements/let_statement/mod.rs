@@ -52,6 +52,15 @@ impl<'ctx> ASTCodeGen<'ctx> {
         // Step 4: Compile the value expression
         let val = self.compile_value_expression(ty, &adjusted_value, name, is_mutable)?;
 
+        // Special case: If val is a pointer and variable is already registered, skip step 5-6
+        // This happens when compile_value_expression handles large arrays directly
+        if let BasicValueEnum::PointerValue(_) = val {
+            if self.variables.contains_key(name) {
+                // Variable already registered by compile_value_expression
+                return Ok(());
+            }
+        }
+
         // Step 5: Determine final type
         let (final_var_type, final_llvm_type) =
             self.determine_final_type(ty, val, value, &struct_name_from_expr)?;
