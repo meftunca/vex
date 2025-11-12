@@ -235,9 +235,20 @@ impl<'a> Parser<'a> {
             self.consume(&Token::Colon, "Expected ':' after parameter name(s)")?;
             let ty = self.parse_type()?;
 
-            // Expand all names with the same type
+            // Check for default value: = expr
+            let default_value = if self.match_token(&Token::Eq) {
+                Some(Box::new(self.parse_expression()?))
+            } else {
+                None
+            };
+
+            // Expand all names with the same type and default value
             for name in names {
-                params.push(Param { name, ty: ty.clone() });
+                params.push(Param { 
+                    name, 
+                    ty: ty.clone(),
+                    default_value: default_value.clone(),
+                });
             }
 
             if !self.match_token(&Token::Comma) {

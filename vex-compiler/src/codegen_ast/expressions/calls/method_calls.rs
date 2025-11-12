@@ -353,6 +353,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                             .map(|p| vex_ast::Param {
                                 name: p.name.clone(),
                                 ty: Self::replace_self_type(&p.ty, &type_name),
+                                default_value: p.default_value.clone(),
                             })
                             .collect();
 
@@ -372,6 +373,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                             .map(|p| Param {
                                 name: p.name.clone(),
                                 ty: Self::replace_self_type(&p.ty, &type_name),
+                                default_value: p.default_value.clone(),
                             })
                             .collect();
 

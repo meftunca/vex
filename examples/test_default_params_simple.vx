@@ -1,0 +1,46 @@
+// Test: Simple default parameter values
+
+fn add(a: i32, b: i32 = 10): i32 {
+    return a + b;
+}
+
+fn greet(name: string = "World") {
+    print("Hello, ");
+    print(name);
+    print("!\n");
+}
+
+fn main(): i32 {
+    // Test 1: Use default value
+    let sum1 = add(5);  // 5 + 10 = 15
+    print("Test 1: ");
+    print(sum1);
+    print("\n");
+    
+    if sum1 != 15 {
+        print("FAIL: Expected 15\n");
+        return 1;
+    }
+    
+    // Test 2: Override default
+    let sum2 = add(5, 20);  // 5 + 20 = 25
+    print("Test 2: ");
+    print(sum2);
+    print("\n");
+    
+    if sum2 != 25 {
+        print("FAIL: Expected 25\n");
+        return 1;
+    }
+    
+    // Test 3: String with default
+    print("Test 3: ");
+    greet();  // Should print "Hello, World!"
+    
+    // Test 4: String override
+    print("Test 4: ");
+    greet("Vex");  // Should print "Hello, Vex!"
+    
+    print("✅ All tests passed!\n");
+    return 0;
+}

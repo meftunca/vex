@@ -1,0 +1,67 @@
+// Test: Default parameter values
+
+// Simple default value
+fn greet(name: string = "World"): string {
+    return "Hello, " + name + "!";
+}
+
+// Multiple defaults
+fn create_point(x: i32 = 0, y: i32 = 0): Point {
+    return Point { x: x, y: y };
+}
+
+// Mixed: some with defaults, some without
+fn add_numbers(a: i32, b: i32 = 10, c: i32 = 20): i32 {
+    return a + b + c;
+}
+
+// Go-style grouping with defaults
+fn process(x, y: f64 = 1.0): f64 {
+    return x * y;
+}
+
+struct Point {
+    x: i32,
+    y: i32,
+}
+
+fn main(): i32 {
+    // Test 1: No arguments (all defaults)
+    let msg1 = greet();
+    println("Test 1: ", msg1);
+    
+    // Test 2: Override default
+    let msg2 = greet("Vex");
+    println("Test 2: ", msg2);
+    
+    // Test 3: Struct with defaults
+    let p1 = create_point();
+    println("Test 3: Point(", p1.x, ",", p1.y, ")");
+    
+    // Test 4: Override some defaults
+    let p2 = create_point(5);
+    println("Test 4: Point(", p2.x, ",", p2.y, ")");
+    
+    // Test 5: Override all
+    let p3 = create_point(5, 10);
+    println("Test 5: Point(", p3.x, ",", p3.y, ")");
+    
+    // Test 6: Mixed parameters
+    let sum1 = add_numbers(1);           // 1 + 10 + 20 = 31
+    let sum2 = add_numbers(1, 2);        // 1 + 2 + 20 = 23
+    let sum3 = add_numbers(1, 2, 3);     // 1 + 2 + 3 = 6
+    
+    println("Test 6a: ", sum1);
+    println("Test 6b: ", sum2);
+    println("Test 6c: ", sum3);
+    
+    // Test 7: Grouped parameters with defaults
+    let result1 = process(5.0);          // 5.0 * 1.0 = 5.0
+    let result2 = process(5.0, 2.0);     // 5.0 * 2.0 = 10.0
+    
+    println("Test 7a: ", result1);
+    println("Test 7b: ", result2);
+    
+    println("✅ All default parameter tests completed!");
+    return 0;
+}

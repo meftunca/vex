@@ -165,6 +165,7 @@ pub struct Receiver {
 pub struct Param {
     pub name: String,
     pub ty: Type,
+    pub default_value: Option<Box<Expression>>, // ⭐ NEW: Default parameter value (fn foo(x: i32 = 10))
 }
 
 /// Struct definition (v1.3: Inline trait implementation)

@@ -125,6 +125,7 @@ impl<'a> Parser<'a> {
                 params.push(vex_ast::Param {
                     name: param_name,
                     ty: param_type,
+                    default_value: None,
                 });
 
                 if !self.match_token(&Token::Comma) {

@@ -5,7 +5,7 @@ use inkwell::values::{BasicMetadataValueEnum, BasicValueEnum};
 use vex_ast::*;
 
 impl<'ctx> ASTCodeGen<'ctx> {
-    /// Compile function call
+    /// Compile function call (with default parameter support)
     pub(crate) fn compile_call(
         &mut self,
         func_expr: &Expression,
@@ -17,10 +17,44 @@ impl<'ctx> ASTCodeGen<'ctx> {
             eprintln!("  Type args: {:?}", type_args);
         }
 
-        // Compile arguments first
+        // Get function definition to check for default parameters
+        let func_def_opt = if let Expression::Ident(func_name) = func_expr {
+            self.function_defs.get(func_name).cloned()
+        } else {
+            None
+        };
+
+        // Build final argument list (filling in defaults if needed)
+        let mut final_args = args.to_vec();
+        
+        if let Some(func_def) = &func_def_opt {
+            let provided_count = args.len();
+            let expected_count = func_def.params.len();
+            
+            if provided_count < expected_count {
+                // Fill in missing arguments with defaults
+                for i in provided_count..expected_count {
+                    if let Some(default_expr) = &func_def.params[i].default_value {
+                        final_args.push((**default_expr).clone());
+                    } else {
+                        return Err(format!(
+                            "Missing argument {} for function (no default value)",
+                            func_def.params[i].name
+                        ));
+                    }
+                }
+            } else if provided_count > expected_count {
+                return Err(format!(
+                    "Too many arguments: expected {}, got {}",
+                    expected_count, provided_count
+                ));
+            }
+        }
+
+        // Compile arguments
         let mut arg_vals: Vec<BasicMetadataValueEnum> = Vec::new();
         let mut arg_basic_vals: Vec<BasicValueEnum> = Vec::new();
-        for arg in args {
+        for arg in &final_args {
             let val = self.compile_expression(arg)?;
 
             // If argument is a struct, we need to pass it by pointer (alloca)

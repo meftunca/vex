@@ -487,7 +487,8 @@ fn main(): i32 {
 
 ### Phase 4: Future Enhancements
 - [x] Variable declaration: Keeping `let`/`let!`
-- [ ] Go-style parameter grouping: `(a, b, c: i32)`
+- [x] ✅ Go-style parameter grouping: `(a, b, c: i32)` - IMPLEMENTED
+- [x] ✅ Default parameter values: `(a: i32 = 10)` - IMPLEMENTED
 - [ ] Finalize loop syntax (keep 4 or reduce to 3?)
 - [ ] Consider `match` alternatives (`inspect`, `switch`, `when`)
 
@@ -543,6 +544,50 @@ struct Point {
 
 ---
 
+## 🎯 New Feature: Default Parameter Values ✅
+
+**Status:** ✅ **IMPLEMENTED** (v0.2.0)
+
+**Proposal:** Allow parameters to have default values
+
+```vex
+// Simple default
+fn greet(name: string = "World") {
+    print("Hello, ", name, "!");
+}
+
+// Multiple defaults
+fn create_point(x: i32 = 0, y: i32 = 0): Point {
+    return Point { x: x, y: y };
+}
+
+// Mixed parameters
+fn add_numbers(a: i32, b: i32 = 10, c: i32 = 20): i32 {
+    return a + b + c;
+}
+
+// Usage
+greet();              // "Hello, World!"
+create_point();       // Point(0, 0)
+add_numbers(1);        // 31 (1 + 10 + 20)
+```
+
+**Benefits:**
+- ✅ More flexible API design
+- ✅ Backwards compatible function evolution
+- ✅ Cleaner code for common use cases
+- ✅ Zero runtime overhead (compile-time expansion)
+
+**Implementation:**
+- ✅ AST: Added `default_value` field to `Param`
+- ✅ Parser: Detects `= expression` after type
+- ✅ Codegen: Auto-fills missing arguments
+- ✅ Test: `examples/test_default_minimal.vx`
+
+**Status:** ✅ **COMPLETED** - Feature is production-ready
+
+---
+
 ## 🤔 Open Questions
 
 1. ~~**Variable syntax:**~~ ✅ Keeping `let`/`let!`
@@ -552,7 +597,8 @@ struct Point {
 5. **Pattern matching:** Keep `match` or use `inspect`/`switch`/`when`?
 6. **Error handling:** Result-heavy or exception-friendly?
 7. **Module system:** Pure JS-style or add Vex-specific features?
-8. **Parameter grouping:** Implement Go-style `(a, b, c: i32)` syntax?
+8. ~~**Parameter grouping:**~~ ✅ Implemented - Go-style `(a, b, c: i32)`
+9. ~~**Default parameters:**~~ ✅ Implemented - `(a: i32 = 10)`
 
 ---
 

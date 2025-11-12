@@ -1,0 +1,18 @@
+// Test: Minimal default parameter test
+
+fn add(a: i32, b: i32 = 10): i32 {
+    return a + b;
+}
+
+fn main(): i32 {
+    let sum1 = add(5);      // Should be 15 (5 + 10)
+    let sum2 = add(5, 20);  // Should be 25 (5 + 20)
+    
+    if sum1 == 15 {
+        if sum2 == 25 {
+            return 0;  // Success
+        }
+    }
+    
+    return 1;  // Failure
+}

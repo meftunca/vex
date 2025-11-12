@@ -336,6 +336,79 @@ modify(y);
 
 For reference semantics, use pointers or references (see [21_Mutability_and_Pointers.md](21_Mutability_and_Pointers.md)).
 
+### Default Parameter Values
+
+⭐ **NEW in v0.2.0**: Parameters can have default values.
+
+**Syntax**: `parameter: type = default_expression`
+
+```vex
+// Simple default value
+fn greet(name: string = "World") {
+    print("Hello, ", name, "!");
+}
+
+// Multiple defaults
+fn create_point(x: i32 = 0, y: i32 = 0): Point {
+    return Point { x: x, y: y };
+}
+
+// Mixed: required and optional parameters
+fn add_numbers(a: i32, b: i32 = 10, c: i32 = 20): i32 {
+    return a + b + c;
+}
+
+// With parameter grouping
+fn process(x, y: f64 = 1.0): f64 {
+    return x * y;
+}
+```
+
+**Calling with defaults**:
+
+```vex
+// Use all defaults
+greet();  // "Hello, World!"
+
+// Override some defaults
+create_point(5);  // Point { x: 5, y: 0 }
+
+// Override all
+create_point(5, 10);  // Point { x: 5, y: 10 }
+
+// Mixed parameters
+add_numbers(1);        // 1 + 10 + 20 = 31
+add_numbers(1, 2);     // 1 + 2 + 20 = 23
+add_numbers(1, 2, 3);  // 1 + 2 + 3 = 6
+```
+
+**Rules**:
+- Default values can be any compile-time constant expression
+- Parameters with defaults must come after required parameters
+- When calling, you can omit trailing parameters with defaults
+- You cannot skip a parameter in the middle (no named arguments yet)
+
+**Examples**:
+
+```vex
+// ✅ Valid
+fn foo(a: i32, b: i32 = 10) { }
+fn bar(x: i32, y: i32 = 5, z: i32 = 3) { }
+
+// ❌ Invalid: default before required
+fn baz(a: i32 = 10, b: i32) { }  // Compile error
+
+// Calling
+foo(1);     // OK: a=1, b=10
+foo(1, 2);  // OK: a=1, b=2
+
+bar(1);        // OK: x=1, y=5, z=3
+bar(1, 2);     // OK: x=1, y=2, z=3
+bar(1, 2, 3);  // OK: x=1, y=2, z=3
+```
+
+**Implementation**: The compiler automatically fills in missing arguments with their default expressions during code generation. This is a zero-cost abstraction - no runtime overhead.
+
 ### Variadic Parameters
 
 **Status**: Not yet implemented (future feature)
