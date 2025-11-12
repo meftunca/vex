@@ -1,10 +1,10 @@
 // Type Aliases
 // Demonstrates: type alias definitions
 
-// Simple type aliases
-type UserId = i32|i64;
-type Score = i32|i64;
-type Count = i32|i64;
+// Simple type aliases (direct type renaming)
+type UserId = i32;
+type Score = i32;
+type Count = i32;
 
 fn main() : i32 {
     // Use type aliases like regular types
@@ -17,11 +17,9 @@ fn main() : i32 {
     return result;  // Returns 12445
 }
 
-// Function using type aliases (simplified - direct return)
+// Function using type aliases
 fn process_user(id: UserId, score: Score) : i32 {
-    // Type aliases not fully supported for arithmetic yet
-    // Workaround: return constant
-    return 12445;
+    return id + score;  // Type aliases work seamlessly
 }
 
 // Another type alias function

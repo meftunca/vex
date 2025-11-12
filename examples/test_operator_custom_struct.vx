@@ -14,14 +14,14 @@ contract Mul {
 }
 
 contract Neg {
-    op-(): Self;
+    op-(): Self;  // Unary negation (no parameters)
 }
 
 struct Vec2 impl Add, Sub, Mul, Neg {
     x: f32,
     y: f32,
     
-    // Inline operator methods (will show deprecation warning)
+    // Binary operators (with parameter)
     op+(other: Vec2): Vec2 {
         return Vec2 { x: self.x + other.x, y: self.y + other.y };
     }
@@ -34,6 +34,7 @@ struct Vec2 impl Add, Sub, Mul, Neg {
         return Vec2 { x: self.x * other.x, y: self.y * other.y };
     }
     
+    // Unary operator (no parameter)
     op-(): Vec2 {
         return Vec2 { x: -self.x, y: -self.y };
     }

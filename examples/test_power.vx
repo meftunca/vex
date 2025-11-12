@@ -1,0 +1,15 @@
+// Test power operator for primitives
+
+fn main(): i32 {
+    // Integer power
+    let x = 2 ** 8;  // 256
+    
+    // Float power
+    let y = 2.0 ** 3.0;  // 8.0
+    
+    if x == 256 && y == 8.0 {
+        return 42;
+    }
+    
+    return 1;
+}

@@ -1,0 +1,21 @@
+// Minimal test - does mutable method body compile?
+
+contract IndexMut {
+    op[]=(index: i32, value: f64)!;
+}
+
+struct Vec2 impl IndexMut {
+    x: f64,
+    y: f64,
+}
+
+fn (self: Vec2) op[]=(index: i32, value: f64)! {
+    // Just assign - no conditionals
+    self.x = value;
+}
+
+fn main(): i32 {
+    let! v = Vec2 { x: 10.0, y: 20.0 };
+    v[0] = 99.0;
+    return 42;
+}

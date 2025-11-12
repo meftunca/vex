@@ -481,6 +481,23 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 BasicTypeEnum::PointerType(self.context.ptr_type(inkwell::AddressSpace::default()))
             }
 
+            Type::Tuple(elements) => {
+                // Tuple type: (T, U, V, ...)
+                // Represented as anonymous struct: {T, U, V}
+                if elements.is_empty() {
+                    // Empty tuple () - unit type, represented as zero-sized struct
+                    let unit_type = self.context.struct_type(&[], false);
+                    BasicTypeEnum::StructType(unit_type)
+                } else {
+                    let elem_types: Vec<BasicTypeEnum> = elements
+                        .iter()
+                        .map(|ty| self.ast_type_to_llvm(ty))
+                        .collect();
+                    let tuple_struct = self.context.struct_type(&elem_types, false);
+                    BasicTypeEnum::StructType(tuple_struct)
+                }
+            }
+
             _ => {
                 // Default to i32 for unsupported types
                 BasicTypeEnum::IntType(self.context.i32_type())

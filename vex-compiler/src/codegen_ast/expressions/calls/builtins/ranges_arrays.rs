@@ -360,8 +360,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     .get(var_name)
                     .ok_or_else(|| format!("Channel variable {} not found", var_name))?;
 
-                // Load the channel pointer (opaque pointer to VexChannel)
-                let channel_opaque_type = self.context.opaque_struct_type("struct.VexChannel");
+                // Load the channel pointer
                 let channel_ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
                 let channel_ptr = self
                     .builder
@@ -372,67 +371,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 // Compile the value to send
                 let value = self.compile_expression(&args[0])?;
 
-                // Allocate heap space for value (channel stores pointer, not copy!)
-                // Calculate size in bytes
-                let value_type = value.get_type();
-                let size_in_bytes = match value_type {
-                    inkwell::types::BasicTypeEnum::IntType(it) => it.get_bit_width() / 8,
-                    inkwell::types::BasicTypeEnum::FloatType(ft) => {
-                        match ft.get_context().f64_type() == ft {
-                            true => 8,
-                            false => 4,
-                        }
-                    }
-                    _ => return Err(format!("Unsupported channel value type: {:?}", value_type)),
-                };
-
-                // Declare malloc: void* malloc(size_t size)
-                let malloc_fn = if let Some(func) = self.module.get_function("malloc") {
-                    func
-                } else {
-                    let i64_type = self.context.i64_type();
-                    let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
-                    let fn_type = ptr_type.fn_type(&[i64_type.into()], false);
-                    self.module.add_function(
-                        "malloc",
-                        fn_type,
-                        Some(inkwell::module::Linkage::External),
-                    )
-                };
-
-                let size_value = self
-                    .context
-                    .i64_type()
-                    .const_int(size_in_bytes as u64, false);
-                let heap_ptr = self
-                    .builder
-                    .build_call(malloc_fn, &[size_value.into()], "heap_alloc")
-                    .map_err(|e| format!("Failed to call malloc: {}", e))?
-                    .try_as_basic_value()
-                    .left()
-                    .ok_or("malloc returned void")?
-                    .into_pointer_value();
-
-                // Store value to heap
-                self.builder
-                    .build_store(heap_ptr, value)
-                    .map_err(|e| format!("Failed to store value to heap: {}", e))?;
-
-                // Already a void pointer
-                let void_ptr = heap_ptr;
-
-                // Call vex_channel_send
-                let send_fn = self.get_or_declare_vex_channel_send();
-                self.builder
-                    .build_call(
-                        send_fn,
-                        &[channel_ptr.into(), void_ptr.into()],
-                        "channel_send",
-                    )
-                    .map_err(|e| format!("Failed to call vex_channel_send: {}", e))?;
-
-                // Return void (unit type)
-                Ok(Some(self.context.i8_type().const_zero().into()))
+                // Delegate to static builtin: Channel.send(ch, value)
+                let builtin_fn = self.builtins.get("Channel.send")
+                    .ok_or_else(|| "Channel.send builtin not registered".to_string())?;
+                
+                let result = builtin_fn(self, &[channel_ptr.into(), value])?;
+                return Ok(Some(result));
             }
             "recv" => {
                 if !args.is_empty() {
@@ -453,63 +397,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     .map_err(|e| format!("Failed to load channel pointer: {}", e))?
                     .into_pointer_value();
 
-                // Get element type from variable type (Channel<T>)
-                // For now, assume i64 as element type (TODO: extract from Channel<T> type)
-                let elem_type = self.context.i64_type();
-
-                // Allocate space for the out parameter (void**)
-                let data_out_ptr = self
-                    .builder
-                    .build_alloca(channel_ptr_type, "data_out")
-                    .map_err(|e| format!("Failed to allocate data_out: {}", e))?;
-
-                // Call vex_channel_recv(chan, &data_out)
-                let recv_fn = self.get_or_declare_vex_channel_recv();
-                let status = self
-                    .builder
-                    .build_call(
-                        recv_fn,
-                        &[channel_ptr.into(), data_out_ptr.into()],
-                        "channel_recv",
-                    )
-                    .map_err(|e| format!("Failed to call vex_channel_recv: {}", e))?
-                    .try_as_basic_value()
-                    .left()
-                    .ok_or_else(|| "vex_channel_recv returned void".to_string())?
-                    .into_int_value();
-
-                // Load the received data pointer from data_out
-                let received_ptr = self
-                    .builder
-                    .build_load(channel_ptr_type, data_out_ptr, "received_ptr_load")
-                    .map_err(|e| format!("Failed to load received pointer: {}", e))?
-                    .into_pointer_value();
-
-                // Load the actual value from heap
-                let value = self
-                    .builder
-                    .build_load(elem_type, received_ptr, "recv_value")
-                    .map_err(|e| format!("Failed to load recv value: {}", e))?;
-
-                // Free the heap-allocated memory (sender malloc'd it)
-                let free_fn = if let Some(func) = self.module.get_function("free") {
-                    func
-                } else {
-                    let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
-                    let void_type = self.context.void_type();
-                    let fn_type = void_type.fn_type(&[ptr_type.into()], false);
-                    self.module.add_function(
-                        "free",
-                        fn_type,
-                        Some(inkwell::module::Linkage::External),
-                    )
-                };
-
-                self.builder
-                    .build_call(free_fn, &[received_ptr.into()], "free_recv_value")
-                    .map_err(|e| format!("Failed to call free: {}", e))?;
-
-                Ok(Some(value))
+                // Delegate to static builtin: Channel.recv(ch)
+                let builtin_fn = self.builtins.get("Channel.recv")
+                    .ok_or_else(|| "Channel.recv builtin not registered".to_string())?;
+                
+                let result = builtin_fn(self, &[channel_ptr.into()])?;
+                return Ok(Some(result));
             }
             _ => Ok(None),
         }

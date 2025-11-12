@@ -11,7 +11,7 @@
 
 mod assignment;
 mod control_flow;
-pub(crate) mod let_statement;
+mod let_statement;
 mod loops;
 
 use super::ASTCodeGen;
@@ -21,7 +21,9 @@ use vex_ast::*;
 impl<'ctx> ASTCodeGen<'ctx> {
     /// Compile a block of statements
     pub(crate) fn compile_block(&mut self, block: &Block) -> Result<(), String> {
+        eprintln!("📋 compile_block: {} statements", block.statements.len());
         for stmt in &block.statements {
+            eprintln!("   → Compiling statement: {:?}", std::mem::discriminant(stmt));
             self.compile_statement(stmt)?;
 
             // Stop compiling statements after a terminator (return/break/continue/branch)

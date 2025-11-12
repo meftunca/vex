@@ -1,0 +1,6 @@
+// Test only send
+fn main(): i32 {
+    let! ch: Channel<i64> = Channel(3);
+    ch.send(42);
+    return 0;
+}

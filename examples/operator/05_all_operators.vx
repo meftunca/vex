@@ -2,85 +2,90 @@
 
 // Arithmetic operators
 contract Add {
-    add(other: Self): Self;
+    op+(other: Self): Self;
 }
 
 contract Sub {
-    sub(other: Self): Self;
+    op-(other: Self): Self;
 }
 
 contract Mul {
-    mul(other: Self): Self;
+    op*(other: Self): Self;
 }
 
 contract Div {
-    div(other: Self): Self;
+    op/(other: Self): Self;
 }
 
 contract Rem {
-    rem(other: Self): Self;
+    op%(other: Self): Self;
 }
 
 // Comparison operators
 contract Eq {
-    eq(other: Self): bool;
+    op==(other: Self): bool;
+    op!=(other: Self): bool;
 }
 
 contract Ord {
-    lt(other: Self): bool;
-    le(other: Self): bool;
-    gt(other: Self): bool;
-    ge(other: Self): bool;
+    op<(other: Self): bool;
+    op<=(other: Self): bool;
+    op>(other: Self): bool;
+    op>=(other: Self): bool;
 }
 
 // Bitwise operators
 contract BitAnd {
-    bitand(other: Self): Self;
+    op&(other: Self): Self;
 }
 
 contract BitOr {
-    bitor(other: Self): Self;
+    op|(other: Self): Self;
 }
 
 contract BitXor {
-    bitxor(other: Self): Self;
+    op^(other: Self): Self;
 }
 
 contract Shl {
-    shl(amount: i32): Self;
+    op<<(amount: i32): Self;
 }
 
 contract Shr {
-    shr(amount: i32): Self;
+    op>>(amount: i32): Self;
 }
 
 // Unary operators
 contract Neg {
-    neg(): Self;
+    op-(): Self;
 }
 
 contract Not {
-    not(): bool;
+    op!(): bool;
 }
 
 struct Point impl Add, Sub, Mul, Eq {
     x: i32,
     y: i32,
 
-    fn add(other: Point): Point {
+    fn op+(other: Point): Point {
         return Point { x: self.x + other.x, y: self.y + other.y };
     }
 
-    fn sub(other: Point): Point {
+    fn op-(other: Point): Point {
         return Point { x: self.x - other.x, y: self.y - other.y };
     }
 
-    fn mul(other: Point): Point {
+    fn op*(other: Point): Point {
         return Point { x: self.x * other.x, y: self.y * other.y };
     }
 
-    fn eq(other: Point): bool {
+    fn op==(other: Point): bool {
         return self.x == other.x && self.y == other.y;
+    }
+    
+    fn op!=(other: Point): bool {
+        return !(self == other);
     }
 }
 

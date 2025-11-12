@@ -273,7 +273,9 @@ impl<'a> Parser<'a> {
 
         // Pre-increment: ++i
         if self.match_token(&Token::Increment) {
+            eprintln!("🔵 Parser: Matched pre-increment (++) at position {}", self.current);
             let expr = self.parse_unary()?;
+            eprintln!("🔵 Parser: Pre-increment expr: {:?}", expr);
             return Ok(Expression::Unary {
                 span_id: None,
                 op: UnaryOp::PreInc,

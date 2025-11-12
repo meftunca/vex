@@ -1,0 +1,28 @@
+// fmt - Formatting and Display contracts
+// Standard library module for string formatting and conversion
+
+// Display contract - convert types to string representation
+export contract Display {
+    display(): str;
+}
+
+// Default contract - provide default values for types
+export contract Default {
+    // default(): Self;  // TODO: Parser doesn't support Self in trait return type yet
+}
+
+// Format contract - advanced formatting with format specifiers
+export contract Format {
+    format(spec: str): str;
+}
+
+// Built-in Display implementations for primitive types
+// These are implemented in the compiler's builtin_contracts module
+
+// Built-in Default implementations
+// i32::default() -> 0
+// i64::default() -> 0
+// f32::default() -> 0.0
+// f64::default() -> 0.0
+// bool::default() -> false
+// str::default() -> ""

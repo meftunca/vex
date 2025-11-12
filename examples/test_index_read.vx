@@ -1,0 +1,27 @@
+// Minimal index operator read test
+
+contract Index {
+    type Output;
+    op[](index: i32): Output;
+}
+
+struct Vec2 impl Index {
+    type Output = f64;
+    x: f64,
+    y: f64,
+}
+
+fn (self: Vec2) op[](index: i32): f64 {
+    if index == 0 { return self.x; }
+    return self.y;
+}
+
+fn main(): i32 {
+    let v = Vec2 { x: 10.0, y: 20.0 };
+    let x = v[0];
+    
+    if x == 10.0 {
+        return 42;
+    }
+    return 1;
+}

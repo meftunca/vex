@@ -222,7 +222,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
         }
 
         self.push_scope();
+        eprintln!("📋 About to compile function body with {} statements", func.body.statements.len());
         self.compile_block(&func.body)?;
+        eprintln!("📋 Finished compiling function body");
 
         if let Some(current_block) = self.builder.get_insert_block() {
             if current_block.get_terminator().is_none() {

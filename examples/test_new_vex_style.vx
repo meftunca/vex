@@ -45,12 +45,6 @@ fn (p: &Point!) translate(dx: i32, dy: i32) {
 fn main(): i32 {
     let! p = Point { x: 10, y: 20 };
     p.show();
-    return 0;
-}
-
-fn main(): i32 {
-    let! p = Point { x: 10, y: 20 };
-    p.show();
     p.translate(5, 5);
     p.show();
     

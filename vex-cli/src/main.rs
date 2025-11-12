@@ -545,7 +545,7 @@ fn main() -> Result<()> {
             let mut native_linker_args: Vec<String> = Vec::new();
 
             if !ast.imports.is_empty() {
-                let std_lib_path = PathBuf::from("vex-libs/std");
+                let std_lib_path = PathBuf::from("stdlib");
                 let mut resolver = vex_compiler::ModuleResolver::new(std_lib_path);
 
                 for import in &ast.imports {
@@ -700,7 +700,7 @@ fn main() -> Result<()> {
                     }
 
                     // Check for native dependencies in imported module's vex.json
-                    let module_dir = PathBuf::from("vex-libs/std").join(module_path);
+                    let module_dir = PathBuf::from("stdlib").join(module_path);
                     let vex_json_path = module_dir.join("vex.json");
                     if vex_json_path.exists() {
                         if let Ok(manifest) = vex_pm::Manifest::from_file(&vex_json_path) {

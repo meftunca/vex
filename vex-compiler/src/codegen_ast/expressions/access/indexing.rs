@@ -12,6 +12,17 @@ impl<'ctx> ASTCodeGen<'ctx> {
         object: &Expression,
         index: &Expression,
     ) -> Result<BasicValueEnum<'ctx>, String> {
+        // First check if this is a user-defined type with Index trait
+        if let Expression::Ident(name) = object {
+            if let Some(struct_name) = self.variable_struct_names.get(name).cloned() {
+                // Check if struct implements Index trait
+                if self.has_trait_impl(&struct_name, "Index") {
+                    return self.compile_index_operator(&struct_name, object, index);
+                }
+            }
+        }
+        
+        // Fallback to builtin indexing (arrays, strings, Vec, Map)
         // Handle complex object expressions (e.g., self.field[index])
         let (base_ptr, var_type, struct_name_opt) = match object {
             Expression::Ident(name) => {
@@ -484,5 +495,58 @@ impl<'ctx> ASTCodeGen<'ctx> {
             .ok_or("vex_string_substr should return a value".to_string())?;
 
         Ok(result)
+    }
+    
+    /// Compile user-defined Index operator: obj[idx] -> obj.op[](idx)
+    fn compile_index_operator(
+        &mut self,
+        struct_name: &str,
+        object: &Expression,
+        index: &Expression,
+    ) -> Result<BasicValueEnum<'ctx>, String> {
+        // Get associated type Output for Index
+        let key = (struct_name.to_string(), "Output".to_string());
+        let _output_ast_type = self.associated_type_bindings.get(&key)
+            .ok_or_else(|| format!("Associated type 'Output' not found in Index implementation for {}", struct_name))?
+            .clone();
+        
+        // Compile index argument
+        let index_val = self.compile_expression(index)?;
+        
+        // Call op[](index) method
+        let method_name = format!("{}_op[]", struct_name);
+        let function = self.module.get_function(&method_name)
+            .ok_or_else(|| format!("Index operator method '{}' not found", method_name))?;
+        
+        // Compile object (get self pointer)
+        let self_ptr = if let Expression::Ident(name) = object {
+            let var_ptr = *self.variables.get(name)
+                .ok_or_else(|| format!("Variable {} not found", name))?;
+            let var_type = *self.variable_types.get(name)
+                .ok_or_else(|| format!("Type for {} not found", name))?;
+            self.builder.build_load(var_type, var_ptr, "self_load")
+                .map_err(|e| format!("Failed to load self: {}", e))?
+        } else {
+            return Err("Index operator on complex expressions not yet supported".to_string());
+        };
+        
+        // Call function: op[](self, index)
+        let result = self.builder.build_call(
+            function,
+            &[self_ptr.into(), index_val.into()],
+            "index_result"
+        )
+        .map_err(|e| format!("Failed to call index operator: {}", e))?
+        .try_as_basic_value()
+        .left()
+        .ok_or_else(|| "Index operator should return a value".to_string())?;
+        
+        Ok(result)
+    }
+    
+    /// Check if a struct implements a given trait
+    fn has_trait_impl(&self, struct_name: &str, trait_name: &str) -> bool {
+        let impl_key = (trait_name.to_string(), struct_name.to_string());
+        self.trait_impls.contains_key(&impl_key)
     }
 }

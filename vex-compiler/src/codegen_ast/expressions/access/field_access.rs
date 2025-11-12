@@ -326,9 +326,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
         // We'll inspect the tuple variable to get its type
         // This is a temporary workaround - ideally we'd track tuple types separately
 
-        // For direct variable access (tuple.0), get type from variable_types
+        // For direct variable access (tuple.0), get type from tuple_variable_types or variable_types
         let tuple_struct_type = if let Expression::Ident(var_name) = object {
-            if let Some(var_type) = self.variable_types.get(var_name) {
+            // First check tuple_variable_types (for tuple literals)
+            if let Some(tuple_type) = self.tuple_variable_types.get(var_name) {
+                *tuple_type
+            } else if let Some(var_type) = self.variable_types.get(var_name) {
                 if let BasicTypeEnum::StructType(st) = var_type {
                     *st
                 } else {

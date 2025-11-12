@@ -26,3 +26,7 @@ bool extends Display, Clone, Eq, Debug;
 
 // String type
 string extends Display, Clone, Eq, Debug;
+
+fn main() {
+    println("Builtin extensions test passed");
+}

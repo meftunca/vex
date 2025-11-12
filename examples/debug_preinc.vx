@@ -1,0 +1,11 @@
+// Debug pre-increment parsing
+
+fn test(): i32 {
+    let! x = 5;
+    x += 1;  // This works
+    return x;
+}
+
+fn main(): i32 {
+    return test();
+}

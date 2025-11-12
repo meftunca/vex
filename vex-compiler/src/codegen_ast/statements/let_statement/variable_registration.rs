@@ -26,18 +26,25 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
             (t.clone(), target_llvm_type)
         } else {
-            // Infer type from LLVM value
-            let inferred_llvm_type = val.get_type();
-            
-            // If we have struct_name_from_expr, prefer it over LLVM type inference
-            // (struct literals return pointers which can't be distinguished)
-            let inferred_ast_type = if let Some(struct_name) = struct_name_from_expr {
-                Type::Named(struct_name.clone())
+            // ⭐ SPECIAL CASE: Check if this is a tuple literal
+            if let Some(tuple_struct_type) = self.last_compiled_tuple_type {
+                // For tuple literals, create a Tuple type
+                // DON'T unwrap/consume - we need it later in register_struct_or_tuple_variable
+                (Type::Named("Tuple".to_string()), tuple_struct_type.into())
             } else {
-                self.infer_ast_type_from_llvm(inferred_llvm_type)?
-            };
-            
-            (inferred_ast_type, inferred_llvm_type)
+                // Infer type from LLVM value
+                let inferred_llvm_type = val.get_type();
+
+                // If we have struct_name_from_expr, prefer it over LLVM type inference
+                // (struct literals return pointers which can't be distinguished)
+                let inferred_ast_type = if let Some(struct_name) = struct_name_from_expr {
+                    Type::Named(struct_name.clone())
+                } else {
+                    self.infer_ast_type_from_llvm(inferred_llvm_type)?
+                };
+
+                (inferred_ast_type, inferred_llvm_type)
+            }
         };
 
         // Track struct type name and finalize variable type
@@ -169,10 +176,21 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 Ok(var_type.clone())
             }
             // Primitive types don't need finalization
-            Type::I8 | Type::I16 | Type::I32 | Type::I64 | Type::I128
-            | Type::U8 | Type::U16 | Type::U32 | Type::U64 | Type::U128
-            | Type::F16 | Type::F32 | Type::F64
-            | Type::Bool | Type::String => Ok(var_type.clone()),
+            Type::I8
+            | Type::I16
+            | Type::I32
+            | Type::I64
+            | Type::I128
+            | Type::U8
+            | Type::U16
+            | Type::U32
+            | Type::U64
+            | Type::U128
+            | Type::F16
+            | Type::F32
+            | Type::F64
+            | Type::Bool
+            | Type::String => Ok(var_type.clone()),
             _ => {
                 if let Some(type_name) = struct_name_from_expr {
                     self.finalize_inferred_type(type_name)
@@ -403,19 +421,32 @@ impl<'ctx> ASTCodeGen<'ctx> {
         is_mutable: bool,
     ) -> Result<(), String> {
         let is_tuple_literal = self.last_compiled_tuple_type.is_some();
-        let is_builtin_pointer = matches!(final_var_type, Type::Vec(_) | Type::Box(_))
-            || matches!(final_var_type, Type::Named(n) if n.starts_with("Vec_") || n.starts_with("Box_"));
-        
+        let is_builtin_pointer = matches!(
+            final_var_type,
+            Type::Vec(_) | Type::Box(_) | Type::Channel(_)
+        ) || matches!(final_var_type, Type::Named(n) if n.starts_with("Vec_") || n.starts_with("Box_") || n == "Channel");
+
         let is_array = matches!(final_var_type, Type::Array(_, _));
 
-        let is_struct_or_tuple =
-            matches!(final_var_type,
+        // ⭐ NEW: Check if type is a primitive type (should NOT be treated as struct)
+        let is_primitive = matches!(
+            final_var_type,
+            Type::I32 | Type::I64 | Type::F32 | Type::F64 | Type::Bool | Type::String
+        ) || matches!(final_var_type, Type::Named(n) if n == "i32" || n == "i64" || n == "f32" || n == "f64" || n == "bool");
+
+        let is_struct_or_tuple = !is_primitive
+            && (matches!(final_var_type,
                 Type::Named(type_name) if type_name == "Tuple"
                     || self.struct_defs.contains_key(type_name)
                     || type_name == "Option"
                     || type_name == "Result"
+                    || type_name == "Vec"  // Builtin Vec without type annotation
+                    || type_name == "Box"  // Builtin Box without type annotation
+                    || type_name == "Map"
+                    || type_name == "Set"
+                    || type_name == "Channel"
             ) || matches!(final_var_type, Type::Option(_) | Type::Result(_, _))
-                || is_tuple_literal;
+                || is_tuple_literal);
 
         if is_struct_or_tuple || is_builtin_pointer || is_array {
             self.register_struct_or_tuple_variable(
@@ -459,6 +490,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
     ) -> Result<(), String> {
         if let BasicValueEnum::PointerValue(data_ptr) = val {
             self.variables.insert(name.to_string(), data_ptr);
+            self.variables.insert(name.to_string(), data_ptr);
 
             if is_tuple_literal {
                 if let Some(struct_ty) = self.last_compiled_tuple_type {
@@ -479,7 +511,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     .insert(name.to_string(), final_llvm_type);
                 self.variable_ast_types
                     .insert(name.to_string(), final_var_type.clone());
-                
+
                 // Track struct name for field access
                 match final_var_type {
                     Type::Named(type_name) => {
@@ -488,18 +520,20 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     }
                     Type::Vec(inner_ty) => {
                         let mangled = format!("Vec_{}", self.type_to_string(inner_ty.as_ref()));
-                        self.variable_struct_names
-                            .insert(name.to_string(), mangled);
+                        self.variable_struct_names.insert(name.to_string(), mangled);
                     }
                     Type::Box(inner_ty) => {
                         let mangled = format!("Box_{}", self.type_to_string(inner_ty.as_ref()));
+                        self.variable_struct_names.insert(name.to_string(), mangled);
+                    }
+                    Type::Channel(_inner_ty) => {
+                        // Channel is not generic in LLVM representation
                         self.variable_struct_names
-                            .insert(name.to_string(), mangled);
+                            .insert(name.to_string(), "Channel".to_string());
                     }
                     Type::Option(inner_ty) => {
                         let mangled = format!("Option_{}", self.type_to_string(inner_ty.as_ref()));
-                        self.variable_struct_names
-                            .insert(name.to_string(), mangled);
+                        self.variable_struct_names.insert(name.to_string(), mangled);
                     }
                     Type::Result(ok_ty, err_ty) => {
                         let mangled = format!(
@@ -507,11 +541,15 @@ impl<'ctx> ASTCodeGen<'ctx> {
                             self.type_to_string(ok_ty.as_ref()),
                             self.type_to_string(err_ty.as_ref())
                         );
-                        self.variable_struct_names
-                            .insert(name.to_string(), mangled);
+                        self.variable_struct_names.insert(name.to_string(), mangled);
                     }
-                    Type::Generic { name: struct_name, type_args } => {
-                        if let Ok(mangled_name) = self.instantiate_generic_struct(struct_name, type_args) {
+                    Type::Generic {
+                        name: struct_name,
+                        type_args,
+                    } => {
+                        if let Ok(mangled_name) =
+                            self.instantiate_generic_struct(struct_name, type_args)
+                        {
                             self.variable_struct_names
                                 .insert(name.to_string(), mangled_name);
                         }
@@ -524,15 +562,20 @@ impl<'ctx> ASTCodeGen<'ctx> {
             self.build_store_aligned(alloca, val)?;
             self.variables.insert(name.to_string(), alloca);
             self.variable_types.insert(name.to_string(), val.get_type());
-            
+
             // Track struct name for field access
             match final_var_type {
                 Type::Named(type_name) => {
                     self.variable_struct_names
                         .insert(name.to_string(), type_name.clone());
                 }
-                Type::Generic { name: struct_name, type_args } => {
-                    if let Ok(mangled_name) = self.instantiate_generic_struct(struct_name, type_args) {
+                Type::Generic {
+                    name: struct_name,
+                    type_args,
+                } => {
+                    if let Ok(mangled_name) =
+                        self.instantiate_generic_struct(struct_name, type_args)
+                    {
                         self.variable_struct_names
                             .insert(name.to_string(), mangled_name);
                     }
@@ -544,7 +587,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
             let alloca = self.create_entry_block_alloca(name, final_var_type, is_mutable)?;
             self.build_store_aligned(alloca, val)?;
             self.variables.insert(name.to_string(), alloca);
-            self.variable_types.insert(name.to_string(), final_llvm_type);
+            self.variable_types
+                .insert(name.to_string(), final_llvm_type);
             self.variable_ast_types
                 .insert(name.to_string(), final_var_type.clone());
         } else {

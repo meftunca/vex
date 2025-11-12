@@ -57,12 +57,19 @@ pub(super) fn builtin_channel_send<'ctx>(
         .build_store(value_ptr, args[1])
         .map_err(|e| e.to_string())?;
 
+    // Cast value_ptr to void* (i8*) for vex_channel_send
+    let void_ptr_type = codegen.context.ptr_type(AddressSpace::default());
+    let value_as_void_ptr = codegen
+        .builder
+        .build_pointer_cast(value_ptr, void_ptr_type, "value_as_void_ptr")
+        .map_err(|e| e.to_string())?;
+
     let send_fn = codegen.get_or_declare_vex_channel_send();
     let status = codegen
         .builder
         .build_call(
             send_fn,
-            &[channel_ptr.into(), value_ptr.into()],
+            &[channel_ptr.into(), value_as_void_ptr.into()],
             "send_status",
         )
         .map_err(|e| e.to_string())?

@@ -1,0 +1,50 @@
+// Test index operator overloading with associated types
+
+contract Index {
+    type Output;
+    op[](index: i32): Output;
+}
+
+contract IndexMut {
+    op[]=(index: i32, value: f64)!;
+}
+
+struct Vec2 impl Index, IndexMut {
+    type Output = f64;  // Associated type for Index
+    
+    x: f64,
+    y: f64,
+}
+
+fn (self: Vec2) op[](index: i32): f64 {
+    if index == 0 { return self.x; }
+    if index == 1 { return self.y; }
+    return 0.0;
+}
+
+fn (self: Vec2) op[]=(index: i32, value: f64)! {
+    if index == 0 { self.x = value; }
+    elif index == 1 { self.y = value; }
+}
+
+fn main(): i32 {
+    let! v = Vec2 { x: 10.0, y: 20.0 };
+    
+    // Test index read
+    let x = v[0];
+    let y = v[1];
+    
+    // Test index write
+    v[0] = 99.0;
+    v[1] = 88.0;
+    
+    // Check results
+    let x2 = v[0];
+    let y2 = v[1];
+    
+    if x2 == 99.0 && y2 == 88.0 {
+        return 42;  // Success
+    }
+    
+    return 1;  // Fail
+}

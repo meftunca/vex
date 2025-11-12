@@ -109,8 +109,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     format!("{}_{}", potential_type_name.to_lowercase(), method)
                 };
 
-                // Try builtin registry first
-                if let Some(builtin_fn) = self.builtins.get(&base_method_name) {
+                // Try builtin registry first (check both PascalCase and lowercase)
+                let pascal_builtin_name = format!("{}.{}", potential_type_name, method);
+                if let Some(builtin_fn) = self.builtins.get(&pascal_builtin_name).or_else(|| self.builtins.get(&base_method_name)) {
                     let mut arg_vals: Vec<BasicValueEnum> = vec![];
                     for arg in args {
                         let val = self.compile_expression(arg)?;
@@ -279,7 +280,16 @@ impl<'ctx> ASTCodeGen<'ctx> {
         };
 
         // Construct method function name: StructName_method
-        let method_func_name = format!("{}_{}", struct_name, method);
+        // ⭐ NEW: For operators that can be both unary and binary, add parameter count suffix
+        let param_count = args.len();
+        let base_method_name = format!("{}_{}", struct_name, method);
+        
+        let method_func_name = if method.starts_with("op") && 
+                                  (method == "op-" || method == "op+" || method == "op*") {
+            format!("{}_{}", base_method_name, param_count)
+        } else {
+            base_method_name
+        };
 
         // Check if method function exists (either as a struct method or trait method)
         let final_method_name = if self.functions.contains_key(&method_func_name) {

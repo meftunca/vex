@@ -61,17 +61,38 @@ fn main(): i32 {
     let p2 = Point { x: 1, y: 2 };
     let p3 = Point { x: 2, y: 1 };
     
-    // Test equality
-    let eq_result = if p1 == p2 { 10 } else { 0 };
-    let ne_result = if p1 != p3 { 10 } else { 0 };
+    // Test equality (using mutable variables instead of if expressions)
+    let! eq_result = 0;
+    if p1 == p2 {
+        eq_result = 10;
+    }
+    
+    let! ne_result = 0;
+    if p1 != p3 {
+        ne_result = 10;
+    }
     
     // Test ordering
-    let lt_result = if p1 < p3 { 10 } else { 0 };
-    let le_result = if p1 <= p2 { 10 } else { 0 };
+    let! lt_result = 0;
+    if p1 < p3 {
+        lt_result = 10;
+    }
+    
+    let! le_result = 0;
+    if p1 <= p2 {
+        le_result = 10;
+    }
     
     // Builtin types should also work
-    let builtin_eq = if 5 == 5 { 1 } else { 0 };
-    let builtin_lt = if 3 < 7 { 1 } else { 0 };
+    let! builtin_eq = 0;
+    if 5 == 5 {
+        builtin_eq = 1;
+    }
+    
+    let! builtin_lt = 0;
+    if 3 < 7 {
+        builtin_lt = 1;
+    }
     
     // Total: 10 + 10 + 10 + 10 + 1 + 1 = 42
     return eq_result + ne_result + lt_result + le_result + builtin_eq + builtin_lt;

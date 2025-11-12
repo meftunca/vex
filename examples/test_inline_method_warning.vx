@@ -16,7 +16,7 @@ struct Point impl Display {
     
     // This should also trigger warning W0001
     (self: &Point) display(): String {
-        return format("({}, {})", self.x, self.y);
+        return println("({}, {})", self.x, self.y);
     }
 }
 
@@ -27,5 +27,5 @@ fn main() {
     println("v3: ({}, {})", v3.x, v3.y);
     
     let p = Point { x: 10, y: 20 };
-    println(p.display());
+    p.display();
 }

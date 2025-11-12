@@ -1,0 +1,6 @@
+// Test static Channel.send
+fn main(): i32 {
+    let! ch: Channel<i64> = Channel(3);
+    Channel.send(ch, 42);
+    return 0;
+}

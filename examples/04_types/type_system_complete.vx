@@ -123,7 +123,7 @@ fn double(x: i32): i32 {
     return x * 2;
 }
 
-fn add(x: i32, y: i32): i32 {
+fn op+(x: i32, y: i32): i32 {
     return x + y;
 }
 
@@ -189,10 +189,8 @@ fn apply(f: fn(i32): i32, x: i32): i32 {
 struct Rectangle {
     w: i32,
     h: i32,
-}
-
-struct Rectangle impl Rectangle {
-    fn area(): i32 {
+    
+    fn area(self: Rectangle): i32 {
         return self.w * self.h;
     }
 }

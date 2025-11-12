@@ -1,0 +1,22 @@
+// Test Display contract - simple version without stdlib import
+
+contract Display {
+    display(): str;
+}
+
+struct Point impl Display {
+    x: i32,
+    y: i32,
+    
+    display(): str {
+        return "Point";
+    }
+}
+
+fn main(): i32 {
+    let p = Point { x: 10, y: 20 };
+    let s = p.display();
+    print(s);
+    println("");
+    return 0;
+}

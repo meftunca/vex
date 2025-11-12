@@ -1,0 +1,15 @@
+// Test range operator - basic version (without stdlib Range type)
+
+fn main(): i32 {
+    // For now just test that range syntax works
+    // We'll implement proper Range<T> type later
+    
+    // Simple integer range
+    let start = 0;
+    let end = 10;
+    
+    // Range would be: start..end
+    // But without Range type, we can't actually use it yet
+    
+    return 42;  // Placeholder
+}

@@ -144,9 +144,37 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
             // Index assignment: arr[i] = value or map[key] = value
             Expression::Index { object, index } => {
-                // Check if this is a Map
+                // First check if this is a user-defined type with IndexMut trait
                 if let Expression::Ident(var_name) = &**object {
-                    if let Some(struct_name) = self.variable_struct_names.get(var_name) {
+                    if let Some(struct_name) = self.variable_struct_names.get(var_name).cloned() {
+                        // Check for IndexMut trait (key is (trait_name, struct_name))
+                        let impl_key = ("IndexMut".to_string(), struct_name.clone());
+                        
+                        if self.trait_impls.contains_key(&impl_key) {
+                            // Call op[]=(index, value)
+                            let method_name = format!("{}_op[]=", struct_name);
+                            let function = self.module.get_function(&method_name)
+                                .ok_or_else(|| format!("IndexMut operator method '{}' not found", method_name))?;
+                            
+                            // Get self pointer (NOT loaded - pass pointer for mutation)
+                            let var_ptr = *self.variables.get(var_name)
+                                .ok_or_else(|| format!("Variable {} not found", var_name))?;
+                            
+                            // Compile index and value
+                            let index_val = self.compile_expression(index)?;
+                            
+                            // Call op[]=(self_ptr, index, value) - pass pointer for mutation
+                            self.builder.build_call(
+                                function,
+                                &[var_ptr.into(), index_val.into(), val.into()],
+                                "index_assign"
+                            )
+                            .map_err(|e| format!("Failed to call index assignment operator: {}", e))?;
+                            
+                            return Ok(());
+                        }
+                        
+                        // Fallback to builtin Map handling
                         if struct_name == "Map" {
                             // Map indexing: map[key] = value -> map.insert(key, value)
                             let map_ptr_var = *self

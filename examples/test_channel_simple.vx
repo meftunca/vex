@@ -1,0 +1,5 @@
+// Simple channel test
+fn main(): i32 {
+    let! ch: Channel<i64> = Channel(3);
+    return 0;
+}

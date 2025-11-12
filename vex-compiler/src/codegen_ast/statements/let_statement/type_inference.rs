@@ -287,7 +287,15 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 let (trait_name, method_name) = self.binary_op_to_trait(op);
                 if !trait_name.is_empty() {
                     if let Some(_) = self.has_operator_trait(type_name, trait_name) {
-                        return self.get_operator_return_type(trait_name, &method_name);
+                        // For operator overloading, return type is often Self
+                        // Check trait definition to see if it returns Self or a specific type
+                        if let Ok(Some(return_type_name)) =
+                            self.get_operator_return_type(trait_name, &method_name, type_name)
+                        {
+                            return Ok(Some(return_type_name));
+                        }
+                        // If trait says Self, return the struct type
+                        return Ok(Some(type_name.clone()));
                     }
                 }
             }
@@ -322,15 +330,31 @@ impl<'ctx> ASTCodeGen<'ctx> {
         &self,
         trait_name: &str,
         method_name: &str,
+        implementing_type: &str,
     ) -> Result<Option<String>, String> {
         if let Some(trait_def) = self.trait_defs.get(trait_name) {
             for method_sig in &trait_def.methods {
                 if method_sig.name == method_name {
                     if let Some(return_type) = &method_sig.return_type {
-                        if let Type::Named(ret_type_name) = return_type {
-                            if self.struct_defs.contains_key(ret_type_name) {
+                        match return_type {
+                            Type::Named(ret_type_name) => {
+                                if ret_type_name == "Self" {
+                                    // Self resolves to the implementing type
+                                    return Ok(Some(implementing_type.to_string()));
+                                } else if self.struct_defs.contains_key(ret_type_name) {
+                                    return Ok(Some(ret_type_name.clone()));
+                                }
+                                // ⭐ NEW: Handle primitive types (bool, i32, etc.)
+                                // These don't have struct defs but are valid return types
                                 return Ok(Some(ret_type_name.clone()));
                             }
+                            Type::I32 => return Ok(Some("i32".to_string())),
+                            Type::I64 => return Ok(Some("i64".to_string())),
+                            Type::F32 => return Ok(Some("f32".to_string())),
+                            Type::F64 => return Ok(Some("f64".to_string())),
+                            Type::Bool => return Ok(Some("bool".to_string())),
+                            Type::String => return Ok(Some("String".to_string())),
+                            _ => {}
                         }
                     }
                     break;

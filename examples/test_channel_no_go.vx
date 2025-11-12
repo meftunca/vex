@@ -1,0 +1,13 @@
+// Test channel send/recv without go block
+fn main(): i32 {
+    let! ch: Channel<i64> = Channel(3);
+    
+    ch.send(42);
+    let val1 = <-ch;
+    
+    if val1 != 42 {
+        return 1;
+    }
+    
+    return 0;
+}

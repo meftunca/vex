@@ -8,7 +8,16 @@ impl<'ctx> ASTCodeGen<'ctx> {
         struct_name: &str,
         method: &Function,
     ) -> Result<(), String> {
-        let mangled_name = format!("{}_{}", struct_name, method.name);
+        // ⭐ NEW: For operators that can be both unary and binary, add parameter count
+        let param_count = method.params.len();
+        let base_name = format!("{}_{}", struct_name, method.name);
+        
+        let mangled_name = if method.name.starts_with("op") && 
+                              (method.name == "op-" || method.name == "op+" || method.name == "op*") {
+            format!("{}_{}", base_name, param_count)
+        } else {
+            base_name
+        };
 
         let mut param_types: Vec<inkwell::types::BasicMetadataTypeEnum> = Vec::new();
 
@@ -57,7 +66,16 @@ impl<'ctx> ASTCodeGen<'ctx> {
         struct_name: &str,
         method: &Function,
     ) -> Result<(), String> {
-        let mangled_name = format!("{}_{}", struct_name, method.name);
+        // ⭐ NEW: For operators that can be both unary and binary, add parameter count
+        let param_count = method.params.len();
+        let base_name = format!("{}_{}", struct_name, method.name);
+        
+        let mangled_name = if method.name.starts_with("op") && 
+                              (method.name == "op-" || method.name == "op+" || method.name == "op*") {
+            format!("{}_{}", base_name, param_count)
+        } else {
+            base_name
+        };
         let fn_val = *self
             .functions
             .get(&mangled_name)
@@ -221,9 +239,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
         }
 
         // Compile method body
+        eprintln!("📋 compile_struct_method: About to compile body with {} statements", method.body.statements.len());
         let mut last_expr_value: Option<BasicValueEnum> = None;
         
         for (i, stmt) in method.body.statements.iter().enumerate() {
+            eprintln!("   📝 Statement {}: {:?}", i, std::mem::discriminant(stmt));
             let is_last = i == method.body.statements.len() - 1;
             
             // If last statement is expression, save its value for potential implicit return

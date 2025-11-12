@@ -1,0 +1,18 @@
+// core - Vex Language Core Library
+// Builtin contracts and operator overloading definitions
+
+// Re-export all builtin contracts
+export contract Display {
+    display(): str;
+}
+
+export contract Clone {
+    clone(): Self;
+}
+
+export contract Debug {
+    debug(): str;
+}
+
+// Re-export all operator contracts from ops.vx
+// These are already defined in ops.vx, we just make them available

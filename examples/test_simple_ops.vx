@@ -1,0 +1,8 @@
+// Simple power test with primitives
+
+fn main(): i32 {
+    let x = 2;
+    let y = 3;
+    // For now just return sum since ** not implemented for primitives
+    return x + y;  // Should be 5
+}

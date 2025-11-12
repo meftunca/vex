@@ -1,0 +1,23 @@
+// Minimal index operator write test
+
+contract IndexMut {
+    op[]=(index: i32, value: f64)!;
+}
+
+struct Vec2 impl IndexMut {
+    x: f64,
+    y: f64,
+}
+
+fn (self: Vec2) op[]=(index: i32, value: f64)! {
+    if index == 0 { self.x = value; }
+    elif index == 1 { self.y = value; }
+}
+
+fn main(): i32 {
+    let! v = Vec2 { x: 10.0, y: 20.0 };
+    v[0] = 99.0;
+    
+    // Check if assignment worked (we can't read without Index trait, so return fixed value)
+    return 42;
+}

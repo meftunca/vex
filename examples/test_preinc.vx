@@ -1,0 +1,20 @@
+// Test pre-increment and pre-decrement
+
+fn main(): i32 {
+    let! x = 5;
+    let! y = 10;
+    
+    // Pre-increment: ++x returns new value (6)
+    let a = ++x;
+    
+    // Pre-decrement: --y returns new value (9)
+    let b = --y;
+    
+    // x should be 6, y should be 9
+    // a should be 6, b should be 9
+    if x == 6 && y == 9 && a == 6 && b == 9 {
+        return 42;
+    }
+    
+    return 1;
+}

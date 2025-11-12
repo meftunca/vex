@@ -91,43 +91,83 @@ impl<'ctx> ASTCodeGen<'ctx> {
             };
 
             let field_val = self.compile_expression(&adjusted_field_expr)?;
-            field_types.push(self.ast_type_to_llvm(field_ty));
+            let field_llvm_ty = self.ast_type_to_llvm(field_ty);
+            field_types.push(field_llvm_ty);
 
-            // CRITICAL FIX: If field is a struct type and field_val is a pointer,
+            // ⭐ CRITICAL: Cast integer literals to match field type width
+            let casted_field_val = if let BasicValueEnum::IntValue(int_val) = field_val {
+                if let BasicTypeEnum::IntType(target_int_ty) = field_llvm_ty {
+                    if int_val.get_type().get_bit_width() != target_int_ty.get_bit_width() {
+                        // Need to extend or truncate
+                        if int_val.get_type().get_bit_width() < target_int_ty.get_bit_width() {
+                            // Extend: i32 -> i64
+                            let is_unsigned = matches!(
+                                field_ty,
+                                Type::U8 | Type::U16 | Type::U32 | Type::U64 | Type::U128
+                            );
+                            if is_unsigned {
+                                self.builder
+                                    .build_int_z_extend(int_val, target_int_ty, "field_zext")
+                                    .map_err(|e| format!("Failed to zero-extend field: {}", e))?
+                                    .into()
+                            } else {
+                                self.builder
+                                    .build_int_s_extend(int_val, target_int_ty, "field_sext")
+                                    .map_err(|e| format!("Failed to sign-extend field: {}", e))?
+                                    .into()
+                            }
+                        } else {
+                            // Truncate: i64 -> i32
+                            self.builder
+                                .build_int_truncate(int_val, target_int_ty, "field_trunc")
+                                .map_err(|e| format!("Failed to truncate field: {}", e))?
+                                .into()
+                        }
+                    } else {
+                        field_val
+                    }
+                } else {
+                    field_val
+                }
+            } else {
+                field_val
+            };
+
+            // CRITICAL FIX: If field is a struct type and casted_field_val is a pointer,
             // we need to load the struct value (memcpy) instead of storing the pointer
             let actual_field_val = match field_ty {
                 Type::Named(type_name) if self.struct_defs.contains_key(type_name) => {
                     // Field is a user-defined struct
-                    if field_val.is_pointer_value() {
+                    if casted_field_val.is_pointer_value() {
                         // Load the struct value from pointer
                         let field_type = self.ast_type_to_llvm(field_ty);
                         self.builder
-                            .build_load(field_type, field_val.into_pointer_value(), "struct_val")
+                            .build_load(field_type, casted_field_val.into_pointer_value(), "struct_val")
                             .map_err(|e| format!("Failed to load struct field value: {}", e))?
                     } else {
-                        field_val
+                        casted_field_val
                     }
                 }
                 Type::Generic { .. } => {
                     // Generic struct - use mangled name
                     let mangled_name = self.type_to_string(field_ty);
-                    if self.struct_defs.contains_key(&mangled_name) && field_val.is_pointer_value()
+                    if self.struct_defs.contains_key(&mangled_name) && casted_field_val.is_pointer_value()
                     {
                         let field_type = self.ast_type_to_llvm(field_ty);
                         self.builder
                             .build_load(
                                 field_type,
-                                field_val.into_pointer_value(),
+                                casted_field_val.into_pointer_value(),
                                 "generic_struct_val",
                             )
                             .map_err(|e| {
                                 format!("Failed to load generic struct field value: {}", e)
                             })?
                     } else {
-                        field_val
+                        casted_field_val
                     }
                 }
-                _ => field_val,
+                _ => casted_field_val,
             };
 
             field_values.push(actual_field_val);

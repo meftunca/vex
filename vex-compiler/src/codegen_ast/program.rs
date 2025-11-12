@@ -20,7 +20,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
     fn resolve_and_merge_imports(&self, program: &mut Program) -> Result<(), String> {
         use crate::module_resolver::ModuleResolver;
 
-        let mut resolver = ModuleResolver::new("vex-libs/std");
+        let mut resolver = ModuleResolver::new("stdlib");
 
         eprintln!("🔄 Resolving {} imports...", program.imports.len());
         eprintln!("   📄 Source file: {}", self.source_file);
@@ -184,12 +184,25 @@ impl<'ctx> ASTCodeGen<'ctx> {
                             eprintln!("📌 Method already mangled: {}", func.name);
                             func.name.clone()
                         } else {
-                            let name = format!("{}_{}", sn, func.name);
+                            // ⭐ NEW: For operator overloading, include parameter count to distinguish
+                            // unary vs binary operators (e.g., op-(self) vs op-(self, other))
+                            let param_count = func.params.len();
+                            let base_name = format!("{}_{}", sn, func.name);
+                            
+                            // Only add parameter count suffix for operators that can be both unary and binary
+                            let name = if func.name.starts_with("op") && 
+                                       (func.name == "op-" || func.name == "op+" || func.name == "op*") {
+                                format!("{}_{}", base_name, param_count)
+                            } else {
+                                base_name
+                            };
+                            
                             eprintln!(
-                                "📌 Registering method: {} (receiver type: {}, generic: {}) as {}",
+                                "📌 Registering method: {} (receiver type: {}, generic: {}, params: {}) as {}",
                                 func.name,
                                 sn,
                                 !func.type_params.is_empty(),
+                                param_count,
                                 name
                             );
                             name
@@ -275,7 +288,6 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 );
                 if struct_def.type_params.is_empty() {
                     for method in &struct_def.methods {
-                        eprintln!("      - Compiling method: {}", method.name);
                         self.compile_struct_method(&struct_def.name, method)?;
                     }
                 }
