@@ -1,0 +1,32 @@
+// Minimal operator overloading test
+
+contract Add {
+    op+(rhs: Self): Self;
+}
+
+struct Vec2 impl Add {
+    x: f32,
+    y: f32,
+    
+    op+(other: Vec2): Vec2 {
+        let result_x = self.x + other.x;
+        let result_y = self.y + other.y;
+        return Vec2 { x: result_x, y: result_y };
+    }
+}
+
+fn main(): i32 {
+    let v1 = Vec2 { x: 1.0, y: 2.0 };
+    let v2 = Vec2 { x: 3.0, y: 4.0 };
+    
+    let v3 = v1 + v2;
+    
+    // If operator works, v3.x should be 4.0, v3.y should be 6.0
+    // Test: if v3.x > 3.0, return 42, else return 0
+    if v3.x > 3.0 {
+        return 42;
+    }
+    print("v3: ({}, {})", v3.x, v3.y);
+    
+    return v3.x;
+}

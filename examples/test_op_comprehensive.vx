@@ -1,0 +1,44 @@
+// Comprehensive operator overloading test
+
+contract Add {
+    op+(rhs: Self): Self;
+}
+
+contract Sub {
+    op-(rhs: Self): Self;
+}
+
+contract Mul {
+    op*(rhs: Self): Self;
+}
+
+struct Vec2 impl Add, Sub, Mul {
+    x: i32,
+    y: i32,
+    
+    op+(other: Vec2): Vec2 {
+        return Vec2 { x: self.x + other.x, y: self.y + other.y };
+    }
+    
+    op-(other: Vec2): Vec2 {
+        return Vec2 { x: self.x - other.x, y: self.y - other.y };
+    }
+    
+    op*(other: Vec2): Vec2 {
+        return Vec2 { x: self.x * other.x, y: self.y * other.y };
+    }
+}
+
+fn main(): i32 {
+    let v1 = Vec2 { x: 10, y: 20 };
+    let v2 = Vec2 { x: 5, y: 3 };
+    
+    let sum = v1 + v2;     // 15, 23
+    let diff = v1 - v2;    // 5, 17
+    let prod = v1 * v2;    // 50, 60
+    
+    // Test results: sum.x + diff.y + prod.x/10 = 15 + 17 + 5 = 37
+    let result = sum.x + diff.y + (prod.x / 10);
+    
+    return result;
+}
