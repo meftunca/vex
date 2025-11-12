@@ -203,11 +203,42 @@ impl<'a> Parser<'a> {
         }
 
         loop {
-            let name = self.consume_identifier()?;
-            self.consume(&Token::Colon, "Expected ':' after parameter name")?;
+            // Parse parameter group: either "name1, name2, name3: type" or "name: type"
+            let mut names = vec![self.consume_identifier()?];
+            
+            // Check for Go-style grouping: a, b, c: type
+            while self.match_token(&Token::Comma) {
+                // Peek ahead to see if there's a colon after the next identifier
+                let checkpoint = self.current;
+                if let Ok(name) = self.consume_identifier() {
+                    if self.check(&Token::Colon) {
+                        // This is the last name in the group
+                        names.push(name);
+                        break;
+                    } else if self.check(&Token::Comma) {
+                        // More names in the group
+                        names.push(name);
+                        continue;
+                    } else {
+                        // Not a parameter group, backtrack
+                        self.current = checkpoint;
+                        break;
+                    }
+                } else {
+                    // Error parsing identifier, backtrack
+                    self.current = checkpoint;
+                    break;
+                }
+            }
+
+            // Now we must have a colon
+            self.consume(&Token::Colon, "Expected ':' after parameter name(s)")?;
             let ty = self.parse_type()?;
 
-            params.push(Param { name, ty });
+            // Expand all names with the same type
+            for name in names {
+                params.push(Param { name, ty: ty.clone() });
+            }
 
             if !self.match_token(&Token::Comma) {
                 break;
