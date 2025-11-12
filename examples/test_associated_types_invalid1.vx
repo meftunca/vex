@@ -1,7 +1,7 @@
 // Invalid syntax tests - These should fail parsing
 
 // Test 1: Double colon (Rust syntax) - should fail
-trait BadIterator1 {
+contract BadIterator1 {
     type Item;
     fn next(): Option<Self::Item>;  // ❌ Should error: Use . not ::
 }

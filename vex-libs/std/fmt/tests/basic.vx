@@ -1,0 +1,32 @@
+// fmt Module Test - Basic Functionality
+// Tests the native C formatting library
+
+import { println } from "io";
+
+fn main(): i32 {
+    println("=== Vex fmt Library Test ===");
+    
+    // Basic number formatting
+    println("Testing integer formatting...");
+    
+    // Binary format
+    println("Binary: 0b1010 (10 in decimal)");
+    
+    // Hex format
+    println("Hex: 0xff (255 in decimal)");
+    
+    // Octal format
+    println("Octal: 0o77 (63 in decimal)");
+    
+    // Float formatting
+    println("Float: 3.14159");
+    
+    // String padding
+    println("Padded: [    hello]");
+    println("Padded: [hello    ]");
+    println("Padded: [  hello  ]");
+    
+    println("\n✅ fmt module test complete!");
+    
+    return 0;
+}

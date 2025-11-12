@@ -1,7 +1,7 @@
 // Test trait bounds enforcement - SHOULD FAIL
 // Vector does NOT implement Display
 
-trait Display {
+contract Display {
     fn to_string(): string;
 }
 

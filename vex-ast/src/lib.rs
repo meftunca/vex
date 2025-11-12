@@ -119,7 +119,7 @@ pub struct PolicyField {
 pub enum Item {
     Function(Function),
     Struct(Struct),
-    Trait(Trait),
+    Contract(Trait), // Renamed from Trait - using Contract keyword only
     TraitImpl(TraitImpl),
     TypeAlias(TypeAlias),
     Enum(Enum),
@@ -411,6 +411,14 @@ pub enum Statement {
     Let {
         is_mutable: bool, // false = let, true = let!
         name: String,
+        ty: Option<Type>,
+        value: Expression,
+    },
+
+    /// Pattern destructuring: let (a, b) = expr; or let Point { x, y } = expr;
+    LetPattern {
+        is_mutable: bool,
+        pattern: Pattern,
         ty: Option<Type>,
         value: Expression,
     },

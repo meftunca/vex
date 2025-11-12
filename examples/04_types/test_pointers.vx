@@ -1,0 +1,36 @@
+// Pointer and Reference Types Test
+// Tests: &T, &T!, *T, *T!
+
+fn test_references(): i32 {
+    // Immutable reference: &T
+    let x = 42;
+    let r: &i32 = &x;
+    
+    // Mutable reference: &T!
+    let! y = 100;
+    let r_mut: &i32! = &y;
+    
+    println("References work!");
+    return 0;
+}
+
+fn test_raw_pointers(): i32 {
+    // Immutable raw pointer: *T
+    let x = 42;
+    let ptr: *i32 = &x as *i32;
+    
+    // Mutable raw pointer: *T!
+    let! y = 100;
+    let ptr_mut: *i32! = &y as *i32!;
+    
+    println("Raw pointers work!");
+    return 0;
+}
+
+fn main(): i32 {
+    test_references();
+    test_raw_pointers();
+    
+    println("All pointer types parse successfully!");
+    return 0;
+}

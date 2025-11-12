@@ -1,0 +1,7 @@
+{
+  "name": "fmt_builtin",
+  "version": "0.1.0",
+  "description": "Format builtin stub",
+  "entry": "src/lib.vx",
+  "exports": ["format"]
+}

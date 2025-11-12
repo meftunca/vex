@@ -2,7 +2,7 @@
   "name": "vex-language",
   "displayName": "Vex Language Support",
   "description": "Syntax highlighting and language support for Vex programming language",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "publisher": "meftunca",
   "icon": "icons/vex-icon.png",
   "engines": {
@@ -20,6 +20,12 @@
     "generics",
     "unsafe"
   ],
+  "scripts": {
+    "vscode:prepublish": "cd client && npm run compile ",
+    "compile": "cd client && npm run compile && cd .. && ./uninstall.sh && ./install.sh ",
+    "watch": "cd client && npm run watch",
+    "package": "vsce package"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/meftunca/vex"
@@ -41,8 +47,8 @@
         ],
         "configuration": "./language-configuration.json",
         "icon": {
-          "light": "./icons/vex-file-icon-light.svg",
-          "dark": "./icons/vex-file-icon-dark.svg"
+          "light": "./icons/vex-file-icon-light.png",
+          "dark": "./icons/vex-file-icon-dark.png"
         }
       }
     ],

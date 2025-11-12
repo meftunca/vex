@@ -1,0 +1,60 @@
+// Test print() with all primitive types
+// @no-borrow-check
+
+fn main(): i32 {
+    // Integer types
+    let i8_val: i8 = 127;
+    let i16_val: i16 = 32767;
+    let i32_val: i32 = 2147483647;
+    let i64_val: i64 = 123456789; // Large literals have parsing issue
+    
+    let u8_val: u8 = 255;
+    let u16_val: u16 = 65535;
+    let u32_val: u32 = 4294967295;
+    let u64_val: u64 = 18446744073709551615;
+    
+    // Float types
+    let f32_val: f32 = 3.14;
+    let f64_val: f64 = 2.71828;
+    
+    // Bool
+    let bool_val: bool = true;
+    
+    // String (moved after use)
+    let str_val: String = "Hello";
+    
+    print("=== Integer Types ===\n");
+    print("i8:  {}\n", i8_val);
+    print("i16: {}\n", i16_val);
+    print("i32: {}\n", i32_val);
+    print("i64: {}\n", i64_val);
+    
+    print("\n=== Unsigned Integer Types ===\n");
+    print("u8:  {}\n", u8_val);
+    print("u16: {}\n", u16_val);
+    print("u32: {}\n", u32_val);
+    print("u64: {}\n", u64_val);
+    
+    print("\n=== Float Types ===\n");
+    print("f32: {}\n", f32_val);
+    print("f64: {}\n", f64_val);
+    print("f32 (precision): {:.2}\n", f32_val);
+    print("f64 (precision): {:.5}\n", f64_val);
+    
+    print("\n=== Bool Type ===\n");
+    print("bool: {}\n", bool_val);
+    
+    print("\n=== Debug Format ===\n");
+    print("i32 debug: {:?}\n", i32_val);
+    print("f64 debug: {:?}\n", f64_val);
+    print("bool debug: {:?}\n", bool_val);
+    
+    print("\n=== Hex Format ===\n");
+    print("i32 hex: {:x}\n", i32_val);
+    print("u32 hex: {:x}\n", u32_val);
+    
+    print("\n=== String Type (used last) ===\n");
+    print("String: {}\n", str_val);
+    
+    return 0;
+}

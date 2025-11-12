@@ -1,7 +1,7 @@
 #!/bin/bash
 # Uninstall Vex VS Code Extension
 
-EXTENSION_DIR="$HOME/.vscode/extensions/vex-language-0.2.0"
+EXTENSION_DIR="$HOME/.vscode/extensions/vex-language-0.9.2"
 
 echo "🗑️  Uninstalling Vex Language Support..."
 

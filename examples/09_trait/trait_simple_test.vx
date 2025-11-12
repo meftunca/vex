@@ -2,7 +2,7 @@
 // struct ... impl Trait { ... methods ... }
 
 // 1. Define a trait with only required methods
-trait Printer {
+contract Printer {
     fn print();
 }
 

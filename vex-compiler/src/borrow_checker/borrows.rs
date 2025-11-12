@@ -59,6 +59,9 @@ pub struct BorrowRulesChecker {
 
     /// Current function being checked (for error location tracking)
     current_function: Option<String>,
+
+    /// Track if we're inside an unsafe block
+    in_unsafe_block: bool,
 }
 
 impl Default for BorrowRulesChecker {
@@ -76,6 +79,7 @@ impl BorrowRulesChecker {
             valid_vars: HashSet::new(),
             builtin_registry: super::builtin_metadata::BuiltinBorrowRegistry::new(),
             current_function: None,
+            in_unsafe_block: false,
         }
     }
 
@@ -135,6 +139,12 @@ impl BorrowRulesChecker {
                     }
                 }
 
+                Ok(())
+            }
+
+            Statement::LetPattern { pattern: _, value, .. } => {
+                // Check value for borrows
+                self.check_expression_for_borrows(value)?;
                 Ok(())
             }
 
@@ -270,6 +280,21 @@ impl BorrowRulesChecker {
                     }
                 }
 
+                Ok(())
+            }
+
+            Statement::Unsafe(block) => {
+                // Enter unsafe context
+                let prev_unsafe = self.in_unsafe_block;
+                self.in_unsafe_block = true;
+
+                // Check block content
+                for stmt in &block.statements {
+                    self.check_statement(stmt)?;
+                }
+
+                // Restore previous unsafe context
+                self.in_unsafe_block = prev_unsafe;
                 Ok(())
             }
 
@@ -438,6 +463,22 @@ impl BorrowRulesChecker {
 
             Expression::Deref(expr) => {
                 self.check_expression_for_borrows(expr)?;
+                
+                // Raw pointer dereference requires unsafe
+                // Check if the dereferenced expression is a raw pointer type
+                // Note: We can't check type here, but we can check for common patterns
+                // The type checker will have already validated this is a pointer
+                if !self.in_unsafe_block {
+                    // Only enforce unsafe for explicit raw pointer derefs
+                    // Smart pointer derefs (like Box) don't need unsafe
+                    if Self::is_likely_raw_pointer(expr) {
+                        return Err(BorrowError::UnsafeOperationOutsideUnsafeBlock {
+                            operation: "raw pointer dereference".to_string(),
+                            location: None,
+                        });
+                    }
+                }
+                
                 Ok(())
             }
 
@@ -542,12 +583,37 @@ impl BorrowRulesChecker {
 
         Ok(())
     }
+
+    /// Check if an expression is likely a raw pointer
+    /// Heuristic: check if it's a cast to ptr or a call to alloc/malloc
+    fn is_likely_raw_pointer(expr: &Expression) -> bool {
+        match expr {
+            Expression::Cast { target_type, .. } => {
+                // Check if casting to ptr/RawPtr type
+                matches!(target_type, vex_ast::Type::RawPtr { .. })
+            }
+            Expression::Call { func, .. } => {
+                // Check if calling alloc/malloc/etc
+                if let Expression::Ident(name) = func.as_ref() {
+                    matches!(name.as_str(), "malloc" | "alloc" | "realloc" | "calloc")
+                } else {
+                    false
+                }
+            }
+            Expression::Ident(_) => {
+                // Could be a raw pointer variable, but we can't tell without type info
+                // Be conservative - don't require unsafe for simple idents
+                false
+            }
+            _ => false,
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use vex_ast::{Expression, Statement, Type};
+    use vex_ast::{Expression, Statement};
 
     #[test]
     fn test_multiple_immutable_borrows_ok() {

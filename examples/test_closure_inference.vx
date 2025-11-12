@@ -1,0 +1,59 @@
+// Test closure type inference
+fn main(): i32 {
+    // Test 1: Basic two-parameter inference with block
+    let add = |x, y| { x + y };
+    let r1 = add(5, 10);
+    if r1 != 15 {
+        println("❌ FAILED: Basic two-parameter inference");
+        return 1;
+    }
+    println("✅ Test 1: Two-parameter block body");
+    
+    // Test 2: Expression body (single expression)
+    let mul = |a, b| a * b;
+    let r2 = mul(3, 4);
+    if r2 != 12 {
+        println("❌ FAILED: Expression body");
+        return 1;
+    }
+    println("✅ Test 2: Expression body");
+    
+    // Test 3: Single parameter
+    let double = |n| n * 2;
+    let r3 = double(7);
+    if r3 != 14 {
+        println("❌ FAILED: Single parameter");
+        return 1;
+    }
+    println("✅ Test 3: Single parameter");
+    
+    // Test 4: No parameters
+    let get_five = || 5;
+    let r4 = get_five();
+    if r4 != 5 {
+        println("❌ FAILED: No parameters");
+        return 1;
+    }
+    println("✅ Test 4: No parameters");
+    
+    // Test 5: Explicit return type annotation
+    let sub = |x, y|: i32 { x - y };
+    let r5 = sub(20, 5);
+    if r5 != 15 {
+        println("❌ FAILED: Explicit return type");
+        return 1;
+    }
+    println("✅ Test 5: Explicit return type");
+    
+    // Test 6: Mixed - one param inferred, return type explicit
+    let triple = |n|: i32 { n * 3 };
+    let r6 = triple(5);
+    if r6 != 15 {
+        println("❌ FAILED: Mixed annotations");
+        return 1;
+    }
+    println("✅ Test 6: Mixed annotations");
+    
+    println("🎉 All closure type inference tests passed!");
+    return 0;
+}

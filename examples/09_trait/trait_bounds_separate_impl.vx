@@ -2,11 +2,11 @@
 // Expected: Returns 100
 
 
-trait Display {
+contract Display {
     fn display(): string;
 }
 
-trait Clone {
+contract Clone {
     fn clone(): Self;
 }
 

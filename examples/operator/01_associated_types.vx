@@ -1,12 +1,12 @@
 // Test: Associated Types in Traits
 
-trait Container {
+contract Container {
     type Item;  // Associated type
     fn get(index: i32): Item;
     fn len(): i32;
 }
 
-trait Index<Idx> {
+contract Index<Idx> {
     type Output;  // Return type depends on impl
     fn index(idx: Idx): &Output;
 }

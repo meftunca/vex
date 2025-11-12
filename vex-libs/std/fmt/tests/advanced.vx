@@ -1,0 +1,219 @@
+// Advanced fmt Module Example
+// Demonstrates real-world usage patterns
+
+import { println, print } from "io";
+import { 
+    format_i64, format_hex, format_binary, format_octal,
+    format_f64_prec,
+    pad_left, pad_right, pad_center,
+    to_binary, to_hex, to_octal,
+    format_bool
+} from "fmt";
+
+// Print a formatted table
+fn print_table() {
+    println("+--------+--------------+----------+");
+    println("| ID     | Name         | Value    |");
+    println("+--------+--------------+----------+");
+    
+    // Row 1
+    print("| ");
+    print(pad_right("1", 6, 32));  // 32 = ' ' (space)
+    print(" | ");
+    print(pad_right("Alice", 12, 32));
+    print(" | ");
+    print(pad_left("$99.99", 8, 32));
+    println(" |");
+    
+    // Row 2
+    print("| ");
+    print(pad_right("2", 6, 32));
+    print(" | ");
+    print(pad_right("Bob", 12, 32));
+    print(" | ");
+    print(pad_left("$42.50", 8, 32));
+    println(" |");
+    
+    // Row 3
+    print("| ");
+    print(pad_right("3", 6, 32));
+    print(" | ");
+    print(pad_right("Charlie", 12, 32));
+    print(" | ");
+    print(pad_left("$123.00", 8, 32));
+    println(" |");
+    
+    println("+--------+--------------+----------+");
+}
+
+// Print a progress bar
+fn print_progress(percent: i64, total: i64) {
+    let width: i64 = 40;
+    let filled: i64 = (percent * width) / 100;
+    
+    print("[");
+    
+    // Print filled portion
+    let! i: i64 = 0;
+    while i < filled {
+        print("#");
+        i = i + 1;
+    }
+    
+    // Print empty portion
+    while i < width {
+        print(" ");
+        i = i + 1;
+    }
+    
+    print("] ");
+    println("Done");
+}
+
+// Format system information
+fn print_system_info() {
+    println("=== System Information ===\n");
+    
+    println("Memory Usage:");
+    println("  Total:     1024 MB");
+    println("  Used:      512 MB");
+    println("  Free:      512 MB");
+    println("  Cached:    256 MB");
+    
+    println("\nCPU Usage:");
+    println("  Core 0:    45%");
+    println("  Core 1:    32%");
+    println("  Core 2:    18%");
+    println("  Core 3:    67%");
+    
+    println("\nNetwork:");
+    println("  RX:        1.2 GB");
+    println("  TX:        0.8 GB");
+    println("  Packets:   1,234,567");
+}
+
+// Format log messages
+fn print_logs() {
+    println("=== Application Logs ===\n");
+    
+    println("[INFO ] Application started successfully");
+    println("[DEBUG] Loading configuration from config.json");
+    println("[INFO ] Connected to database at localhost:5432");
+    println("[WARN ] Cache miss for key 'user:123'");
+    println("[DEBUG] Processing request #1234");
+    println("[ERROR] Failed to connect to external API");
+    println("[INFO ] Retrying connection (attempt 1/3)");
+    println("[INFO ] Connection established");
+}
+
+// Format hexdump-style output
+fn print_hexdump() {
+    println("=== Memory Hexdump ===\n");
+    
+    println("Address  | 00 01 02 03 04 05 06 07 | ASCII");
+    println("---------+-------------------------+---------");
+    println("0x000000 | 48 65 6C 6C 6F 20 57 6F | Hello Wo");
+    println("0x000008 | 72 6C 64 21 00 00 00 00 | rld!....");
+    println("0x000010 | DE AD BE EF CA FE BA BE | ........");
+}
+
+// Format color/ANSI demonstration (placeholders)
+fn print_colored() {
+    println("=== Formatted Output ===\n");
+    
+    println("[OK]    Success: Operation completed");
+    println("[WARN]  Warning: Low disk space");
+    println("[ERROR] Error: Connection timeout");
+    println("[INFO]  Info: Processing 1000 items");
+    println("[DEBUG] Debug: Variable x = 42");
+}
+
+// Format alignment examples
+fn print_alignment() {
+    println("=== Text Alignment ===\n");
+    
+    println("Left aligned:");
+    println(pad_right("Hello", 20, 32));
+    println(pad_right("World", 20, 32));
+    
+    println("\nRight aligned:");
+    println(pad_left("Hello", 20, 32));
+    println(pad_left("World", 20, 32));
+    
+    println("\nCenter aligned:");
+    println(pad_center("Hello", 20, 32));
+    println(pad_center("World", 20, 32));
+    
+    println("\nFilled:");
+    println(pad_right("Title", 20, 61));
+    println(pad_center("Section", 20, 45));
+    println(pad_left("Footer", 20, 42));
+}
+
+// Format number representations
+fn print_number_formats() {
+    println("=== Number Formats ===\n");
+    
+    let num: i64 = 255;
+    
+    println("Decimal:     255");
+    println("Hexadecimal: 0xff");
+    println("Binary:      0b11111111");
+    println("Octal:       0o377");
+    
+    println("\nWithout prefix:");
+    println("Hex:         ff");
+    println("Binary:      11111111");
+    println("Octal:       377");
+}
+
+// Main demonstration
+fn main(): i32 {
+    println("================================================");
+    println("   Vex fmt Library - Advanced Examples");
+    println("================================================");
+    println("");
+    
+    // Tables
+    print_table();
+    println("");
+    
+    // Progress bars
+    println("=== Progress Bars ===");
+    print_progress(0, 100);
+    print_progress(25, 100);
+    print_progress(50, 100);
+    print_progress(75, 100);
+    print_progress(100, 100);
+    println("");
+    
+    // System info
+    print_system_info();
+    println("");
+    
+    // Logs
+    print_logs();
+    println("");
+    
+    // Hexdump
+    print_hexdump();
+    println("");
+    
+    // Colored output
+    print_colored();
+    println("");
+    
+    // Alignment
+    print_alignment();
+    println("");
+    
+    // Number formats
+    print_number_formats();
+    println("");
+    
+    println("================================================");
+    println("   All demonstrations completed!");
+    println("================================================");
+    
+    return 0;
+}

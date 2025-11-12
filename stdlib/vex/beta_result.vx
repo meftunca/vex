@@ -1,0 +1,80 @@
+// stdlib/vex/beta_result.vx
+// Result<T, E> - Represents success or error
+// Status: BETA - Testing phase
+
+enum BetaResult<T, E> {
+    Ok(T),
+    Err(E),
+}
+
+// Check if result is Ok
+export fn IsOk<T, E>(res: BetaResult<T, E>): bool {
+    match res {
+        BetaResult.Ok(_) => { return true; },
+        BetaResult.Err(_) => { return false; },
+    }
+}
+
+// Check if result is Err
+export fn IsErr<T, E>(res: BetaResult<T, E>): bool {
+    match res {
+        BetaResult.Ok(_) => { return false; },
+        BetaResult.Err(_) => { return true; },
+    }
+}
+
+// Unwrap Ok value (panics if Err)
+export fn Unwrap<T, E>(res: BetaResult<T, E>): T {
+    match res {
+        BetaResult.Ok(value) => { return value; },
+        BetaResult.Err(_) => { panic("Called Unwrap on Err"); },
+    }
+}
+
+// Unwrap Err value (panics if Ok)
+export fn UnwrapErr<T, E>(res: BetaResult<T, E>): E {
+    match res {
+        BetaResult.Ok(_) => { panic("Called UnwrapErr on Ok"); },
+        BetaResult.Err(err) => { return err; },
+    }
+}
+
+// Unwrap or return default value
+export fn UnwrapOr<T, E>(res: BetaResult<T, E>, default: T): T {
+    match res {
+        BetaResult.Ok(value) => { return value; },
+        BetaResult.Err(_) => { return default; },
+    }
+}
+
+// Map Ok value using function
+export fn Map<T, E, U>(res: BetaResult<T, E>, f: fn(T): U): BetaResult<U, E> {
+    match res {
+        BetaResult.Ok(value) => { return BetaResult.Ok(f(value)); },
+        BetaResult.Err(err) => { return BetaResult.Err(err); },
+    }
+}
+
+// Map Err value using function
+export fn MapErr<T, E, F>(res: BetaResult<T, E>, f: fn(E): F): BetaResult<T, F> {
+    match res {
+        BetaResult.Ok(value) => { return BetaResult.Ok(value); },
+        BetaResult.Err(err) => { return BetaResult.Err(f(err)); },
+    }
+}
+
+// Convert Result<T, E> to Option<T>
+export fn Ok<T, E>(res: BetaResult<T, E>): BetaOption<T> {
+    match res {
+        BetaResult.Ok(value) => { return BetaOption.Some(value); },
+        BetaResult.Err(_) => { return BetaOption.None; },
+    }
+}
+
+// Convert Result<T, E> to Option<E>
+export fn Err<T, E>(res: BetaResult<T, E>): BetaOption<E> {
+    match res {
+        BetaResult.Ok(_) => { return BetaOption.None; },
+        BetaResult.Err(err) => { return BetaOption.Some(err); },
+    }
+}

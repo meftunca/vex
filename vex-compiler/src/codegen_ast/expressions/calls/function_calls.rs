@@ -76,8 +76,36 @@ impl<'ctx> ASTCodeGen<'ctx> {
         if let Expression::Ident(func_name) = func_expr {
             // Direct function call by name
 
-            // Special case: print/println with format string detection
-            if func_name == "print" || func_name == "println" {
+            // Special case: format() - type-safe zero-cost formatting
+            if func_name == "format" {
+                if args.is_empty() {
+                    return Err("format() requires at least a format string".to_string());
+                }
+
+                // First argument must be a string literal
+                if let Expression::StringLiteral(fmt_str) = &args[0] {
+                    // Infer types of remaining arguments
+                    let mut arg_types = Vec::new();
+                    for arg in &args[1..] {
+                        let ty = self.infer_expression_type(arg)?;
+                        arg_types.push(ty);
+                    }
+
+                    // Call type-safe format compiler
+                    return crate::codegen_ast::builtins::compile_typesafe_format(
+                        self,
+                        fmt_str,
+                        &arg_basic_vals[1..],
+                        &arg_types,
+                    );
+                } else {
+                    return Err("format() first argument must be a string literal".to_string());
+                }
+            }
+
+            // Special case: print() with format string detection
+            // println() is handled in stdlib (calls print() + newline)
+            if func_name == "print" {
                 return self.compile_print_call(func_name, args, &arg_basic_vals);
             }
 

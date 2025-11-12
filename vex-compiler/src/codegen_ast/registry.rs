@@ -4,12 +4,16 @@ use crate::diagnostics::{error_codes, Diagnostic, ErrorLevel, Span};
 
 impl<'ctx> ASTCodeGen<'ctx> {
     pub(crate) fn register_type_alias(&mut self, type_alias: &TypeAlias) -> Result<(), String> {
-        if !type_alias.type_params.is_empty() {
-            return Ok(());
-        }
+        // Register ALL type aliases including generic ones
+        // Generic aliases will be monomorphized during type resolution
         let resolved_type = self.resolve_type(&type_alias.ty);
         self.type_aliases
             .insert(type_alias.name.clone(), resolved_type);
+        
+        if !type_alias.type_params.is_empty() {
+            eprintln!("📋 Registered generic type alias: {} with {} params", 
+                      type_alias.name, type_alias.type_params.len());
+        }
         Ok(())
     }
 

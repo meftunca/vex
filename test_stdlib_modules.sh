@@ -37,6 +37,7 @@ test_module() {
 # FFI ile çalışan modüller
 echo "=== Testing FFI Modules ==="
 test_module "io"
+test_module "fmt"
 test_module "math"
 test_module "fs"
 test_module "env"

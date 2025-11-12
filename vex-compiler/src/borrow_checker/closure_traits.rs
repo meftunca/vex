@@ -181,11 +181,46 @@ impl<'a> CaptureAnalyzer<'a> {
         }
     }
 
+    fn declare_pattern_locals(&mut self, pattern: &Pattern) {
+        match pattern {
+            Pattern::Ident(name) => {
+                self.local_vars.insert(name.clone());
+            }
+            Pattern::Tuple(patterns) => {
+                for p in patterns {
+                    self.declare_pattern_locals(p);
+                }
+            }
+            Pattern::Struct { fields, .. } => {
+                for (_, p) in fields {
+                    self.declare_pattern_locals(p);
+                }
+            }
+            Pattern::Enum { data, .. } => {
+                for p in data {
+                    self.declare_pattern_locals(p);
+                }
+            }
+            Pattern::Array { elements, .. } => {
+                for p in elements {
+                    self.declare_pattern_locals(p);
+                }
+            }
+            Pattern::Wildcard | Pattern::Literal(_) | Pattern::Or(_) => {}
+        }
+    }
+
     fn visit_statement(&mut self, stmt: &Statement) {
         match stmt {
             Statement::Let { name, value, .. } => {
                 // New local variable in closure
                 self.local_vars.insert(name.clone());
+                self.visit_expression(value);
+            }
+
+            Statement::LetPattern { pattern, value, .. } => {
+                // New local variables from pattern
+                self.declare_pattern_locals(pattern);
                 self.visit_expression(value);
             }
 

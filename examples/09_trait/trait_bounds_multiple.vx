@@ -1,11 +1,11 @@
 // Test: Multiple trait bounds
 // Expected: Compiles successfully
 
-trait Display {
+contract Display {
     fn display(): string;
 }
 
-trait Clone {
+contract Clone {
     fn clone(): Self;
 }
 

@@ -1,7 +1,7 @@
 // Test: Basic trait bounds parsing and compilation
 // Expected: Compiles successfully (runtime checking not yet implemented)
 
-trait Display {
+contract Display {
     fn display(): string;
 }
 

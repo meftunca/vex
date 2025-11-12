@@ -32,8 +32,8 @@ impl<'a> Parser<'a> {
             return Ok(Expression::Typeof(Box::new(expr)));
         }
 
-        // Closure/Lambda: |x, y| expr or |x: i32, y: i32| { body }
-        if self.check(&Token::Pipe) {
+        // Closure/Lambda: |x, y| expr or |x: i32, y: i32| { body } or || expr
+        if self.check(&Token::Pipe) || self.check(&Token::Or) {
             return self.parse_closure();
         }
 

@@ -83,7 +83,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }
         };
 
-        // Check if this is a Map
+        // Check if this is a Map or Vec
         if let Some(ref struct_name) = struct_name_opt {
             if struct_name == "Map" {
                 // Map indexing: map[key] -> map.get(key)
@@ -110,6 +110,63 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     .try_as_basic_value()
                     .left()
                     .ok_or("map_get should return a value".to_string());
+            }
+            
+            // Vec indexing: v[i] -> v.get(i) -> *vex_vec_get(v, i)
+            if struct_name.starts_with("Vec") {
+                // Get Vec pointer (already stored directly in variables)
+                let vec_ptr = base_ptr;
+
+                // Compile index expression
+                let index_val = self.compile_expression(index)?;
+                let index_i64 = if let BasicValueEnum::IntValue(iv) = index_val {
+                    if iv.get_type().get_bit_width() < 64 {
+                        self.builder
+                            .build_int_z_extend(iv, self.context.i64_type(), "index_i64")
+                            .map_err(|e| format!("Failed to extend index: {}", e))?
+                    } else {
+                        iv
+                    }
+                } else {
+                    return Err("Vec index must be integer".to_string());
+                };
+
+                // Call vex_vec_get(vec, index) -> void*
+                let get_fn = self.get_vex_vec_get();
+                let elem_ptr = self
+                    .builder
+                    .build_call(get_fn, &[vec_ptr.into(), index_i64.into()], "vec_get")
+                    .map_err(|e| format!("Failed to call vex_vec_get: {}", e))?
+                    .try_as_basic_value()
+                    .left()
+                    .ok_or("vex_vec_get should return pointer".to_string())?;
+
+                // Cast void* to element type pointer and load
+                // Extract element type from Vec<T> - struct_name is like "Vec_i32"
+                let elem_type_str = struct_name.strip_prefix("Vec_").unwrap_or("i32");
+                let elem_llvm_type: BasicTypeEnum = match elem_type_str {
+                    "i32" => self.context.i32_type().into(),
+                    "i64" => self.context.i64_type().into(),
+                    "f32" => self.context.f32_type().into(),
+                    "f64" => self.context.f64_type().into(),
+                    "bool" => self.context.bool_type().into(),
+                    _ => self.context.i32_type().into(), // Default fallback
+                };
+
+                let typed_ptr = self
+                    .builder
+                    .build_pointer_cast(
+                        elem_ptr.into_pointer_value(),
+                        self.context.ptr_type(inkwell::AddressSpace::default()),
+                        "typed_ptr",
+                    )
+                    .map_err(|e| format!("Failed to cast element pointer: {}", e))?;
+
+                // Load the element value
+                return self
+                    .builder
+                    .build_load(elem_llvm_type, typed_ptr, "vec_elem")
+                    .map_err(|e| format!("Failed to load vec element: {}", e));
             }
         }
 

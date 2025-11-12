@@ -1,7 +1,9 @@
 // Test Iterator adapter methods: map, filter, take, skip
 // Demonstrates functional-style iteration
 
-trait Iterator {
+import { Option } from "core";
+
+contract Iterator {
     type Item;
     fn next()!: Option<i32>;
 }
@@ -23,20 +25,29 @@ struct Range impl Iterator {
 
 fn main(): i32 {
     // Test Range iterator
-    let range = Range { current: 0, end: 5 };
+    let! range = Range { current: 0, end: 5 };
     
-    let out1: Option<i32> = None;
-    range.next(out1);
-    if out1 == Some(0) {
-        println("✅ Range iterator works!");
+    let out1 = range.next();
+    let check1 = match out1 {
+        Some(0) => {
+            println("✅ Range iterator works!");
+            0
+        }
+        _ => 1,
+    };
+    
+    if check1 != 0 {
+        return 1;
     }
     
-    let out2: Option<i32> = None;
-    range.next(out2);
-    if out2 == Some(1) {
-        println("✅ Range next() increments!");
-        return 0;
-    }
+    let out2 = range.next();
+    let check2 = match out2 {
+        Some(1) => {
+            println("✅ Range next() increments!");
+            0
+        }
+        _ => 1,
+    };
     
-    return 1;
+    return check2;
 }

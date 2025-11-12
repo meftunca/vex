@@ -464,4 +464,211 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let fn_type = self.context.void_type().fn_type(param_types, false);
         self.module.add_function(name, fn_type, None)
     }
+
+    // ===== FMT LIBRARY DECLARATIONS =====
+
+    /// strlen(str: *u8) -> i64
+    pub(crate) fn declare_strlen(&mut self) -> FunctionValue<'ctx> {
+        if let Some(func) = self.module.get_function("strlen") {
+            return func;
+        }
+        let fn_type = self.context.i64_type().fn_type(
+            &[self
+                .context
+                .ptr_type(inkwell::AddressSpace::default())
+                .into()],
+            false,
+        );
+        self.module.add_function("strlen", fn_type, None)
+    }
+
+    /// vex_fmt_buffer_new(capacity: i64) -> *FormatBuffer
+    pub(crate) fn declare_vex_fmt_buffer_new(&mut self) -> FunctionValue<'ctx> {
+        self.declare_runtime_fn(
+            "vex_fmt_buffer_new",
+            &[self.context.i64_type().into()],
+            self.context
+                .ptr_type(inkwell::AddressSpace::default())
+                .into(),
+        )
+    }
+
+    /// vex_fmt_buffer_free(buf: *FormatBuffer)
+    pub(crate) fn declare_vex_fmt_buffer_free(&mut self) -> FunctionValue<'ctx> {
+        self.declare_runtime_fn_void(
+            "vex_fmt_buffer_free",
+            &[self
+                .context
+                .ptr_type(inkwell::AddressSpace::default())
+                .into()],
+        )
+    }
+
+    /// vex_fmt_buffer_append_str(buf: *FormatBuffer, str: *u8, len: i64)
+    pub(crate) fn declare_vex_fmt_buffer_append_str(&mut self) -> FunctionValue<'ctx> {
+        self.declare_runtime_fn_void(
+            "vex_fmt_buffer_append_str",
+            &[
+                self.context
+                    .ptr_type(inkwell::AddressSpace::default())
+                    .into(),
+                self.context
+                    .ptr_type(inkwell::AddressSpace::default())
+                    .into(),
+                self.context.i64_type().into(),
+            ],
+        )
+    }
+
+    /// vex_fmt_buffer_to_string(buf: *FormatBuffer) -> *u8
+    pub(crate) fn declare_vex_fmt_buffer_to_string(&mut self) -> FunctionValue<'ctx> {
+        self.declare_runtime_fn(
+            "vex_fmt_buffer_to_string",
+            &[self
+                .context
+                .ptr_type(inkwell::AddressSpace::default())
+                .into()],
+            self.context
+                .ptr_type(inkwell::AddressSpace::default())
+                .into(),
+        )
+    }
+
+    /// vex_fmt_i32(value: i32, spec: *FormatSpec) -> *u8
+    pub(crate) fn declare_vex_fmt_i32(&mut self) -> FunctionValue<'ctx> {
+        self.declare_runtime_fn(
+            "vex_fmt_i32",
+            &[
+                self.context.i32_type().into(),
+                self.context
+                    .ptr_type(inkwell::AddressSpace::default())
+                    .into(),
+            ],
+            self.context
+                .ptr_type(inkwell::AddressSpace::default())
+                .into(),
+        )
+    }
+
+    /// vex_fmt_i64(value: i64, spec: *FormatSpec) -> *u8
+    pub(crate) fn declare_vex_fmt_i64(&mut self) -> FunctionValue<'ctx> {
+        self.declare_runtime_fn(
+            "vex_fmt_i64",
+            &[
+                self.context.i64_type().into(),
+                self.context
+                    .ptr_type(inkwell::AddressSpace::default())
+                    .into(),
+            ],
+            self.context
+                .ptr_type(inkwell::AddressSpace::default())
+                .into(),
+        )
+    }
+
+    /// vex_fmt_u32(value: u32, spec: *FormatSpec) -> *u8
+    pub(crate) fn declare_vex_fmt_u32(&mut self) -> FunctionValue<'ctx> {
+        self.declare_runtime_fn(
+            "vex_fmt_u32",
+            &[
+                self.context.i32_type().into(),
+                self.context
+                    .ptr_type(inkwell::AddressSpace::default())
+                    .into(),
+            ],
+            self.context
+                .ptr_type(inkwell::AddressSpace::default())
+                .into(),
+        )
+    }
+
+    /// vex_fmt_u64(value: u64, spec: *FormatSpec) -> *u8
+    pub(crate) fn declare_vex_fmt_u64(&mut self) -> FunctionValue<'ctx> {
+        self.declare_runtime_fn(
+            "vex_fmt_u64",
+            &[
+                self.context.i64_type().into(),
+                self.context
+                    .ptr_type(inkwell::AddressSpace::default())
+                    .into(),
+            ],
+            self.context
+                .ptr_type(inkwell::AddressSpace::default())
+                .into(),
+        )
+    }
+
+    /// vex_fmt_f32(value: f32, spec: *FormatSpec) -> *u8
+    pub(crate) fn declare_vex_fmt_f32(&mut self) -> FunctionValue<'ctx> {
+        self.declare_runtime_fn(
+            "vex_fmt_f32",
+            &[
+                self.context.f32_type().into(),
+                self.context
+                    .ptr_type(inkwell::AddressSpace::default())
+                    .into(),
+            ],
+            self.context
+                .ptr_type(inkwell::AddressSpace::default())
+                .into(),
+        )
+    }
+
+    /// vex_fmt_f64(value: f64, spec: *FormatSpec) -> *u8
+    pub(crate) fn declare_vex_fmt_f64(&mut self) -> FunctionValue<'ctx> {
+        self.declare_runtime_fn(
+            "vex_fmt_f64",
+            &[
+                self.context.f64_type().into(),
+                self.context
+                    .ptr_type(inkwell::AddressSpace::default())
+                    .into(),
+            ],
+            self.context
+                .ptr_type(inkwell::AddressSpace::default())
+                .into(),
+        )
+    }
+
+    /// vex_fmt_bool(value: bool, spec: *FormatSpec) -> *u8
+    pub(crate) fn declare_vex_fmt_bool(&mut self) -> FunctionValue<'ctx> {
+        self.declare_runtime_fn(
+            "vex_fmt_bool",
+            &[
+                self.context.bool_type().into(),
+                self.context
+                    .ptr_type(inkwell::AddressSpace::default())
+                    .into(),
+            ],
+            self.context
+                .ptr_type(inkwell::AddressSpace::default())
+                .into(),
+        )
+    }
+
+    /// vex_fmt_string(str: *u8, len: i64, spec: *FormatSpec) -> *u8
+    pub(crate) fn declare_vex_fmt_string(&mut self) -> FunctionValue<'ctx> {
+        self.declare_runtime_fn(
+            "vex_fmt_string",
+            &[
+                self.context
+                    .ptr_type(inkwell::AddressSpace::default())
+                    .into(),
+                self.context.i64_type().into(),
+                self.context
+                    .ptr_type(inkwell::AddressSpace::default())
+                    .into(),
+            ],
+            self.context
+                .ptr_type(inkwell::AddressSpace::default())
+                .into(),
+        )
+    }
+
+    /// Get default FormatSpec (NULL pointer for now)
+    pub(crate) fn get_default_format_spec(&self) -> inkwell::values::PointerValue<'ctx> {
+        self.context
+            .ptr_type(inkwell::AddressSpace::default())
+            .const_null()
+    }
 }

@@ -104,6 +104,14 @@ impl<'ctx> ASTCodeGen<'ctx> {
         // Compile all statements
         for stmt in statements {
             self.compile_statement(stmt)?;
+            
+            // If this statement terminated the block (e.g., return), stop processing
+            if let Some(current_bb) = self.builder.get_insert_block() {
+                if current_bb.get_terminator().is_some() {
+                    // Block is terminated, return dummy value
+                    return Ok(self.context.i32_type().const_int(0, false).into());
+                }
+            }
         }
 
         // If there's a return expression, compile and return it

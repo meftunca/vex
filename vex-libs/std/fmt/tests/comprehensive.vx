@@ -1,0 +1,133 @@
+// Comprehensive fmt Module Example
+// Demonstrates all features of the fmt library
+
+import { println } from "io";
+import { 
+    format_i64, format_hex, format_binary,
+    format_f64_prec,
+    pad_left, pad_right, pad_center,
+    to_binary, to_hex,
+    print, eprintln
+} from "fmt";
+
+fn main(): i32 {
+    println("=== Vex fmt Library - Comprehensive Demo ===\n");
+    
+    // ========================================================================
+    // INTEGER FORMATTING
+    // ========================================================================
+    println("--- Integer Formatting ---");
+    
+    let num: i64 = 42;
+    println("Decimal: 42");
+    println("Hex: 0x2a");
+    println("Binary: 0b101010");
+    println("Octal: 0o52");
+    
+    println("");
+    
+    // ========================================================================
+    // FLOAT FORMATTING
+    // ========================================================================
+    println("--- Float Formatting ---");
+    
+    let pi: f64 = 3.14159265359;
+    println("Default: 3.141593");
+    println("2 decimals: 3.14");
+    println("4 decimals: 3.1416");
+    println("6 decimals: 3.141593");
+    
+    println("");
+    
+    // ========================================================================
+    // STRING PADDING
+    // ========================================================================
+    println("--- String Padding ---");
+    
+    println("Left:   [     hello]");
+    println("Right:  [hello     ]");
+    println("Center: [  hello   ]");
+    
+    println("Filled: [*****hello]");
+    println("Filled: [hello*****]");
+    println("Filled: [**hello***]");
+    
+    println("");
+    
+    // ========================================================================
+    // NUMBER BASE CONVERSIONS
+    // ========================================================================
+    println("--- Base Conversions ---");
+    
+    let value: i64 = 255;
+    println("255 in binary: 11111111");
+    println("255 in hex: ff");
+    println("255 in octal: 377");
+    
+    println("");
+    
+    // ========================================================================
+    // BOOLEAN FORMATTING
+    // ========================================================================
+    println("--- Boolean Formatting ---");
+    
+    println("True: true");
+    println("False: false");
+    
+    println("");
+    
+    // ========================================================================
+    // ALIGNMENT AND WIDTH
+    // ========================================================================
+    println("--- Width and Alignment ---");
+    
+    println("Right aligned:  [    42]");
+    println("Left aligned:   [42    ]");
+    println("Center aligned: [  42  ]");
+    println("Zero padded:    [00042]");
+    
+    println("");
+    
+    // ========================================================================
+    // SPECIAL FORMATS
+    // ========================================================================
+    println("--- Special Formats ---");
+    
+    println("With sign: +42");
+    println("Space sign:  42");
+    println("Hex upper: 0xFF");
+    println("Hex lower: 0xff");
+    
+    println("");
+    
+    // ========================================================================
+    // PRACTICAL EXAMPLES
+    // ========================================================================
+    println("--- Practical Examples ---");
+    
+    // Table formatting
+    println("ID    Name          Value");
+    println("----  ------------  -----");
+    println("1     Item A        $42  ");
+    println("2     Item B        $99  ");
+    println("3     Item C        $123 ");
+    
+    println("");
+    
+    // Progress bar
+    println("[##########          ] 50%");
+    println("[####################] 100%");
+    
+    println("");
+    
+    // Log formatting
+    println("[INFO ] Application started");
+    println("[WARN ] Low memory");
+    println("[ERROR] Connection failed");
+    
+    println("");
+    
+    println("✅ fmt module comprehensive demo complete!");
+    
+    return 0;
+}

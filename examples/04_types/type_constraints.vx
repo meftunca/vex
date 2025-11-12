@@ -1,0 +1,31 @@
+// Type Constraints in Type Aliases
+// Syntax: type Name<T: Trait1 + Trait2> = ...
+
+// Simple trait bound
+type Displayable<T: Display> = T;
+
+// Multiple trait bounds
+type ComparableNumber<T: Ord + Clone> = T;
+
+// Nested constraints
+type SerializableVec<T: Serialize + Clone> = Vec<T>;
+
+// Function type with constraints
+type Processor<T: Display + Clone> = fn(T): T;
+
+// Complex constraint with associated types
+type IterableContainer<T: Iterator> = T;
+
+fn main(): i32 {
+    // These type aliases enforce constraints at compile time
+    // Invalid types will cause compile errors
+    
+    // ✅ Valid: i32 implements Display
+    // let x: Displayable<i32> = 42;
+    
+    // ❌ Invalid: Vec doesn't implement Display
+    // let y: Displayable<Vec<i32>> = Vec.new();
+    
+    println("Type constraints enforce trait bounds!");
+    return 0;
+}

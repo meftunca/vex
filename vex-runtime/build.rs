@@ -26,12 +26,13 @@ fn main() {
         c_dir.join("swisstable/vex_swisstable.c"), // HashMap<K,V> (Google Swiss Tables V1)
         c_dir.join("swisstable/vex_swisstable_v2.c"), // HashMap<K,V> V2 (2-3x faster, SIMD optimized)
         c_dir.join("swisstable/vex_swisstable_v3.c"), // HashMap<K,V> V3 (experimental ultimate perf)
-        c_dir.join("vex_set.c"),    // Set<T> operations
-        c_dir.join("vex_string.c"), // String operations
-        c_dir.join("vex_string_type.c"), // String type implementation
+        c_dir.join("vex_set.c"),                      // Set<T> operations
+        c_dir.join("vex_string.c"),                   // String operations
+        c_dir.join("vex_string_type.c"),              // String type implementation
         c_dir.join("vex_strconv.c"), // String<->Number conversions (to_string, parse)
-        c_dir.join("vex_file.c"),   // File system operations
+        c_dir.join("vex_file.c"),    // File system operations
         c_dir.join("vex_display.c"), // Display trait - type to string conversions
+        c_dir.join("vex_value_helpers.c"), // VexValue constructor helpers
     ];
 
     // Detect platform and add appropriate poller

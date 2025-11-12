@@ -2,18 +2,18 @@
 // Demonstrates: trait definitions, method signatures
 
 // Simple trait
-trait Writer {
+contract Writer {
     fn write(data: i32): i32;
 }
 
 // Generic trait
-trait Container<T> {
+contract Container<T> {
     fn get(): T;
     fn set(value: T): i32;
 }
 
 // Multiple method trait
-trait Storage {
+contract Storage {
     fn read(): i32;
     fn write(value: i32): i32;
     fn clear(): i32;

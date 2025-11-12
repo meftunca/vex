@@ -23,20 +23,29 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let struct_name = self.variable_struct_names.get(&var_name).cloned();
 
         if let Some(type_name) = struct_name {
-            // Handle builtin type methods
-            match type_name.as_str() {
-                "Vec" => return self.compile_vec_method(&var_name, method, args),
-                "Box" => return self.compile_box_method(&var_name, method, args),
-                "String" => return self.compile_string_method(&var_name, method, args),
-                "Map" => return self.compile_map_method(&var_name, method, args),
-                "Set" => return self.compile_set_method(&var_name, method, args),
-                "Range" => return self.compile_range_method(&var_name, method, args, false),
-                "RangeInclusive" => {
-                    return self.compile_range_method(&var_name, method, args, true)
+            // ⚠️ CRITICAL: Check if this is a user-defined struct vs builtin type
+            // User-defined structs take precedence over builtin types with same name
+            let is_user_defined_struct = self.struct_defs.contains_key(&type_name);
+            
+            // Extract base type name (Vec_i32 -> Vec, Box_string -> Box)
+            let base_type = type_name.split('_').next().unwrap_or(&type_name);
+            
+            // Handle builtin type methods ONLY if not shadowed by user struct
+            if !is_user_defined_struct {
+                match base_type {
+                    "Vec" => return self.compile_vec_method(&var_name, method, args),
+                    "Box" => return self.compile_box_method(&var_name, method, args),
+                    "String" => return self.compile_string_method(&var_name, method, args),
+                    "Map" => return self.compile_map_method(&var_name, method, args),
+                    "Set" => return self.compile_set_method(&var_name, method, args),
+                    "Range" => return self.compile_range_method(&var_name, method, args, false),
+                    "RangeInclusive" => {
+                        return self.compile_range_method(&var_name, method, args, true)
+                    }
+                    "Slice" => return self.compile_slice_method(&var_name, method, args),
+                    "Channel" => return self.compile_channel_method(&var_name, method, args),
+                    _ => return Ok(None), // Not a builtin type
                 }
-                "Slice" => return self.compile_slice_method(&var_name, method, args),
-                "Channel" => return self.compile_channel_method(&var_name, method, args),
-                _ => return Ok(None), // Not a builtin type
             }
         }
 
@@ -62,19 +71,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     return Err("Vec.push() requires exactly 1 argument".to_string());
                 }
 
-                // Get alloca pointer for Vec variable
-                let vec_alloca_ptr = *self
+                // Get Vec pointer (already a pointer, no need to load)
+                let vec_ptr = *self
                     .variables
                     .get(var_name)
                     .ok_or_else(|| format!("Vec variable {} not found", var_name))?;
-
-                // Load the actual vex_vec_t* pointer from alloca
-                let vec_opaque_type = self.context.opaque_struct_type("vex_vec_s");
-                let vec_ptr_type = vec_opaque_type.ptr_type(inkwell::AddressSpace::default());
-                let vec_ptr = self
-                    .builder
-                    .build_load(vec_ptr_type, vec_alloca_ptr, "vec_ptr_load")
-                    .map_err(|e| format!("Failed to load vec pointer: {}", e))?;
 
                 let value = self.compile_expression(&args[0])?;
 
@@ -92,9 +93,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     .builder
                     .build_pointer_cast(
                         value_ptr,
-                        self.context
-                            .i8_type()
-                            .ptr_type(inkwell::AddressSpace::default()),
+                        self.context.ptr_type(inkwell::AddressSpace::default()),
                         "value_void_ptr",
                     )
                     .map_err(|e| format!("Failed to cast value pointer: {}", e))?;
@@ -103,6 +102,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     .build_call(push_fn, &[vec_ptr.into(), void_ptr.into()], "vec_push")
                     .map_err(|e| format!("Failed to call vex_vec_push: {}", e))?;
 
+                // Vec.push() returns void - return unit value (i8 0)
                 Ok(Some(self.context.i8_type().const_zero().into()))
             }
             "len" => {
@@ -110,19 +110,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     return Err("Vec.len() takes no arguments".to_string());
                 }
 
-                // Get alloca pointer for Vec variable
-                let vec_alloca_ptr = *self
+                // Get Vec pointer (already a pointer, no need to load)
+                let vec_ptr = *self
                     .variables
                     .get(var_name)
                     .ok_or_else(|| format!("Vec variable {} not found", var_name))?;
-
-                // Load the actual vex_vec_t* pointer from alloca
-                let vec_opaque_type = self.context.opaque_struct_type("vex_vec_s");
-                let vec_ptr_type = vec_opaque_type.ptr_type(inkwell::AddressSpace::default());
-                let vec_ptr = self
-                    .builder
-                    .build_load(vec_ptr_type, vec_alloca_ptr, "vec_ptr_load")
-                    .map_err(|e| format!("Failed to load vec pointer: {}", e))?;
 
                 let len_fn = self.get_vex_vec_len();
 
@@ -143,19 +135,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     return Err("Vec.get() requires exactly 1 argument (index)".to_string());
                 }
 
-                // Get alloca pointer for Vec variable
-                let vec_alloca_ptr = *self
+                // Get Vec pointer (already a pointer, no need to load)
+                let vec_ptr = *self
                     .variables
                     .get(var_name)
                     .ok_or_else(|| format!("Vec variable {} not found", var_name))?;
-
-                // Load the actual vex_vec_t* pointer from alloca
-                let vec_opaque_type = self.context.opaque_struct_type("vex_vec_s");
-                let vec_ptr_type = vec_opaque_type.ptr_type(inkwell::AddressSpace::default());
-                let vec_ptr = self
-                    .builder
-                    .build_load(vec_ptr_type, vec_alloca_ptr, "vec_ptr_load")
-                    .map_err(|e| format!("Failed to load vec pointer: {}", e))?;
 
                 // Compile index expression
                 let index = self.compile_expression(&args[0])?;

@@ -48,9 +48,9 @@ impl<'a> Parser<'a> {
 
         // Parse fields and methods
         while !self.check(&Token::RBrace) && !self.is_at_end() {
-            // Check if this is a method (fn keyword), associated type (type keyword), or field
+            // Check if this is a method (fn keyword - optional), associated type (type keyword), or field
             if self.check(&Token::Fn) {
-                // Parse method
+                // Parse method with 'fn' keyword
                 methods.push(self.parse_struct_method()?);
             } else if self.check(&Token::Type) {
                 // ⭐ NEW: Parse associated type binding: type Item = i32;
@@ -64,36 +64,47 @@ impl<'a> Parser<'a> {
                 )?;
 
                 associated_type_bindings.push((type_name, bound_type));
-            } else {
-                // Parse field
-                let field_name = self.consume_identifier()?;
-                self.consume(&Token::Colon, "Expected ':' after field name")?;
-                let field_type = self.parse_type()?;
+            } else if matches!(self.peek(), Token::Ident(_)) {
+                // Could be a method without 'fn' or a field - need to disambiguate
+                // Look ahead: if next token is '(' it's a method, if ':' it's a field
+                let checkpoint = self.current;
+                let name = self.consume_identifier()?;
+                
+                if self.check(&Token::LParen) {
+                    // It's a method without 'fn' prefix! Backtrack and parse as method
+                    self.current = checkpoint;
+                    methods.push(self.parse_struct_method()?);
+                } else if self.check(&Token::Colon) {
+                    // It's a field - continue with field parsing
+                    self.advance(); // consume ':'
+                    let field_type = self.parse_type()?;
 
-                // Check for inline metadata (backtick)
-                let metadata = if matches!(self.peek(), Token::Tag(_)) {
-                    if let Token::Tag(tag_str) = self.advance() {
-                        Some(tag_str.clone())
+                    // Check for inline metadata (backtick)
+                    let metadata = if matches!(self.peek(), Token::Tag(_)) {
+                        if let Token::Tag(tag_str) = self.advance() {
+                            Some(tag_str.clone())
+                        } else {
+                            None
+                        }
                     } else {
                         None
+                    };
+
+                    fields.push(Field {
+                        name,
+                        ty: field_type,
+                        tag: None,
+                        metadata, // Inline backtick metadata
+                    });
+
+                    if !self.match_token(&Token::Comma) {
+                        break;
                     }
                 } else {
-                    None
-                };
-
-                fields.push(Field {
-                    name: field_name,
-                    ty: field_type,
-                    tag: None,
-                    metadata, // Inline backtick metadata
-                });
-
-                if !self.match_token(&Token::Comma) {
-                    // Allow optional comma after last field
-                    if !self.check(&Token::RBrace) && !self.check(&Token::Fn) {
-                        return Err(self.error("Expected ',' or '}' after field"));
-                    }
+                    return Err(self.error("Expected '(' for method or ':' for field"));
                 }
+            } else {
+                return Err(self.error("Expected field, method, or '}'"));
             }
         }
 
@@ -116,7 +127,8 @@ impl<'a> Parser<'a> {
     /// 1. Golang-style: fn (self: &Type) method_name(...)
     /// 2. Simplified: fn method_name(...) - receiver auto-detected from body
     fn parse_struct_method(&mut self) -> Result<Function, ParseError> {
-        self.consume(&Token::Fn, "Expected 'fn'")?;
+        // ⭐ NEW: 'fn' keyword is now OPTIONAL in struct methods
+        let _has_fn_keyword = self.match_token(&Token::Fn);
 
         // Check for Golang-style receiver: fn (self: &Type) method_name(...)
         let receiver = if self.check(&Token::LParen) {

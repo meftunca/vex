@@ -122,6 +122,13 @@ impl VexBackend {
                 Some(variable.as_str()),
                 None,
             ),
+            BorrowError::UnsafeOperationOutsideUnsafeBlock { operation, location } => (
+                format!("unsafe operation `{}` requires unsafe block\nhelp: wrap this in an `unsafe {{ }}` block", operation),
+                "E0133",
+                location.as_ref(),
+                None,
+                None,
+            ),
         };
 
         // Choose the appropriate search method based on error type
@@ -435,12 +442,12 @@ pub fn vex_to_lsp_diagnostic(vex_diag: &vex_diagnostics::Diagnostic) -> Diagnost
     Diagnostic {
         range: Range {
             start: Position {
-                line: vex_diag.line as u32,
-                character: vex_diag.column as u32,
+                line: vex_diag.span.line as u32,
+                character: vex_diag.span.column as u32,
             },
             end: Position {
-                line: vex_diag.line as u32,
-                character: (vex_diag.column + vex_diag.length) as u32,
+                line: vex_diag.span.line as u32,
+                character: (vex_diag.span.column + vex_diag.span.length) as u32,
             },
         },
         severity: Some(DiagnosticSeverity::ERROR), // Default to error for now

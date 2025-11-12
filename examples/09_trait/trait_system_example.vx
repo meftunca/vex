@@ -2,7 +2,7 @@
 // struct ... impl Trait { ... methods ... }
 
 // 1. Define a trait (simplified syntax - no explicit receiver)
-trait Logger {
+contract Logger {
     // All methods are signatures only (no body)
     fn log(level: string, msg: string);
     fn info(msg: string);

@@ -142,6 +142,9 @@ impl BorrowChecker {
             Statement::Let { value, .. } => {
                 self.analyze_expression_closures(value)?;
             }
+            Statement::LetPattern { value, .. } => {
+                self.analyze_expression_closures(value)?;
+            }
             Statement::Assign { target, value } => {
                 self.analyze_expression_closures(target)?;
                 self.analyze_expression_closures(value)?;

@@ -73,8 +73,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         eprintln!("         ✅ Enum: {}", e.name);
                         imported_items.push(item.clone());
                     }
-                    Item::Trait(t) => {
-                        eprintln!("         ✅ Trait: {}", t.name);
+                    Item::Contract(c) => {
+                        eprintln!("         ✅ Contract: {}", c.name);
                         imported_items.push(item.clone());
                     }
                     _ => {
@@ -139,10 +139,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 self.register_enum(enum_def)?;
             } else if let Item::Policy(policy) = item {
                 self.register_policy(policy)?;
-            } else if let Item::Trait(trait_def) = item {
-                // Check for policy collision before registering trait
-                self.check_trait_policy_collision(&trait_def.name)?;
-                self.register_trait(trait_def)?;
+            } else if let Item::Contract(contract_def) = item {
+                // Check for policy collision before registering contract
+                self.check_trait_policy_collision(&contract_def.name)?;
+                self.register_trait(contract_def)?;
             } else if let Item::TraitImpl(trait_impl) = item {
                 self.register_trait_impl(trait_impl)?;
             } else if let Item::ExternBlock(extern_block) = item {

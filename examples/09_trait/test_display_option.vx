@@ -1,7 +1,7 @@
 // Test Display trait with Option<T>
 // Demonstrates Display for enum types
 
-trait Display {
+contract Display {
     fn to_string(): string;
 }
 

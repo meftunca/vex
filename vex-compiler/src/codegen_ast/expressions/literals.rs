@@ -20,12 +20,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let elem_type = first_val.get_type();
 
         // Create array type
-        let array_type = if let BasicTypeEnum::IntType(it) = elem_type {
-            it.array_type(elements.len() as u32)
-        } else if let BasicTypeEnum::FloatType(ft) = elem_type {
-            ft.array_type(elements.len() as u32)
-        } else {
-            return Err("Unsupported array element type".to_string());
+        let array_type = match elem_type {
+            BasicTypeEnum::IntType(it) => it.array_type(elements.len() as u32),
+            BasicTypeEnum::FloatType(ft) => ft.array_type(elements.len() as u32),
+            BasicTypeEnum::ArrayType(at) => at.array_type(elements.len() as u32),
+            _ => return Err(format!("Unsupported array element type: {:?}", elem_type)),
         };
 
         // Allocate on stack
@@ -58,12 +57,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let elem_type_llvm = self.ast_type_to_llvm(elem_type_ast);
 
         // Create array type
-        let array_type = if let BasicTypeEnum::IntType(it) = elem_type_llvm {
-            it.array_type(elements.len() as u32)
-        } else if let BasicTypeEnum::FloatType(ft) = elem_type_llvm {
-            ft.array_type(elements.len() as u32)
-        } else {
-            return Err("Unsupported array element type".to_string());
+        let array_type = match elem_type_llvm {
+            BasicTypeEnum::IntType(it) => it.array_type(elements.len() as u32),
+            BasicTypeEnum::FloatType(ft) => ft.array_type(elements.len() as u32),
+            BasicTypeEnum::ArrayType(at) => at.array_type(elements.len() as u32),
+            _ => return Err(format!("Unsupported array element type: {:?}", elem_type_llvm)),
         };
 
         // Store elements directly into dest_ptr
@@ -256,12 +254,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 .map_err(|e| format!("Failed to call memset: {}", e))?;
         } else {
             // Use loop to initialize dest_ptr directly
-            let array_type = if let BasicTypeEnum::IntType(it) = elem_type_llvm {
-                it.array_type(count_u32)
-            } else if let BasicTypeEnum::FloatType(ft) = elem_type_llvm {
-                ft.array_type(count_u32)
-            } else {
-                return Err("Unsupported array element type".to_string());
+            let array_type = match elem_type_llvm {
+                BasicTypeEnum::IntType(it) => it.array_type(count_u32),
+                BasicTypeEnum::FloatType(ft) => ft.array_type(count_u32),
+                BasicTypeEnum::ArrayType(at) => at.array_type(count_u32),
+                _ => return Err(format!("Unsupported array element type: {:?}", elem_type_llvm)),
             };
 
             let zero = self.context.i32_type().const_int(0, false);
@@ -311,12 +308,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
         };
 
         // Create array type
-        let array_type = if let BasicTypeEnum::IntType(it) = elem_type {
-            it.array_type(count_u32)
-        } else if let BasicTypeEnum::FloatType(ft) = elem_type {
-            ft.array_type(count_u32)
-        } else {
-            return Err("Unsupported array element type for repeat".to_string());
+        let array_type = match elem_type {
+            BasicTypeEnum::IntType(it) => it.array_type(count_u32),
+            BasicTypeEnum::FloatType(ft) => ft.array_type(count_u32),
+            BasicTypeEnum::ArrayType(at) => at.array_type(count_u32),
+            _ => return Err(format!("Unsupported array element type for repeat: {:?}", elem_type)),
         };
 
         // Allocate on stack

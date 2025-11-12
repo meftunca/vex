@@ -161,7 +161,7 @@ vex_lang/
 │   └── diagnostics/     # Error reporting system
 ├── vex-runtime/         # C runtime (SIMD, async, allocators)
 ├── vex-cli/             # Command-line interface
-├── vex-lsp/             # Language Server Protocol (60% complete)
+├── vex-lsp/             # Language Server Protocol (95% complete)
 ├── vex-formatter/       # Code formatter
 └── vex-pm/              # Package manager
 ```

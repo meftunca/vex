@@ -2,7 +2,7 @@
 // Enforces let vs let! semantics
 
 use std::collections::HashSet;
-use vex_ast::{Expression, Program, Statement, Type};
+use vex_ast::{Expression, Pattern, Program, Statement, Type};
 
 use super::errors::{BorrowError, BorrowResult};
 
@@ -145,8 +145,8 @@ impl ImmutabilityChecker {
                 }
                 Ok(())
             }
-            Item::Enum(_)
-            | Item::Trait(_)
+            | Item::Enum(_)
+            | Item::Contract(_)
             | Item::TraitImpl(_)
             | Item::TypeAlias(_)
             | Item::Policy(_)
@@ -178,6 +178,18 @@ impl ImmutabilityChecker {
                 // Check the initializer expression
                 self.check_expression(value)?;
 
+                Ok(())
+            }
+
+            Statement::LetPattern { pattern, is_mutable, value, .. } => {
+                // Check value expression
+                self.check_expression(value)?;
+                // Mark pattern variables as mutable/immutable
+                if *is_mutable {
+                    self.mark_pattern_mutable(pattern);
+                } else {
+                    self.mark_pattern_immutable(pattern);
+                }
                 Ok(())
             }
 
@@ -543,5 +555,65 @@ mod tests {
         checker.check_statement(&let_stmt).unwrap();
         assert!(checker.mutable_vars.contains("y"));
         assert!(!checker.immutable_vars.contains("y"));
+    }
+}
+
+impl ImmutabilityChecker {
+    fn mark_pattern_mutable(&mut self, pattern: &Pattern) {
+        match pattern {
+            Pattern::Ident(name) => {
+                self.mutable_vars.insert(name.clone());
+            }
+            Pattern::Tuple(patterns) => {
+                for p in patterns {
+                    self.mark_pattern_mutable(p);
+                }
+            }
+            Pattern::Struct { fields, .. } => {
+                for (_, p) in fields {
+                    self.mark_pattern_mutable(p);
+                }
+            }
+            Pattern::Enum { data, .. } => {
+                for p in data {
+                    self.mark_pattern_mutable(p);
+                }
+            }
+            Pattern::Array { elements, .. } => {
+                for p in elements {
+                    self.mark_pattern_mutable(p);
+                }
+            }
+            Pattern::Wildcard | Pattern::Literal(_) | Pattern::Or(_) => {}
+        }
+    }
+
+    fn mark_pattern_immutable(&mut self, pattern: &Pattern) {
+        match pattern {
+            Pattern::Ident(name) => {
+                self.immutable_vars.insert(name.clone());
+            }
+            Pattern::Tuple(patterns) => {
+                for p in patterns {
+                    self.mark_pattern_immutable(p);
+                }
+            }
+            Pattern::Struct { fields, .. } => {
+                for (_, p) in fields {
+                    self.mark_pattern_immutable(p);
+                }
+            }
+            Pattern::Enum { data, .. } => {
+                for p in data {
+                    self.mark_pattern_immutable(p);
+                }
+            }
+            Pattern::Array { elements, .. } => {
+                for p in elements {
+                    self.mark_pattern_immutable(p);
+                }
+            }
+            Pattern::Wildcard | Pattern::Literal(_) | Pattern::Or(_) => {}
+        }
     }
 }

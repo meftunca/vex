@@ -838,7 +838,7 @@ Create alternative names for types:
 ```vex
 type UserID = u64;
 type Point2D = (i32, i32);
-type Callback = fn(i32): i32;  // Function pointer (future)
+type Callback = fn(i32): i32;
 ```
 
 **Usage**:
@@ -848,12 +848,40 @@ let id: UserID = 12345;
 let point: Point2D = (10, 20);
 ```
 
-**Generic Type Aliases** (Future):
+**Generic Type Aliases with Constraints** ✅ (v0.1.2):
 
 ```vex
-type Result<T> = (T | error);
-type Option<T> = (T | nil);
+// Simple trait bound
+type Displayable<T: Display> = T;
+
+// Multiple trait bounds
+type ComparableNumber<T: Ord + Clone> = T;
+
+// Complex constraints
+type SerializableVec<T: Serialize + Clone> = Vec<T>;
+
+// Function type with constraints
+type Processor<T: Display + Clone> = fn(T): T;
 ```
+
+**Conditional Type Aliases** ✅ (v0.1.2):
+
+```vex
+// Unwrap Option type
+type Unwrap<T> = T extends Option<infer U> ? U : T;
+
+// Extract Result values
+type ExtractOk<T> = T extends Result<infer V, infer E> ? V : T;
+
+// Type filtering
+type OnlyOption<T> = T extends Option<infer U> ? T : never;
+```
+
+**Type Safety:**
+- ✅ All type aliases are compile-time only (zero runtime cost)
+- ✅ Constraints enforced during type checking
+- ✅ Invalid types cause compile errors
+- ✅ No reflection or runtime type information
 
 ---
 

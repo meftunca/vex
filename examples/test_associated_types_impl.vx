@@ -1,7 +1,7 @@
 // Test Associated Types - Basic implementation
 // Test that associated types resolve to concrete types
 
-trait Container {
+contract Container {
     type Item;
     
     fn get_value(): i32;

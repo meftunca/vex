@@ -1,7 +1,7 @@
 // Test: Associated Types in Traits
 // Full implementation with type bindings
 
-trait Container {
+contract Container {
     type Item;  // ✅ Associated type declaration
     fn size(): i32;
 }

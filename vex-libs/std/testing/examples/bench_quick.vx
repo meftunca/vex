@@ -1,7 +1,7 @@
 // Quick Benchmark - Minimal test
 import {monotonic_now} from "time";
 
-trait Benchmarkable {
+contract Benchmarkable {
     fn stop_timer();
     fn ns_per_op(): i64;
     fn ops_per_sec(): i64;

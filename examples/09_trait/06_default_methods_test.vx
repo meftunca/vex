@@ -1,6 +1,6 @@
 // Test trait methods (simplified syntax)
 
-trait Greeter {
+contract Greeter {
     // Simplified syntax - no explicit receiver
     fn get_name(): string;
     fn greet(): i32;

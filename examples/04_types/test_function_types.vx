@@ -1,0 +1,56 @@
+// Function Types & Callbacks Test
+// Tests: type aliases, generics, struct fields, trait params
+
+// 1. Basic function type alias
+type Callback = fn(i32): i32;
+type Predicate = fn(i32): bool;
+type VoidCallback = fn(): nil;
+
+// 2. Generic function type
+type Transformer<T> = fn(T): T;
+type Mapper<T, U> = fn(T): U;
+
+// 3. Struct with function field
+struct Handler {
+    on_event: fn(i32): i32,
+    validator: fn(i32): bool,
+}
+
+// 4. Generic struct with function field
+struct EventHandler<T> {
+    callback: fn(T): T,
+}
+
+// 5. Trait with function type
+contract Processor {
+    fn process(handler: Callback): i32;
+}
+
+// 6. Generic trait with function parameter
+contract GenericProcessor<T> {
+    fn apply(func: fn(T): T, value: T): T;
+}
+
+// Test implementations
+fn double(x: i32): i32 {
+    return x * 2;
+}
+
+fn is_positive(x: i32): bool {
+    return x > 0;
+}
+
+fn main(): i32 {
+    // Test 1: Basic callback assignment
+    let cb: Callback = double;
+    let pred: Predicate = is_positive;
+    
+    // Test 2: Struct with callbacks
+    let handler = Handler {
+        on_event: double,
+        validator: is_positive,
+    };
+    
+    println("Function types work!");
+    return 0;
+}

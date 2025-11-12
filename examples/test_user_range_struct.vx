@@ -1,0 +1,45 @@
+// Test that user-defined "Range" struct doesn't conflict with builtin range
+// This tests the fix for struct method inline compilation
+
+import { Option } from "core";
+
+// User-defined struct named Range (conflicts with builtin 0..10 syntax)
+struct Range {
+    current: i32,
+    max: i32,
+    
+    fn next()!: Option<i32> {
+        if self.current < self.max {
+            let val = self.current;
+            self.current = self.current + 1;
+            return Some(val);
+        }
+        return None;
+    }
+}
+
+fn main(): i32 {
+    // Create user-defined Range struct
+    let! my_range = Range { current: 10, max: 13 };
+    
+    // Call method on user-defined struct
+    let val1 = my_range.next();
+    let val2 = my_range.next();
+    
+    // Also test builtin range syntax works
+    let builtin_range = 0..3;
+    
+    let result = match val1 {
+        Some(10) => match val2 {
+            Some(11) => 0,
+            _ => 1,
+        },
+        _ => 1,
+    };
+    
+    if result == 0 {
+        println("✅ User-defined Range struct methods work!");
+    }
+    
+    return result;
+}

@@ -1,0 +1,31 @@
+// Conditional Types - TypeScript-style type-level conditionals
+// Syntax: T extends U ? X : Y
+
+// Example 1: Unwrap Option type
+type Unwrap<T> = T extends Option<infer U> ? U : T;
+
+// Example 2: Extract Ok value from Result
+type ExtractOk<T> = T extends Result<infer V, infer E> ? V : T;
+
+// Example 3: Extract Error from Result
+type ExtractErr<T> = T extends Result<infer V, infer E> ? E : never;
+
+// Example 4: Check if Option type (returns original or never)
+type OnlyOption<T> = T extends Option<infer U> ? T : never;
+
+fn main(): i32 {
+    // Type-level computation happens at compile time
+    // These types are resolved during type checking
+    
+    // Unwrap<Option<i32>> → i32
+    // Unwrap<string> → string
+    
+    // ExtractOk<Result<i32, string>> → i32
+    // ExtractErr<Result<i32, string>> → string
+    
+    // OnlyOption<Option<i32>> → Option<i32>
+    // OnlyOption<string> → never
+    
+    println("Conditional types work at compile time!");
+    return 0;
+}

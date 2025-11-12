@@ -1,0 +1,64 @@
+// stdlib/vex/beta_option.vx
+// Option<T> - Represents an optional value
+// Status: BETA - Testing phase
+
+enum BetaOption<T> {
+    Some(T),
+    None,
+}
+
+// Check if option contains a value
+export fn IsSome<T>(opt: BetaOption<T>): bool {
+    match opt {
+        BetaOption.Some(_) => { return true; },
+        BetaOption.None => { return false; },
+    }
+}
+
+// Check if option is None
+export fn IsNone<T>(opt: BetaOption<T>): bool {
+    match opt {
+        BetaOption.Some(_) => { return false; },
+        BetaOption.None => { return true; },
+    }
+}
+
+// Unwrap value (panics if None)
+export fn Unwrap<T>(opt: BetaOption<T>): T {
+    match opt {
+        BetaOption.Some(value) => { return value; },
+        BetaOption.None => { panic("Called Unwrap on None"); },
+    }
+}
+
+// Unwrap or return default value
+export fn UnwrapOr<T>(opt: BetaOption<T>, default: T): T {
+    match opt {
+        BetaOption.Some(value) => { return value; },
+        BetaOption.None => { return default; },
+    }
+}
+
+// Map Option<T> to Option<U> using function
+export fn Map<T, U>(opt: BetaOption<T>, f: fn(T): U): BetaOption<U> {
+    match opt {
+        BetaOption.Some(value) => { return BetaOption.Some(f(value)); },
+        BetaOption.None => { return BetaOption.None; },
+    }
+}
+
+// Return other if both are Some, otherwise None
+export fn And<T, U>(opt: BetaOption<T>, other: BetaOption<U>): BetaOption<U> {
+    match opt {
+        BetaOption.Some(_) => { return other; },
+        BetaOption.None => { return BetaOption.None; },
+    }
+}
+
+// Return first Some value, or None if both are None
+export fn Or<T>(opt: BetaOption<T>, other: BetaOption<T>): BetaOption<T> {
+    match opt {
+        BetaOption.Some(_) => { return opt; },
+        BetaOption.None => { return other; },
+    }
+}

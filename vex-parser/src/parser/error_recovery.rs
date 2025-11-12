@@ -79,7 +79,7 @@ impl<'a> Parser<'a> {
             Ok(Some(TopLevelItem::Item(self.parse_type_alias()?)))
         } else if self.check(&Token::Enum) {
             Ok(Some(TopLevelItem::Item(self.parse_enum()?)))
-        } else if self.check(&Token::Trait) {
+        } else if self.check(&Token::Contract) {
             Ok(Some(TopLevelItem::Item(self.parse_trait()?)))
         } else if self.check(&Token::Impl) {
             Ok(Some(TopLevelItem::Item(self.parse_trait_impl()?)))
@@ -103,7 +103,7 @@ impl<'a> Parser<'a> {
                 Token::Fn
                 | Token::Struct
                 | Token::Enum
-                | Token::Trait
+                | Token::Contract
                 | Token::Type
                 | Token::Const
                 | Token::Import

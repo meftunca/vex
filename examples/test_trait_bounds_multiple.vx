@@ -1,11 +1,11 @@
 // Test multiple trait bounds (T: Display + Clone pattern)
 // Note: Current parser might not support + syntax yet
 
-trait Display {
+contract Display {
     fn to_string(): string;
 }
 
-trait Clone {
+contract Clone {
     fn clone(): Self;
 }
 

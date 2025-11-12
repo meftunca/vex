@@ -1,7 +1,7 @@
 // Test trait bounds enforcement
 // This should compile successfully - Point implements Display
 
-trait Display {
+contract Display {
     fn to_string(): string;
 }
 

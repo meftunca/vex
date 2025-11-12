@@ -4,7 +4,7 @@
 import {monotonic_now} from "time";
 
 // Benchmarkable trait - defines benchmark interface
-trait Benchmarkable {
+contract Benchmarkable {
     fn stop_timer();
     fn start_timer();
     fn reset_timer();

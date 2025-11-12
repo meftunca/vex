@@ -82,6 +82,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 }
             }
             Type::Named(name) => {
+                // ⚠️ Check type aliases FIRST before any other lookups
+                if let Some(resolved) = self.type_aliases.get(name) {
+                    return self.ast_type_to_llvm(resolved);
+                }
+
                 // Special case: "void" type (for FFI/C interop)
                 if name == "void" {
                     // void is represented as i8 in LLVM (opaque type)
@@ -550,17 +555,63 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 let size = arr_ty.len() as usize;
 
                 // Recursively infer element type
-                if let BasicTypeEnum::IntType(int_ty) = elem_ty {
-                    let bit_width = int_ty.get_bit_width();
-                    let elem_ast_ty = match bit_width {
-                        32 => Type::I32,
-                        64 => Type::I64,
-                        _ => return Err("Unsupported array element type".to_string()),
-                    };
-                    Ok(Type::Array(Box::new(elem_ast_ty), size))
-                } else {
-                    Err("Unsupported array element type".to_string())
-                }
+                let elem_ast_ty = match elem_ty {
+                    BasicTypeEnum::IntType(int_ty) => {
+                        let bit_width = int_ty.get_bit_width();
+                        match bit_width {
+                            1 => Type::Bool,
+                            8 => Type::I8,
+                            16 => Type::I16,
+                            32 => Type::I32,
+                            64 => Type::I64,
+                            128 => Type::I128,
+                            _ => {
+                                return Err(format!(
+                                    "Unsupported array element int type with bit width {}",
+                                    bit_width
+                                ))
+                            }
+                        }
+                    }
+                    BasicTypeEnum::FloatType(float_ty) => {
+                        if float_ty == self.context.f16_type() {
+                            Type::F16
+                        } else if float_ty == self.context.f32_type() {
+                            Type::F32
+                        } else if float_ty == self.context.f64_type() {
+                            Type::F64
+                        } else {
+                            Type::F64
+                        }
+                    }
+                    BasicTypeEnum::ArrayType(inner_arr_ty) => {
+                        // Nested array: [[i32; 2]; 2]
+                        let inner_elem_ty = inner_arr_ty.get_element_type();
+                        let inner_size = inner_arr_ty.len() as usize;
+
+                        let inner_ast_ty = match inner_elem_ty {
+                            BasicTypeEnum::IntType(int_ty) => {
+                                let bit_width = int_ty.get_bit_width();
+                                match bit_width {
+                                    1 => Type::Bool,
+                                    8 => Type::I8,
+                                    16 => Type::I16,
+                                    32 => Type::I32,
+                                    64 => Type::I64,
+                                    128 => Type::I128,
+                                    _ => return Err(format!(
+                                        "Unsupported nested array element type with bit width {}",
+                                        bit_width
+                                    )),
+                                }
+                            }
+                            _ => return Err("Unsupported nested array element type".to_string()),
+                        };
+                        Type::Array(Box::new(inner_ast_ty), inner_size)
+                    }
+                    _ => return Err(format!("Unsupported array element type: {:?}", elem_ty)),
+                };
+                Ok(Type::Array(Box::new(elem_ast_ty), size))
             }
             BasicTypeEnum::StructType(_) => {
                 // For struct types, we can't fully infer without metadata
@@ -597,6 +648,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 })
             }
             Expression::Ident(name) => {
+                // Check if we have AST type information first (most accurate)
+                if let Some(ast_type) = self.variable_ast_types.get(name) {
+                    return Ok(ast_type.clone());
+                }
+
                 // Check if this is a struct variable
                 if let Some(struct_name) = self.variable_struct_names.get(name) {
                     // Handle mangled generic types (e.g., "Vec_i32" -> Vec<i32>)

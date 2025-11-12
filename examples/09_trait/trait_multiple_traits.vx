@@ -2,15 +2,15 @@
 // struct Foo impl Trait1, Trait2, Trait3 { ... }
 
 // Define multiple traits
-trait Display {
+contract Display {
     fn show();
 }
 
-trait Serializable {
+contract Serializable {
     fn serialize() : i32;
 }
 
-trait Comparable {
+contract Comparable {
     fn compare(other: &Self) : i32;
 }
 

@@ -1,7 +1,7 @@
 // Test trait methods (signature only - simplified syntax)
 // Traits can only have method signatures, no body
 
-trait Logger {
+contract Logger {
     // Simplified syntax - no explicit receiver
     fn log(msg: string);
     fn info(msg: string);

@@ -1,10 +1,10 @@
 // Test multiple trait bounds with + syntax
 
-trait Display {
+contract Display {
     fn to_string(): string;
 }
 
-trait Clone {
+contract Clone {
     fn clone(): Self;
 }
 

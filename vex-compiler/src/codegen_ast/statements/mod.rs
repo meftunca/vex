@@ -47,6 +47,16 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 self.compile_let_statement(*is_mutable, name, ty.as_ref(), value)?;
             }
 
+            // let pattern destructuring: let (a, b) = expr;
+            Statement::LetPattern {
+                is_mutable,
+                pattern,
+                ty,
+                value,
+            } => {
+                self.compile_let_pattern_statement(*is_mutable, pattern, ty.as_ref(), value)?;
+            }
+
             // simple assignment
             Statement::Assign { target, value } => {
                 self.compile_assign_statement(target, value)?;

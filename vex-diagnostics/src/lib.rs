@@ -618,6 +618,7 @@ pub mod error_codes {
     pub const LIFETIME_ERROR: &str = "E0597";
     pub const DANGLING_REFERENCE: &str = "E0597";
     pub const RETURN_LOCAL_REF: &str = "E0515";
+    pub const UNSAFE_REQUIRED: &str = "E0133";
 
     // Pattern matching errors (E0600-E0699)
     pub const NON_EXHAUSTIVE: &str = "E0004";

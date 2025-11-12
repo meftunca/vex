@@ -7,9 +7,34 @@ use vex_lexer::Token;
 
 impl<'a> Parser<'a> {
     pub(crate) fn parse_statement(&mut self) -> Result<Statement, ParseError> {
-        // Let statement: let x = expr; or let! x = expr;
+        // Let statement: let x = expr; or let! x = expr; or let (a, b) = expr;
         if self.match_token(&Token::Let) {
             let is_mutable = self.match_token(&Token::Not); // let! → mutable
+            
+            // Check for tuple destructuring pattern: let (a, b) = ...
+            if self.check(&Token::LParen) {
+                // Parse tuple pattern
+                let pattern = self.parse_pattern()?;
+                
+                let ty = if self.match_token(&Token::Colon) {
+                    Some(self.parse_type()?)
+                } else {
+                    None
+                };
+                
+                self.consume(&Token::Eq, "Expected '=' in let statement")?;
+                let value = self.parse_expression()?;
+                self.consume(&Token::Semicolon, "Expected ';' after let statement")?;
+                
+                return Ok(Statement::LetPattern {
+                    is_mutable,
+                    pattern,
+                    ty,
+                    value,
+                });
+            }
+            
+            // Regular let binding: let name = expr
             let name = self.consume_identifier()?;
 
             let ty = if self.match_token(&Token::Colon) {

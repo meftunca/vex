@@ -2,7 +2,7 @@
 # Install Vex VS Code Extension via Symlink (with LSP support)
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-EXTENSION_DIR="$HOME/.vscode/extensions/vex-language-0.2.0"
+EXTENSION_DIR="$HOME/.vscode-insiders/extensions/vex-language-0.9.2"
 
 echo "🔧 Installing Vex Language Support for VS Code..."
 

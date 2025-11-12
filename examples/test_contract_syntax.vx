@@ -1,0 +1,67 @@
+// Test new Vex syntax: contract keyword and optional fn in methods
+
+// 1. Contract definition (not trait)
+contract Display {
+    show();
+    format(): string;
+}
+
+// 2. Struct with contract implementation (no fn prefix in methods!)
+struct Point impl Display {
+    x: i32,
+    y: i32,
+    
+    // Method WITHOUT 'fn' prefix - new syntax!
+    show() {
+        print("Point(", self.x, ",", self.y, ")");
+        return;
+    }
+    
+    // Another method without 'fn'
+    format(): string {
+        return "Point(x,y)";
+    }
+    
+    // Mutable method - still uses ! suffix
+    translate(dx: i32, dy: i32)! {
+        self.x = self.x + dx;
+        self.y = self.y + dy;
+        return;
+    }
+}
+
+// 3. Another contract
+contract Geometry {
+    area(): f64;
+}
+
+// 4. Struct implementing multiple contracts
+struct Rectangle impl Display, Geometry {
+    width: i32,
+    height: i32,
+    
+    show() {
+        print("Rectangle(", self.width, "x", self.height, ")");
+        return;
+    }
+    
+    format(): string {
+        return "Rectangle";
+    }
+    
+    area(): f64 {
+        return 0.0; // placeholder
+    }
+}
+
+fn main(): i32 {
+    let! p = Point { x: 10, y: 20 };
+    p.show();
+    p.translate(5, 5);
+    p.show();
+    
+    let r = Rectangle { width: 100, height: 50 };
+    r.show();
+    
+    return 0;
+}

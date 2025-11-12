@@ -1,7 +1,7 @@
 // Advanced edge case: Nested associated types (chaining)
 // This might not work yet, but let's test parsing
 
-trait NestedIterator {
+contract NestedIterator {
     type Item;
     type Inner;
     

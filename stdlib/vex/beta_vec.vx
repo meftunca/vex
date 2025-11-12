@@ -1,0 +1,199 @@
+// stdlib/vex/beta_vec.vx
+// Vec<T> - Dynamic array wrapper around C runtime
+// Status: BETA - Testing phase
+
+extern "C" {
+    fn vex_vec_new(elem_size: i64): ptr;
+    fn vex_vec_push(vec: ptr, elem: ptr);
+    fn vex_vec_get(vec: ptr, index: i64): ptr;
+    fn vex_vec_len(vec: ptr): i64;
+    fn vex_vec_free(vec: ptr);
+    fn vex_vec_reserve(vec: ptr, additional: i64);
+    fn vex_vec_pop(vec: ptr, out: ptr): bool;
+    fn vex_vec_clear(vec: ptr);
+    fn vex_vec_is_empty(vec: ptr): bool;
+    fn vex_vec_capacity(vec: ptr): i64;
+}
+
+struct BetaVec<T> impl Drop {
+    _ptr: ptr,
+    
+    fn drop()! {
+        vex_vec_free(self._ptr);
+    },
+    
+    // Constructor - static method 
+    // example let v = BetaVec<i32>();
+    new(): BetaVec<T> {
+        return BetaVec { _ptr: vex_vec_new(sizeof(T)) };
+    },
+
+    // Create with pre-allocated capacity
+    with_capacity(capacity: i64): BetaVec<T> {
+        let v = BetaVec.new();
+        vex_vec_reserve(v._ptr, capacity);
+        return v;
+    },
+    
+    // Basic operations
+    fn push(self, value: T)! {
+        vex_vec_push(self._ptr, &value);
+    },
+    
+    fn get(self, index: i64): T {
+        let ptr = vex_vec_get(self._ptr, index);
+        return *ptr as T;
+    },
+    
+    fn len(self): i64 {
+        return vex_vec_len(self._ptr);
+    },
+    
+    fn capacity(self): i64 {
+        return vex_vec_capacity(self._ptr);
+    },
+    
+    fn is_empty(self): bool {
+        return vex_vec_is_empty(self._ptr);
+    },
+    
+    fn clear(self)! {
+        vex_vec_clear(self._ptr);
+    },
+    
+    fn reserve(self, additional: i64)! {
+        vex_vec_reserve(self._ptr, additional);
+    },
+    
+    // Pop last element (returns None if empty)
+    fn pop(self): BetaOption<T> {
+        if self.is_empty() {
+            return BetaOption.None;
+        }
+        let! result: T;
+        let success = vex_vec_pop(self._ptr, &result);
+        if success {
+            return BetaOption.Some(result);
+        }
+        return BetaOption.None;
+    },
+    
+    // Get first element
+    fn first(self): BetaOption<T> {
+        if self.is_empty() {
+            return BetaOption.None;
+        }
+        return BetaOption.Some(self.get(0));
+    },
+    
+    // Get last element
+    fn last(self): BetaOption<T> {
+        let len = self.len();
+        if len == 0 {
+            return BetaOption.None;
+        }
+        return BetaOption.Some(self.get(len - 1));
+    },
+    
+    // Check if vector contains element
+    fn contains(self, value: T): bool {
+        let len = self.len();
+        let! i = 0;
+        while i < len {
+            if self.get(i) == value {
+                return true;
+            }
+            i = i + 1;
+        }
+        return false;
+    },
+    
+    // Map vector elements using function
+    fn map<U>(self, f: fn(T): U): BetaVec<U> {
+        let! result = BetaVec.with_capacity(self.len());
+        let len = self.len();
+        let! i = 0;
+        while i < len {
+            result.push(f(self.get(i)));
+            i = i + 1;
+        }
+        return result;
+    },
+    
+    // Filter vector elements using predicate
+    fn filter(self, pred: fn(T): bool): BetaVec<T> {
+        let! result = BetaVec.new();
+        let len = self.len();
+        let! i = 0;
+        while i < len {
+            let elem = self.get(i);
+            if pred(elem) {
+                result.push(elem);
+            }
+            i = i + 1;
+        }
+        return result;
+    },
+    
+    // Execute function for each element
+    fn forEach(self, f: fn(T))! {
+        let len = self.len();
+        let! i = 0;
+        while i < len {
+            f(self.get(i));
+            i = i + 1;
+        }
+    },
+    
+    // Reduce vector to single value
+    fn reduce<U>(self, init: U, f: fn(U, T): U): U {
+        let! acc = init;
+        let len = self.len();
+        let! i = 0;
+        while i < len {
+            acc = f(acc, self.get(i));
+            i = i + 1;
+        }
+        return acc;
+    },
+    
+    // Find first element matching predicate
+    fn find(self, pred: fn(T): bool): BetaOption<T> {
+        let len = self.len();
+        let! i = 0;
+        while i < len {
+            let elem = self.get(i);
+            if pred(elem) {
+                return BetaOption.Some(elem);
+            }
+            i = i + 1;
+        }
+        return BetaOption.None;
+    },
+    
+    // Check if any element matches predicate
+    fn any(self, pred: fn(T): bool): bool {
+        let len = self.len();
+        let! i = 0;
+        while i < len {
+            if pred(self.get(i)) {
+                return true;
+            }
+            i = i + 1;
+        }
+        return false;
+    },
+    
+    // Check if all elements match predicate
+    fn all(self, pred: fn(T): bool): bool {
+        let len = self.len();
+        let! i = 0;
+        while i < len {
+            if !pred(self.get(i)) {
+                return false;
+            }
+            i = i + 1;
+        }
+        return true;
+    }
+}

@@ -52,8 +52,8 @@ pub enum Token {
     #[token("enum")]
     Enum,
 
-    #[token("trait")]
-    Trait,
+    #[token("contract")]
+    Contract,
     #[token("impl")]
     Impl,
     #[token("policy")]
@@ -399,7 +399,7 @@ mod tests {
 
     #[test]
     fn test_keywords() {
-        let source = "fn let struct async await trait";
+        let source = "fn let struct async await contract";
         let mut lexer = Lexer::new(source);
 
         assert_eq!(lexer.next().unwrap().unwrap().token, Token::Fn);
@@ -407,7 +407,7 @@ mod tests {
         assert_eq!(lexer.next().unwrap().unwrap().token, Token::Struct);
         assert_eq!(lexer.next().unwrap().unwrap().token, Token::Async);
         assert_eq!(lexer.next().unwrap().unwrap().token, Token::Await);
-        assert_eq!(lexer.next().unwrap().unwrap().token, Token::Trait);
+        assert_eq!(lexer.next().unwrap().unwrap().token, Token::Contract);
     }
 
     #[test]

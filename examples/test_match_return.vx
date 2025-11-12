@@ -1,0 +1,38 @@
+// Test match arm return statements
+import { Option } from "core";
+
+fn test_match_return(opt: Option<i32>): i32 {
+    let result = match opt {
+        Some(x) => {
+            if x > 10 {
+                return x * 2;  // Early return from function
+            }
+            x
+        }
+        None => return 0
+    };
+    return result;
+}
+
+fn main(): i32 {
+    let result1 = test_match_return(Some(15));
+    if result1 != 30 {
+        println("❌ FAILED: Expected 30, got different value");
+        return 1;
+    }
+    
+    let result2 = test_match_return(Some(5));
+    if result2 != 5 {
+        println("❌ FAILED: Expected 5, got different value");
+        return 1;
+    }
+    
+    let result3 = test_match_return(None);
+    if result3 != 0 {
+        println("❌ FAILED: Expected 0, got different value");
+        return 1;
+    }
+    
+    println("✅ All match return tests passed!");
+    return 0;
+}

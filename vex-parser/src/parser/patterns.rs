@@ -28,8 +28,21 @@ impl<'a> Parser<'a> {
             self.consume(&Token::FatArrow, "Expected '=>' after pattern")?;
 
             // Parse body: either a block expression { ... } or a single expression
+            // Special case: allow 'return expr' without braces (convert to block)
             let body = if self.check(&Token::LBrace) {
                 self.parse_block_expression()?
+            } else if self.check(&Token::Return) {
+                // Convert `return expr` to `{ return expr; }`
+                self.advance(); // consume 'return'
+                let return_expr = if self.check(&Token::Comma) || self.check(&Token::RBrace) {
+                    None
+                } else {
+                    Some(Box::new(self.parse_expression()?))
+                };
+                Expression::Block {
+                    statements: vec![Statement::Return(return_expr.map(|e| *e))],
+                    return_expr: None,
+                }
             } else {
                 self.parse_expression()?
             };
@@ -50,7 +63,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Parse pattern for match expressions (with Or support)
-    fn parse_pattern(&mut self) -> Result<Pattern, ParseError> {
+    pub(crate) fn parse_pattern(&mut self) -> Result<Pattern, ParseError> {
         let first_pattern = self.parse_single_pattern()?;
 
         // Check for Or pattern: 1 | 2 | 3 (using Pipe token)

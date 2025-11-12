@@ -9,7 +9,7 @@ import {monotonic_now} from "time";
 // ============================================================================
 
 // Testable defines the interface for test contexts
-trait Testable {
+contract Testable {
     fn error(msg: String);
     fn skip(msg: String);
     fn log(msg: String);
@@ -17,7 +17,7 @@ trait Testable {
 }
 
 // Benchmarkable defines the interface for benchmark contexts
-trait Benchmarkable {
+contract Benchmarkable {
     fn reset_timer();
     fn start_timer();
     fn stop_timer();

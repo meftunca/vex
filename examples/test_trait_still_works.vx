@@ -1,0 +1,20 @@
+// Test: trait keyword hala çalışıyor mu?
+
+contract Logger {
+    log(msg: string);
+}
+
+struct ConsoleLogger impl Logger {
+    prefix: string,
+    
+    log(msg: string) {
+        print(self.prefix, ": ", msg);
+        return;
+    }
+}
+
+fn main(): i32 {
+    let logger = ConsoleLogger { prefix: "INFO" };
+    logger.log("trait keyword works!");
+    return 0;
+}

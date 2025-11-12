@@ -1,0 +1,35 @@
+// Test all primitive types - simple version
+
+fn main(): i32 {
+    print("=== Integer Types ===\n");
+    print("i8:  {}\n", 127);
+    print("i16: {}\n", 32767);
+    print("i32: {}\n", 2147483647);
+    print("i64: {}\n", 9223372036854775807);
+    
+    print("\n=== Unsigned Types ===\n");
+    print("u8:  {}\n", 255);
+    print("u16: {}\n", 65535);
+    print("u32: {}\n", 4294967295);
+    
+    print("\n=== Float Types ===\n");
+    print("f32: {}\n", 3.14);
+    print("f64: {}\n", 2.71828);
+    print("f32 precision: {:.2}\n", 3.14159);
+    print("f64 precision: {:.5}\n", 2.718281828);
+    
+    print("\n=== Bool ===\n");
+    print("bool: {}\n", true);
+    print("bool: {}\n", false);
+    
+    print("\n=== Debug Format ===\n");
+    print("i32: {:?}\n", 42);
+    print("f64: {:?}\n", 3.14);
+    print("bool: {:?}\n", true);
+    
+    print("\n=== Hex Format ===\n");
+    print("255 hex: {:x}\n", 255);
+    print("4095 hex: {:x}\n", 4095);
+    
+    return 0;
+}

@@ -1,10 +1,28 @@
 # Conditional Types (TypeScript-inspired)
 
-**Status:** 🚧 Planned (Not Implemented)  
-**Version:** Future (v1.0+)  
-**Last Updated:** November 9, 2025
+**Status:** ✅ Implemented (v0.1.2)  
+**Version:** v0.1.2  
+**Last Updated:** November 11, 2025
 
-This document describes Vex's planned conditional type system, inspired by TypeScript's `T extends U ? X : Y` syntax for advanced type-level programming.
+This document describes Vex's conditional type system, inspired by TypeScript's `T extends U ? X : Y` syntax for advanced type-level programming.
+
+---
+
+## ⚠️ Type Safety Guarantees
+
+**Conditional types maintain Vex's zero-cost abstraction and type safety:**
+
+1. ✅ **Compile-time only** - All evaluation happens during type checking
+2. ✅ **Zero runtime cost** - No reflection, no type metadata in binary
+3. ✅ **Static verification** - Invalid type conditions caught at compile time
+4. ✅ **Sound type system** - Cannot violate type safety through conditionals
+5. ✅ **Monomorphization** - Generic types fully resolved before LLVM codegen
+
+**Implementation:**
+- Parser: Parses conditional type syntax into AST
+- Type Checker: Evaluates conditions during type resolution
+- Compiler: Generates code as if types were written explicitly
+- No runtime type information or dynamic dispatch
 
 ---
 
@@ -75,7 +93,31 @@ type B = IsString<i32>;     // false
 
 ## Use Cases
 
-### 1. Type-Based Return Types
+### ✅ Currently Working (v0.1.2)
+
+**Basic conditional types with `infer` keyword:**
+
+```vex
+// 1. Unwrap Option type
+type Unwrap<T> = T extends Option<infer U> ? U : T;
+// Unwrap<Option<i32>> → i32
+// Unwrap<string> → string
+
+// 2. Extract Result values
+type ExtractOk<T> = T extends Result<infer V, infer E> ? V : T;
+type ExtractErr<T> = T extends Result<infer V, infer E> ? E : never;
+// ExtractOk<Result<i32, string>> → i32
+// ExtractErr<Result<i32, string>> → string
+
+// 3. Type filtering
+type OnlyOption<T> = T extends Option<infer U> ? T : never;
+// OnlyOption<Option<i32>> → Option<i32>
+// OnlyOption<string> → never
+```
+
+### 🔮 Planned Features
+
+**1. Type-Based Return Types:**
 
 ```vex
 type ReturnType<T> =

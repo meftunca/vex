@@ -41,15 +41,15 @@ impl<'a> Parser<'a> {
         } else if self.check(&Token::Struct) {
             // Pattern 2: export struct Foo {}
             self.parse_struct()
-        } else if self.check(&Token::Trait) {
-            // Pattern 2: export trait Foo {}
+        } else if self.check(&Token::Contract) {
+            // Pattern 2: export contract Foo {}
             self.parse_trait()
         } else if self.check(&Token::Enum) {
             // Pattern 2: export enum Foo {}
             self.parse_enum()
         } else {
             return Err(self.error(
-                "Expected '{', 'fn', 'const', 'struct', 'trait', or 'enum' after 'export'",
+                "Expected '{', 'fn', 'const', 'struct', 'contract', or 'enum' after 'export'",
             ));
         }
     }

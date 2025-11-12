@@ -98,7 +98,7 @@ impl<'a> Parser<'a> {
                 items.push(self.parse_type_alias()?);
             } else if self.check(&Token::Enum) {
                 items.push(self.parse_enum()?);
-            } else if self.check(&Token::Trait) {
+            } else if self.check(&Token::Contract) {
                 items.push(self.parse_trait()?);
             } else if self.check(&Token::Impl) {
                 items.push(self.parse_trait_impl()?);
@@ -110,7 +110,7 @@ impl<'a> Parser<'a> {
             } else {
                 eprintln!("🔧 Parser: Unknown token: {:?}", self.peek());
                 return Err(self.error(
-                    "Expected top-level item (import, export, const, fn, struct, type, enum,  trait, impl, policy, extern)",
+                    "Expected top-level item (import, export, const, fn, struct, type, enum, contract, impl, policy, extern)",
                 ));
             }
         }

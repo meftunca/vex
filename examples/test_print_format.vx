@@ -1,0 +1,26 @@
+// Test print() with format strings
+
+fn main(): i32 {
+    // Simple format
+    print("Hello, World!\n");
+    
+    // Single placeholder
+    print("Value: {}\n", 42);
+    
+    // Multiple placeholders
+    print("x={}, y={}\n", 10, 20);
+    
+    // Mixed types
+    print("int={}, float={}, bool={}\n", 42, 3.14, true);
+    
+    // Precision format
+    print("Pi: {:.2}\n", 3.14159);
+    
+    // Debug format
+    print("Debug: {:?}\n", 42);
+    
+    // Hex format
+    print("Hex: {:x}\n", 255);
+    
+    return 0;
+}

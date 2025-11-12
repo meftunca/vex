@@ -69,6 +69,12 @@ pub enum BorrowError {
 
     /// Return dangling reference to local variable (Phase 4)
     ReturnDanglingReference { variable: String },
+
+    /// Unsafe operation outside unsafe block (Phase 3)
+    UnsafeOperationOutsideUnsafeBlock {
+        operation: String,
+        location: Option<String>,
+    },
 }
 
 impl fmt::Display for BorrowError {
@@ -234,6 +240,24 @@ impl fmt::Display for BorrowError {
                 write!(
                     f,
                     "\nhelp: consider returning an owned value or accepting a reference parameter"
+                )
+            }
+
+            BorrowError::UnsafeOperationOutsideUnsafeBlock {
+                operation,
+                location,
+            } => {
+                write!(
+                    f,
+                    "unsafe operation `{}` requires unsafe block",
+                    operation
+                )?;
+                if let Some(loc) = location {
+                    write!(f, " at {}", loc)?;
+                }
+                write!(
+                    f,
+                    "\nhelp: wrap this operation in an `unsafe {{ }}` block"
                 )
             }
         }
@@ -480,6 +504,26 @@ impl BorrowError {
                 ),
                 suggestion: None,
             },
+
+            BorrowError::UnsafeOperationOutsideUnsafeBlock {
+                operation,
+                location,
+            } => {
+                let mut notes = vec![format!("operation `{}` is unsafe", operation)];
+                if let Some(loc) = location {
+                    notes.push(format!("occurs at {}", loc));
+                }
+
+                Diagnostic {
+                    level: ErrorLevel::Error,
+                    code: error_codes::UNSAFE_REQUIRED.to_string(),
+                    message: format!("unsafe operation `{}` requires unsafe block", operation),
+                    span: Span::unknown(),
+                    notes,
+                    help: Some("wrap this operation in an `unsafe { }` block".to_string()),
+                    suggestion: None,
+                }
+            }
         }
     }
 }

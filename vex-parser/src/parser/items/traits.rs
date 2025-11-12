@@ -5,7 +5,8 @@ use vex_lexer::Token;
 
 impl<'a> Parser<'a> {
     pub(crate) fn parse_trait(&mut self) -> Result<Item, ParseError> {
-        self.consume(&Token::Trait, "Expected 'trait'")?;
+        // Only 'contract' keyword is supported
+        self.consume(&Token::Contract, "Expected 'contract'")?;
 
         let name = self.consume_identifier()?;
 
@@ -34,8 +35,14 @@ impl<'a> Parser<'a> {
         let mut type_aliases = Vec::new();
 
         while !self.check(&Token::RBrace) && !self.is_at_end() {
-            if self.check(&Token::Fn) {
-                self.advance(); // consume 'fn'
+            // ⭐ NEW: 'fn' keyword is now OPTIONAL in contract/trait methods
+            let is_method = self.check(&Token::Fn) || matches!(self.peek(), Token::Ident(_));
+            
+            if is_method {
+                // If 'fn' present, consume it; otherwise continue (method name will be next)
+                if self.check(&Token::Fn) {
+                    self.advance(); // consume 'fn'
+                }
                 trait_methods.push(self.parse_trait_method_signature()?);
             } else if self.check(&Token::Type) {
                 // Parse associated type OR type alias
@@ -63,7 +70,8 @@ impl<'a> Parser<'a> {
 
         self.consume(&Token::RBrace, "Expected '}'")?;
 
-        Ok(Item::Trait(Trait {
+        // Return Contract variant only
+        Ok(Item::Contract(Trait {
             name,
             type_params,
             super_traits,

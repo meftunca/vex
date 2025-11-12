@@ -1,0 +1,28 @@
+// Minimal format() test  
+// Tests zero-cost type-safe formatting
+
+import { println } from "io";
+import { format } from "fmt_builtin";
+
+fn main(): i32 {
+    println("Testing format()...");
+    
+    // Test 1: Single integer
+    let result1 = format("Value: {}", 42);
+    println(result1);
+    
+    // Test 2: Multiple args
+    let result2 = format("x={}, y={}", 10, 20);
+    println(result2);
+    
+    // Test 3: Mixed types
+    let result3 = format("int={}, float={}", 100, 3.14);
+    println(result3);
+    
+    // Test 4: String
+    let result4 = format("Hello {}", "World");
+    println(result4);
+    
+    println("Format test complete!");
+    return 0;
+}

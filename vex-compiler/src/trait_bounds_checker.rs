@@ -36,11 +36,11 @@ impl TraitBoundsChecker {
 
     /// Initialize checker with program information
     pub fn initialize(&mut self, program: &Program) {
-        // Collect trait definitions
+        // Collect contract definitions
         for item in &program.items {
-            if let vex_ast::Item::Trait(trait_def) = item {
+            if let vex_ast::Item::Contract(contract_def) = item {
                 self.traits
-                    .insert(trait_def.name.clone(), trait_def.clone());
+                    .insert(contract_def.name.clone(), contract_def.clone());
             }
         }
 

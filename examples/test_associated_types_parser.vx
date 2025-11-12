@@ -1,7 +1,7 @@
 // Test Self.Item parsing (parser-only test)
 // Goal: Verify Type::SelfType and Type::AssociatedType are parsed
 
-trait Iterator {
+contract Iterator {
     type Item;
     
     fn next(): Option<Self.Item>;

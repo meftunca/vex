@@ -235,10 +235,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         if let Some(current_block) = self.builder.get_insert_block() {
             if current_block.get_terminator().is_none() {
-                let is_reachable = current_block.get_first_use().is_some()
-                    || current_block == fn_val.get_first_basic_block().unwrap();
+                // Simple approach: if it's not the entry block, it's unreachable
+                let is_entry_block = current_block == fn_val.get_first_basic_block().unwrap();
 
-                if is_reachable {
+                if is_entry_block {
                     if func.return_type.is_none() {
                         let zero = self.context.i32_type().const_int(0, false);
                         self.builder
@@ -248,6 +248,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         return Err("Non-void function must have explicit return".to_string());
                     }
                 } else {
+                    // Non-entry block without terminator = unreachable
                     self.builder
                         .build_unreachable()
                         .map_err(|e| format!("Failed to build unreachable: {}", e))?;

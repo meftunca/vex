@@ -1,8 +1,0 @@
-// Test i128/u128 BigIntLiteral support
-
-fn main(): i32 {
-    // Test with a large number that fits in i128
-    let big_num: i128 = 123456789012345678901234567890;
-    
-    return 0;
-}

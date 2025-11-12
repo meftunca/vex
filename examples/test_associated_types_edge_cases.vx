@@ -1,7 +1,7 @@
 // Edge cases for associated types parsing (Self.Item syntax)
 
 // Edge Case 1: Multiple associated types in one trait
-trait KeyValue {
+contract KeyValue {
     type Key;
     type Value;
     
@@ -10,7 +10,7 @@ trait KeyValue {
 }
 
 // Edge Case 2: Associated types in generic contexts
-trait Container {
+contract Container {
     type Item;
     
     fn get_all(): Vec<Self.Item>;
@@ -19,7 +19,7 @@ trait Container {
 }
 
 // Edge Case 3: Associated types with references
-trait RefContainer {
+contract RefContainer {
     type Item;
     
     fn borrow_item(): Option<Self.Item>;
@@ -27,7 +27,7 @@ trait RefContainer {
 }
 
 // Edge Case 4: Nested generics with associated types
-trait Processor {
+contract Processor {
     type Input;
     type Output;
     type Error;
@@ -71,7 +71,7 @@ struct Counter impl Container {
 }
 
 // Edge Case 7: Function type with associated types
-trait Transformer {
+contract Transformer {
     type Input;
     type Output;
     
@@ -79,7 +79,7 @@ trait Transformer {
 }
 
 // Edge Case 8: Array of associated types
-trait ArrayContainer {
+contract ArrayContainer {
     type Item;
     
     fn get_array(): Option<Self.Item>;

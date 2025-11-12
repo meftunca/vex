@@ -1,32 +1,32 @@
 // Comprehensive operator overloading test
 
 // Arithmetic operators
-trait Add {
+contract Add {
     fn add(other: Self): Self;
 }
 
-trait Sub {
+contract Sub {
     fn sub(other: Self): Self;
 }
 
-trait Mul {
+contract Mul {
     fn mul(other: Self): Self;
 }
 
-trait Div {
+contract Div {
     fn div(other: Self): Self;
 }
 
-trait Rem {
+contract Rem {
     fn rem(other: Self): Self;
 }
 
 // Comparison operators
-trait Eq {
+contract Eq {
     fn eq(other: Self): bool;
 }
 
-trait Ord {
+contract Ord {
     fn lt(other: Self): bool;
     fn le(other: Self): bool;
     fn gt(other: Self): bool;
@@ -34,32 +34,32 @@ trait Ord {
 }
 
 // Bitwise operators
-trait BitAnd {
+contract BitAnd {
     fn bitand(other: Self): Self;
 }
 
-trait BitOr {
+contract BitOr {
     fn bitor(other: Self): Self;
 }
 
-trait BitXor {
+contract BitXor {
     fn bitxor(other: Self): Self;
 }
 
-trait Shl {
+contract Shl {
     fn shl(amount: i32): Self;
 }
 
-trait Shr {
+contract Shr {
     fn shr(amount: i32): Self;
 }
 
 // Unary operators
-trait Neg {
+contract Neg {
     fn neg(): Self;
 }
 
-trait Not {
+contract Not {
     fn not(): bool;
 }
 

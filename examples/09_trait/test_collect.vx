@@ -3,7 +3,7 @@
 
 import { Vec } from "core";
 
-trait Iterator {
+contract Iterator {
     type Item;
     fn next()!: Option<i32>;
 }

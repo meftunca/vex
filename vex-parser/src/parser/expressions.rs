@@ -95,13 +95,21 @@ impl<'a> Parser<'a> {
 
     /// Parse closure/lambda: |x, y| expr or |x: i32, y: i32| { body }
     pub(crate) fn parse_closure(&mut self) -> Result<Expression, ParseError> {
-        // Consume opening pipe: |
-        self.consume(&Token::Pipe, "Expected '|' at start of closure")?;
+        // Handle || (no parameters) vs | params |
+        let has_params = if self.check(&Token::Or) {
+            // || - no parameters
+            self.advance(); // consume ||
+            false
+        } else {
+            // | params |
+            self.consume(&Token::Pipe, "Expected '|' at start of closure")?;
+            true
+        };
 
         // Parse parameters: |x, y| or |x: i32, y: i32|
         let mut params = Vec::new();
 
-        if !self.check(&Token::Pipe) {
+        if has_params && !self.check(&Token::Pipe) {
             loop {
                 let param_name = self.consume_identifier()?;
 
@@ -110,8 +118,8 @@ impl<'a> Parser<'a> {
                     // Use parse_type_primary to avoid parsing | as union type operator
                     self.parse_type_primary()?
                 } else {
-                    // TODO: Type inference for closures
-                    return Err(self.error("Closure parameters require type annotations for now"));
+                    // Use placeholder type for inference
+                    Type::Infer("_".to_string())
                 };
 
                 params.push(vex_ast::Param {
@@ -125,7 +133,9 @@ impl<'a> Parser<'a> {
             }
         }
 
-        self.consume(&Token::Pipe, "Expected '|' after closure parameters")?;
+        if has_params {
+            self.consume(&Token::Pipe, "Expected '|' after closure parameters")?;
+        }
 
         // Optional return type: |x: i32|: i32
         let return_type = if self.match_token(&Token::Colon) {

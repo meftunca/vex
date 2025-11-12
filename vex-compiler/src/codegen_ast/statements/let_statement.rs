@@ -6,6 +6,23 @@ use inkwell::types::BasicTypeEnum;
 use inkwell::values::BasicValueEnum;
 use vex_ast::*;
 impl<'ctx> ASTCodeGen<'ctx> {
+    /// Compile a `let pattern` statement: let (a, b) = expr; or let Point { x, y } = expr;
+    pub(crate) fn compile_let_pattern_statement(
+        &mut self,
+        is_mutable: bool,
+        pattern: &Pattern,
+        _ty: Option<&Type>,
+        value: &Expression,
+    ) -> Result<(), String> {
+        // Compile the value expression
+        let val = self.compile_expression(value)?;
+
+        // Bind pattern variables
+        self.compile_pattern_binding(pattern, val)?;
+
+        Ok(())
+    }
+
     /// Compile a `let` statement
     pub(crate) fn compile_let_statement(
         &mut self,
@@ -582,6 +599,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     let llvm_type = self.ast_type_to_llvm(ty.as_ref().unwrap());
                     self.variables.insert(name.clone(), alloca);
                     self.variable_types.insert(name.clone(), llvm_type);
+                    self.variable_ast_types
+                        .insert(name.clone(), (*ty.as_ref().unwrap()).clone());
                     return Ok(());
                 } else {
                     self.compile_expression(&adjusted_value)?
@@ -602,12 +621,22 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 if let BasicTypeEnum::IntType(target_int_type) = target_llvm_type {
                     if int_val.get_type().get_bit_width() != target_int_type.get_bit_width() {
                         if int_val.get_type().get_bit_width() < target_int_type.get_bit_width() {
-                            // Sign extend for wider types
-                            val = self
-                                .builder
-                                .build_int_s_extend(int_val, target_int_type, "lit_sext")
-                                .map_err(|e| format!("Failed to extend literal: {}", e))?
-                                .into();
+                            // Extend for wider types (use unsigned extend for unsigned target types)
+                            let is_unsigned = matches!(
+                                t,
+                                Type::U8 | Type::U16 | Type::U32 | Type::U64 | Type::U128
+                            );
+                            val = if is_unsigned {
+                                self.builder
+                                    .build_int_z_extend(int_val, target_int_type, "lit_zext")
+                                    .map_err(|e| format!("Failed to zero-extend literal: {}", e))?
+                                    .into()
+                            } else {
+                                self.builder
+                                    .build_int_s_extend(int_val, target_int_type, "lit_sext")
+                                    .map_err(|e| format!("Failed to sign-extend literal: {}", e))?
+                                    .into()
+                            };
                         } else {
                             // Truncate for narrower types
                             val = self
@@ -616,6 +645,19 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                 .map_err(|e| format!("Failed to truncate literal: {}", e))?
                                 .into();
                         }
+                    }
+                }
+            }
+            // Cast float literals to match target float type
+            else if let BasicValueEnum::FloatValue(float_val) = val {
+                if let BasicTypeEnum::FloatType(target_float_type) = target_llvm_type {
+                    // f64 -> f32 (truncate) or f32 -> f64 (extend)
+                    if float_val.get_type() != target_float_type {
+                        val = self
+                            .builder
+                            .build_float_cast(float_val, target_float_type, "float_cast")
+                            .map_err(|e| format!("Failed to cast float: {}", e))?
+                            .into();
                     }
                 }
             }
@@ -984,13 +1026,15 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let is_builtin_pointer = matches!(&final_var_type, Type::Vec(_) | Type::Box(_))
             || (matches!(&final_var_type, Type::Named(name) if name.starts_with("Vec_") || name.starts_with("Box_")));
 
-        let is_struct_or_tuple = if let Type::Named(type_name) = &final_var_type {
-            type_name == "Tuple"
-                || self.struct_defs.contains_key(type_name)
-                || type_name == "Option"
-                || type_name == "Result"
-        } else {
-            is_tuple_literal
+        let is_struct_or_tuple = match &final_var_type {
+            Type::Named(type_name) => {
+                type_name == "Tuple"
+                    || self.struct_defs.contains_key(type_name)
+                    || type_name == "Option"
+                    || type_name == "Result"
+            }
+            Type::Option(_) | Type::Result(_, _) => true, // Enum types with explicit type parameters
+            _ => is_tuple_literal,
         };
 
         eprintln!(
@@ -1013,6 +1057,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 if is_tuple_literal {
                     if let Some(struct_ty) = self.last_compiled_tuple_type {
                         self.variable_types.insert(name.clone(), struct_ty.into());
+                        self.variable_ast_types
+                            .insert(name.clone(), final_var_type.clone());
                         self.tuple_variable_types.insert(name.clone(), struct_ty);
                         self.variable_struct_names
                             .insert(name.clone(), "Tuple".to_string());
@@ -1022,6 +1068,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     }
                 } else {
                     self.variable_types.insert(name.clone(), final_llvm_type);
+                    self.variable_ast_types
+                        .insert(name.clone(), final_var_type.clone());
                 }
             } else if let BasicValueEnum::StructValue(_struct_val) = val {
                 // Case 2: Struct returned by value (from function/method)
@@ -1050,6 +1098,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
             self.build_store_aligned(alloca, val)?;
             self.variables.insert(name.clone(), alloca);
             self.variable_types.insert(name.clone(), final_llvm_type);
+            self.variable_ast_types
+                .insert(name.clone(), final_var_type.clone());
         }
 
         // Track closure variables

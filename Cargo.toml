@@ -19,7 +19,8 @@ edition = "2021"
 authors = ["Vex Language Team"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/yourusername/vex_lang"
-
+[build]
+rustflags = ["-Z", "threads=8"]
 [workspace.dependencies]
 # Lexer & Parser
 logos = "0.15.1"

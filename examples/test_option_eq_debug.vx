@@ -1,0 +1,17 @@
+// Debug Option equality
+import { Option } from "core";
+
+fn main(): i32 {
+    let opt1 = Some(42);
+    let opt2 = Some(99);
+    
+    println("Testing: Some(42) != Some(99)");
+    
+    if opt1 != opt2 {
+        println("✅ PASS: Some(42) != Some(99)");
+        return 0;
+    } else {
+        println("❌ FAIL: Some(42) == Some(99) (should be different!)");
+        return 1;
+    }
+}

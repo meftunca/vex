@@ -1,0 +1,23 @@
+// Test: Unsafe operations should require unsafe blocks
+// Expected: Compile errors for raw pointer ops outside unsafe
+
+fn main(): i32 {
+    // ❌ ERROR: Raw pointer dereference outside unsafe
+    let ptr = malloc(100);
+    *ptr = 42;  // Should require unsafe block
+    
+    // ✅ OK: Inside unsafe block
+    unsafe {
+        let safe_ptr = malloc(200);
+        *safe_ptr = 84;
+        free(safe_ptr);
+    }
+    
+    free(ptr);
+    return 0;
+}
+
+extern "C" {
+    fn malloc(size: i64): ptr;
+    fn free(p: ptr);
+}

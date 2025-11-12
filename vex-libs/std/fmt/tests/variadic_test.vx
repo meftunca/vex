@@ -1,0 +1,31 @@
+// Test variadic formatting functions
+import { println } from "io";
+
+// Test extern C variadic
+extern "C" {
+    fn printf(format: *u8, ...): i32;
+    fn sprintf(buffer: *u8, format: *u8, ...): i32;
+}
+
+fn main(): i32 {
+    println("=== Testing Variadic Functions ===\n");
+    
+    // Test C printf directly
+    printf("Direct C printf: x = %d, y = %f\n", 42, 3.14);
+    
+    // Test with different types
+    printf("Integer: %d\n", 100);
+    printf("Float: %.2f\n", 3.14159);
+    printf("String: %s\n", "Hello");
+    printf("Hex: 0x%x\n", 255);
+    
+    // Test multiple arguments
+    printf("Multiple: a=%d, b=%d, c=%d\n", 1, 2, 3);
+    
+    // Test mixed types
+    printf("Mixed: int=%d, float=%.2f, hex=0x%x\n", 42, 2.71, "16");
+    
+    println("\n=== Variadic Test Complete ===");
+    
+    return 0;
+}

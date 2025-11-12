@@ -379,18 +379,38 @@ extern "C"
    */
   int vex_sprintf(char *buf, const char *fmt, ...);
 
+  /**
+   * Formatted print to buffer with size limit (supports %d, %s, %f, %ld, %lf)
+   * @param buf Output buffer
+   * @param size Maximum size of buffer
+   * @param fmt Format string
+   * @return Number of characters that would be written (or -1 on error)
+   */
+  int vex_snprintf(char *buf, size_t size, const char *fmt, ...);
+
   // --- Style 2: Go-style (Variadic, convenient) ---
 
   // Value type enum for runtime polymorphism
   typedef enum
   {
+    VEX_VALUE_I8,
+    VEX_VALUE_I16,
     VEX_VALUE_I32,
     VEX_VALUE_I64,
+    VEX_VALUE_I128,
+    VEX_VALUE_U8,
+    VEX_VALUE_U16,
+    VEX_VALUE_U32,
+    VEX_VALUE_U64,
+    VEX_VALUE_U128,
+    VEX_VALUE_F16,
     VEX_VALUE_F32,
     VEX_VALUE_F64,
     VEX_VALUE_BOOL,
     VEX_VALUE_STRING,
     VEX_VALUE_PTR,
+    VEX_VALUE_ERROR,
+    VEX_VALUE_NIL,
   } VexValueType;
 
   // Universal value container
@@ -399,13 +419,23 @@ extern "C"
     VexValueType type;
     union
     {
+      int8_t as_i8;
+      int16_t as_i16;
       int32_t as_i32;
       int64_t as_i64;
+      __int128 as_i128;
+      uint8_t as_u8;
+      uint16_t as_u16;
+      uint32_t as_u32;
+      uint64_t as_u64;
+      unsigned __int128 as_u128;
+      _Float16 as_f16; // IEEE 754 half precision
       float as_f32;
       double as_f64;
       bool as_bool;
       const char *as_string;
       void *as_ptr;
+      void *as_error; // Error type pointer
     };
   } VexValue;
 
@@ -456,50 +486,25 @@ extern "C"
    */
   void vex_print_value(const VexValue *val);
 
-  /**
-   * Create VexValue from i32
-   */
-  static inline VexValue vex_value_i32(int32_t val)
-  {
-    VexValue v = {.type = VEX_VALUE_I32, .as_i32 = val};
-    return v;
-  }
-
-  /**
-   * Create VexValue from i64
-   */
-  static inline VexValue vex_value_i64(int64_t val)
-  {
-    VexValue v = {.type = VEX_VALUE_I64, .as_i64 = val};
-    return v;
-  }
-
-  /**
-   * Create VexValue from f64
-   */
-  static inline VexValue vex_value_f64(double val)
-  {
-    VexValue v = {.type = VEX_VALUE_F64, .as_f64 = val};
-    return v;
-  }
-
-  /**
-   * Create VexValue from string
-   */
-  static inline VexValue vex_value_string(const char *val)
-  {
-    VexValue v = {.type = VEX_VALUE_STRING, .as_string = val};
-    return v;
-  }
-
-  /**
-   * Create VexValue from bool
-   */
-  static inline VexValue vex_value_bool(bool val)
-  {
-    VexValue v = {.type = VEX_VALUE_BOOL, .as_bool = val};
-    return v;
-  }
+  // VexValue constructor helpers - declarations (implementations in vex_value_helpers.c)
+  extern VexValue vex_value_i8(int8_t val);
+  extern VexValue vex_value_i16(int16_t val);
+  extern VexValue vex_value_i32(int32_t val);
+  extern VexValue vex_value_i64(int64_t val);
+  extern VexValue vex_value_i128(__int128 val);
+  extern VexValue vex_value_u8(uint8_t val);
+  extern VexValue vex_value_u16(uint16_t val);
+  extern VexValue vex_value_u32(uint32_t val);
+  extern VexValue vex_value_u64(uint64_t val);
+  extern VexValue vex_value_u128(unsigned __int128 val);
+  extern VexValue vex_value_f16(_Float16 val);
+  extern VexValue vex_value_f32(float val);
+  extern VexValue vex_value_f64(double val);
+  extern VexValue vex_value_bool(bool val);
+  extern VexValue vex_value_string(const char *val);
+  extern VexValue vex_value_ptr(void *val);
+  extern VexValue vex_value_error(void *val);
+  extern VexValue vex_value_nil(void);
 
   // ============================================================================
   // ARRAY OPERATIONS
@@ -870,9 +875,9 @@ extern "C"
   // ============================================================================
   // Performance (100K items on ARM64):
   //   - Insert: 30.47M ops/s (32.8 ns/op) 🔥
-  //   - Lookup: 53.86M ops/s (18.6 ns/op) 🔥  
+  //   - Lookup: 53.86M ops/s (18.6 ns/op) 🔥
   //   - Remove: 18.2M ops/s (54.9 ns/op)
-  
+
   /**
    * Initialize map with V2 implementation (RECOMMENDED)
    * @param map Pointer to VexMap struct
@@ -1552,6 +1557,7 @@ extern "C"
   size_t vex_string_char_count(vex_string_t *str);
   bool vex_string_is_empty(vex_string_t *str);
   const char *vex_string_as_cstr(vex_string_t *str);
+  const char *vex_format_string(const char *template, size_t template_len, const char *arg, size_t arg_len);
   void vex_string_clear(vex_string_t *str);
   void vex_string_free(vex_string_t *str);
   vex_string_t *vex_string_clone(vex_string_t *str);

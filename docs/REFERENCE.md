@@ -319,19 +319,74 @@ enum Result<T, E> {
 }
 ```
 
-#### Conditional Types (Future)
+#### Conditional Types ✅ (v0.1.2)
+
+**TypeScript-style type-level conditionals:**
 
 ```vex
-type ExtractArray<T> = T extends [infer U] ? U : T;
+// Syntax: T extends U ? X : Y
+type Unwrap<T> = T extends Option<infer U> ? U : T;
+type ExtractOk<T> = T extends Result<infer V, infer E> ? V : T;
+type ExtractErr<T> = T extends Result<infer V, infer E> ? E : never;
+type OnlyOption<T> = T extends Option<infer U> ? T : never;
+```
+
+**Properties:**
+
+- ✅ Compile-time type computation
+- ✅ Pattern matching on types
+- ✅ `infer` keyword for extracting type variables
+- ✅ `never` type for impossible branches
+- ✅ Works with generic types (Option, Result, etc.)
+
+**Usage:**
+
+```vex
+// Unwrap<Option<i32>> → i32
+// Unwrap<string> → string
+// ExtractOk<Result<i32, string>> → i32
+// ExtractErr<Result<i32, string>> → string
 ```
 
 ### Type Aliases
+
+**Basic aliases:**
 
 ```vex
 type UserID = u64;
 type Callback = fn(i32): bool;
 type Point2D = (f64, f64);
 ```
+
+**Union type aliases:**
+
+```vex
+type Result = i32 | string | error;
+type Nullable<T> = T | nil;
+```
+
+**Generic aliases with constraints:** ✅ (v0.1.2)
+
+```vex
+// Simple trait bound
+type Displayable<T: Display> = T;
+
+// Multiple trait bounds
+type ComparableNumber<T: Ord + Clone> = T;
+
+// Complex constraint
+type SerializableVec<T: Serialize + Clone> = Vec<T>;
+
+// Function type with constraints
+type Processor<T: Display + Clone> = fn(T): T;
+```
+
+**Properties:**
+
+- ✅ Type constraints enforce trait bounds at compile time
+- ✅ Invalid types cause compile errors
+- ✅ Works with all trait combinations
+- ✅ Supports associated types from traits
 
 ### Reflection Builtins ✅
 
@@ -1833,13 +1888,15 @@ let value = <-ch;  // Desugars to ch.recv()
 
 ### Type Quick Reference
 
-| Category          | Types                                                                |
-| ----------------- | -------------------------------------------------------------------- |
-| **Integers**      | `i8`, `i16`, `i32`, `i64`, `i128`, `u8`, `u16`, `u32`, `u64`, `u128` |
-| **Floats**        | `f16`, `f32`, `f64`                                                  |
-| **Other**         | `bool`, `string`, `byte`, `nil`, `error`                             |
-| **Collections**   | `Vec<T>`, `Map<K,V>`, `Set<T>`, `Box<T>`, `Channel<T>`               |
-| **Builtin Enums** | `Option<T>`, `Result<T,E>`                                           |
+| Category            | Types                                                                |
+| ------------------- | -------------------------------------------------------------------- |
+| **Integers**        | `i8`, `i16`, `i32`, `i64`, `i128`, `u8`, `u16`, `u32`, `u64`, `u128` |
+| **Floats**          | `f16`, `f32`, `f64`                                                  |
+| **Other**           | `bool`, `string`, `byte`, `nil`, `error`, `never`                    |
+| **Collections**     | `Vec<T>`, `Map<K,V>`, `Set<T>`, `Box<T>`, `Channel<T>`               |
+| **Builtin Enums**   | `Option<T>`, `Result<T,E>`                                           |
+| **Advanced Types**  | Union: `T \| U`, Conditional: `T extends U ? X : Y`                  |
+| **Type Operations** | `typeof(expr)`, `infer T`, Type constraints: `T: Trait`              |
 
 ### Syntax Comparison: Vex vs Rust
 

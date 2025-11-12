@@ -67,11 +67,40 @@ void vex_print_value(const VexValue *val)
 {
     switch (val->type)
     {
+    case VEX_VALUE_I8:
+        vex_printf("%d", (int)val->as_i8);
+        break;
+    case VEX_VALUE_I16:
+        vex_printf("%d", (int)val->as_i16);
+        break;
     case VEX_VALUE_I32:
         vex_printf("%d", val->as_i32);
         break;
     case VEX_VALUE_I64:
         vex_printf("%lld", (long long)val->as_i64);
+        break;
+    case VEX_VALUE_I128:
+        // i128 as two i64 parts (high, low)
+        vex_printf("%lld%lld", (long long)(val->as_i128 >> 64), (long long)(val->as_i128 & 0xFFFFFFFFFFFFFFFF));
+        break;
+    case VEX_VALUE_U8:
+        vex_printf("%u", (unsigned int)val->as_u8);
+        break;
+    case VEX_VALUE_U16:
+        vex_printf("%u", (unsigned int)val->as_u16);
+        break;
+    case VEX_VALUE_U32:
+        vex_printf("%u", val->as_u32);
+        break;
+    case VEX_VALUE_U64:
+        vex_printf("%llu", (unsigned long long)val->as_u64);
+        break;
+    case VEX_VALUE_U128:
+        // u128 as two u64 parts (high, low)
+        vex_printf("%llu%llu", (unsigned long long)(val->as_u128 >> 64), (unsigned long long)(val->as_u128 & 0xFFFFFFFFFFFFFFFF));
+        break;
+    case VEX_VALUE_F16:
+        vex_printf("%g", (double)val->as_f16);
         break;
     case VEX_VALUE_F32:
         vex_printf("%g", val->as_f32);
@@ -87,6 +116,12 @@ void vex_print_value(const VexValue *val)
         break;
     case VEX_VALUE_PTR:
         vex_printf("%p", val->as_ptr);
+        break;
+    case VEX_VALUE_ERROR:
+        vex_printf("Error(%p)", val->as_error);
+        break;
+    case VEX_VALUE_NIL:
+        vex_print("nil", 3);
         break;
     }
 }
@@ -179,20 +214,28 @@ static void vex_print_value_fmt(const VexValue *val, char fmt_type, int precisio
 {
     switch (val->type)
     {
+    case VEX_VALUE_I8:
+    case VEX_VALUE_I16:
     case VEX_VALUE_I32:
+    {
+        int32_t v = (val->type == VEX_VALUE_I8) ? val->as_i8 : (val->type == VEX_VALUE_I16) ? val->as_i16
+                                                                                            : val->as_i32;
         if (fmt_type == 'x')
         {
-            vex_printf("%x", val->as_i32);
+            vex_printf("%x", v);
         }
         else if (fmt_type == '?')
         {
-            vex_printf("i32(%d)", val->as_i32);
+            const char *type_name = (val->type == VEX_VALUE_I8) ? "i8" : (val->type == VEX_VALUE_I16) ? "i16"
+                                                                                                      : "i32";
+            vex_printf("%s(%d)", type_name, v);
         }
         else
         {
-            vex_printf("%d", val->as_i32);
+            vex_printf("%d", v);
         }
         break;
+    }
 
     case VEX_VALUE_I64:
         if (fmt_type == 'x')
@@ -209,13 +252,55 @@ static void vex_print_value_fmt(const VexValue *val, char fmt_type, int precisio
         }
         break;
 
+    case VEX_VALUE_U8:
+    case VEX_VALUE_U16:
+    case VEX_VALUE_U32:
+    {
+        uint32_t v = (val->type == VEX_VALUE_U8) ? val->as_u8 : (val->type == VEX_VALUE_U16) ? val->as_u16
+                                                                                             : val->as_u32;
+        if (fmt_type == 'x')
+        {
+            vex_printf("%x", v);
+        }
+        else if (fmt_type == '?')
+        {
+            const char *type_name = (val->type == VEX_VALUE_U8) ? "u8" : (val->type == VEX_VALUE_U16) ? "u16"
+                                                                                                      : "u32";
+            vex_printf("%s(%u)", type_name, v);
+        }
+        else
+        {
+            vex_printf("%u", v);
+        }
+        break;
+    }
+
+    case VEX_VALUE_U64:
+        if (fmt_type == 'x')
+        {
+            vex_printf("%llx", (unsigned long long)val->as_u64);
+        }
+        else if (fmt_type == '?')
+        {
+            vex_printf("u64(%llu)", (unsigned long long)val->as_u64);
+        }
+        else
+        {
+            vex_printf("%llu", (unsigned long long)val->as_u64);
+        }
+        break;
+
+    case VEX_VALUE_F16:
     case VEX_VALUE_F32:
     case VEX_VALUE_F64:
     {
-        double v = (val->type == VEX_VALUE_F32) ? val->as_f32 : val->as_f64;
+        double v = (val->type == VEX_VALUE_F16) ? (double)val->as_f16 : (val->type == VEX_VALUE_F32) ? val->as_f32
+                                                                                                     : val->as_f64;
+        const char *type_name = (val->type == VEX_VALUE_F16) ? "f16" : (val->type == VEX_VALUE_F32) ? "f32"
+                                                                                                    : "f64";
         if (fmt_type == '?')
         {
-            vex_printf("f64(%g)", v);
+            vex_printf("%s(%g)", type_name, v);
         }
         else if (precision >= 0)
         {
@@ -259,6 +344,34 @@ static void vex_print_value_fmt(const VexValue *val, char fmt_type, int precisio
         {
             vex_printf("%p", val->as_ptr);
         }
+        break;
+
+    case VEX_VALUE_ERROR:
+        if (fmt_type == '?')
+        {
+            vex_printf("Error(%p)", val->as_error);
+        }
+        else
+        {
+            vex_printf("Error(%p)", val->as_error);
+        }
+        break;
+
+    case VEX_VALUE_NIL:
+        if (fmt_type == '?')
+        {
+            vex_print("nil", 3);
+        }
+        else
+        {
+            vex_print("nil", 3);
+        }
+        break;
+
+    case VEX_VALUE_I128:
+    case VEX_VALUE_U128:
+        // TODO: Proper 128-bit formatting
+        vex_printf(val->type == VEX_VALUE_I128 ? "i128(...)" : "u128(...)");
         break;
     }
 }

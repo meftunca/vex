@@ -20,67 +20,32 @@ impl VexBackend {
             None => return Ok(None), // Document not parsed yet
         };
 
-        // Create symbol resolver
-        let mut resolver = // crate::symbol_resolver::SymbolResolver::new();
-        resolver.extract_symbols(&ast);
+        // Get document text for word extraction
+        let text = match self.documents.get(&uri) {
+            Some(t) => t.clone(),
+            None => return Ok(None),
+        };
 
-        // Find symbol at cursor position (LSP uses 0-indexed lines)
-        let line = (position.line + 1) as usize;
-        let column = (position.character + 1) as usize;
-
-        if let Some(symbol) = resolver.find_symbol_at(line, column) {
-            // Format hover content based on symbol kind
-            let mut content = String::new();
-
-            // Add kind badge
-            let kind_str = match symbol.kind {
-                // crate::symbol_resolver::SymbolKind::Function => "function",
-                // crate::symbol_resolver::SymbolKind::Variable => "variable",
-                // crate::symbol_resolver::SymbolKind::Parameter => "parameter",
-                // crate::symbol_resolver::SymbolKind::Struct => "struct",
-                // crate::symbol_resolver::SymbolKind::Enum => "enum",
-                // crate::symbol_resolver::SymbolKind::Trait => "trait",
-                // crate::symbol_resolver::SymbolKind::Field => "field",
-                // crate::symbol_resolver::SymbolKind::Method => "method",
-            };
-
-            content.push_str(&format!("**{}** `{}`\n\n", kind_str, symbol.name));
-
-            // Add type information
-            if let Some(type_info) = &symbol.type_info {
-                content.push_str("```vex\n");
-                content.push_str(type_info);
-                content.push_str("\n```\n\n");
-            }
-
-            // Add documentation if available
-            if let Some(doc) = &symbol.documentation {
-                content.push_str("---\n\n");
-                content.push_str(doc);
-                content.push_str("\n");
-            }
-
-            return Ok(Some(Hover {
-                contents: HoverContents::Markup(MarkupContent {
-                    kind: MarkupKind::Markdown,
-                    value: content,
-                }),
-                range: None,
-            }));
+        // Get word at cursor position
+        let word = self.get_word_at_position(&text, position);
+        if word.is_empty() {
+            return Ok(None);
         }
 
-        // Fallback: show generic hover info
+        // Simple hover: show the word that was found
         Ok(Some(Hover {
             contents: HoverContents::Markup(MarkupContent {
                 kind: MarkupKind::Markdown,
-                value: "*Vex Language*\n\nNo symbol information available at this position."
-                    .to_string(),
+                value: format!("**Symbol**: `{}`\n\n*Vex Language*", word),
             }),
             range: None,
         }))
     }
 
-    pub async fn completion(&self, params: CompletionParams) -> tower_lsp::jsonrpc::Result<Option<CompletionResponse>> {
+    pub async fn completion(
+        &self,
+        params: CompletionParams,
+    ) -> tower_lsp::jsonrpc::Result<Option<CompletionResponse>> {
         let uri = params.text_document_position.text_document.uri;
         let position = params.text_document_position.position;
 
@@ -287,7 +252,10 @@ impl VexBackend {
         Ok(None)
     }
 
-    pub async fn signature_help(&self, params: SignatureHelpParams) -> tower_lsp::jsonrpc::Result<Option<SignatureHelp>> {
+    pub async fn signature_help(
+        &self,
+        params: SignatureHelpParams,
+    ) -> tower_lsp::jsonrpc::Result<Option<SignatureHelp>> {
         let uri = params.text_document_position_params.text_document.uri;
         let position = params.text_document_position_params.position;
 
@@ -547,7 +515,10 @@ impl VexBackend {
         }
     }
 
-    pub async fn references(&self, params: ReferenceParams) -> tower_lsp::jsonrpc::Result<Option<Vec<Location>>> {
+    pub async fn references(
+        &self,
+        params: ReferenceParams,
+    ) -> tower_lsp::jsonrpc::Result<Option<Vec<Location>>> {
         let uri = params.text_document_position.text_document.uri;
         let position = params.text_document_position.position;
 
@@ -610,7 +581,10 @@ impl VexBackend {
         }
     }
 
-    pub async fn rename(&self, params: RenameParams) -> tower_lsp::jsonrpc::Result<Option<WorkspaceEdit>> {
+    pub async fn rename(
+        &self,
+        params: RenameParams,
+    ) -> tower_lsp::jsonrpc::Result<Option<WorkspaceEdit>> {
         let uri = params.text_document_position.text_document.uri;
         let position = params.text_document_position.position;
         let new_name = params.new_name;
@@ -681,4 +655,844 @@ impl VexBackend {
             change_annotations: None,
         }))
     }
+
+    pub async fn workspace_symbol(
+        &self,
+        params: WorkspaceSymbolParams,
+    ) -> tower_lsp::jsonrpc::Result<Option<Vec<SymbolInformation>>> {
+        let query = params.query;
+        let mut symbols = Vec::new();
+
+        // Iterate through all documents in the workspace
+        for uri in self.documents.iter() {
+            let uri_str = uri.key().clone();
+            let text = uri.value().clone();
+
+            // Get AST for this document
+            if let Some(ast) = self.ast_cache.get(&uri_str) {
+                // Extract symbols from AST
+                self.extract_workspace_symbols(&ast, &uri_str, &query, &mut symbols);
+            }
+        }
+
+        Ok(Some(symbols))
+    }
+
+    pub async fn folding_range(
+        &self,
+        params: FoldingRangeParams,
+    ) -> tower_lsp::jsonrpc::Result<Option<Vec<FoldingRange>>> {
+        let uri = params.text_document.uri;
+        let text = match self.documents.get(&uri.to_string()) {
+            Some(t) => t.clone(),
+            None => return Ok(None),
+        };
+
+        let mut folding_ranges = Vec::new();
+        self.extract_folding_ranges(&text, &mut folding_ranges);
+
+        Ok(Some(folding_ranges))
+    }
+
+    fn extract_folding_ranges(&self, text: &str, folding_ranges: &mut Vec<FoldingRange>) {
+        let lines: Vec<&str> = text.lines().collect();
+
+        for (i, line) in lines.iter().enumerate() {
+            let line_num = i as u32;
+            let trimmed = line.trim();
+
+            // Function definitions
+            if trimmed.starts_with("fn ") {
+                // Find the opening brace
+                if let Some(opening_brace_pos) = self.find_matching_brace(&lines, i, '{') {
+                    folding_ranges.push(FoldingRange {
+                        start_line: line_num,
+                        start_character: Some(0),
+                        end_line: opening_brace_pos,
+                        end_character: Some(0),
+                        kind: Some(FoldingRangeKind::Region),
+                        collapsed_text: Some(format!("fn ...")),
+                    });
+                }
+            }
+            // Struct definitions
+            else if trimmed.starts_with("struct ") {
+                // Find the opening brace
+                if let Some(opening_brace_pos) = self.find_matching_brace(&lines, i, '{') {
+                    folding_ranges.push(FoldingRange {
+                        start_line: line_num,
+                        start_character: Some(0),
+                        end_line: opening_brace_pos,
+                        end_character: Some(0),
+                        kind: Some(FoldingRangeKind::Region),
+                        collapsed_text: Some(format!("struct ...")),
+                    });
+                }
+            }
+            // Enum definitions
+            else if trimmed.starts_with("enum ") {
+                // Find the opening brace
+                if let Some(opening_brace_pos) = self.find_matching_brace(&lines, i, '{') {
+                    folding_ranges.push(FoldingRange {
+                        start_line: line_num,
+                        start_character: Some(0),
+                        end_line: opening_brace_pos,
+                        end_character: Some(0),
+                        kind: Some(FoldingRangeKind::Region),
+                        collapsed_text: Some(format!("enum ...")),
+                    });
+                }
+            }
+            // Trait definitions
+            else if trimmed.starts_with("trait ") {
+                // Find the opening brace
+                if let Some(opening_brace_pos) = self.find_matching_brace(&lines, i, '{') {
+                    folding_ranges.push(FoldingRange {
+                        start_line: line_num,
+                        start_character: Some(0),
+                        end_line: opening_brace_pos,
+                        end_character: Some(0),
+                        kind: Some(FoldingRangeKind::Region),
+                        collapsed_text: Some(format!("trait ...")),
+                    });
+                }
+            }
+            // Impl blocks
+            else if trimmed.starts_with("impl ") {
+                // Find the opening brace
+                if let Some(opening_brace_pos) = self.find_matching_brace(&lines, i, '{') {
+                    folding_ranges.push(FoldingRange {
+                        start_line: line_num,
+                        start_character: Some(0),
+                        end_line: opening_brace_pos,
+                        end_character: Some(0),
+                        kind: Some(FoldingRangeKind::Region),
+                        collapsed_text: Some(format!("impl ...")),
+                    });
+                }
+            }
+            // If statements
+            else if trimmed.starts_with("if ") && trimmed.ends_with("{") {
+                // Find the matching closing brace
+                if let Some(closing_brace_pos) = self.find_matching_brace(&lines, i, '}') {
+                    folding_ranges.push(FoldingRange {
+                        start_line: line_num,
+                        start_character: Some(0),
+                        end_line: closing_brace_pos,
+                        end_character: Some(0),
+                        kind: Some(FoldingRangeKind::Region),
+                        collapsed_text: Some(format!("if ...")),
+                    });
+                }
+            }
+            // While loops
+            else if trimmed.starts_with("while ") && trimmed.ends_with("{") {
+                // Find the matching closing brace
+                if let Some(closing_brace_pos) = self.find_matching_brace(&lines, i, '}') {
+                    folding_ranges.push(FoldingRange {
+                        start_line: line_num,
+                        start_character: Some(0),
+                        end_line: closing_brace_pos,
+                        end_character: Some(0),
+                        kind: Some(FoldingRangeKind::Region),
+                        collapsed_text: Some(format!("while ...")),
+                    });
+                }
+            }
+            // For loops
+            else if trimmed.starts_with("for ") && trimmed.ends_with("{") {
+                // Find the matching closing brace
+                if let Some(closing_brace_pos) = self.find_matching_brace(&lines, i, '}') {
+                    folding_ranges.push(FoldingRange {
+                        start_line: line_num,
+                        start_character: Some(0),
+                        end_line: closing_brace_pos,
+                        end_character: Some(0),
+                        kind: Some(FoldingRangeKind::Region),
+                        collapsed_text: Some(format!("for ...")),
+                    });
+                }
+            }
+            // Match expressions
+            else if trimmed.starts_with("match ") && trimmed.ends_with("{") {
+                // Find the matching closing brace
+                if let Some(closing_brace_pos) = self.find_matching_brace(&lines, i, '}') {
+                    folding_ranges.push(FoldingRange {
+                        start_line: line_num,
+                        start_character: Some(0),
+                        end_line: closing_brace_pos,
+                        end_character: Some(0),
+                        kind: Some(FoldingRangeKind::Region),
+                        collapsed_text: Some(format!("match ...")),
+                    });
+                }
+            }
+        }
+    }
+
+    fn find_matching_brace(
+        &self,
+        lines: &[&str],
+        start_line: usize,
+        target_brace: char,
+    ) -> Option<u32> {
+        let mut brace_count = 0;
+        let mut found_opening = false;
+
+        for (i, line) in lines.iter().enumerate().skip(start_line) {
+            for ch in line.chars() {
+                if ch == '{' {
+                    brace_count += 1;
+                    found_opening = true;
+                } else if ch == '}' {
+                    brace_count -= 1;
+                    if found_opening && brace_count == 0 {
+                        return Some(i as u32);
+                    }
+                }
+            }
+        }
+
+        None
+    }
+
+    // Helper methods for language features
+
+    fn get_completion_context(&self, text: &str, position: Position) -> CompletionContext {
+        let lines: Vec<&str> = text.lines().collect();
+        let line_idx = position.line as usize;
+        let char_idx = position.character as usize;
+
+        if line_idx >= lines.len() {
+            return CompletionContext {
+                before_cursor: String::new(),
+                after_dot: false,
+            };
+        }
+
+        let line = lines[line_idx];
+        if char_idx > line.len() {
+            return CompletionContext {
+                before_cursor: line.to_string(),
+                after_dot: false,
+            };
+        }
+
+        let before_cursor = &line[..char_idx];
+        let after_dot = before_cursor.ends_with('.');
+
+        CompletionContext {
+            before_cursor: before_cursor.to_string(),
+            after_dot,
+        }
+    }
+
+    fn type_to_string(&self, ty: &vex_ast::Type) -> String {
+        match ty {
+            vex_ast::Type::I8 => "i8".to_string(),
+            vex_ast::Type::I16 => "i16".to_string(),
+            vex_ast::Type::I32 => "i32".to_string(),
+            vex_ast::Type::I64 => "i64".to_string(),
+            vex_ast::Type::I128 => "i128".to_string(),
+            vex_ast::Type::U8 => "u8".to_string(),
+            vex_ast::Type::U16 => "u16".to_string(),
+            vex_ast::Type::U32 => "u32".to_string(),
+            vex_ast::Type::U64 => "u64".to_string(),
+            vex_ast::Type::F16 => "f16".to_string(),
+            vex_ast::Type::F32 => "f32".to_string(),
+            vex_ast::Type::F64 => "f64".to_string(),
+            vex_ast::Type::Bool => "bool".to_string(),
+            vex_ast::Type::String => "string".to_string(),
+            vex_ast::Type::Byte => "byte".to_string(),
+            vex_ast::Type::Error => "error".to_string(),
+            vex_ast::Type::Nil => "nil".to_string(),
+            vex_ast::Type::Named(name) => name.clone(),
+            vex_ast::Type::Generic { name, type_args } => {
+                if type_args.is_empty() {
+                    name.clone()
+                } else {
+                    format!(
+                        "{}<{}>",
+                        name,
+                        type_args
+                            .iter()
+                            .map(|t| self.type_to_string(t))
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    )
+                }
+            }
+            vex_ast::Type::Array(element, _) => format!("[{}]", self.type_to_string(element)),
+            vex_ast::Type::Slice(element, is_mutable) => {
+                if *is_mutable {
+                    format!("&mut [{}]", self.type_to_string(element))
+                } else {
+                    format!("&[{}]", self.type_to_string(element))
+                }
+            }
+            vex_ast::Type::Reference(inner, is_mutable) => {
+                if *is_mutable {
+                    format!("&mut {}", self.type_to_string(inner))
+                } else {
+                    format!("&{}", self.type_to_string(inner))
+                }
+            }
+            vex_ast::Type::Tuple(types) => {
+                format!(
+                    "({})",
+                    types
+                        .iter()
+                        .map(|t| self.type_to_string(t))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )
+            }
+            vex_ast::Type::Function {
+                params,
+                return_type,
+            } => {
+                let params_str = params
+                    .iter()
+                    .map(|p| self.type_to_string(p))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                format!("fn({}): {}", params_str, self.type_to_string(return_type))
+            }
+            vex_ast::Type::Never => "!".to_string(),
+            vex_ast::Type::Infer(_) => "_".to_string(),
+            vex_ast::Type::Unit => "()".to_string(),
+            vex_ast::Type::RawPtr { inner, is_const } => {
+                if *is_const {
+                    format!("*const {}", self.type_to_string(inner))
+                } else {
+                    format!("*{}", self.type_to_string(inner))
+                }
+            }
+            vex_ast::Type::Option(inner) => format!("Option<{}>", self.type_to_string(inner)),
+            vex_ast::Type::Result(ok_type, err_type) => format!(
+                "Result<{}, {}>",
+                self.type_to_string(ok_type),
+                self.type_to_string(err_type)
+            ),
+            vex_ast::Type::Vec(inner) => format!("Vec<{}>", self.type_to_string(inner)),
+            vex_ast::Type::Box(inner) => format!("Box<{}>", self.type_to_string(inner)),
+            vex_ast::Type::Channel(inner) => format!("Channel<{}>", self.type_to_string(inner)),
+            // Handle other variants with defaults
+            _ => format!("{:?}", ty), // Fallback for unhandled variants
+        }
+    }
+
+    fn get_word_at_position(&self, text: &str, position: Position) -> String {
+        let lines: Vec<&str> = text.lines().collect();
+        let line_idx = position.line as usize;
+        let char_idx = position.character as usize;
+
+        if line_idx >= lines.len() {
+            return String::new();
+        }
+
+        let line = lines[line_idx];
+        if char_idx >= line.len() {
+            return String::new();
+        }
+
+        // Find word boundaries
+        let mut start = char_idx;
+        let mut end = char_idx;
+
+        // Move start backwards to find word start
+        while start > 0 && line.chars().nth(start - 1).unwrap_or(' ').is_alphanumeric() {
+            start -= 1;
+        }
+
+        // Move end forwards to find word end
+        while end < line.len() && line.chars().nth(end).unwrap_or(' ').is_alphanumeric() {
+            end += 1;
+        }
+
+        if start < end {
+            line[start..end].to_string()
+        } else {
+            String::new()
+        }
+    }
+
+    fn find_definition_location(
+        &self,
+        ast: &vex_ast::Program,
+        word: &str,
+        text: &str,
+    ) -> Option<Range> {
+        // Simple implementation: search for function/struct/enum definitions
+        for item in &ast.items {
+            match item {
+                vex_ast::Item::Function(func) if func.name == word => {
+                    return self.find_pattern_in_source(text, &format!("fn {}", word));
+                }
+                vex_ast::Item::Struct(s) if s.name == word => {
+                    return self.find_pattern_in_source(text, &format!("struct {}", word));
+                }
+                vex_ast::Item::Enum(e) if e.name == word => {
+                    return self.find_pattern_in_source(text, &format!("enum {}", word));
+                }
+                vex_ast::Item::Const(c) if c.name == word => {
+                    return self.find_pattern_in_source(text, &format!("const {}", word));
+                }
+                _ => {}
+            }
+        }
+        None
+    }
+
+    fn find_function_call_context(
+        &self,
+        text: &str,
+        position: Position,
+    ) -> Option<(String, usize)> {
+        let lines: Vec<&str> = text.lines().collect();
+        let line_idx = position.line as usize;
+        let char_idx = position.character as usize;
+
+        if line_idx >= lines.len() {
+            return None;
+        }
+
+        let line = lines[line_idx];
+        if char_idx >= line.len() {
+            return None;
+        }
+
+        // Look backwards from cursor to find function call
+        let mut paren_count = 0;
+        let mut param_start = char_idx;
+        let mut func_name_end = char_idx;
+
+        for i in (0..char_idx).rev() {
+            let ch = line.chars().nth(i).unwrap_or(' ');
+            match ch {
+                ')' => paren_count += 1,
+                '(' => {
+                    if paren_count == 0 {
+                        // Found the opening paren
+                        param_start = i + 1;
+                        func_name_end = i;
+                        break;
+                    } else {
+                        paren_count -= 1;
+                    }
+                }
+                ',' if paren_count == 0 => {
+                    // Parameter separator
+                    param_start = i + 1;
+                }
+                _ => {}
+            }
+        }
+
+        if func_name_end > 0 {
+            // Extract function name
+            let mut name_start = func_name_end;
+            while name_start > 0
+                && line
+                    .chars()
+                    .nth(name_start - 1)
+                    .unwrap_or(' ')
+                    .is_alphanumeric()
+            {
+                name_start -= 1;
+            }
+
+            if name_start < func_name_end {
+                let func_name = line[name_start..func_name_end].to_string();
+
+                // Count parameters before cursor
+                let params_before = &line[param_start..char_idx];
+                let param_index = params_before.chars().filter(|&c| c == ',').count();
+
+                return Some((func_name, param_index));
+            }
+        }
+
+        None
+    }
+
+    fn find_pattern_in_source(&self, text: &str, pattern: &str) -> Option<Range> {
+        let lines: Vec<&str> = text.lines().collect();
+
+        for (line_idx, line) in lines.iter().enumerate() {
+            if let Some(col_idx) = line.find(pattern) {
+                return Some(Range {
+                    start: Position {
+                        line: line_idx as u32,
+                        character: col_idx as u32,
+                    },
+                    end: Position {
+                        line: line_idx as u32,
+                        character: (col_idx + pattern.len()) as u32,
+                    },
+                });
+            }
+        }
+
+        None
+    }
+
+    fn extract_workspace_symbols(
+        &self,
+        ast: &vex_ast::Program,
+        uri: &str,
+        query: &str,
+        symbols: &mut Vec<SymbolInformation>,
+    ) {
+        for item in &ast.items {
+            match item {
+                vex_ast::Item::Struct(struct_def) => {
+                    if query.is_empty() || struct_def.name.contains(query) {
+                        symbols.push(SymbolInformation {
+                            name: struct_def.name.clone(),
+                            kind: SymbolKind::STRUCT,
+                            location: Location {
+                                uri: Url::parse(uri).unwrap(),
+                                range: Range {
+                                    start: Position {
+                                        line: 0,
+                                        character: 0,
+                                    }, // TODO: Get actual position
+                                    end: Position {
+                                        line: 0,
+                                        character: 0,
+                                    },
+                                },
+                            },
+                            container_name: None,
+                            deprecated: None,
+                            tags: Some(vec![]),
+                        });
+                    }
+                }
+                vex_ast::Item::Enum(enum_def) => {
+                    if query.is_empty() || enum_def.name.contains(query) {
+                        symbols.push(SymbolInformation {
+                            name: enum_def.name.clone(),
+                            kind: SymbolKind::ENUM,
+                            location: Location {
+                                uri: Url::parse(uri).unwrap(),
+                                range: Range {
+                                    start: Position {
+                                        line: 0,
+                                        character: 0,
+                                    }, // TODO: Get actual position
+                                    end: Position {
+                                        line: 0,
+                                        character: 0,
+                                    },
+                                },
+                            },
+                            container_name: None,
+                            deprecated: None,
+                            tags: Some(vec![]),
+                        });
+                    }
+                }
+                vex_ast::Item::Function(func_def) => {
+                    if query.is_empty() || func_def.name.contains(query) {
+                        symbols.push(SymbolInformation {
+                            name: func_def.name.clone(),
+                            kind: SymbolKind::FUNCTION,
+                            location: Location {
+                                uri: Url::parse(uri).unwrap(),
+                                range: Range {
+                                    start: Position {
+                                        line: 0,
+                                        character: 0,
+                                    }, // TODO: Get actual position
+                                    end: Position {
+                                        line: 0,
+                                        character: 0,
+                                    },
+                                },
+                            },
+                            container_name: None,
+                            deprecated: None,
+                            tags: Some(vec![]),
+                        });
+                    }
+                }
+                vex_ast::Item::Contract(contract_def) => {
+                    if query.is_empty() || contract_def.name.contains(query) {
+                        symbols.push(SymbolInformation {
+                            name: contract_def.name.clone(),
+                            kind: SymbolKind::INTERFACE,
+                            location: Location {
+                                uri: Url::parse(uri).unwrap(),
+                                range: Range {
+                                    start: Position {
+                                        line: 0,
+                                        character: 0,
+                                    }, // TODO: Get actual position
+                                    end: Position {
+                                        line: 0,
+                                        character: 0,
+                                    },
+                                },
+                            },
+                            container_name: None,
+                            deprecated: None,
+                            tags: Some(vec![]),
+                        });
+                    }
+                }
+                vex_ast::Item::TraitImpl(impl_def) => {
+                    // For trait impl blocks, we can extract method symbols
+                    for method in &impl_def.methods {
+                        if query.is_empty() || method.name.contains(query) {
+                            symbols.push(SymbolInformation {
+                                name: method.name.clone(),
+                                kind: SymbolKind::METHOD,
+                                location: Location {
+                                    uri: Url::parse(uri).unwrap(),
+                                    range: Range {
+                                        start: Position {
+                                            line: 0,
+                                            character: 0,
+                                        }, // TODO: Get actual position
+                                        end: Position {
+                                            line: 0,
+                                            character: 0,
+                                        },
+                                    },
+                                },
+                                container_name: Some(format!("{:?}", impl_def.for_type)),
+                                deprecated: None,
+                                tags: Some(vec![]),
+                            });
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
+    pub async fn type_definition(
+        &self,
+        params: GotoDefinitionParams,
+    ) -> tower_lsp::jsonrpc::Result<Option<GotoDefinitionResponse>> {
+        let uri = params
+            .text_document_position_params
+            .text_document
+            .uri
+            .to_string();
+        let position = params.text_document_position_params.position;
+
+        // Get the AST for this document
+        let ast = match self.ast_cache.get(&uri) {
+            Some(ast) => ast.clone(),
+            None => return Ok(None),
+        };
+
+        // Get document text for word extraction
+        let text = match self.documents.get(&uri) {
+            Some(t) => t.clone(),
+            None => return Ok(None),
+        };
+
+        // Get word at cursor position
+        let word = self.get_word_at_position(&text, position);
+        if word.is_empty() {
+            return Ok(None);
+        }
+
+        // Search for type definitions (struct, enum, trait) in the current file
+        let mut locations = Vec::new();
+
+        for (line_idx, line) in text.lines().enumerate() {
+            let trimmed = line.trim();
+
+            // Check for struct definitions
+            if trimmed.starts_with("struct ") && trimmed.contains(&word) {
+                if let Some(name_start) = trimmed.find("struct ") {
+                    let name_end = trimmed[name_start + 7..]
+                        .find(' ')
+                        .unwrap_or(trimmed.len() - name_start - 7);
+                    let struct_name = &trimmed[name_start + 7..name_start + 7 + name_end];
+                    if struct_name == word {
+                        locations.push(Location {
+                            uri: params
+                                .text_document_position_params
+                                .text_document
+                                .uri
+                                .clone(),
+                            range: Range {
+                                start: Position {
+                                    line: line_idx as u32,
+                                    character: (name_start + 7) as u32,
+                                },
+                                end: Position {
+                                    line: line_idx as u32,
+                                    character: (name_start + 7 + name_end) as u32,
+                                },
+                            },
+                        });
+                    }
+                }
+            }
+            // Check for enum definitions
+            else if trimmed.starts_with("enum ") && trimmed.contains(&word) {
+                if let Some(name_start) = trimmed.find("enum ") {
+                    let name_end = trimmed[name_start + 5..]
+                        .find(' ')
+                        .unwrap_or(trimmed.len() - name_start - 5);
+                    let enum_name = &trimmed[name_start + 5..name_start + 5 + name_end];
+                    if enum_name == word {
+                        locations.push(Location {
+                            uri: params
+                                .text_document_position_params
+                                .text_document
+                                .uri
+                                .clone(),
+                            range: Range {
+                                start: Position {
+                                    line: line_idx as u32,
+                                    character: (name_start + 5) as u32,
+                                },
+                                end: Position {
+                                    line: line_idx as u32,
+                                    character: (name_start + 5 + name_end) as u32,
+                                },
+                            },
+                        });
+                    }
+                }
+            }
+            // Check for trait definitions
+            else if trimmed.starts_with("trait ") && trimmed.contains(&word) {
+                if let Some(name_start) = trimmed.find("trait ") {
+                    let name_end = trimmed[name_start + 6..]
+                        .find(' ')
+                        .unwrap_or(trimmed.len() - name_start - 6);
+                    let trait_name = &trimmed[name_start + 6..name_start + 6 + name_end];
+                    if trait_name == word {
+                        locations.push(Location {
+                            uri: params
+                                .text_document_position_params
+                                .text_document
+                                .uri
+                                .clone(),
+                            range: Range {
+                                start: Position {
+                                    line: line_idx as u32,
+                                    character: (name_start + 6) as u32,
+                                },
+                                end: Position {
+                                    line: line_idx as u32,
+                                    character: (name_start + 6 + name_end) as u32,
+                                },
+                            },
+                        });
+                    }
+                }
+            }
+        }
+
+        if locations.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(GotoDefinitionResponse::Array(locations)))
+        }
+    }
+
+    pub async fn implementation(
+        &self,
+        params: GotoDefinitionParams,
+    ) -> tower_lsp::jsonrpc::Result<Option<GotoDefinitionResponse>> {
+        let uri = params
+            .text_document_position_params
+            .text_document
+            .uri
+            .to_string();
+        let position = params.text_document_position_params.position;
+
+        // Get the AST for this document
+        let ast = match self.ast_cache.get(&uri) {
+            Some(ast) => ast.clone(),
+            None => return Ok(None),
+        };
+
+        // Get document text for word extraction
+        let text = match self.documents.get(&uri) {
+            Some(t) => t.clone(),
+            None => return Ok(None),
+        };
+
+        // Get word at cursor position
+        let word = self.get_word_at_position(&text, position);
+        if word.is_empty() {
+            return Ok(None);
+        }
+
+        // Search for implementations (impl blocks) in the current file
+        let mut locations = Vec::new();
+
+        for (line_idx, line) in text.lines().enumerate() {
+            let trimmed = line.trim();
+
+            // Check for impl blocks
+            if trimmed.starts_with("impl ") && trimmed.contains(&word) {
+                locations.push(Location {
+                    uri: params
+                        .text_document_position_params
+                        .text_document
+                        .uri
+                        .clone(),
+                    range: Range {
+                        start: Position {
+                            line: line_idx as u32,
+                            character: 0,
+                        },
+                        end: Position {
+                            line: line_idx as u32,
+                            character: line.len() as u32,
+                        },
+                    },
+                });
+            }
+            // Also check for trait implementations like "impl Trait for Type"
+            else if trimmed.starts_with("impl ")
+                && trimmed.contains(" for ")
+                && trimmed.contains(&word)
+            {
+                locations.push(Location {
+                    uri: params
+                        .text_document_position_params
+                        .text_document
+                        .uri
+                        .clone(),
+                    range: Range {
+                        start: Position {
+                            line: line_idx as u32,
+                            character: 0,
+                        },
+                        end: Position {
+                            line: line_idx as u32,
+                            character: line.len() as u32,
+                        },
+                    },
+                });
+            }
+        }
+
+        if locations.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(GotoDefinitionResponse::Array(locations)))
+        }
+    }
+}
+
+// Helper struct for completion context
+#[derive(Debug)]
+struct CompletionContext {
+    before_cursor: String,
+    after_dot: bool,
 }

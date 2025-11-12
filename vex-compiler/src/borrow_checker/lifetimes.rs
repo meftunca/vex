@@ -28,6 +28,9 @@ pub struct LifetimeChecker {
 
     /// Current function being checked (for error location tracking)
     current_function: Option<String>,
+
+    /// Track if we're inside an unsafe block
+    in_unsafe_block: bool,
 }
 
 impl LifetimeChecker {
@@ -40,6 +43,7 @@ impl LifetimeChecker {
             global_vars: HashSet::new(),
             builtin_registry: super::builtin_metadata::BuiltinBorrowRegistry::new(),
             current_function: None,
+            in_unsafe_block: false,
         };
 
         // Register built-in functions as always in scope (scope 0 = global)
@@ -248,6 +252,14 @@ impl LifetimeChecker {
                 Ok(())
             }
 
+            Statement::LetPattern { pattern, value, .. } => {
+                // Check value expression
+                self.check_expression(value)?;
+                // Declare pattern bindings
+                self.declare_pattern_bindings(pattern);
+                Ok(())
+            }
+
             Statement::Assign { target, value } => {
                 self.check_expression(target)?;
                 self.check_expression(value)?;
@@ -437,8 +449,16 @@ impl LifetimeChecker {
             }
 
             Statement::Unsafe(block) => {
+                // Enter unsafe context
+                let prev_unsafe = self.in_unsafe_block;
+                self.in_unsafe_block = true;
+
                 // Check unsafe block content
-                self.check_block(block)
+                self.check_block(block)?;
+
+                // Restore previous unsafe context
+                self.in_unsafe_block = prev_unsafe;
+                Ok(())
             }
 
             Statement::Defer(_) | Statement::Go(_) | Statement::Break | Statement::Continue => {

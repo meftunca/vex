@@ -20,7 +20,7 @@
 
 use crate::borrow_checker::errors::{BorrowError, BorrowResult};
 use std::collections::{HashMap, HashSet};
-use vex_ast::{Expression, Item, Program, Statement, Type};
+use vex_ast::{Expression, Item, Pattern, Program, Statement, Type};
 
 /// Tracks which variables have been moved and are no longer accessible
 #[derive(Debug)]
@@ -160,6 +160,14 @@ impl MoveChecker {
                     }
                 }
 
+                Ok(())
+            }
+
+            Statement::LetPattern { pattern, value, .. } => {
+                // Check value for moves
+                self.check_expression(value)?;
+                // Declare pattern variables
+                self.declare_pattern_variables(pattern);
                 Ok(())
             }
 
@@ -400,18 +408,21 @@ impl MoveChecker {
                 Ok(())
             }
 
-            Expression::MethodCall { receiver, args, .. } => {
+            Expression::MethodCall { receiver, args, is_mutable_call, .. } => {
                 self.check_expression(receiver)?;
 
                 for arg in args {
                     self.check_expression(arg)?;
 
-                    // Mark move type args as moved
-                    if let Expression::Ident(var) = arg {
-                        if let Some(ty) = self.var_types.get(var) {
-                            if self.is_move_type(ty) {
-                                self.moved_vars.insert(var.clone());
-                                self.valid_vars.remove(var);
+                    // For mutable method calls (method()!), arguments are mutable borrows, not moves
+                    // Only mark as moved for non-mutable calls
+                    if !is_mutable_call {
+                        if let Expression::Ident(var) = arg {
+                            if let Some(ty) = self.var_types.get(var) {
+                                if self.is_move_type(ty) {
+                                    self.moved_vars.insert(var.clone());
+                                    self.valid_vars.remove(var);
+                                }
                             }
                         }
                     }
@@ -703,5 +714,37 @@ mod tests {
 
         // s should still be valid
         assert!(!checker.moved_vars.contains("s"));
+    }
+}
+
+impl MoveChecker {
+    fn declare_pattern_variables(&mut self, pattern: &Pattern) {
+        match pattern {
+            Pattern::Ident(name) => {
+                self.moved_vars.remove(name);
+                self.valid_vars.insert(name.clone());
+            }
+            Pattern::Tuple(patterns) => {
+                for p in patterns {
+                    self.declare_pattern_variables(p);
+                }
+            }
+            Pattern::Struct { fields, .. } => {
+                for (_, p) in fields {
+                    self.declare_pattern_variables(p);
+                }
+            }
+            Pattern::Enum { data, .. } => {
+                for p in data {
+                    self.declare_pattern_variables(p);
+                }
+            }
+            Pattern::Array { elements, .. } => {
+                for p in elements {
+                    self.declare_pattern_variables(p);
+                }
+            }
+            Pattern::Wildcard | Pattern::Literal(_) | Pattern::Or(_) => {}
+        }
     }
 }

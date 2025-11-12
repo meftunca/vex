@@ -2,7 +2,7 @@
 // Tests basic to_string() functionality
 
 // Define Display trait locally (since stdlib import not working yet)
-trait Display {
+contract Display {
     fn to_string(): string;
 }
 

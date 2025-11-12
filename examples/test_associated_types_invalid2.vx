@@ -1,6 +1,6 @@
 // Invalid syntax test 2: Incomplete Self.
 
-trait BadIterator2 {
+contract BadIterator2 {
     type Item;
     fn next(): Option<Self.>;  // ❌ Should error: incomplete
 }

@@ -57,6 +57,7 @@ pub struct ASTCodeGen<'ctx> {
     // Symbol tables
     pub(crate) variables: HashMap<String, PointerValue<'ctx>>,
     pub(crate) variable_types: HashMap<String, BasicTypeEnum<'ctx>>,
+    pub(crate) variable_ast_types: HashMap<String, Type>, // Track AST types for correct print() formatting
     pub(crate) variable_struct_names: HashMap<String, String>,
     pub(crate) variable_enum_names: HashMap<String, String>, // Track enum variable names
     // Track tuple variables separately to know their struct types for pattern matching
@@ -180,6 +181,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             builder,
             variables: HashMap::new(),
             variable_types: HashMap::new(),
+            variable_ast_types: HashMap::new(),
             variable_struct_names: HashMap::new(),
             variable_enum_names: HashMap::new(),
             tuple_variable_types: HashMap::new(),
@@ -801,7 +803,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
     }
 
     /// Convert any value to string using appropriate conversion function
-    fn convert_value_to_string(&mut self, value: BasicValueEnum<'ctx>) -> Result<BasicValueEnum<'ctx>, String> {
+    fn convert_value_to_string(
+        &mut self,
+        value: BasicValueEnum<'ctx>,
+    ) -> Result<BasicValueEnum<'ctx>, String> {
         match value {
             BasicValueEnum::IntValue(int_val) => {
                 let bit_width = int_val.get_type().get_bit_width();
@@ -813,7 +818,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
                             .builder
                             .build_call(to_str_fn, &[int_val.into()], "i32_to_str")
                             .map_err(|e| format!("Failed to call i32_to_string: {}", e))?;
-                        Ok(result.try_as_basic_value().left().ok_or("i32_to_string returned void")?)
+                        Ok(result
+                            .try_as_basic_value()
+                            .left()
+                            .ok_or("i32_to_string returned void")?)
                     }
                     64 => {
                         // i64 → vex_i64_to_string
@@ -822,25 +830,38 @@ impl<'ctx> ASTCodeGen<'ctx> {
                             .builder
                             .build_call(to_str_fn, &[int_val.into()], "i64_to_str")
                             .map_err(|e| format!("Failed to call i64_to_string: {}", e))?;
-                        Ok(result.try_as_basic_value().left().ok_or("i64_to_string returned void")?)
+                        Ok(result
+                            .try_as_basic_value()
+                            .left()
+                            .ok_or("i64_to_string returned void")?)
                     }
                     1 => {
                         // bool → "true" or "false"
-                        let true_str = self.builder.build_global_string_ptr("true", "bool_true")
+                        let true_str = self
+                            .builder
+                            .build_global_string_ptr("true", "bool_true")
                             .map_err(|e| format!("Failed to create bool string: {}", e))?;
-                        let false_str = self.builder.build_global_string_ptr("false", "bool_false")
+                        let false_str = self
+                            .builder
+                            .build_global_string_ptr("false", "bool_false")
                             .map_err(|e| format!("Failed to create bool string: {}", e))?;
-                        
-                        let result = self.builder.build_select(
-                            int_val,
-                            true_str.as_pointer_value(),
-                            false_str.as_pointer_value(),
-                            "bool_to_str"
-                        ).map_err(|e| format!("Failed to select bool string: {}", e))?;
-                        
+
+                        let result = self
+                            .builder
+                            .build_select(
+                                int_val,
+                                true_str.as_pointer_value(),
+                                false_str.as_pointer_value(),
+                                "bool_to_str",
+                            )
+                            .map_err(|e| format!("Failed to select bool string: {}", e))?;
+
                         Ok(result)
                     }
-                    _ => Err(format!("Unsupported integer bit width for string conversion: {}", bit_width))
+                    _ => Err(format!(
+                        "Unsupported integer bit width for string conversion: {}",
+                        bit_width
+                    )),
                 }
             }
             BasicValueEnum::FloatValue(float_val) => {
@@ -852,7 +873,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         .builder
                         .build_call(to_str_fn, &[float_val.into()], "f32_to_str")
                         .map_err(|e| format!("Failed to call f32_to_string: {}", e))?;
-                    Ok(result.try_as_basic_value().left().ok_or("f32_to_string returned void")?)
+                    Ok(result
+                        .try_as_basic_value()
+                        .left()
+                        .ok_or("f32_to_string returned void")?)
                 } else {
                     // f64 → vex_f64_to_string
                     let to_str_fn = self.get_or_declare_f64_to_string()?;
@@ -860,14 +884,20 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         .builder
                         .build_call(to_str_fn, &[float_val.into()], "f64_to_str")
                         .map_err(|e| format!("Failed to call f64_to_string: {}", e))?;
-                    Ok(result.try_as_basic_value().left().ok_or("f64_to_string returned void")?)
+                    Ok(result
+                        .try_as_basic_value()
+                        .left()
+                        .ok_or("f64_to_string returned void")?)
                 }
             }
             BasicValueEnum::PointerValue(_) => {
                 // Already a string pointer - return as-is
                 Ok(value)
             }
-            _ => Err(format!("Cannot convert {:?} to string in F-string interpolation", value))
+            _ => Err(format!(
+                "Cannot convert {:?} to string in F-string interpolation",
+                value
+            )),
         }
     }
 
@@ -878,9 +908,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
         }
 
         // char* vex_strcat_new(const char* s1, const char* s2)
-        let i8_ptr_type = self.context.i8_type().ptr_type(inkwell::AddressSpace::default());
+        let i8_ptr_type = self
+            .context
+            .i8_type()
+            .ptr_type(inkwell::AddressSpace::default());
         let fn_type = i8_ptr_type.fn_type(&[i8_ptr_type.into(), i8_ptr_type.into()], false);
-        
+
         Ok(self.module.add_function("vex_strcat_new", fn_type, None))
     }
 
@@ -890,9 +923,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
             return Ok(func);
         }
 
-        let i8_ptr_type = self.context.i8_type().ptr_type(inkwell::AddressSpace::default());
+        let i8_ptr_type = self
+            .context
+            .i8_type()
+            .ptr_type(inkwell::AddressSpace::default());
         let fn_type = i8_ptr_type.fn_type(&[self.context.i32_type().into()], false);
-        
+
         Ok(self.module.add_function("vex_i32_to_string", fn_type, None))
     }
 
@@ -902,9 +938,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
             return Ok(func);
         }
 
-        let i8_ptr_type = self.context.i8_type().ptr_type(inkwell::AddressSpace::default());
+        let i8_ptr_type = self
+            .context
+            .i8_type()
+            .ptr_type(inkwell::AddressSpace::default());
         let fn_type = i8_ptr_type.fn_type(&[self.context.i64_type().into()], false);
-        
+
         Ok(self.module.add_function("vex_i64_to_string", fn_type, None))
     }
 
@@ -914,9 +953,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
             return Ok(func);
         }
 
-        let i8_ptr_type = self.context.i8_type().ptr_type(inkwell::AddressSpace::default());
+        let i8_ptr_type = self
+            .context
+            .i8_type()
+            .ptr_type(inkwell::AddressSpace::default());
         let fn_type = i8_ptr_type.fn_type(&[self.context.f32_type().into()], false);
-        
+
         Ok(self.module.add_function("vex_f32_to_string", fn_type, None))
     }
 
@@ -926,9 +968,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
             return Ok(func);
         }
 
-        let i8_ptr_type = self.context.i8_type().ptr_type(inkwell::AddressSpace::default());
+        let i8_ptr_type = self
+            .context
+            .i8_type()
+            .ptr_type(inkwell::AddressSpace::default());
         let fn_type = i8_ptr_type.fn_type(&[self.context.f64_type().into()], false);
-        
+
         Ok(self.module.add_function("vex_f64_to_string", fn_type, None))
     }
 }

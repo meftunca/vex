@@ -1,0 +1,58 @@
+// Test struct equality comparison
+import { Option } from "core";
+
+struct Point {
+    x: i32,
+    y: i32,
+}
+
+fn main(): i32 {
+    // Test basic struct equality
+    let p1 = Point { x: 10, y: 20 };
+    let p2 = Point { x: 10, y: 20 };
+    let p3 = Point { x: 5, y: 15 };
+    
+    if p1 == p2 {
+        println("✅ Struct equality works! (p1 == p2)");
+    } else {
+        println("❌ Struct equality failed (p1 == p2)");
+        return 1;
+    }
+    
+    if p1 != p3 {
+        println("✅ Struct inequality works! (p1 != p3)");
+    } else {
+        println("❌ Struct inequality failed (p1 != p3)");
+        return 1;
+    }
+    
+    // Test Option equality
+    let opt1 = Some(42);
+    let opt2 = Some(42);
+    let opt3 = Some(99);
+    let opt4: Option<i32> = None;
+    
+    if opt1 == opt2 {
+        println("✅ Option equality works! (Some(42) == Some(42))");
+    } else {
+        println("❌ Option equality failed");
+        return 1;
+    }
+    
+    if opt1 != opt3 {
+        println("✅ Option inequality works! (Some(42) != Some(99))");
+    } else {
+        println("❌ Option inequality failed");
+        return 1;
+    }
+    
+    if opt1 != opt4 {
+        println("✅ Option vs None works! (Some(42) != None)");
+    } else {
+        println("❌ Option vs None failed");
+        return 1;
+    }
+    
+    println("🎉 All struct/enum equality tests passed!");
+    return 0;
+}
