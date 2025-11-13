@@ -282,23 +282,49 @@ impl<'ctx> ASTCodeGen<'ctx> {
         };
 
         // Construct method function name: StructName_method
-        // ⭐ CRITICAL: Encode operator names for LLVM compatibility
-        let method_encoded = Self::encode_operator_name(method);
+        // ⭐ IMPORTANT: For external methods (registered in program.rs), we use the raw operator name (op+)
+        // For inline methods (declared in methods.rs), we use encoded names (opadd)
+        // To handle both, we check for external methods first with raw names
         
         // ⭐ NEW: For operators that can be both unary and binary, add parameter count suffix
+        // IMPORTANT: param_count = args.len() (receiver not counted in func.params)
         let param_count = args.len();
-        let base_method_name = format!("{}_{}", struct_name, method_encoded);
+        let base_method_name = format!("{}_{}", struct_name, method);
         
-        let method_func_name = if method.starts_with("op") && 
-                                  (method == "op-" || method == "op+" || method == "op*") {
+        // Try external method naming first (raw operator names with param count)
+        let external_method_name = if method.starts_with("op") && 
+                                      (method == "op-" || method == "op+" || method == "op*") {
             format!("{}_{}", base_method_name, param_count)
         } else {
-            base_method_name
+            base_method_name.clone()
+        };
+        
+        // If external method not found, try encoded names for inline methods
+        let method_encoded = Self::encode_operator_name(method);
+        let encoded_base = format!("{}_{}", struct_name, method_encoded);
+        let encoded_param_count = args.len() + 1; // For inline methods, param count includes receiver
+        let inline_method_name = if method.starts_with("op") && 
+                                   (method == "op-" || method == "op+" || method == "op*") {
+            format!("{}_{}", encoded_base, encoded_param_count)
+        } else {
+            encoded_base
+        };
+        
+        // Check both external and inline naming schemes
+        let method_func_name = if self.functions.contains_key(&external_method_name) {
+            external_method_name
+        } else if self.functions.contains_key(&inline_method_name) {
+            inline_method_name
+        } else {
+            // Default to external naming for error messages
+            external_method_name
         };
 
         // Check if method function exists (either as a struct method or trait method)
+        eprintln!("🔍 Looking for method: {} (exists: {})", method_func_name, self.functions.contains_key(&method_func_name));
         let final_method_name = if self.functions.contains_key(&method_func_name) {
-            // Found as struct method
+            // Found as struct method (including external methods)
+            eprintln!("✅ Found method in functions: {}", method_func_name);
             method_func_name
         } else {
             // Try to find trait method
@@ -307,10 +333,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
             
             // First, try to match against generic impl clauses in struct_ast_defs
             if let Some(struct_def) = self.struct_ast_defs.get(&struct_name) {
+                eprintln!("🔍 Struct {} has {} trait impls", struct_name, struct_def.impl_traits.len());
                 // Try to match based on all implemented traits
                 // For operator methods, we need to match BOTH the method name AND argument types
                 // Don't break on first match - check ALL traits for the right type match
                 for trait_impl in &struct_def.impl_traits {
+                    eprintln!("   🔍 Trait: {}, type_args.len: {}", trait_impl.name, trait_impl.type_args.len());
                     if !trait_impl.type_args.is_empty() {
                         // Generic trait impl - try to match with actual argument types
                         if !args.is_empty() {
@@ -332,7 +360,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                     };
                                     
                                     // Generate mangled name with type args
-                                    let param_count = args.len();
+                                    // For inline methods, param_count includes implicit receiver (+1)
+                                    let param_count = args.len() + 1;
                                     let trait_method_name = format!("{}_{}_{}_{}_{}", 
                                         struct_name, trait_impl.name, type_str, method_encoded, param_count);
                                     
@@ -469,10 +498,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
                             is_gpu: false,
                             is_mutable: trait_method.is_mutable, // ⭐ NEW: Copy mutability from trait
                             is_operator: trait_method.is_operator, // ⭐ NEW: Copy operator flag from trait
+                            receiver,
                             name: method.to_string(),
                             type_params: vec![],
+                            const_params: vec![],
                             where_clause: vec![],
-                            receiver,
                             params,
                             return_type,
                             body: trait_method.body.clone().unwrap(), // Safe because we checked is_some()
@@ -588,9 +618,38 @@ impl<'ctx> ASTCodeGen<'ctx> {
             receiver_val
         );
 
+        // ⚠️ CRITICAL: For external methods, the receiver is also passed BY VALUE
+        // receiver_val is already a PointerValue, so we need to load it for struct types
+        let receiver_arg: BasicMetadataValueEnum = if let Some(func_def) = self.function_defs.get(&final_method_name) {
+            if let Some(receiver_param) = &func_def.receiver {
+                // Check if receiver type is a struct (not a reference)
+                let is_struct_receiver = match &receiver_param.ty {
+                    Type::Named(type_name) => self.struct_defs.contains_key(type_name),
+                    _ => false,
+                };
+
+                if is_struct_receiver {
+                    // Load the struct value from pointer
+                    eprintln!("   ⚠️ Loading receiver struct value from pointer");
+                    let struct_llvm_type = self.ast_type_to_llvm(&receiver_param.ty);
+                    let loaded_val = self
+                        .builder
+                        .build_load(struct_llvm_type, receiver_val, "receiver_load")
+                        .map_err(|e| format!("Failed to load receiver: {}", e))?;
+                    loaded_val.into()
+                } else {
+                    receiver_val.into()
+                }
+            } else {
+                receiver_val.into()
+            }
+        } else {
+            receiver_val.into()
+        };
+
         // Compile other arguments
-        let mut arg_vals: Vec<BasicMetadataValueEnum> = vec![receiver_val.into()];
-        eprintln!("📝 Receiver arg added to arg_vals, receiver_val={:?}", receiver_val);
+        let mut arg_vals: Vec<BasicMetadataValueEnum> = vec![receiver_arg];
+        eprintln!("📝 Receiver arg added to arg_vals, receiver_arg={:?}", receiver_arg);
         
         for (arg_idx, arg) in args.iter().enumerate() {
             eprintln!("📝 Compiling arg {}: {:?}", arg_idx, arg);

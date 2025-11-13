@@ -11,7 +11,7 @@ impl<'a> Parser<'a> {
         let name = self.consume_identifier()?;
 
         // Parse generic type parameters with bounds: trait Converter<T: Display>
-        let type_params = self.parse_type_params()?;
+        let (type_params, _const_params) = self.parse_type_params()?; // Traits don't support const params yet
 
         self.consume(&Token::LBrace, "Expected '{'")?;
 
@@ -89,7 +89,7 @@ impl<'a> Parser<'a> {
         self.consume(&Token::Impl, "Expected 'impl'")?;
 
         // Parse generic type parameters (if any)
-        let _type_params = self.parse_type_params()?;
+        let (_type_params, _const_params) = self.parse_type_params()?; // Methods don't use type params yet
 
         // Parse trait name
         let trait_name = self.consume_identifier()?;

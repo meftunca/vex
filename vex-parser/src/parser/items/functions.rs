@@ -61,7 +61,7 @@ impl<'a> Parser<'a> {
         };
 
         // Optional generic type parameters with bounds: fn foo<T: Display, U: Clone>()
-        let type_params = self.parse_type_params()?;
+        let (type_params, const_params) = self.parse_type_params()?;
 
         self.consume(&Token::LParen, "Expected '('")?;
         
@@ -105,6 +105,7 @@ impl<'a> Parser<'a> {
             receiver,
             name,
             type_params,
+            const_params,
             where_clause,
             params,
             return_type,
@@ -122,49 +123,81 @@ impl<'a> Parser<'a> {
             // Parse type parameter name
             let type_param = self.consume_identifier()?;
 
-            // Expect ':' after type parameter
-            self.consume(
-                &Token::Colon,
-                "Expected ':' after type parameter in where clause",
-            )?;
+            // Check for associated type constraint: T.Item: Display
+            if self.match_token(&Token::Dot) {
+                let assoc_type = self.consume_identifier()?;
+                
+                // Expect ':' after associated type
+                self.consume(
+                    &Token::Colon,
+                    "Expected ':' after associated type in where clause",
+                )?;
 
-            // Parse trait bounds (inline - same logic as parse_type_params)
-            let mut bounds = Vec::new();
-            loop {
-                let bound_name = self.consume_identifier()?;
+                // Parse trait bounds for associated type
+                let mut bounds = Vec::new();
+                loop {
+                    let bound_name = self.consume_identifier()?;
+                    bounds.push(TraitBound::Simple(bound_name));
 
-                // Check for closure trait with signature: Callable(i32): bool
-                if self.match_token(&Token::LParen) {
-                    // Parse parameter types
-                    let mut param_types = Vec::new();
-                    if !self.check(&Token::RParen) {
-                        loop {
-                            param_types.push(self.parse_type()?);
-                            if !self.match_token(&Token::Comma) {
-                                break;
+                    if !self.match_token(&Token::Plus) {
+                        break;
+                    }
+                }
+
+                predicates.push(WhereClausePredicate::AssociatedTypeBound {
+                    type_param,
+                    assoc_type,
+                    bounds,
+                });
+            } else {
+                // Regular type parameter bound: T: Display
+                // Expect ':' after type parameter
+                self.consume(
+                    &Token::Colon,
+                    "Expected ':' after type parameter in where clause",
+                )?;
+
+                // Parse trait bounds (inline - same logic as parse_type_params)
+                let mut bounds = Vec::new();
+                loop {
+                    let bound_name = self.consume_identifier()?;
+
+                    // Check for closure trait with signature: Callable(i32): bool
+                    if self.match_token(&Token::LParen) {
+                        // Parse parameter types
+                        let mut param_types = Vec::new();
+                        if !self.check(&Token::RParen) {
+                            loop {
+                                param_types.push(self.parse_type()?);
+                                if !self.match_token(&Token::Comma) {
+                                    break;
+                                }
                             }
                         }
+                        self.consume(&Token::RParen, "Expected ')' after closure parameters")?;
+                        self.consume(&Token::Colon, "Expected ':' after closure parameters")?;
+                        let return_type = Box::new(self.parse_type()?);
+
+                        bounds.push(TraitBound::Callable {
+                            trait_name: bound_name,
+                            param_types,
+                            return_type,
+                        });
+                    } else {
+                        // Simple trait bound
+                        bounds.push(TraitBound::Simple(bound_name));
                     }
-                    self.consume(&Token::RParen, "Expected ')' after closure parameters")?;
-                    self.consume(&Token::Colon, "Expected ':' after closure parameters")?;
-                    let return_type = Box::new(self.parse_type()?);
 
-                    bounds.push(TraitBound::Callable {
-                        trait_name: bound_name,
-                        param_types,
-                        return_type,
-                    });
-                } else {
-                    // Simple trait bound
-                    bounds.push(TraitBound::Simple(bound_name));
+                    if !self.match_token(&Token::Plus) {
+                        break;
+                    }
                 }
 
-                if !self.match_token(&Token::Plus) {
-                    break;
-                }
+                predicates.push(WhereClausePredicate::TypeBound {
+                    type_param,
+                    bounds,
+                });
             }
-
-            predicates.push(WhereClausePredicate { type_param, bounds });
 
             // Check for more predicates
             if !self.match_token(&Token::Comma) {

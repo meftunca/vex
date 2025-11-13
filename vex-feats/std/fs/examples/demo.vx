@@ -1,0 +1,6 @@
+// fs demo
+
+fn main(): i32 {
+    println("fs module (scaffold)");
+    return 0;
+}

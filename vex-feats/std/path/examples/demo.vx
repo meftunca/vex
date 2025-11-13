@@ -1,0 +1,6 @@
+// path demo
+
+fn main(): i32 {
+    println("path module (scaffold)");
+    return 0;
+}

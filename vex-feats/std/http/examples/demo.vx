@@ -1,0 +1,6 @@
+// http demo
+
+fn main(): i32 {
+    println("http module (scaffold)");
+    return 0;
+}

@@ -219,6 +219,7 @@ impl TraitBoundsChecker {
             Type::Any => "any".to_string(),
             Type::Byte => "byte".to_string(),
             Type::Array(_, _) => "Array".to_string(),
+            Type::ConstArray { .. } => "ConstArray".to_string(),
             Type::Slice(_, _) => "Slice".to_string(),
             Type::Tuple(_) => "Tuple".to_string(),
             Type::Function { .. } => "Function".to_string(),
@@ -247,6 +248,31 @@ impl TraitBoundsChecker {
             Type::Typeof(_) => "typeof".to_string(), // Compile-time evaluated
             Type::SelfType => "Self".to_string(),
             Type::AssociatedType { name, .. } => name.clone(), // Return associated type name
+        }
+    }
+
+    /// Validate const generic parameters
+    /// Ensures const param types are valid compile-time integer types
+    pub fn validate_const_params(&mut self, const_params: &[(String, Type)]) -> Result<(), String> {
+        for (name, ty) in const_params {
+            if !self.is_valid_const_type(ty) {
+                return Err(format!(
+                    "Const parameter '{}' has invalid type '{:?}'. Const parameters must be integer types (i8, i16, i32, i64, i128, u8, u16, u32, u64, u128, usize, isize)",
+                    name, ty
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// Check if a type is valid for const generic parameters
+    /// Only integer types are allowed (no floats, strings, etc.)
+    fn is_valid_const_type(&self, ty: &Type) -> bool {
+        match ty {
+            Type::I8 | Type::I16 | Type::I32 | Type::I64 | Type::I128 |
+            Type::U8 | Type::U16 | Type::U32 | Type::U64 | Type::U128 => true,
+            Type::Named(name) if name == "usize" || name == "isize" => true,
+            _ => false,
         }
     }
 }

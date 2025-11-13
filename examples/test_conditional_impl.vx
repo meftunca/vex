@@ -1,0 +1,23 @@
+// Test conditional impl with where clause
+// Expected: Parse successfully
+
+contract Display {
+    fn show(): i32;
+}
+
+contract Clone {
+    fn clone(): Self;
+}
+
+// Conditional impl: only implement Display/Clone if T does
+struct Wrapper<T> impl Display, Clone
+where
+    T: Display,
+    T: Clone
+{
+    value: T
+}
+
+fn main(): i32 {
+    return 0;
+}

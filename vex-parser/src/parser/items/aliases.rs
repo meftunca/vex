@@ -10,7 +10,27 @@ impl<'a> Parser<'a> {
         let name = self.consume_identifier()?;
 
         // Optional type parameters with bounds: type Result<T: Display, E> = ...
-        let type_params = self.parse_type_params()?;
+        let (mut type_params, _const_params) = self.parse_type_params()?; // Type aliases don't support const params
+
+        // Optional where clause for additional bounds
+        if self.match_token(&Token::Where) {
+            let where_predicates = self.parse_where_clause()?;
+            // Merge where clause bounds into type_params
+            for predicate in where_predicates {
+                match predicate {
+                    WhereClausePredicate::TypeBound { type_param, bounds } => {
+                        // Find matching type param and add bounds
+                        if let Some(param) = type_params.iter_mut().find(|p| p.name == type_param) {
+                            param.bounds.extend(bounds);
+                        }
+                    }
+                    WhereClausePredicate::AssociatedTypeBound { .. } => {
+                        // Type aliases don't support associated type bounds
+                        return Err(self.error("Associated type bounds not supported in type aliases"));
+                    }
+                }
+            }
+        }
 
         self.consume(&Token::Eq, "Expected '=' after type alias name")?;
 

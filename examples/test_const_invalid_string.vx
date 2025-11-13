@@ -1,0 +1,10 @@
+// Test invalid const parameter - string type
+// Expected: Compile error
+
+fn bad_func<const MSG: string>(): i32 {
+    return 0;
+}
+
+fn main(): i32 {
+    return 0;
+}

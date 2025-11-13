@@ -1,0 +1,13 @@
+// Test const generic parsing - basic syntax test
+// Expected: Parse successfully
+
+struct Matrix<T, const N: usize, const M: usize> {}
+
+fn get_size<const SIZE: usize>(): i32 {
+    let x: i32 = 42;
+    return x;
+}
+
+fn main(): i32 {
+    return 0;
+}

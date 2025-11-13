@@ -42,7 +42,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let method_name_encoded = Self::encode_operator_name(&method.name);
         
         // ⭐ NEW: Enhanced mangling for generic trait implementations
-        let param_count = method.params.len();
+        // For inline methods, param_count includes implicit receiver
+        let param_count = method.params.len() + 1; // +1 for implicit receiver
         let base_name = format!("{}_{}", struct_name, method_name_encoded);
         
         // Try to find trait + type args for this method by matching parameter types
@@ -161,7 +162,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let method_name_encoded = Self::encode_operator_name(&method.name);
         
         // ⭐ NEW: Enhanced mangling for generic trait implementations (same as declare_struct_method)
-        let param_count = method.params.len();
+        // For inline methods, param_count includes implicit receiver
+        let param_count = method.params.len() + 1; // +1 for implicit receiver
+        eprintln!("🔍 compile_struct_method: method.params.len()={}, param_count={}", method.params.len(), param_count);
         let base_name = format!("{}_{}", struct_name, method_name_encoded);
         
         let mangled_name = if method.name.starts_with("op") && !method.params.is_empty() {
@@ -236,6 +239,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
         self.variables.clear();
         self.variable_types.clear();
         self.variable_struct_names.clear();
+
+        eprintln!("   🔍 method.receiver = {:?}", method.receiver);
 
         let param_offset;
 
@@ -312,6 +317,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
             // Store receiver DIRECTLY (no alloca needed, it's already a pointer)
             let self_ptr = param_val.into_pointer_value();
+            eprintln!("   📍 self_ptr = {:?}", self_ptr);
             self.variables.insert("self".to_string(), self_ptr);
             self.variable_types
                 .insert("self".to_string(), receiver_ty.into());

@@ -10,7 +10,7 @@ impl<'a> Parser<'a> {
         let name = self.consume_identifier_or_keyword()?;
 
         // Optional generic type parameters with bounds: struct Vec<T: Display>
-        let type_params = self.parse_type_params()?;
+        let (type_params, const_params) = self.parse_type_params()?;
 
         // Optional policy application: struct User with APIModel, ValidationRules
         let policies = if self.match_token(&Token::With) {
@@ -58,6 +58,13 @@ impl<'a> Parser<'a> {
                 }
             }
             traits
+        } else {
+            Vec::new()
+        };
+
+        // Optional where clause for conditional trait impl
+        let where_clause = if self.match_token(&Token::Where) {
+            self.parse_where_clause()?
         } else {
             Vec::new()
         };
@@ -192,6 +199,8 @@ impl<'a> Parser<'a> {
         Ok(Item::Struct(Struct {
             name,
             type_params,
+            const_params,
+            where_clause,
             policies,
             impl_traits,
             associated_type_bindings, // ⭐ NEW: Include associated types
@@ -300,6 +309,7 @@ impl<'a> Parser<'a> {
             receiver,
             name,
             type_params: Vec::new(),
+            const_params: vec![], // ⭐ TODO: Parse const params
             where_clause: Vec::new(), // Struct inline methods don't support where clauses yet
             params,
             return_type,

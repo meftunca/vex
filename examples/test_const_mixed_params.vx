@@ -1,0 +1,14 @@
+// Test mixed type and const parameters
+// Expected: Parse successfully
+
+struct Buffer<T, const SIZE: usize> {
+    value: T
+}
+
+fn process<T, const N: i32, U>(x: T, y: U): i32 {
+    return 42;
+}
+
+fn main(): i32 {
+    return 0;
+}

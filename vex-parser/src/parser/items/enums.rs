@@ -10,7 +10,7 @@ impl<'a> Parser<'a> {
         let name = self.consume_identifier()?;
 
         // Optional type parameters with bounds: enum Option<T: Display>
-        let type_params = self.parse_type_params()?;
+        let (type_params, _const_params) = self.parse_type_params()?; // Enums don't support const params
 
         self.consume(&Token::LBrace, "Expected '{'")?;
 

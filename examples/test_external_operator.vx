@@ -1,0 +1,23 @@
+// Test external operator methods
+// Expected: Parse and compile successfully
+
+contract Add {
+    op+(rhs: Self): Self;
+}
+
+// External operator method AFTER struct definition
+fn (p: Point) op+(other: Point): Point {
+    return Point { x: p.x + other.x, y: p.y + other.y };
+}
+
+struct Point impl Add {
+    x: f64,
+    y: f64
+}
+
+fn main(): i32 {
+    let p1 = Point { x: 1.0, y: 2.0 };
+    let p2 = Point { x: 3.0, y: 4.0 };
+    let sum = p1 + p2;
+    return 0;
+}

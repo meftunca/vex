@@ -1,0 +1,6 @@
+// memory demo
+
+fn main(): i32 {
+    println("memory module (scaffold)");
+    return 0;
+}

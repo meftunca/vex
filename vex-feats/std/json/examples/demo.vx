@@ -1,0 +1,6 @@
+// json demo
+
+fn main(): i32 {
+    println("json module (scaffold)");
+    return 0;
+}

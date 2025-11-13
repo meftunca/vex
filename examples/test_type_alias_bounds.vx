@@ -1,0 +1,27 @@
+// Test type alias with bounds
+// Expected: Parse successfully
+
+contract Display {
+    fn show(): i32;
+}
+
+contract Clone {
+    fn clone(): Self;
+}
+
+// Type alias with single bound
+type ShowableVec<T: Display> = Vec<T>;
+
+// Type alias with multiple bounds (where clause)
+type ComplexVec<T>
+where
+    T: Display,
+    T: Clone
+= Vec<T>;
+
+// Type alias with default and bounds
+type DefaultVec<T: Display = i32> = Vec<T>;
+
+fn main(): i32 {
+    return 0;
+}

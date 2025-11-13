@@ -1,0 +1,12 @@
+// Test multiple const parameters
+// Expected: Parse successfully
+
+struct Array3D<T, const X: usize, const Y: usize, const Z: usize> {}
+
+fn create_matrix<const ROWS: i32, const COLS: i32>(): i32 {
+    return 100;
+}
+
+fn main(): i32 {
+    return 0;
+}

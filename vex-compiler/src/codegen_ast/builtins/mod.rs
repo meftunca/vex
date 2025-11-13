@@ -63,204 +63,261 @@ impl<'ctx> BuiltinRegistry<'ctx> {
             functions: HashMap::new(),
         };
 
-        // Register core builtins (print, panic, assert)
-        registry.register("print", core::builtin_print);
-        registry.register("println", core::builtin_println);
-        registry.register("panic", core::builtin_panic);
-        registry.register("assert", core::builtin_assert);
-        registry.register("unreachable", core::builtin_unreachable);
+        registry.register_all_builtins();
 
-        // Register memory builtins (alloc, free, sizeof, alignof)
-        registry.register("alloc", memory::builtin_alloc);
-        registry.register("free", memory::builtin_free);
-        registry.register("realloc", memory::builtin_realloc);
-        registry.register("sizeof", memory::builtin_sizeof);
-        registry.register("alignof", memory::builtin_alignof);
+        registry
+    }
 
-        // Register LLVM intrinsics - bit manipulation
-        registry.register("ctlz", intrinsics::builtin_ctlz);
-        registry.register("cttz", intrinsics::builtin_cttz);
-        registry.register("ctpop", intrinsics::builtin_ctpop);
-        registry.register("bswap", intrinsics::builtin_bswap);
-        registry.register("bitreverse", intrinsics::builtin_bitreverse);
+    /// Register core builtin functions (print, panic, assert)
+    fn register_core_builtins(&mut self) {
+        self.register("print", core::builtin_print);
+        self.register("println", core::builtin_println);
+        self.register("panic", core::builtin_panic);
+        self.register("assert", core::builtin_assert);
+        self.register("unreachable", core::builtin_unreachable);
+    }
 
-        // Register LLVM intrinsics - overflow checking
-        registry.register("sadd_overflow", intrinsics::builtin_sadd_overflow);
-        registry.register("ssub_overflow", intrinsics::builtin_ssub_overflow);
-        registry.register("smul_overflow", intrinsics::builtin_smul_overflow);
+    /// Register memory management builtins
+    fn register_memory_builtins(&mut self) {
+        self.register("alloc", memory::builtin_alloc);
+        self.register("free", memory::builtin_free);
+        self.register("realloc", memory::builtin_realloc);
+        self.register("sizeof", memory::builtin_sizeof);
+        self.register("alignof", memory::builtin_alignof);
+    }
 
-        // Register compiler hints
-        registry.register("assume", hints::builtin_assume);
-        registry.register("likely", hints::builtin_likely);
-        registry.register("unlikely", hints::builtin_unlikely);
-        registry.register("prefetch", hints::builtin_prefetch);
+    /// Register LLVM intrinsics
+    fn register_llvm_intrinsics(&mut self) {
+        // Bit manipulation
+        self.register("ctlz", intrinsics::builtin_ctlz);
+        self.register("cttz", intrinsics::builtin_cttz);
+        self.register("ctpop", intrinsics::builtin_ctpop);
+        self.register("bswap", intrinsics::builtin_bswap);
+        self.register("bitreverse", intrinsics::builtin_bitreverse);
 
-        // Register runtime string functions
-        registry.register("strlen", string::builtin_strlen);
-        registry.register("strcmp", string::builtin_strcmp);
-        registry.register("strcpy", string::builtin_strcpy);
-        registry.register("strcat", string::builtin_strcat);
-        registry.register("strdup", string::builtin_strdup);
-        registry.register("vex_string_as_cstr", string::builtin_string_as_cstr);
-        registry.register("vex_string_len", string::builtin_string_len);
+        // Overflow checking
+        self.register("sadd_overflow", intrinsics::builtin_sadd_overflow);
+        self.register("ssub_overflow", intrinsics::builtin_ssub_overflow);
+        self.register("smul_overflow", intrinsics::builtin_smul_overflow);
+    }
 
-        // Compile-time type-safe formatting (Rust-style zero-cost)
-        registry.register("i32_to_string", formatting::builtin_i32_to_string);
-        registry.register("f64_to_string", formatting::builtin_f64_to_string);
-        registry.register("bool_to_string", formatting::builtin_bool_to_string);
+    /// Register compiler hints
+    fn register_compiler_hints(&mut self) {
+        self.register("assume", hints::builtin_assume);
+        self.register("likely", hints::builtin_likely);
+        self.register("unlikely", hints::builtin_unlikely);
+        self.register("prefetch", hints::builtin_prefetch);
+    }
 
-        // Register runtime memory operations
-        registry.register("memcpy", memory_ops::builtin_memcpy);
-        registry.register("memset", memory_ops::builtin_memset);
-        registry.register("memcmp", memory_ops::builtin_memcmp);
-        registry.register("memmove", memory_ops::builtin_memmove);
+    /// Register string functions
+    fn register_string_functions(&mut self) {
+        self.register("strlen", string::builtin_strlen);
+        self.register("strcmp", string::builtin_strcmp);
+        self.register("strcpy", string::builtin_strcpy);
+        self.register("strcat", string::builtin_strcat);
+        self.register("strdup", string::builtin_strdup);
+        self.register("vex_string_as_cstr", string::builtin_string_as_cstr);
+        self.register("vex_string_len", string::builtin_string_len);
+    }
 
-        // Register runtime UTF-8 functions
-        registry.register("utf8_valid", utf8::builtin_utf8_valid);
-        registry.register("utf8_char_count", utf8::builtin_utf8_char_count);
-        registry.register("utf8_char_at", utf8::builtin_utf8_char_at);
+    /// Register formatting functions
+    fn register_formatting_functions(&mut self) {
+        self.register("i32_to_string", formatting::builtin_i32_to_string);
+        self.register("f64_to_string", formatting::builtin_f64_to_string);
+        self.register("bool_to_string", formatting::builtin_bool_to_string);
+    }
 
-        // Register runtime array functions
-        registry.register("array_len", array::builtin_array_len);
-        registry.register("array_get", array::builtin_array_get);
-        registry.register("array_set", array::builtin_array_set);
-        registry.register("array_append", array::builtin_array_append);
+    /// Register memory operations
+    fn register_memory_operations(&mut self) {
+        self.register("memcpy", memory_ops::builtin_memcpy);
+        self.register("memset", memory_ops::builtin_memset);
+        self.register("memcmp", memory_ops::builtin_memcmp);
+        self.register("memmove", memory_ops::builtin_memmove);
+    }
 
-        // Register type reflection functions
-        registry.register("typeof", reflection::builtin_typeof);
-        registry.register("type_id", reflection::builtin_type_id);
-        registry.register("type_size", reflection::builtin_type_size);
-        registry.register("type_align", reflection::builtin_type_align);
-        registry.register("is_int_type", reflection::builtin_is_int_type);
-        registry.register("is_float_type", reflection::builtin_is_float_type);
-        registry.register("is_pointer_type", reflection::builtin_is_pointer_type);
-        registry.register("field_metadata", reflection::builtin_field_metadata);
+    /// Register UTF-8 functions
+    fn register_utf8_functions(&mut self) {
+        self.register("utf8_valid", utf8::builtin_utf8_valid);
+        self.register("utf8_char_count", utf8::builtin_utf8_char_count);
+        self.register("utf8_char_at", utf8::builtin_utf8_char_at);
+    }
 
-        // Register HashMap functions
-        registry.register("hashmap_new", hashmap::builtin_hashmap_new);
-        registry.register("hashmap_insert", hashmap::builtin_hashmap_insert);
-        registry.register("hashmap_get", hashmap::builtin_hashmap_get);
-        registry.register("hashmap_len", hashmap::builtin_hashmap_len);
-        registry.register("hashmap_free", hashmap::builtin_hashmap_free);
-        registry.register("hashmap_contains", hashmap::builtin_hashmap_contains);
-        registry.register("hashmap_remove", hashmap::builtin_hashmap_remove);
-        registry.register("hashmap_clear", hashmap::builtin_hashmap_clear);
+    /// Register array functions
+    fn register_array_functions(&mut self) {
+        self.register("array_len", array::builtin_array_len);
+        self.register("array_get", array::builtin_array_get);
+        self.register("array_set", array::builtin_array_set);
+        self.register("array_append", array::builtin_array_append);
+    }
 
-        // Map() type-as-constructor aliases
-        registry.register("map_new", hashmap::builtin_hashmap_new);
-        registry.register("map_insert", hashmap::builtin_hashmap_insert);
-        registry.register("map_get", hashmap::builtin_hashmap_get);
-        registry.register("map_len", hashmap::builtin_hashmap_len);
-        registry.register("map_free", hashmap::builtin_hashmap_free);
+    /// Register reflection functions
+    fn register_reflection_functions(&mut self) {
+        self.register("typeof", reflection::builtin_typeof);
+        self.register("type_id", reflection::builtin_type_id);
+        self.register("type_size", reflection::builtin_type_size);
+        self.register("type_align", reflection::builtin_type_align);
+        self.register("is_int_type", reflection::builtin_is_int_type);
+        self.register("is_float_type", reflection::builtin_is_float_type);
+        self.register("is_pointer_type", reflection::builtin_is_pointer_type);
+        self.register("field_metadata", reflection::builtin_field_metadata);
+    }
 
-        // Register Slice<T> functions
-        registry.register("slice_from_vec", slice::builtin_slice_from_vec);
-        registry.register("slice_new", slice::builtin_slice_new);
-        registry.register("slice_get", slice::builtin_slice_get);
-        registry.register("slice_len", slice::builtin_slice_len);
+    /// Register HashMap functions
+    fn register_hashmap_functions(&mut self) {
+        self.register("hashmap_new", hashmap::builtin_hashmap_new);
+        self.register("hashmap_insert", hashmap::builtin_hashmap_insert);
+        self.register("hashmap_get", hashmap::builtin_hashmap_get);
+        self.register("hashmap_len", hashmap::builtin_hashmap_len);
+        self.register("hashmap_free", hashmap::builtin_hashmap_free);
+        self.register("hashmap_contains", hashmap::builtin_hashmap_contains);
+        self.register("hashmap_remove", hashmap::builtin_hashmap_remove);
+        self.register("hashmap_clear", hashmap::builtin_hashmap_clear);
 
-        // Register Set<T> functions (wraps Map<T, ()>)
-        registry.register("set_new", set::builtin_set_new);
-        registry.register("set_with_capacity", set::builtin_set_with_capacity);
-        registry.register("set_insert", set::builtin_set_insert);
-        registry.register("set_contains", set::builtin_set_contains);
-        registry.register("set_remove", set::builtin_set_remove);
-        registry.register("set_len", set::builtin_set_len);
-        registry.register("set_clear", set::builtin_set_clear);
+        // Map() aliases
+        self.register("map_new", hashmap::builtin_hashmap_new);
+        self.register("map_insert", hashmap::builtin_hashmap_insert);
+        self.register("map_get", hashmap::builtin_hashmap_get);
+        self.register("map_len", hashmap::builtin_hashmap_len);
+        self.register("map_free", hashmap::builtin_hashmap_free);
+    }
 
-        // Phase 0.4b: Builtin type constructors (free functions)
-        registry.register("vec_new", builtin_types::builtin_vec_new);
-        registry.register(
+    /// Register slice functions
+    fn register_slice_functions(&mut self) {
+        self.register("slice_from_vec", slice::builtin_slice_from_vec);
+        self.register("slice_new", slice::builtin_slice_new);
+        self.register("slice_get", slice::builtin_slice_get);
+        self.register("slice_len", slice::builtin_slice_len);
+    }
+
+    /// Register set functions
+    fn register_set_functions(&mut self) {
+        self.register("set_new", set::builtin_set_new);
+        self.register("set_with_capacity", set::builtin_set_with_capacity);
+        self.register("set_insert", set::builtin_set_insert);
+        self.register("set_contains", set::builtin_set_contains);
+        self.register("set_remove", set::builtin_set_remove);
+        self.register("set_len", set::builtin_set_len);
+        self.register("set_clear", set::builtin_set_clear);
+    }
+
+    /// Register builtin type constructors
+    fn register_builtin_types(&mut self) {
+        // Vec, Box, String constructors
+        self.register("vec_new", builtin_types::builtin_vec_new);
+        self.register(
             "vec_with_capacity",
             builtin_types::builtin_vec_with_capacity,
         );
-        registry.register("vec_free", builtin_types::builtin_vec_free);
-        registry.register("box_new", builtin_types::builtin_box_new);
-        registry.register("box_free", builtin_types::builtin_box_free);
-        registry.register("string_new", builtin_types::builtin_string_new);
-        registry.register("string_from", builtin_types::builtin_string_from);
-        registry.register("string_free", builtin_types::builtin_string_free);
-        registry.register("channel_new", channel::builtin_channel_new);
+        self.register("vec_free", builtin_types::builtin_vec_free);
+        self.register("box_new", builtin_types::builtin_box_new);
+        self.register("box_free", builtin_types::builtin_box_free);
+        self.register("string_new", builtin_types::builtin_string_new);
+        self.register("string_from", builtin_types::builtin_string_from);
+        self.register("string_free", builtin_types::builtin_string_free);
+        self.register("channel_new", channel::builtin_channel_new);
 
-        // Phase 0.8: Option<T> and Result<T,E> constructors
-        registry.register("Some", builtin_types::builtin_option_some);
-        registry.register("None", builtin_types::builtin_option_none);
-        registry.register("Ok", builtin_types::builtin_result_ok);
-        registry.register("Err", builtin_types::builtin_result_err);
+        // Option and Result constructors
+        self.register("Some", builtin_types::builtin_option_some);
+        self.register("None", builtin_types::builtin_option_none);
+        self.register("Ok", builtin_types::builtin_result_ok);
+        self.register("Err", builtin_types::builtin_result_err);
 
-        // Async runtime functions
-        registry.register("runtime_create", ASTCodeGen::builtin_runtime_create);
-        registry.register("runtime_destroy", ASTCodeGen::builtin_runtime_destroy);
-        registry.register("runtime_run", ASTCodeGen::builtin_runtime_run);
-        registry.register("runtime_shutdown", ASTCodeGen::builtin_runtime_shutdown);
-        registry.register("async_sleep", ASTCodeGen::builtin_async_sleep);
-        registry.register("spawn_async", ASTCodeGen::builtin_spawn_async);
-
-        // Channel functions
-        registry.register("Channel.new", channel::builtin_channel_new);
-        registry.register("Channel.send", channel::builtin_channel_send);
-        registry.register("Channel.recv", channel::builtin_channel_recv);
-
-        // Phase 0.7: Primitive to string conversions
-        registry.register(
+        // Primitive to string conversions
+        self.register(
             "vex_i32_to_string",
             builtin_types::builtin_vex_i32_to_string,
         );
-        registry.register(
+        self.register(
             "vex_i64_to_string",
             builtin_types::builtin_vex_i64_to_string,
         );
-        registry.register(
+        self.register(
             "vex_u32_to_string",
             builtin_types::builtin_vex_u32_to_string,
         );
-        registry.register(
+        self.register(
             "vex_u64_to_string",
             builtin_types::builtin_vex_u64_to_string,
         );
-        registry.register(
+        self.register(
             "vex_f32_to_string",
             builtin_types::builtin_vex_f32_to_string,
         );
-        registry.register(
+        self.register(
             "vex_f64_to_string",
             builtin_types::builtin_vex_f64_to_string,
         );
-        registry.register(
+        self.register(
             "vex_bool_to_string",
             builtin_types::builtin_vex_bool_to_string,
         );
-        registry.register(
+        self.register(
             "vex_string_to_string",
             builtin_types::builtin_vex_string_to_string,
         );
+    }
 
-        // ========================================================================
-        // STDLIB MODULE FUNCTIONS
-        // ========================================================================
+    /// Register async runtime functions
+    fn register_async_runtime(&mut self) {
+        self.register("runtime_create", ASTCodeGen::builtin_runtime_create);
+        self.register("runtime_destroy", ASTCodeGen::builtin_runtime_destroy);
+        self.register("runtime_run", ASTCodeGen::builtin_runtime_run);
+        self.register("runtime_shutdown", ASTCodeGen::builtin_runtime_shutdown);
+        self.register("async_sleep", ASTCodeGen::builtin_async_sleep);
+        self.register("spawn_async", ASTCodeGen::builtin_spawn_async);
+    }
 
-        // Logger module (std.logger)
-        registry.register("logger::debug", stdlib_logger::stdlib_logger_debug);
-        registry.register("logger::info", stdlib_logger::stdlib_logger_info);
-        registry.register("logger::warn", stdlib_logger::stdlib_logger_warn);
-        registry.register("logger::error", stdlib_logger::stdlib_logger_error);
+    /// Register channel functions
+    fn register_channel_functions(&mut self) {
+        self.register("Channel.new", channel::builtin_channel_new);
+        self.register("Channel.send", channel::builtin_channel_send);
+        self.register("Channel.recv", channel::builtin_channel_recv);
+    }
 
-        // Time module (std.time)
-        registry.register("time::now", stdlib_time::stdlib_time_now);
-        registry.register("time::high_res", stdlib_time::stdlib_time_high_res);
-        registry.register("time::sleep_ms", stdlib_time::stdlib_time_sleep_ms);
+    /// Register stdlib module functions
+    fn register_stdlib_functions(&mut self) {
+        // Logger module
+        self.register("logger::debug", stdlib_logger::stdlib_logger_debug);
+        self.register("logger::info", stdlib_logger::stdlib_logger_info);
+        self.register("logger::warn", stdlib_logger::stdlib_logger_warn);
+        self.register("logger::error", stdlib_logger::stdlib_logger_error);
 
-        // Testing module (std.testing)
-        registry.register("testing::assert", stdlib_testing::stdlib_testing_assert);
-        registry.register(
+        // Time module
+        self.register("time::now", stdlib_time::stdlib_time_now);
+        self.register("time::high_res", stdlib_time::stdlib_time_high_res);
+        self.register("time::sleep_ms", stdlib_time::stdlib_time_sleep_ms);
+
+        // Testing module
+        self.register("testing::assert", stdlib_testing::stdlib_testing_assert);
+        self.register(
             "testing::assert_eq",
             stdlib_testing::stdlib_testing_assert_eq,
         );
-        registry.register(
+        self.register(
             "testing::assert_ne",
             stdlib_testing::stdlib_testing_assert_ne,
         );
-        registry
+    }
+
+    /// Register all builtin functions by calling category-specific methods
+    pub fn register_all_builtins(&mut self) {
+        self.register_core_builtins();
+        self.register_memory_builtins();
+        self.register_llvm_intrinsics();
+        self.register_compiler_hints();
+        self.register_string_functions();
+        self.register_formatting_functions();
+        self.register_memory_operations();
+        self.register_utf8_functions();
+        self.register_array_functions();
+        self.register_reflection_functions();
+        self.register_hashmap_functions();
+        self.register_slice_functions();
+        self.register_set_functions();
+        self.register_builtin_types();
+        self.register_async_runtime();
+        self.register_channel_functions();
+        self.register_stdlib_functions();
     }
 
     fn register(&mut self, name: &'static str, generator: BuiltinGenerator<'ctx>) {

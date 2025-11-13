@@ -1,0 +1,6 @@
+// process demo
+
+fn main(): i32 {
+    println("process module (scaffold)");
+    return 0;
+}

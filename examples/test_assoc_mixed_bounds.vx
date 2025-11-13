@@ -1,0 +1,30 @@
+// Test mixed type and associated type constraints
+// Expected: Parse successfully
+
+contract Iterator {
+    type Item;
+    fn next(): Option<Self.Item>;
+}
+
+contract Display {
+    fn show(): i32;
+}
+
+contract Clone {
+    fn clone(): Self;
+}
+
+// Mixed: type bounds and associated type bounds
+fn complex_function<T, U>(iter: T, other: U): i32
+where
+    T: Iterator,
+    T.Item: Display,
+    U: Clone,
+    U: Display
+{
+    return 200;
+}
+
+fn main(): i32 {
+    return 0;
+}

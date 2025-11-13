@@ -1,0 +1,30 @@
+// Test complex conditional impl with multiple constraints
+// Expected: Parse successfully
+
+contract Iterator {
+    type Item;
+    fn next(): Option<Self.Item>;
+}
+
+contract Display {
+    fn show(): i32;
+}
+
+contract Debug {
+    fn debug(): i32;
+}
+
+// Complex conditional impl with associated types
+struct Container<T, U> impl Iterator, Display
+where
+    T: Display,
+    T.Item: Debug,
+    U: Iterator
+{
+    first: T,
+    second: U
+}
+
+fn main(): i32 {
+    return 0;
+}

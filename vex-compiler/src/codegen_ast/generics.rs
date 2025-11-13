@@ -9,7 +9,15 @@ impl<'ctx> ASTCodeGen<'ctx> {
         type_args: &[Type],
     ) -> Result<inkwell::values::FunctionValue<'ctx>, String> {
         let type_names: Vec<String> = type_args.iter().map(|t| self.type_to_string(t)).collect();
-        let mangled_name = format!("{}_{}", func_def.name, type_names.join("_"));
+        
+        // Include const params in mangled name if present
+        let mangled_name = if func_def.const_params.is_empty() {
+            format!("{}_{}", func_def.name, type_names.join("_"))
+        } else {
+            // For now, const params are not specialized - they're just in signature
+            // Future: Add const values to mangled name when instantiated with concrete values
+            format!("{}_{}", func_def.name, type_names.join("_"))
+        };
 
         if let Some(fn_val) = self.functions.get(&mangled_name) {
             return Ok(*fn_val);
@@ -222,7 +230,15 @@ impl<'ctx> ASTCodeGen<'ctx> {
             .collect();
         let all_type_arg_strings: Vec<String> =
             all_type_args.iter().map(|t| self.type_to_string(t)).collect();
-        let mangled_name = format!("{}_{}", struct_name, all_type_arg_strings.join("_"));
+        
+        // Include const params in mangled name if present
+        let mangled_name = if struct_ast.const_params.is_empty() {
+            format!("{}_{}", struct_name, all_type_arg_strings.join("_"))
+        } else {
+            // For now, const params are not specialized - they're just in signature
+            // Future: Add const values to mangled name when instantiated with concrete values
+            format!("{}_{}", struct_name, all_type_arg_strings.join("_"))
+        };
 
         let specialized_fields: Vec<(String, Type)> = struct_ast
             .fields

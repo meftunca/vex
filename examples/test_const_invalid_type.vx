@@ -1,0 +1,10 @@
+// Test invalid const parameter type
+// Expected: Compile error - const params must be integer types
+
+struct BadMatrix<T, const N: f64> {
+    value: T
+}
+
+fn main(): i32 {
+    return 0;
+}

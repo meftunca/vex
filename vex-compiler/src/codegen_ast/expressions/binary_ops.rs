@@ -14,7 +14,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
         right: &Expression,
     ) -> Result<BasicValueEnum<'ctx>, String> {
         // ⭐ NEW: Operator Overloading - Check if left operand has operator contract
+        eprintln!("🔍 Binary op: {:?} {:?} {:?}", left, op, right);
         if let Ok(left_type) = self.infer_expression_type(left) {
+            eprintln!("   Left type inferred: {:?}", left_type);
             // ⭐ BUILTIN: Check for Vec + Vec (if both are Vec)
             if let Type::Generic { ref name, .. } = left_type {
                 if name == "Vec" && matches!(op, BinaryOp::Add) {
@@ -73,9 +75,25 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         }
                     }
                     
-                    // Otherwise check for user-defined contract implementation
-                    if let Some(_) = self.has_operator_trait(type_name, contract_name) {
-                        eprintln!("🎯 User operator contract: {}.{}()", type_name, method_name);
+                    // ⭐ NEW: Check for user-defined operator methods by function existence
+                    // For binary operators, param_count = 1 (just rhs, receiver not counted in params)
+                    let param_count = 1;
+                    let base_method_name = format!("{}_{}", type_name, method_name);
+                    let method_func_name = if method_name.starts_with("op") && 
+                                              (method_name == "op-" || method_name == "op+" || method_name == "op*") {
+                        format!("{}_{}", base_method_name, param_count)
+                    } else {
+                        base_method_name.clone()
+                    };
+                    
+                    eprintln!("   Checking for method: {} (contract: {})", method_func_name, contract_name);
+                    eprintln!("   has_operator_trait: {}", self.has_operator_trait(type_name, contract_name).is_some());
+                    eprintln!("   functions.contains_key: {}", self.functions.contains_key(&method_func_name));
+                    
+                    // Check if method exists (either in trait_impls OR as external method)
+                    if self.has_operator_trait(type_name, contract_name).is_some() || 
+                       self.functions.contains_key(&method_func_name) {
+                        eprintln!("🎯 User operator contract: {}.{}() → {}", type_name, method_name, method_func_name);
                         eprintln!("   Left: {:?}", left);
                         eprintln!("   Right: {:?}", right);
                         return self.compile_method_call(

@@ -1,0 +1,6 @@
+// crypto demo placeholder
+
+fn main(): i32 {
+    println("crypto module (scaffold)");
+    return 0;
+}

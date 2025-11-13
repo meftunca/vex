@@ -1,0 +1,24 @@
+// Test associated type constraints in where clause
+// Expected: Parse successfully
+
+contract Iterator {
+    type Item;
+    fn next(): Option<Self.Item>;
+}
+
+contract Display {
+    fn show(): i32;
+}
+
+// Function with associated type constraint
+fn process<T>(iter: T): i32
+where
+    T: Iterator,
+    T.Item: Display
+{
+    return 42;
+}
+
+fn main(): i32 {
+    return 0;
+}

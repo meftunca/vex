@@ -1,0 +1,8 @@
+// demo.vx - Command package example used as placeholder
+
+import { version } from "cmd";
+
+fn main(): i32 {
+    println("cmd version: ", version());
+    return 0;
+}

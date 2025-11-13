@@ -49,7 +49,7 @@ fn test_operator_impl() {
     if let Item::Struct(s) = &program.items[0] {
         assert_eq!(s.name, "Vec2");
         assert_eq!(s.impl_traits.len(), 1);
-        assert_eq!(s.impl_traits[0], "Add");
+        assert_eq!(s.impl_traits[0].name, "Add");
         assert_eq!(s.methods.len(), 1);
         
         let func = &s.methods[0];

@@ -39,19 +39,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         let mut param_types: Vec<BasicMetadataTypeEnum> = Vec::new();
         if let Some(ref receiver) = func.receiver {
-            // Receiver is always passed by pointer (it's a reference: &Point or &Point!)
-            // Even though ast_type_to_llvm now returns struct type directly,
-            // for receivers we want the pointer
+            // ⭐ NEW: External methods (fn (p: Point)) pass receiver BY VALUE
+            // Only reference receivers (fn (p: &Point!) are pointers
             let receiver_llvm_type = self.ast_type_to_llvm(&receiver.ty);
-            let receiver_param_type = if matches!(receiver_llvm_type, BasicTypeEnum::StructType(_))
-            {
-                // Struct receiver -> pass as pointer
-                BasicTypeEnum::PointerType(self.context.ptr_type(inkwell::AddressSpace::default()))
-            } else {
-                // Already a pointer or primitive - use as-is
-                receiver_llvm_type
-            };
-            param_types.push(receiver_param_type.into());
+            param_types.push(receiver_llvm_type.into());
         }
         for param in &func.params {
             let param_llvm_type = self.ast_type_to_llvm(&param.ty);

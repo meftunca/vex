@@ -480,4 +480,13 @@ mod tests {
         assert_eq!(tokens[4], Token::Colon);
         assert_eq!(tokens[5], Token::Error);
     }
+
+    #[test]
+    fn test_contract_keyword() {
+        let source = "contract Add";
+        let tokens: Vec<_> = Lexer::new(source).map(|r| r.unwrap().token).collect();
+        
+        assert_eq!(tokens[0], Token::Contract, "Expected Contract token, got {:?}", tokens[0]);
+        assert_eq!(tokens[1], Token::Ident("Add".to_string()));
+    }
 }

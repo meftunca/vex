@@ -41,7 +41,18 @@ impl<'ctx> ASTCodeGen<'ctx> {
             if func.name.starts_with(&format!("{}_", type_name)) {
                 func.name.clone()
             } else {
-                format!("{}_{}", type_name, func.name)
+                // ⭐ NEW: For operators that can be both unary and binary, add parameter count suffix
+                // to distinguish them (e.g., op-(self) vs op-(self, other))
+                let param_count = func.params.len();
+                let base_name = format!("{}_{}", type_name, func.name);
+                
+                // Only add parameter count suffix for operators that can be both unary and binary
+                if func.name.starts_with("op") && 
+                   (func.name == "op-" || func.name == "op+" || func.name == "op*") {
+                    format!("{}_{}", base_name, param_count)
+                } else {
+                    base_name
+                }
             }
         } else {
             func.name.clone()
@@ -69,39 +80,18 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 .get_nth_param(0)
                 .ok_or_else(|| "Receiver parameter not found".to_string())?;
 
-            // CRITICAL FIX: For external (Golang-style) methods with reference receivers,
-            // the parameter is already a pointer, so we DON'T need alloca+store
-            let is_reference_receiver = matches!(receiver.ty, Type::Reference(_, _));
+            // CRITICAL: External methods use Golang-style `fn (p: Point)` (pass by value)
+            // Inline methods use `fn op+(self)` (also pass by value in new convention)
+            // Both should ALWAYS allocate and store for consistent access
+            let param_type = self.ast_type_to_llvm(&receiver.ty);
+            let alloca = self.create_entry_block_alloca(&receiver.name, &receiver.ty, true)?;
+            self.builder
+                .build_store(alloca, param_val)
+                .map_err(|e| format!("Failed to store receiver: {}", e))?;
+            self.variables.insert(receiver.name.clone(), alloca);
+            self.variable_types.insert(receiver.name.clone(), param_type);
 
-            if is_reference_receiver {
-                // External method: fn (self: &Type!) - receiver is already a pointer
-                // Use it directly, no alloca needed
-                let receiver_llvm_ty = match &receiver.ty {
-                    Type::Reference(inner, _) => {
-                        // For &Type, the LLVM parameter is already a pointer
-                        self.ast_type_to_llvm(inner)
-                    }
-                    _ => unreachable!(),
-                };
-
-                let self_ptr = param_val.into_pointer_value();
-                self.variables.insert(receiver.name.clone(), self_ptr);
-                self.variable_types
-                    .insert(receiver.name.clone(), receiver_llvm_ty);
-
-                eprintln!("📌 External method receiver '{}': using pointer directly (no alloca)", receiver.name);
-            } else {
-                // Inline method or non-reference receiver: allocate and store
-                let param_type = self.ast_type_to_llvm(&receiver.ty);
-                let alloca = self.create_entry_block_alloca(&receiver.name, &receiver.ty, true)?;
-                self.builder
-                    .build_store(alloca, param_val)
-                    .map_err(|e| format!("Failed to store receiver: {}", e))?;
-                self.variables.insert(receiver.name.clone(), alloca);
-                self.variable_types.insert(receiver.name.clone(), param_type);
-
-                eprintln!("📌 Inline method receiver '{}': allocated and stored", receiver.name);
-            }
+            eprintln!("📌 Receiver '{}': allocated and stored", receiver.name);
 
             let type_name = match &receiver.ty {
                 Type::Named(name) => Some(name.clone()),
@@ -152,9 +142,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     ));
                 }
             } else {
-                // ⚠️ CRITICAL: Struct parameters are passed as POINTERS (not values)
-                // So if the parameter type is a struct, param_val is already a pointer.
-                // We should NOT allocate+store, just use the pointer directly!
+                // ⚠️ CRITICAL: For external methods, struct parameters are passed BY VALUE
+                // For all parameters, we ALWAYS allocate and store to maintain consistent access patterns
                 let is_struct_param = match &param.ty {
                     Type::Named(type_name) => self.struct_defs.contains_key(type_name),
                     _ => false,
@@ -168,22 +157,15 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     param_val.is_pointer_value()
                 );
 
-                if is_struct_param && param_val.is_pointer_value() {
-                    // Struct parameter - use the pointer directly, don't allocate
-                    eprintln!("   → Using pointer directly (no alloca)");
-                    let ptr_val = param_val.into_pointer_value();
-                    self.variables.insert(param.name.clone(), ptr_val);
-                    self.variable_types.insert(param.name.clone(), param_type);
-                } else {
-                    // Non-struct parameter - allocate and store as usual
-                    eprintln!("   → Allocating and storing");
-                    let alloca = self.create_entry_block_alloca(&param.name, &param.ty, true)?;
-                    self.builder
-                        .build_store(alloca, param_val)
-                        .map_err(|e| format!("Failed to store parameter: {}", e))?;
-                    self.variables.insert(param.name.clone(), alloca);
-                    self.variable_types.insert(param.name.clone(), param_type);
-                }
+                // ALWAYS allocate and store - regardless of struct or not
+                // This ensures consistent behavior between external and inline methods
+                eprintln!("   → Allocating and storing");
+                let alloca = self.create_entry_block_alloca(&param.name, &param.ty, true)?;
+                self.builder
+                    .build_store(alloca, param_val)
+                    .map_err(|e| format!("Failed to store parameter: {}", e))?;
+                self.variables.insert(param.name.clone(), alloca);
+                self.variable_types.insert(param.name.clone(), param_type);
 
                 let extract_struct_name = |ty: &Type| -> Option<String> {
                     match ty {

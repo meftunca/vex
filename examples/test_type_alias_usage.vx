@@ -1,0 +1,25 @@
+// Test type alias bounds usage
+// Expected: Parse successfully
+
+contract Display {
+    fn show(): i32;
+}
+
+contract Clone {
+    fn clone(): Self;
+}
+
+// Constrained type alias
+type Showable<T: Display> = Vec<T>;
+
+// Function using constrained alias
+fn print_all<T: Display>(items: Showable<T>): i32 {
+    return 42;
+}
+
+// Multiple bounds
+type Printable<T: Display + Clone> = Vec<T>;
+
+fn main(): i32 {
+    return 0;
+}

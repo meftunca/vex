@@ -585,7 +585,7 @@ impl MoveChecker {
             Type::Generic { .. } => true,
 
             // Arrays and slices are Move
-            Type::Array(_, _) | Type::Slice(_, _) => true,
+            Type::Array(_, _) | Type::Slice(_, _) | Type::ConstArray { .. } => true,
 
             // Tuples are Move if any element is Move
             Type::Tuple(types) => types.iter().any(|t| self.is_move_type(t)),

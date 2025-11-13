@@ -1,0 +1,30 @@
+// Test multiple associated type constraints
+// Expected: Parse successfully
+
+contract Container {
+    type Item;
+    type Key;
+    fn get(key: Self.Key): Option<Self.Item>;
+}
+
+contract Display {
+    fn show(): i32;
+}
+
+contract Clone {
+    fn clone(): Self;
+}
+
+// Multiple associated type constraints
+fn show_container<C>(container: C): i32
+where
+    C: Container,
+    C.Item: Display,
+    C.Key: Clone
+{
+    return 100;
+}
+
+fn main(): i32 {
+    return 0;
+}

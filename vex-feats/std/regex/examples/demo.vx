@@ -1,0 +1,6 @@
+// regex demo
+
+fn main(): i32 {
+    println("regex module (scaffold)");
+    return 0;
+}

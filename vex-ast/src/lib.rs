@@ -154,6 +154,7 @@ pub struct Function {
     pub receiver: Option<Receiver>, // For methods
     pub name: String,
     pub type_params: Vec<TypeParam>, // Generic type parameters with bounds: <T: Display, U: Clone>
+    pub const_params: Vec<(String, Type)>, // ⭐ NEW: Const params: (N, usize), (SIZE, i32)
     pub where_clause: Vec<WhereClausePredicate>, // Where clause: where T: Display, U: Clone
     pub params: Vec<Param>,
     pub return_type: Option<Type>,
@@ -162,11 +163,20 @@ pub struct Function {
     pub variadic_type: Option<Type>, // Type of variadic params: ...any, ...string
 }
 
-/// Where clause predicate: T: Display, U: Clone + Debug
+/// Where clause predicate: T: Display, U: Clone + Debug, T.Item: Display
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct WhereClausePredicate {
-    pub type_param: String,      // T, U, etc.
-    pub bounds: Vec<TraitBound>, // Display, Clone + Debug, etc.
+pub enum WhereClausePredicate {
+    /// Type parameter bound: T: Display, U: Clone
+    TypeBound {
+        type_param: String,      // T, U, etc.
+        bounds: Vec<TraitBound>, // Display, Clone + Debug, etc.
+    },
+    /// Associated type constraint: T.Item: Display, C.Output: Clone
+    AssociatedTypeBound {
+        type_param: String,      // T, C, etc.
+        assoc_type: String,      // Item, Output, etc.
+        bounds: Vec<TraitBound>, // Display, Clone, etc.
+    },
 }
 
 /// Method receiver: (self: &Vector2) or (self: &mut Vector2)
@@ -199,6 +209,8 @@ pub struct TraitImpl {
 pub struct Struct {
     pub name: String,
     pub type_params: Vec<TypeParam>, // Generic type parameters with bounds: <T: Display>
+    pub const_params: Vec<(String, Type)>, // ⭐ NEW: Const params: (N, usize), (SIZE, i32)
+    pub where_clause: Vec<WhereClausePredicate>, // ⭐ NEW: Where clause for conditional impl
     pub policies: Vec<String>,       // ⭐ NEW: Policies applied to this struct (with clause)
     pub impl_traits: Vec<TraitImpl>, // ⭐ CHANGED: Traits with type args: Add<i32>, Add<f64>
     pub associated_type_bindings: Vec<(String, Type)>, // ⭐ NEW: Associated type bindings: type Item = i32;
@@ -356,6 +368,12 @@ pub enum Type {
 
     /// Array: [T; N]
     Array(Box<Type>, usize),
+
+    /// Array with const generic size: [T; N] where N is a const param
+    ConstArray {
+        elem_type: Box<Type>,
+        size_param: String, // Name of const parameter: "N"
+    },
 
     /// Slice: &[T] or &mut [T]
     Slice(Box<Type>, bool), // bool = is_mutable

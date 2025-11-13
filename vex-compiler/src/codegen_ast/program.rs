@@ -126,6 +126,24 @@ impl<'ctx> ASTCodeGen<'ctx> {
         use crate::trait_bounds_checker::TraitBoundsChecker;
         let mut trait_checker = TraitBoundsChecker::new();
         trait_checker.initialize(&merged_program);
+        
+        // Validate const generic parameters in functions and structs
+        for item in &merged_program.items {
+            match item {
+                Item::Function(func) => {
+                    if let Err(e) = trait_checker.validate_const_params(&func.const_params) {
+                        return Err(format!("Function '{}': {}", func.name, e));
+                    }
+                }
+                Item::Struct(struct_def) => {
+                    if let Err(e) = trait_checker.validate_const_params(&struct_def.const_params) {
+                        return Err(format!("Struct '{}': {}", struct_def.name, e));
+                    }
+                }
+                _ => {}
+            }
+        }
+        
         self.trait_bounds_checker = Some(trait_checker);
         eprintln!("✅ Trait bounds checker initialized");
 
