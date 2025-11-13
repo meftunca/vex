@@ -267,8 +267,14 @@ impl<'ctx> ASTCodeGen<'ctx> {
             // First check if the variable name is a tracked closure
             let (has_environment, env_ptr_opt) = if let Expression::Ident(name) = func_expr {
                 if let Some((_, env_ptr)) = self.closure_variables.get(name) {
-                    eprintln!("🎯 Found closure variable '{}' with environment", name);
-                    (true, Some(*env_ptr))
+                    // Check if environment pointer is null (pure closure without captures)
+                    if env_ptr.is_null() {
+                        eprintln!("🎯 Found closure variable '{}' without environment (pure function)", name);
+                        (false, None)
+                    } else {
+                        eprintln!("🎯 Found closure variable '{}' with environment", name);
+                        (true, Some(*env_ptr))
+                    }
                 } else if let Some(env_ptr) = self.closure_envs.get(&fn_ptr) {
                     (true, Some(*env_ptr))
                 } else {
@@ -342,6 +348,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
             };
 
             // Build indirect call using the function pointer
+            eprintln!("🔧 Indirect call: fn_type={:?}, args_count={}, has_env={}", 
+                fn_type, final_args.len(), has_environment);
             let call_site = self
                 .builder
                 .build_indirect_call(fn_type, fn_ptr, &final_args, "indirect_call")

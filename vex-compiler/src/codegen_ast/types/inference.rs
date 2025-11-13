@@ -167,6 +167,26 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 
                 Ok(Type::I32) // Fallback
             }
+            Expression::Call { func, .. } => {
+                // Infer return type of function call
+                match func.as_ref() {
+                    Expression::Ident(func_name) => {
+                        // Builtin string conversion functions return String
+                        if func_name == "i32_to_string" || func_name == "f64_to_string" || 
+                           func_name == "bool_to_string" || func_name.ends_with("_to_string") {
+                            return Ok(Type::String);
+                        }
+                        
+                        // Check function definitions we've compiled
+                        if let Some(func_def) = self.function_defs.get(func_name.as_str()) {
+                            return Ok(func_def.return_type.clone().unwrap_or(Type::I32));
+                        }
+                        
+                        Ok(Type::I32) // Fallback
+                    }
+                    _ => Ok(Type::I32),
+                }
+            }
             _ => Ok(Type::I32), // Default for complex expressions
         };
         result

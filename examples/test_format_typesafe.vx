@@ -1,7 +1,6 @@
 // Test Type-Safe Zero-Cost Format
 // Demonstrates Rust-style format() with compile-time type checking
-
-import { println } from "io";
+// Note: println is builtin with format support
 
 fn test_primitives() {
     // Integer types

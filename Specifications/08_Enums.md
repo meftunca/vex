@@ -934,6 +934,6 @@ match status {
 ---
 
 **Previous**: [07_Structs_and_Data_Types.md](./07_Structs_and_Data_Types.md)  
-**Next**: [09_Traits_and_Interfaces.md](./09_Traits_and_Interfaces.md)
+**Next**: [09_Contracts.md](./09_Contracts.md)
 
 **Maintained by**: Vex Language Team

@@ -1,0 +1,15 @@
+// Simple closure test
+fn main(): i32 {
+    // Test 3: Single parameter with literal
+    let double = |n| n * 2;
+    let r3 = double(7);
+    println("Result: ", r3);
+    
+    if r3 != 14 {
+        println("FAILED");
+        return 1;
+    }
+    
+    println("PASSED");
+    return 0;
+}

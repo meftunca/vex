@@ -120,7 +120,7 @@ pub enum Item {
     Function(Function),
     Struct(Struct),
     Contract(Trait), // Renamed from Trait - using Contract keyword only
-    TraitImpl(TraitImpl),
+    TraitImpl(ExternalTraitImpl), // External trait impl (rarely used in Vex)
     BuiltinExtension(BuiltinExtension), // NEW: Type extends Contract declarations
     TypeAlias(TypeAlias),
     Enum(Enum),
@@ -158,6 +158,7 @@ pub struct WhereClausePredicate {
 /// Method receiver: (self: &Vector2) or (self: &mut Vector2)
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Receiver {
+    pub name: String,        // Receiver variable name: 'self', 'p', 'this', etc.
     pub is_mutable: bool,
     pub ty: Type,
 }
@@ -171,13 +172,21 @@ pub struct Param {
 }
 
 /// Struct definition (v1.3: Inline trait implementation)
+/// Trait implementation with optional type arguments
+/// Examples: Add, Add<i32>, Add<f64>
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TraitImpl {
+    pub name: String,
+    pub type_args: Vec<Type>, // Generic type arguments: Add<i32>, Add<f64>
+}
+
 /// Example: struct File impl Reader, Writer { fd: i32, fn read() {...} }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Struct {
     pub name: String,
     pub type_params: Vec<TypeParam>, // Generic type parameters with bounds: <T: Display>
     pub policies: Vec<String>,       // ⭐ NEW: Policies applied to this struct (with clause)
-    pub impl_traits: Vec<String>,    // Traits this struct implements (inline declaration)
+    pub impl_traits: Vec<TraitImpl>, // ⭐ CHANGED: Traits with type args: Add<i32>, Add<f64>
     pub associated_type_bindings: Vec<(String, Type)>, // ⭐ NEW: Associated type bindings: type Item = i32;
     pub fields: Vec<Field>,
     pub methods: Vec<Function>, // Methods defined inline (including trait implementations)
@@ -288,9 +297,10 @@ pub struct TraitMethod {
     pub body: Option<Block>, // Some(...) = default impl, None = required
 }
 
-/// Trait implementation
+/// External trait implementation (impl Trait for Type syntax - rarely used in Vex)
+/// Vex prefers inline struct impl: `struct Type impl Trait { }`
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct TraitImpl {
+pub struct ExternalTraitImpl {
     pub trait_name: String,
     pub type_params: Vec<TypeParam>, // Generic params with bounds for the impl
     pub for_type: Type,              // Type implementing the trait

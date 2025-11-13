@@ -343,12 +343,12 @@ fn fetch_user(id: i32): Result<User, ApiError> {
 }
 ```
 
-### Error Traits
+### Error Contracts
 
-Implement common error traits for better ergonomics:
+Implement common error contracts for better ergonomics:
 
 ```vex
-trait Error {
+contract Error {
     fn message(&self): String;
 }
 

@@ -48,13 +48,16 @@ impl TraitBoundsChecker {
         for item in &program.items {
             if let vex_ast::Item::Struct(struct_def) = item {
                 if !struct_def.impl_traits.is_empty() {
+                    let trait_names: Vec<String> = struct_def.impl_traits.iter()
+                        .map(|t| t.name.clone())
+                        .collect();
                     self.type_impls
-                        .insert(struct_def.name.clone(), struct_def.impl_traits.clone());
+                        .insert(struct_def.name.clone(), trait_names);
                 }
             }
         }
 
-        // Collect trait implementations from impl blocks
+        // Collect trait implementations from external impl blocks (ExternalTraitImpl)
         for item in &program.items {
             if let vex_ast::Item::TraitImpl(impl_block) = item {
                 let type_name = self.extract_type_name(&impl_block.for_type);

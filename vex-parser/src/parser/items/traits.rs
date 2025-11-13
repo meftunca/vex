@@ -132,14 +132,15 @@ impl<'a> Parser<'a> {
 
             if is_self {
                 // This is a golang-style receiver!
-                let _self_name = self.consume_identifier()?;
-                self.consume(&Token::Colon, "Expected ':' after 'self'")?;
+                let receiver_name = self.consume_identifier()?;
+                self.consume(&Token::Colon, "Expected ':' after receiver name")?;
                 let receiver_type = self.parse_type()?;
                 self.consume(&Token::RParen, "Expected ')' after receiver")?;
 
                 // Check if type is a reference (&T)
                 let is_mutable = matches!(receiver_type, Type::Reference(_, true));
                 Some(Receiver {
+                    name: receiver_name,
                     is_mutable,
                     ty: receiver_type,
                 })

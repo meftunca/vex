@@ -31,7 +31,7 @@ Vex provides **multiple concurrency models**:
 ### Safety Guarantees
 
 - **No data races**: Enforced by borrow checker
-- **Thread safety**: Send/Sync traits (future)
+- **Thread safety**: Send/Sync contracts (future)
 - **Deadlock prevention**: Through ownership system
 
 ---
@@ -457,7 +457,7 @@ fn worker_pool(work: [Task], num_workers: i32): [Result] {
 Types safe to transfer across threads:
 
 ```vex
-trait Send { }
+contract Send { }
 
 // Automatically implemented for types without references
 impl Send for i32 { }
@@ -474,7 +474,7 @@ struct HasReference {
 Types safe to share across threads:
 
 ```vex
-trait Sync { }
+contract Sync { }
 
 // Automatically implemented for immutable types
 impl Sync for i32 { }
@@ -638,8 +638,8 @@ fn process_small_list(items: [i32; 10]): [i32; 10] {
 | **Mutex**           | `Mutex::new()`  | 🚧 Planned           | Layer 2 std lib            |
 | **RwLock**          | `RwLock::new()` | 🚧 Planned           | Layer 2 std lib            |
 | **Atomic**          | `Atomic::new()` | 🚧 Planned           | Layer 2 std lib            |
-| **Send Trait**      | Auto-derived    | 🚧 Planned           | Thread safety              |
-| **Sync Trait**      | Auto-derived    | 🚧 Planned           | Thread safety              |
+| **Send Contract**   | Auto-derived    | 🚧 Planned           | Thread safety              |
+| **Sync Contract**   | Auto-derived    | 🚧 Planned           | Thread safety              |
 
 ### Implementation Status
 
@@ -652,7 +652,7 @@ fn process_small_list(items: [i32; 10]): [i32; 10] {
 **Phase 1: Async Runtime** (High Priority 🔴)
 
 - Integrate tokio or custom runtime
-- Implement Future trait
+- Implement Future contract
 - Async I/O primitives
 - Basic executor
 

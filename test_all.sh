@@ -35,6 +35,13 @@ test_file() {
         return
     fi
     
+    # Skip library files (no main function, used as imports)
+    if [[ "$file" == *"/container.vx"* ]] || [[ "$file" == *"/lib.vx"* ]] || [[ "$file" == *"/mod.vx"* ]]; then
+        echo "SKIP" > "$result_file"
+        echo "⏭️  Skipping $name (library file, no main)"
+        return
+    fi
+    
     # Skip stdlib integration tests (require additional C libraries)
     if [[ "$file" == *"invalid"* ]] ||[[ "$file" == *"stdlib_integration"* ]] || [[ "$file" == *"test_stdlib_simple.vx"* ]] || [[ "$file" == *"native_demo"* ]] || [[ "$file" == *"crypto_self_signed_cert.vx"* ]]; then
         echo "SKIP" > "$result_file"

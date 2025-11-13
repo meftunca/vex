@@ -70,18 +70,26 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 }
                 Ok(())
             }
-            Pattern::Enum { data, .. } => {
-                if !data.is_empty() && value.is_struct_value() {
-                    let struct_val = value.into_struct_value();
-                    let data_val = self
-                        .builder
-                        .build_extract_value(struct_val, 1, "enum_data_bind")
-                        .map_err(|e| format!("Failed to extract enum data for binding: {}", e))?;
+            Pattern::Enum { variant, data, .. } => {
+                if !data.is_empty() {
+                    // Value is the full enum struct: { i32 discriminant, T data }
+                    let data_val = if value.is_struct_value() {
+                        let enum_struct = value.into_struct_value();
+                        self.builder
+                            .build_extract_value(enum_struct, 1, "enum_data_bind")
+                            .map_err(|e| format!("Failed to extract enum data for binding: {}", e))?
+                    } else {
+                        // For pointers or other types, treat as the data value directly
+                        value
+                    };
 
                     if data.len() == 1 {
                         self.compile_pattern_binding(&data[0], data_val)?;
                     } else {
                         // Multi-value tuple data
+                        if !data_val.is_struct_value() {
+                            return Err(format!("Expected struct for multi-value enum data in variant '{}'", variant));
+                        }
                         let data_struct = data_val.into_struct_value();
                         for (i, pattern) in data.iter().enumerate() {
                             let field_val = self

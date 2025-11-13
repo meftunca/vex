@@ -1,0 +1,9 @@
+// Minimal closure test
+fn main(): i32 {
+    let double = |n| n * 2;
+    let result = double(5);
+    if result == 10 {
+        return 0;
+    }
+    return 1;
+}

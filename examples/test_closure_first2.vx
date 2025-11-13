@@ -1,0 +1,12 @@
+// First 2 tests
+fn main(): i32 {
+    let add = |x, y| { x + y };
+    let r1 = add(5, 10);
+    if r1 != 15 { return 1; }
+    
+    let mul = |a, b| a * b;
+    let r2 = mul(3, 4);
+    if r2 != 12 { return 2; }
+    
+    return 0;
+}

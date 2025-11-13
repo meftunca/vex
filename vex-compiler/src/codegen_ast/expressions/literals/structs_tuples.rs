@@ -42,6 +42,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
             .cloned()
             .ok_or_else(|| format!("Struct '{}' not found in registry", actual_struct_name))?;
 
+        eprintln!("🏗️  Compiling struct literal: {}, fields in definition: {:?}", actual_struct_name, struct_def.fields);
+        eprintln!("   Literal fields provided: {:?}", fields.iter().map(|(n, _)| n).collect::<Vec<_>>());
+
         // Build field types and values in the order defined in the struct
         let mut field_types = Vec::new();
         let mut field_values = Vec::new();
@@ -92,6 +95,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
             let field_val = self.compile_expression(&adjusted_field_expr)?;
             let field_llvm_ty = self.ast_type_to_llvm(field_ty);
+            
+            eprintln!("   Field '{}': expr={:?}, compiled_val={:?}", field_name, adjusted_field_expr, field_val);
+            
             field_types.push(field_llvm_ty);
 
             // ⭐ CRITICAL: Cast integer literals to match field type width

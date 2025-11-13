@@ -1,0 +1,14 @@
+// Minimal test with Go-style method
+struct Point {
+    x: i32,
+}
+
+fn (p: &Point) show() {
+    print(p.x);
+}
+
+fn main(): i32 {
+    let! p = Point { x: 10 };
+    p.show();
+    return 0;
+}

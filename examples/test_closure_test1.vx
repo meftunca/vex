@@ -1,0 +1,9 @@
+// Test 1: Basic two-parameter with block
+fn main(): i32 {
+    let add = |x, y| { x + y };
+    let r1 = add(5, 10);
+    if r1 != 15 {
+        return 1;
+    }
+    return 0;
+}

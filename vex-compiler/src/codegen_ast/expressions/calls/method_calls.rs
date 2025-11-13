@@ -185,6 +185,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Get struct type from receiver (for instance method calls)
         let (struct_name, receiver_val) = if let Expression::Ident(var_name) = receiver {
+            eprintln!("🔍 Receiver is identifier: {}", var_name);
             let struct_name = self
                 .variable_struct_names
                 .get(var_name)
@@ -202,6 +203,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 .get(var_name)
                 .ok_or_else(|| format!("Variable {} not found", var_name))?;
 
+            eprintln!("🔍 Receiver var_ptr: {:?}", var_ptr);
             (struct_name, *var_ptr)
         } else if let Expression::FieldAccess { object, field } = receiver {
             // Handle field access: self.counter.next()
@@ -280,9 +282,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
         };
 
         // Construct method function name: StructName_method
+        // ⭐ CRITICAL: Encode operator names for LLVM compatibility
+        let method_encoded = Self::encode_operator_name(method);
+        
         // ⭐ NEW: For operators that can be both unary and binary, add parameter count suffix
         let param_count = args.len();
-        let base_method_name = format!("{}_{}", struct_name, method);
+        let base_method_name = format!("{}_{}", struct_name, method_encoded);
         
         let method_func_name = if method.starts_with("op") && 
                                   (method == "op-" || method == "op+" || method == "op*") {
@@ -296,15 +301,73 @@ impl<'ctx> ASTCodeGen<'ctx> {
             // Found as struct method
             method_func_name
         } else {
-            // Try to find trait method: TypeName_TraitName_methodName
-            // Search all trait impls for this type
+            // Try to find trait method
+            // For generic trait impls, we need to try all type arg variations
             let mut found_trait_method = None;
-            for ((trait_name, type_name), _) in &self.trait_impls {
-                if type_name == &struct_name {
-                    let trait_method_name = format!("{}_{}_{}", type_name, trait_name, method);
-                    if self.functions.contains_key(&trait_method_name) {
-                        found_trait_method = Some(trait_method_name);
-                        break;
+            
+            // First, try to match against generic impl clauses in struct_ast_defs
+            if let Some(struct_def) = self.struct_ast_defs.get(&struct_name) {
+                // Try to match based on all implemented traits
+                // For operator methods, we need to match BOTH the method name AND argument types
+                // Don't break on first match - check ALL traits for the right type match
+                for trait_impl in &struct_def.impl_traits {
+                    if !trait_impl.type_args.is_empty() {
+                        // Generic trait impl - try to match with actual argument types
+                        if !args.is_empty() {
+                            // Try to infer the type of first argument
+                            if let Ok(arg_type) = self.infer_expression_type(&args[0]) {
+                                eprintln!("🔍 Method lookup: struct={}, trait={}, method={}, arg_type={:?}, trait_type_arg={:?}", 
+                                    struct_name, trait_impl.name, method, arg_type, trait_impl.type_args[0]);
+                                // Check if this arg type matches trait's type arg
+                                if arg_type == trait_impl.type_args[0] {
+                                    let type_str = match &trait_impl.type_args[0] {
+                                        Type::Named(n) => n.clone(),
+                                        Type::I32 => "i32".to_string(),
+                                        Type::I64 => "i64".to_string(),
+                                        Type::F32 => "f32".to_string(),
+                                        Type::F64 => "f64".to_string(),
+                                        Type::Bool => "bool".to_string(),
+                                        Type::String => "String".to_string(),
+                                        _ => continue,
+                                    };
+                                    
+                                    // Generate mangled name with type args
+                                    let param_count = args.len();
+                                    let trait_method_name = format!("{}_{}_{}_{}_{}", 
+                                        struct_name, trait_impl.name, type_str, method_encoded, param_count);
+                                    
+                                    eprintln!("   🎯 Generated mangled name: {}", trait_method_name);
+                                    eprintln!("   🔍 Function exists: {}", self.functions.contains_key(&trait_method_name));
+                                    
+                                    // Check if this function exists - if so, we found it!
+                                    if self.functions.contains_key(&trait_method_name) {
+                                        eprintln!("   ✅ MATCH! Using method: {}", trait_method_name);
+                                        found_trait_method = Some(trait_method_name);
+                                        break; // Found exact match, stop searching
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        // Non-generic trait impl - use old format
+                        let trait_method_name = format!("{}_{}_{}", struct_name, trait_impl.name, method_encoded);
+                        if self.functions.contains_key(&trait_method_name) {
+                            found_trait_method = Some(trait_method_name);
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            // Fallback: Try old format for trait_impls registry
+            if found_trait_method.is_none() {
+                for ((trait_name, type_name), _) in &self.trait_impls {
+                    if type_name == &struct_name {
+                        let trait_method_name = format!("{}_{}_{}", type_name, trait_name, method);
+                        if self.functions.contains_key(&trait_method_name) {
+                            found_trait_method = Some(trait_method_name);
+                            break;
+                        }
                     }
                 }
             }
@@ -356,6 +419,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
                         let receiver = if let Some(ref r) = trait_method.receiver {
                             Some(vex_ast::Receiver {
+                                name: r.name.clone(),
                                 is_mutable: r.is_mutable,
                                 ty: Self::replace_self_type(&r.ty, &type_name),
                             })
@@ -379,6 +443,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                             .map(|t| Self::replace_self_type(t, &type_name));
 
                         let receiver = trait_method.receiver.as_ref().map(|r| Receiver {
+                            name: r.name.clone(),
                             is_mutable: r.is_mutable,
                             ty: Self::replace_self_type(&r.ty, &type_name),
                         });
@@ -511,7 +576,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         // No need to compile_expression again
 
         eprintln!(
-            "🔧 Method call: {}.{}(), receiver_val is pointer",
+            "🔧 Method call: {}.{}(), receiver_val is pointer, receiver_val={:?}",
             if let Expression::Ident(name) = receiver {
                 name.as_str()
             } else if let Expression::FieldAccess { field, .. } = receiver {
@@ -519,13 +584,18 @@ impl<'ctx> ASTCodeGen<'ctx> {
             } else {
                 "<expr>"
             },
-            method
+            method,
+            receiver_val
         );
 
         // Compile other arguments
         let mut arg_vals: Vec<BasicMetadataValueEnum> = vec![receiver_val.into()];
+        eprintln!("📝 Receiver arg added to arg_vals, receiver_val={:?}", receiver_val);
+        
         for (arg_idx, arg) in args.iter().enumerate() {
+            eprintln!("📝 Compiling arg {}: {:?}", arg_idx, arg);
             let val = self.compile_expression(arg)?;
+            eprintln!("📝 Arg {} compiled: {:?}", arg_idx, val);
 
             // ⚠️ NEW: Struct arguments are now passed BY VALUE
             // If we have a pointer (from variable), we need to LOAD the value
@@ -572,6 +642,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
             .functions
             .get(&final_method_name)
             .ok_or_else(|| format!("Method function {} not found", final_method_name))?;
+
+        eprintln!("📞 Calling method: {} (fn_val: {:?})", final_method_name, fn_val.get_name());
+        eprintln!("📞 Arguments count: {}, arg_vals: {:?}", arg_vals.len(), arg_vals);
 
         // Build call
         let call_site = self

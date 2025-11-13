@@ -318,7 +318,7 @@ ref_point.x = 30;  // OK: Write through mutable reference
 
 Vex uses a hybrid model for method mutability. See `05_Functions_and_Methods.md` for the full specification.
 
-### Inline Methods (in `struct` or `trait`)
+### Inline Methods (in `struct` or `contract`)
 
 - **Declaration**: `fn method_name()!` for mutable, `fn method_name()` for immutable.
 - **Behavior**: A mutable method can modify `self`.
@@ -380,7 +380,7 @@ circle.set_radius(10.0);
 **Contract Methods**: MUST be in struct body
 
 ```vex
-trait Shape {
+contract Shape {
     fn area(): f64;
     fn scale(factor: f64)!;
 }

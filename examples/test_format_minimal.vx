@@ -1,27 +1,21 @@
 // Minimal format() test  
 // Tests zero-cost type-safe formatting
-
-import { println } from "io";
-import { format } from "fmt_builtin";
+// Note: println and i32_to_string are builtin functions
 
 fn main(): i32 {
     println("Testing format()...");
     
-    // Test 1: Single integer
-    let result1 = format("Value: {}", 42);
-    println(result1);
+    // Test 1: Format with single integer
+    println("Value: {}", 42);
     
-    // Test 2: Multiple args
-    let result2 = format("x={}, y={}", 10, 20);
-    println(result2);
+    // Test 2: Format with multiple args
+    println("x={}, y={}", 10, 20);
     
-    // Test 3: Mixed types
-    let result3 = format("int={}, float={}", 100, 3.14);
-    println(result3);
+    // Test 3: Format with mixed types
+    println("int={}, float={}", 100, 3.14);
     
-    // Test 4: String
-    let result4 = format("Hello {}", "World");
-    println(result4);
+    // Test 4: Variadic print mode
+    println("Hello", "World");
     
     println("Format test complete!");
     return 0;

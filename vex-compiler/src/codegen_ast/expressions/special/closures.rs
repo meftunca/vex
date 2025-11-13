@@ -166,19 +166,45 @@ impl<'ctx> ASTCodeGen<'ctx> {
             );
         }
 
-        // Add user-defined parameters
+        // Add user-defined parameters - with type inference for Infer types
+        let mut inferred_params = Vec::new();
         for param in params {
-            let param_ty = self.ast_type_to_llvm(&param.ty);
+            let inferred_ty = if matches!(param.ty, Type::Infer(_)) {
+                // Try to infer parameter type from usage in body
+                if let Some(inferred) = self.infer_param_type_from_body(&param.name, body) {
+                    eprintln!("  ✨ Inferred parameter '{}' type: {:?}", param.name, inferred);
+                    inferred
+                } else {
+                    eprintln!("  ⚠️  Could not infer type for parameter '{}', defaulting to i32", param.name);
+                    Type::I32
+                }
+            } else {
+                param.ty.clone()
+            };
+            
+            let param_ty = self.ast_type_to_llvm(&inferred_ty);
             param_basic_types.push(param_ty.into());
+            
+            // Store updated param with inferred type
+            inferred_params.push(Param {
+                name: param.name.clone(),
+                ty: inferred_ty,
+                default_value: param.default_value.clone(),
+            });
         }
 
         // Determine return type
         let ret_type = if let Some(ty) = return_type {
             self.ast_type_to_llvm(ty)
         } else {
-            // Try to infer from body expression
-            // For now, default to i32
-            self.context.i32_type().into()
+            // Try to infer from body expression type
+            if let Some(inferred) = self.infer_return_type_from_body(body) {
+                eprintln!("  ✨ Inferred return type: {:?}", inferred);
+                self.ast_type_to_llvm(&inferred)
+            } else {
+                eprintln!("  ⚠️  Could not infer return type, defaulting to i32");
+                self.context.i32_type().into()
+            }
         };
 
         // Create function type
@@ -261,10 +287,13 @@ impl<'ctx> ASTCodeGen<'ctx> {
         }
 
         // Register closure parameters in scope
-        for (i, param) in params.iter().enumerate() {
+        eprintln!("📝 Registering {} closure parameters (param_offset={})", inferred_params.len(), param_offset);
+        for (i, param) in inferred_params.iter().enumerate() {
             let llvm_param = closure_fn
                 .get_nth_param((i + param_offset) as u32)
                 .ok_or_else(|| format!("Failed to get parameter {} for closure", i))?;
+
+            eprintln!("  Param {}: name={}, type={:?}", i, param.name, param.ty);
 
             // Name the parameter
             if let BasicValueEnum::IntValue(iv) = llvm_param {
@@ -303,10 +332,28 @@ impl<'ctx> ASTCodeGen<'ctx> {
         self.current_function = saved_fn;
         self.variables = saved_variables;
 
-        // If there's a current function, position builder at its end
+        // Restore builder position to valid insertion point
         if let Some(current_fn) = self.current_function {
-            if let Some(bb) = current_fn.get_last_basic_block() {
-                self.builder.position_at_end(bb);
+            // Find a valid basic block for insertion
+            let mut found_valid_block = false;
+            
+            // First try to find an unterminated block
+            let mut bb_iter = current_fn.get_first_basic_block();
+            while let Some(bb) = bb_iter {
+                if bb.get_terminator().is_none() {
+                    self.builder.position_at_end(bb);
+                    found_valid_block = true;
+                    break;
+                }
+                bb_iter = bb.get_next_basic_block();
+            }
+            
+            // If all blocks are terminated, position at end of last block anyway
+            // (we'll create new blocks if needed during subsequent compilation)
+            if !found_valid_block {
+                if let Some(bb) = current_fn.get_last_basic_block() {
+                    self.builder.position_at_end(bb);
+                }
             }
         }
 
@@ -458,6 +505,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             is_mutable, // ⭐ NEW: Method mutability matches closure capture mode
             is_operator: false, // Closures are not operators
             receiver: Some(Receiver {
+                name: "self".to_string(), // Generated closure struct methods use 'self'
                 is_mutable,
                 ty: Type::Reference(Box::new(Type::Named(struct_name.clone())), is_mutable),
             }),
@@ -479,7 +527,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
             name: struct_name.clone(),
             type_params: vec![],
             policies: vec![], // No policies for generated closure structs
-            impl_traits: vec![trait_name.to_string()],
+            impl_traits: vec![TraitImpl {
+                name: trait_name.to_string(),
+                type_args: vec![],
+            }],
             associated_type_bindings: vec![], // No associated types for closures
             fields: vec![],                   // Internal LLVM representation
             methods: vec![method],
@@ -495,4 +546,111 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         Ok(())
     }
+
+    /// Infer parameter type from usage in closure body
+    fn infer_param_type_from_body(&self, param_name: &str, body: &Expression) -> Option<Type> {
+        match body {
+            Expression::Binary { left, right, op, .. } => {
+                // Check if parameter is used in binary expression
+                if let Expression::Ident(name) = &**left {
+                    if name == param_name {
+                        // Infer from right side
+                        return self.infer_expr_type(right);
+                    }
+                }
+                if let Expression::Ident(name) = &**right {
+                    if name == param_name {
+                        // Infer from left side
+                        return self.infer_expr_type(left);
+                    }
+                }
+                // Recurse into both sides
+                self.infer_param_type_from_body(param_name, left)
+                    .or_else(|| self.infer_param_type_from_body(param_name, right))
+            }
+            Expression::Call { func, args, .. } => {
+                // Check arguments for parameter usage
+                for arg in args {
+                    if let Some(ty) = self.infer_param_type_from_body(param_name, arg) {
+                        return Some(ty);
+                    }
+                }
+                self.infer_param_type_from_body(param_name, func)
+            }
+            Expression::Ident(name) if name == param_name => {
+                // Direct usage, can't infer from this alone
+                None
+            }
+            Expression::Block { statements, .. } => {
+                // Check last expression in block
+                if let Some(Statement::Expression(expr)) = statements.last() {
+                    return self.infer_param_type_from_body(param_name, expr);
+                }
+                None
+            }
+            _ => None,
+        }
+    }
+
+    /// Infer return type from closure body
+    fn infer_return_type_from_body(&self, body: &Expression) -> Option<Type> {
+        match body {
+            Expression::Block { statements, .. } => {
+                // Get type of last expression
+                if let Some(Statement::Expression(expr)) = statements.last() {
+                    return self.infer_expr_type(expr);
+                }
+                None
+            }
+            _ => self.infer_expr_type(body),
+        }
+    }
+
+    /// Infer type from expression structure
+    fn infer_expr_type(&self, expr: &Expression) -> Option<Type> {
+        match expr {
+            Expression::IntLiteral(_) => Some(Type::I32),
+            Expression::FloatLiteral(_) => Some(Type::F64),
+            Expression::BoolLiteral(_) => Some(Type::Bool),
+            Expression::StringLiteral(_) => Some(Type::String),
+            Expression::Binary { left, right, op, .. } => {
+                use vex_ast::BinaryOp::*;
+                match op {
+                    Add | Sub | Mul | Div | Mod | Pow => {
+                        // Arithmetic - propagate operand types
+                        self.infer_expr_type(left).or_else(|| self.infer_expr_type(right))
+                    }
+                    Eq | NotEq | Lt | LtEq | Gt | GtEq | And | Or => Some(Type::Bool),
+                    _ => None,
+                }
+            }
+            Expression::Ident(_name) => {
+                // Variable type lookup disabled - LLVM pointer types don't map back to Type enum easily
+                // This is fine for closure inference since we can infer from literals/operators
+                None
+            }
+            Expression::Call { func, .. } => {
+                // Try to infer from function signature
+                if let Expression::Ident(fn_name) = &**func {
+                    // Check builtin functions
+                    match fn_name.as_str() {
+                        "i32_to_string" | "f64_to_string" | "bool_to_string" => {
+                            Some(Type::String)
+                        }
+                        _ => None,
+                    }
+                } else {
+                    None
+                }
+            }
+            Expression::Block { statements, .. } => {
+                if let Some(Statement::Expression(expr)) = statements.last() {
+                    return self.infer_expr_type(expr);
+                }
+                None
+            }
+            _ => None,
+        }
+    }
+
 }

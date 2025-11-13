@@ -17,72 +17,52 @@ struct Point impl Add {
 
 // PROPOSAL: C++ style operator syntax
 // Allow direct operator definition with multiple overloads
+// Note: External operator methods for multiple overloads not yet fully implemented
 
+// Syntax Option 1: Direct operator methods (commented out for now)
+/*
 struct Vector {
     x: i32,
     y: i32,
 }
 
-// Syntax Option 1: Direct operator methods
-    // Same type addition
-    fn (self:&Vector) op+(other: Vector): Vector {
-        return Vector { x: self.x + other.x, y: self.y + other.y };
-    }
-    
-    // Scalar multiplication (Vector * i32)
-    fn  (self:&Vector)op*(scalar: i32): Vector {
-        return Vector { x: self.x * scalar, y: self.y * scalar };
-    }
-    
-    // Different overload (Vector * f64)
-    fn  (self:&Vector)op*(factor: f64): Vector {
-        let fx = (self.x as f64) * factor;
-        let fy = (self.y as f64) * factor;
-        return Vector { x: fx as i32, y: fy as i32 };
-    }
-    
-    // Comparison operators
-    fn  (self:&Vector)op==(other: Vector): bool {
-        return self.x == other.x && self.y == other.y;
-    }
-    
-    // Index operator
-    fn  (self:&Vector)op[](index: i32): i32 {
-        if index == 0 {
-            return self.x;
-        } else {
-            return self.y;
-        }
-    }
+fn (self:&Vector) op+(other: Vector): Vector {
+    return Vector { x: self.x + other.x, y: self.y + other.y };
+}
 
-// Syntax Option 2: operator keyword (more explicit)
-impl Vector {
-    operator +(other: Vector): Vector {
-        return Vector { x: self.x + other.x, y: self.y + other.y };
-    }
-    
-    operator *(scalar: i32): Vector {
-        return Vector { x: self.x * scalar, y: self.y * scalar };
-    }
-    
-    operator *(factor: f64): Vector {
-        let fx = (self.x as f64) * factor;
-        let fy = (self.y as f64) * factor;
-        return Vector { x: fx as i32, y: fy as i32 };
+fn (self:&Vector) op*(scalar: i32): Vector {
+    return Vector { x: self.x * scalar, y: self.y * scalar };
+}
+
+fn (self:&Vector) op*(factor: f64): Vector {
+    let fx = (self.x as f64) * factor;
+    let fy = (self.y as f64) * factor;
+    return Vector { x: fx as i32, y: fy as i32 };
+}
+
+fn (self:&Vector) op==(other: Vector): bool {
+    return self.x == other.x && self.y == other.y;
+}
+
+fn (self:&Vector) op[](index: i32): i32 {
+    if index == 0 {
+        return self.x;
+    } else {
+        return self.y;
     }
 }
+*/
 
 // Usage would be natural:
 fn test_proposal(): i32 {
-    let v1 = Vector { x: 10, y: 20 };
-    let v2 = Vector { x: 5, y: 15 };
-    
-    // All of these would work:
-    let v3 = v1 + v2;      // op+(Vector): Vector
-    let v4 = v1 * 5;       // op*(i32): Vector
-    let v5 = v1 * 2.5;     // op*(f64): Vector
-    let eq = v1 == v2;     // op==(Vector): bool
-    let x = v1[0];         // op[](i32): i32
+    // All of these would work in the future:
+    // let v1 = Vector { x: 10, y: 20 };
+    // let v2 = Vector { x: 5, y: 15 };
+    // let v3 = v1 + v2;      // op+(Vector): Vector
+    // let v4 = v1 * 5;       // op*(i32): Vector
+    // let v5 = v1 * 2.5;     // op*(f64): Vector
+    // let eq = v1 == v2;     // op==(Vector): bool
+    // let x = v1[0];         // op[](i32): i32
     
     return 0;
 }
@@ -101,23 +81,42 @@ fn test_proposal(): i32 {
 // 4. No interface/contract abstraction
 
 // Hybrid Approach: Keep contracts, add operator syntax sugar
-contract Add<Rhs = Self> {
-    type Output;
-    fn op+(rhs: Rhs): Output;
+// Note: Default type parameters (Rhs = Self) not yet implemented
+// Note: Generic impl traits (impl Add<i32>) not yet fully implemented
+// Note: External operator methods commented out until compilation fixed
+
+/*
+contract AddInt {
+    fn op+(rhs: i32): Vector;
 }
 
-struct Vector impl Add<i32>, Add<f64> {
+contract AddFloat {
+    fn op+(rhs: f64): Vector;
+}
+
+struct Vector2 impl AddInt, AddFloat {
     x: i32,
     y: i32,
+}
+
+fn (self: &Vector2) op+(scalar: i32): Vector2 {
+    return Vector2 { x: self.x + scalar, y: self.y + scalar };
+}
+
+fn (self: &Vector2) op+(factor: f64): Vector2 {
+    let fx = (self.x as f64) + factor;
+    let fy = (self.y as f64) + factor;
+    return Vector2 { x: fx as i32, y: fy as i32 };
+}
+*/
+
+fn main(): i32 {
+    // Test Point's inline op+ method (works)
+    let p1 = Point { x: 1, y: 2 };
+    let p2 = Point { x: 3, y: 4 };
+    let p3 = p1 + p2;  // Uses Point's inline op+ method
     
-    // Desugar operator syntax to contract methods
-    fn op+(scalar: i32): Vector {  // Implements Add<i32>
-        return Vector { x: self.x + scalar, y: self.y + scalar };
-    }
-    
-    fn op+(factor: f64): Vector {  // Implements Add<f64>
-        let fx = (self.x as f64) + factor;
-        let fy = (self.y as f64) + factor;
-        return Vector { x: fx as i32, y: fy as i32 };
-    }
+    // External methods for Vector not yet compiled
+    // let v = Vector2 { x: 10, y: 20 };
+    return 0;
 }

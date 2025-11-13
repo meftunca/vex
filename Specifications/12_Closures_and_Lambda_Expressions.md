@@ -12,7 +12,7 @@ This document defines closures and lambda expressions in the Vex programming lan
 1. [Introduction](#introduction)
 2. [Closure Syntax](#closure-syntax)
 3. [Capture Modes](#capture-modes)
-4. [Closure Traits](#closure-traits)
+4. [Closure Contracts](#closure-contracts)
 5. [Examples](#examples)
 6. [Advanced Usage](#advanced-usage)
 
@@ -24,7 +24,8 @@ Closures are anonymous functions that can capture variables from their surroundi
 
 ### Key Features
 
-- **Automatic Capture Mode Detection**: Compiler determines the appropriate closure trait
+-- **Automatic Capture Mode Detection**: Compiler determines the appropriate closure contract
+
 - **Borrow Checker Integration**: Full integration with Vex's ownership system
 - **Multiple Calling**: Closures can be called multiple times (depending on capture mode)
 
@@ -81,7 +82,7 @@ let factorial = |n| {
 
 ---
 
-## Capture Modes
+### Capture Modes
 
 Vex closures automatically determine their capture mode based on how they use captured variables:
 
@@ -133,14 +134,14 @@ let result = processor();  // Moves data, closure consumed
 
 ---
 
-## Closure Traits
+## Closure Contracts
 
-Vex defines three closure traits that correspond to capture modes:
+Vex defines three closure contracts that correspond to capture modes:
 
-### Callable Trait
+### Callable Contract
 
 ```vex
-trait Callable<Args, Return> {
+contract Callable<Args, Return> {
     fn call(args: Args): Return;
 }
 ```
@@ -149,10 +150,10 @@ trait Callable<Args, Return> {
 - Can be called multiple times
 - Implemented by `Fn`-like closures
 
-### CallableMut Trait
+### CallableMut Contract
 
 ```vex
-trait CallableMut<Args, Return> {
+contract CallableMut<Args, Return> {
     fn call(args: Args): Return;
 }
 ```
@@ -162,10 +163,10 @@ trait CallableMut<Args, Return> {
 - Can modify captured variables
 - Implemented by `FnMut`-like closures
 
-### CallableOnce Trait
+### CallableOnce Contract
 
 ```vex
-trait CallableOnce<Args, Return> {
+contract CallableOnce<Args, Return> {
     fn (self: Self) call(args: Args): Return;
 }
 ```
@@ -311,7 +312,7 @@ The compiler performs static analysis to determine closure capture modes:
 
 1. **Variable Usage Tracking**: Tracks how each captured variable is used
 2. **Mode Inference**: Determines the most restrictive mode required
-3. **Contract Assignment**: Assigns the appropriate closure trait
+3. **Contract Assignment**: Assigns the appropriate closure contract
 
 ### Memory Management
 

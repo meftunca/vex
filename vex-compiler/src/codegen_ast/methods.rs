@@ -3,17 +3,104 @@ use super::*;
 use inkwell::types::BasicTypeEnum;
 
 impl<'ctx> ASTCodeGen<'ctx> {
+    /// Encode operator names for LLVM compatibility
+    /// LLVM doesn't allow special characters like +, -, *, / in function names
+    pub(crate) fn encode_operator_name(name: &str) -> String {
+        match name {
+            "op+" => "opadd".to_string(),
+            "op-" => "opsub".to_string(),
+            "op*" => "opmul".to_string(),
+            "op/" => "opdiv".to_string(),
+            "op%" => "opmod".to_string(),
+            "op**" => "oppow".to_string(),
+            "op==" => "opeq".to_string(),
+            "op!=" => "opne".to_string(),
+            "op<" => "oplt".to_string(),
+            "op<=" => "ople".to_string(),
+            "op>" => "opgt".to_string(),
+            "op>=" => "opge".to_string(),
+            "op&" => "opbitand".to_string(),
+            "op|" => "opbitor".to_string(),
+            "op^" => "opbitxor".to_string(),
+            "op<<" => "opshl".to_string(),
+            "op>>" => "opshr".to_string(),
+            "op!" => "opnot".to_string(),
+            "op~" => "opbitnot".to_string(),
+            "op++" => "opinc".to_string(),
+            "op--" => "opdec".to_string(),
+            _ => name.to_string(),
+        }
+    }
+
     pub(crate) fn declare_struct_method(
         &mut self,
         struct_name: &str,
         method: &Function,
     ) -> Result<(), String> {
-        // ⭐ NEW: For operators that can be both unary and binary, add parameter count
-        let param_count = method.params.len();
-        let base_name = format!("{}_{}", struct_name, method.name);
+        // ⭐ CRITICAL: Encode operator symbols for LLVM compatibility
+        // LLVM doesn't allow +, *, -, etc. in function names
+        let method_name_encoded = Self::encode_operator_name(&method.name);
         
-        let mangled_name = if method.name.starts_with("op") && 
-                              (method.name == "op-" || method.name == "op+" || method.name == "op*") {
+        // ⭐ NEW: Enhanced mangling for generic trait implementations
+        let param_count = method.params.len();
+        let base_name = format!("{}_{}", struct_name, method_name_encoded);
+        
+        // Try to find trait + type args for this method by matching parameter types
+        let mangled_name = if method.name.starts_with("op") && !method.params.is_empty() {
+            if let Some(struct_def) = self.struct_ast_defs.get(struct_name) {
+                // For operator methods, check the first parameter type against trait impl type args
+                let first_param_ty = &method.params[0].ty;
+                
+                // Find matching trait impl
+                let mut found_match = None;
+                for trait_impl in &struct_def.impl_traits {
+                    if !trait_impl.type_args.is_empty() {
+                        // ⭐ CRITICAL: Check if this trait defines this operator method!
+                        // Get trait definition and check if it has this method
+                        let trait_has_method = if let Some(trait_def) = self.trait_defs.get(&trait_impl.name) {
+                            trait_def.methods.iter().any(|m| m.name == method.name)
+                        } else {
+                            false // Trait not found, assume no
+                        };
+                        
+                        if !trait_has_method {
+                            // This trait doesn't define this method, skip it
+                            continue;
+                        }
+                        
+                        // Check if first param type matches trait's type arg
+                        if first_param_ty == &trait_impl.type_args[0] {
+                            // Mangle: StructName_TraitName_TypeArg_method_paramCount
+                            let type_str = match &trait_impl.type_args[0] {
+                                Type::Named(n) => n.clone(),
+                                Type::I32 => "i32".to_string(),
+                                Type::I64 => "i64".to_string(),
+                                Type::F32 => "f32".to_string(),
+                                Type::F64 => "f64".to_string(),
+                                Type::Bool => "bool".to_string(),
+                                Type::String => "String".to_string(),
+                                _ => "unknown".to_string(),
+                            };
+                            found_match = Some(format!("{}_{}_{}_{}", struct_name, trait_impl.name, type_str, method_name_encoded));
+                            break;
+                        }
+                    }
+                }
+                
+                if let Some(name) = found_match {
+                    format!("{}_{}", name, param_count)
+                } else if method.name == "op-" || method.name == "op+" || method.name == "op*" {
+                    format!("{}_{}", base_name, param_count)
+                } else {
+                    base_name
+                }
+            } else if method.name == "op-" || method.name == "op+" || method.name == "op*" {
+                format!("{}_{}", base_name, param_count)
+            } else {
+                base_name
+            }
+        } else if method.name.starts_with("op") && 
+                  (method.name == "op-" || method.name == "op+" || method.name == "op*") {
             format!("{}_{}", base_name, param_count)
         } else {
             base_name
@@ -33,7 +120,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
         }
 
         for param in &method.params {
-            param_types.push(self.ast_type_to_llvm(&param.ty).into());
+            let param_llvm_ty = self.ast_type_to_llvm(&param.ty);
+            eprintln!("  📝 Method param: {} (AST type: {:?}, LLVM type: {:?})", param.name, param.ty, param_llvm_ty);
+            param_types.push(param_llvm_ty.into());
         }
 
         let ret_type = if let Some(ref ty) = method.return_type {
@@ -41,6 +130,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
         } else {
             inkwell::types::BasicTypeEnum::IntType(self.context.i32_type())
         };
+
+        eprintln!("🔧 Declaring method: {} with {} params (including receiver)", mangled_name, param_types.len());
 
         let fn_type = match ret_type {
             BasicTypeEnum::IntType(t) => t.fn_type(&param_types, false),
@@ -66,16 +157,69 @@ impl<'ctx> ASTCodeGen<'ctx> {
         struct_name: &str,
         method: &Function,
     ) -> Result<(), String> {
-        // ⭐ NEW: For operators that can be both unary and binary, add parameter count
-        let param_count = method.params.len();
-        let base_name = format!("{}_{}", struct_name, method.name);
+        // ⭐ CRITICAL: Encode operator symbols for LLVM compatibility
+        let method_name_encoded = Self::encode_operator_name(&method.name);
         
-        let mangled_name = if method.name.starts_with("op") && 
-                              (method.name == "op-" || method.name == "op+" || method.name == "op*") {
+        // ⭐ NEW: Enhanced mangling for generic trait implementations (same as declare_struct_method)
+        let param_count = method.params.len();
+        let base_name = format!("{}_{}", struct_name, method_name_encoded);
+        
+        let mangled_name = if method.name.starts_with("op") && !method.params.is_empty() {
+            if let Some(struct_def) = self.struct_ast_defs.get(struct_name) {
+                let first_param_ty = &method.params[0].ty;
+                
+                let mut found_match = None;
+                for trait_impl in &struct_def.impl_traits {
+                    if !trait_impl.type_args.is_empty() {
+                        // ⭐ CRITICAL: Check if this trait defines this operator method!
+                        let trait_has_method = if let Some(trait_def) = self.trait_defs.get(&trait_impl.name) {
+                            trait_def.methods.iter().any(|m| m.name == method.name)
+                        } else {
+                            false
+                        };
+                        
+                        if !trait_has_method {
+                            continue;
+                        }
+                        
+                        if first_param_ty == &trait_impl.type_args[0] {
+                            let type_str = match &trait_impl.type_args[0] {
+                                Type::Named(n) => n.clone(),
+                                Type::I32 => "i32".to_string(),
+                                Type::I64 => "i64".to_string(),
+                                Type::F32 => "f32".to_string(),
+                                Type::F64 => "f64".to_string(),
+                                Type::Bool => "bool".to_string(),
+                                Type::String => "String".to_string(),
+                                _ => "unknown".to_string(),
+                            };
+                            found_match = Some(format!("{}_{}_{}_{}", struct_name, trait_impl.name, type_str, method_name_encoded));
+                            break;
+                        }
+                    }
+                }
+                
+                if let Some(name) = found_match {
+                    format!("{}_{}", name, param_count)
+                } else if method.name == "op-" || method.name == "op+" || method.name == "op*" {
+                    format!("{}_{}", base_name, param_count)
+                } else {
+                    base_name
+                }
+            } else if method.name == "op-" || method.name == "op+" || method.name == "op*" {
+                format!("{}_{}", base_name, param_count)
+            } else {
+                base_name
+            }
+        } else if method.name.starts_with("op") && 
+                  (method.name == "op-" || method.name == "op+" || method.name == "op*") {
             format!("{}_{}", base_name, param_count)
         } else {
             base_name
         };
+        
+        eprintln!("🔧 compile_struct_method: struct={}, method={}, mangled_name={}", struct_name, method.name, mangled_name);
+        
         let fn_val = *self
             .functions
             .get(&mangled_name)
@@ -188,6 +332,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
             let param_val = fn_val
                 .get_nth_param((i + param_offset) as u32)
                 .ok_or_else(|| format!("Missing parameter {}", param.name))?;
+            
+            eprintln!("      param_val: {:?}", param_val);
 
             // ⚠️ CRITICAL: Struct parameters are now passed BY VALUE (as StructValue)
             // We need to allocate storage and store the value

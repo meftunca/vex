@@ -85,22 +85,22 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 };
 
                 let self_ptr = param_val.into_pointer_value();
-                self.variables.insert("self".to_string(), self_ptr);
+                self.variables.insert(receiver.name.clone(), self_ptr);
                 self.variable_types
-                    .insert("self".to_string(), receiver_llvm_ty);
+                    .insert(receiver.name.clone(), receiver_llvm_ty);
 
-                eprintln!("📌 External method receiver: using pointer directly (no alloca)");
+                eprintln!("📌 External method receiver '{}': using pointer directly (no alloca)", receiver.name);
             } else {
                 // Inline method or non-reference receiver: allocate and store
                 let param_type = self.ast_type_to_llvm(&receiver.ty);
-                let alloca = self.create_entry_block_alloca("self", &receiver.ty, true)?;
+                let alloca = self.create_entry_block_alloca(&receiver.name, &receiver.ty, true)?;
                 self.builder
                     .build_store(alloca, param_val)
                     .map_err(|e| format!("Failed to store receiver: {}", e))?;
-                self.variables.insert("self".to_string(), alloca);
-                self.variable_types.insert("self".to_string(), param_type);
+                self.variables.insert(receiver.name.clone(), alloca);
+                self.variable_types.insert(receiver.name.clone(), param_type);
 
-                eprintln!("📌 Inline method receiver: allocated and stored");
+                eprintln!("📌 Inline method receiver '{}': allocated and stored", receiver.name);
             }
 
             let type_name = match &receiver.ty {
@@ -121,9 +121,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 if self.struct_defs.contains_key(&struct_name)
                     || self.struct_ast_defs.contains_key(&struct_name)
                 {
-                    eprintln!("   ✅ Tracking 'self' as struct: {}", struct_name);
+                    eprintln!("   ✅ Tracking '{}' as struct: {}", receiver.name, struct_name);
                     self.variable_struct_names
-                        .insert("self".to_string(), struct_name);
+                        .insert(receiver.name.clone(), struct_name);
                 } else {
                     eprintln!("   ❌ Struct {} not found in defs", struct_name);
                 }

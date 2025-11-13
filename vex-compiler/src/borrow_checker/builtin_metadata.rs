@@ -73,6 +73,11 @@ impl BuiltinBorrowRegistry {
         );
         registry.register("strdup", vec![ParamEffect::BorrowsImmut]);
 
+        // Type-safe formatting (compile-time, read-only)
+        registry.register("i32_to_string", vec![ParamEffect::ReadOnly]);
+        registry.register("f64_to_string", vec![ParamEffect::ReadOnly]);
+        registry.register("bool_to_string", vec![ParamEffect::ReadOnly]);
+
         // Memory operations (memcpy mutates dest, others are read-only)
         registry.register(
             "memcpy",

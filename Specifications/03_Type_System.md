@@ -851,10 +851,10 @@ let point: Point2D = (10, 20);
 **Generic Type Aliases with Constraints** ✅ (v0.1.2):
 
 ```vex
-// Simple trait bound
+// Simple contract bound
 type Displayable<T: Display> = T;
 
-// Multiple trait bounds
+// Multiple contract bounds
 type ComparableNumber<T: Ord + Clone> = T;
 
 // Complex constraints
@@ -878,6 +878,7 @@ type OnlyOption<T> = T extends Option<infer U> ? T : never;
 ```
 
 **Type Safety:**
+
 - ✅ All type aliases are compile-time only (zero runtime cost)
 - ✅ Constraints enforced during type checking
 - ✅ Invalid types cause compile errors
@@ -991,7 +992,7 @@ match value {
 
 ### Intersection Types
 
-Types that combine multiple traits:
+Types that combine multiple contracts:
 
 **Syntax**: `(Trait1 & Trait2 & ...)`
 
@@ -1000,7 +1001,7 @@ type Comparable = (Eq & Ord);
 type Serializable = (Display & ToString);
 ```
 
-**Trait Bounds**:
+**Contract Bounds**:
 
 ```vex
 fn process<T: Display & Serialize>(value: T) {
@@ -1245,7 +1246,7 @@ let p: Point = Point { x: 1, y: 2 };
 
 ### Contract Compatibility
 
-Types are compatible if they implement required traits:
+Types are compatible if they implement required contracts:
 
 ```vex
 contract Display {
@@ -1257,19 +1258,11 @@ fn print_it<T: Display>(value: T) {
 }
 ```
 
-### Lifetime Compatibility (Future)
-
-References with compatible lifetimes can be used interchangeably:
-
-```vex
-fn longest<'a>(x: &'a string, y: &'a string): &'a string {
-    if x.len() > y.len() { x } else { y }
-}
-```
-
 ---
 
 ## Operator Overloading
+
+> See: [Specifications/23_Operator_Overloading.md](../Specifications/23_Operator_Overloading.md) for the full operator overloading specification and examples.
 
 ### Overview
 
@@ -1278,23 +1271,23 @@ Vex supports **contract-based operator overloading**, allowing custom types to d
 ### Supported Operators
 
 | Operator | Contract Method | Description      |
-| -------- | ------------ | ---------------- |
-| `+`      | `add`        | Addition         |
-| `-`      | `sub`        | Subtraction      |
-| `*`      | `mul`        | Multiplication   |
-| `/`      | `div`        | Division         |
-| `%`      | `rem`        | Remainder        |
-| `==`     | `eq`         | Equality         |
-| `!=`     | `ne`         | Inequality       |
-| `<`      | `lt`         | Less than        |
-| `<=`     | `le`         | Less or equal    |
-| `>`      | `gt`         | Greater than     |
-| `>=`     | `ge`         | Greater or equal |
-| `+=`     | `add_assign` | Add assign       |
-| `-=`     | `sub_assign` | Subtract assign  |
-| `*=`     | `mul_assign` | Multiply assign  |
-| `/=`     | `div_assign` | Divide assign    |
-| `%=`     | `rem_assign` | Remainder assign |
+| -------- | --------------- | ---------------- |
+| `+`      | `add`           | Addition         |
+| `-`      | `sub`           | Subtraction      |
+| `*`      | `mul`           | Multiplication   |
+| `/`      | `div`           | Division         |
+| `%`      | `rem`           | Remainder        |
+| `==`     | `eq`            | Equality         |
+| `!=`     | `ne`            | Inequality       |
+| `<`      | `lt`            | Less than        |
+| `<=`     | `le`            | Less or equal    |
+| `>`      | `gt`            | Greater than     |
+| `>=`     | `ge`            | Greater or equal |
+| `+=`     | `add_assign`    | Add assign       |
+| `-=`     | `sub_assign`    | Subtract assign  |
+| `*=`     | `mul_assign`    | Multiply assign  |
+| `/=`     | `div_assign`    | Divide assign    |
+| `%=`     | `rem_assign`    | Remainder assign |
 
 ### Defining Operator Overloads
 
@@ -1313,20 +1306,22 @@ struct Point {
     y: i32,
 }
 
-impl Add<Point, Point> for Point {
-    add(self: &Point, rhs: Point): Point {
-        Point {
-            x: self.x + rhs.x,
-            y: self.y + rhs.y,
-        }
-    }
+// New syntax: external implementations and operator method names
+struct Point impl Add {
+    x: i32,
+    y: i32,
 }
 
-impl AddAssign<Point> for Point {
-    add_assign(self: &Point!, rhs: Point) {
-        self.x = self.x + rhs.x;
-        self.y = self.y + rhs.y;
-    }
+fn (self: &Point) op+(rhs: Point): Point {
+    return Point {
+        x: self.x + rhs.x,
+        y: self.y + rhs.y,
+    };
+}
+
+fn (self: &Point!) op+=(rhs: Point) {
+    self.x = self.x + rhs.x;
+    self.y = self.y + rhs.y;
 }
 ```
 
@@ -1378,7 +1373,7 @@ Operators maintain standard mathematical precedence:
 
 - **Compile-time checked**: All operator overloads are resolved at compile time
 - **Type constraints**: Output types must be explicitly specified
-- **No implicit conversions**: Types must match trait bounds exactly
+- **No implicit conversions**: Types must match contract bounds exactly
 - **Borrow checker integration**: Operator usage respects ownership rules
 
 ### Current Status

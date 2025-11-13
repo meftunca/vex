@@ -54,7 +54,7 @@ p2.x = 10;         // OK: p2 is mutable
 
 Vex uses a hybrid model for method mutability.
 
-#### 1. Inline Methods (in `struct` or `trait`)
+#### 1. Inline Methods (in `struct` or `contract`)
 
 - **Declaration**: `fn method_name()!`
 - **Behavior**: The method can mutate `self`.

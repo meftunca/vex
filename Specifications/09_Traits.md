@@ -1,410 +1,14 @@
-# Contracts
+## Deprecated: Traits spec
 
-**Version:** 0.2.0  
-**Last Updated:** December 16, 2025
+This file (`09_Traits.md`) is deprecated. The Vex language adopted the `contract` keyword and the canonical documentation was consolidated in `Specifications/09_Contracts.md`.
 
-This document defines the contract system in the Vex programming language. Contracts provide polymorphism through shared behavior definitions.
+Please see: [Specifications/09_Contracts.md](./09_Contracts.md)
 
-**⚠️ BREAKING CHANGE (v0.2.0)**: The `trait` keyword has been replaced with `contract`. This change was made to better reflect Vex's unique identity and to distinguish contracts (pure interfaces) from implementation.
-
----
-
-## Table of Contents
-
-1. [Contract Definitions](#contract-definitions)
-2. [Contract Implementation](#contract-implementation)
-3. [Default Methods](#default-methods)
-4. [Contract Bounds](#contract-bounds)
-5. [Associated Types](#associated-types)
-6. [Contract Inheritance](#contract-inheritance)
-7. [Standard Contracts](#standard-contracts)
-
----
-
-## Contract Definitions
-
-### Basic Syntax
-
-**Syntax**: `contract Name { methods }`
-
-```vex
-contract Display {
-    show();
-}
-
-contract Comparable {
-    compare(other: &Self): i32;
-}
-```
-
-**Properties**:
-
-- `contract` keyword (pure interface, signatures only)
-- Name in PascalCase (convention)
-- Method signatures (no body, no `fn` prefix)
-- `Self` type refers to implementing type
-- Can have default method implementations
-
-### Simple Contract
-
-```vex
-contract Greet {
-    say_hello();
-}
-```
-
-**Note**: `interface` and `trait` keywords are deprecated in v0.2.0, use `contract` instead.
-
-### Multiple Methods
-
-```vex
-contract Shape {
-    area(): f64;
-    perimeter(): f64;
-    name(): string;
-}
-```
-
-### Self Type
-
-`Self` represents the type implementing the contract:
-
-```vex
-contract Cloneable {
-    clone(): Self;
-}
-
-contract Comparable {
-    equals(other: &Self): bool;
-}
-```
-
----
-
-## Contract Implementation
-
-### Method Mutability in Contracts
-
-Contract method signatures define a contract for mutability. To declare a method that can mutate the implementing type's state, the `!` suffix is used.
-
-**Syntax**:
-
-- **Immutable Method**: `method_name(args...): ReturnType;`
-- **Mutable Method**: `method_name(args...)!;` or `method_name(args...)!: ReturnType;`
-
-The `!` indicates that the method requires a mutable reference to `self`, allowing for modifications.
-
-```vex
-contract Logger {
-    // Immutable contract: cannot modify `self`
-    log(msg: string);
-
-    // Mutable contract: can modify `self`
-    clear()!;
-}
-```
-
-This contract must be respected by all implementing types.
-
----
-
-## Contract Implementation
-
-### Go-Style External Implementation (RECOMMENDED v0.2.0)
-
-**⚠️ IMPORTANT**: Vex v0.2.0 deprecates inline struct methods and recommends Go-style external methods.
-
-**Recommended Syntax**: External methods with `contract` as pure interface
-
-```vex
-// 1. Define contract (pure interface, no fn prefix)
-contract Logger {
-    log(msg: string);
-    clear()!;
-}
-
-// 2. Define struct (data only)
-struct ConsoleLogger {
-    prefix: string,
-}
-
-// 3. Implement contract via external methods (Go-style)
-fn (self: ConsoleLogger) log(msg: string) {
-    println(self.prefix, ": ", msg);
-}
-
-fn (self: ConsoleLogger!) clear() {
-    println("Logger cleared.");
-}
-```
-
-**Benefits**:
-- Keeps struct definitions small (400-line limit)
-- Separates data from behavior
-- More modular and testable
-- Follows Go and Odin conventions
-
-### Inline Implementation (DEPRECATED v0.2.0)
-
-**⚠️ DEPRECATED**: Inline struct methods will be removed in a future version.
-
-**Old Syntax**: `struct MyStruct impl MyContract { ... methods ... }`
-
-```vex
-struct ConsoleLogger impl Logger {
-    prefix: string,
-
-    // Implementation of the `log` method from the `Logger` trait.
-    log(msg: string) {
-        println(self.prefix, ": ", msg);
-    }
-
-    // Implementation of the mutable `clear` method.
-    // The `!` is required in the implementation as well.
-    clear()! {
-        // This method can now mutate `self`.
-        // For example, if we had a mutable field:
-        // self.buffer = "";
-        println("Logger cleared.");
-    }
-}
-```
-
-**Key Rules**:
-
-- Contract methods **MUST** be implemented directly inside the `struct`'s body.
-- The method signatures in the implementation must match the contract definition, including the `!` for mutability.
-
-### Multiple Traits (Future)
-
-```vex
-struct FileLogger impl Logger, Closeable {
-    path: string,
-
-    // All contract methods must be in struct body
-    log(msg: string) {
-        // Logger implementation
-    }
-
-    clear()! {
-        // Logger implementation
-    }
-
-    fn close()! {
-        // Closeable implementation
-    }
-}
-```
-
-### Implementation Requirements
-
-All contract methods must be implemented:
-
-```vex
-contract Shape {
-    area(): f64;
-    perimeter(): f64;
-}
-
-// ERROR: Missing perimeter() implementation
-struct Circle impl Shape {
-    radius: f64,
-
-    area(): f64 {
-        return 3.14159 * self.radius * self.radius;
-    }
-    // Missing perimeter()!
-}
-```
-
----
-
-## Default Methods
-
-### Definition
-
-Traits can provide default implementations:
-
-```vex
-contract Logger {
-    log(msg: string);        // Required (immutable)
-    clear()!;                // Required (mutable)
-
-    info(msg: string) {      // Default (immutable)
-        self.log(msg);
-    }
-
-    debug(msg: string) {     // Default (immutable)
-        self.log(msg);
-    }
-}
-```
-
-**Properties**:
-
-- Methods with body are default methods
-- Implementing types inherit default behavior
-- Can be overridden if needed
-- Reduces code duplication
-
-### Inheritance
-
-Structs automatically get default methods:
-
-```vex
-struct ConsoleLogger impl Logger {
-    log(msg: string) {
-        // Only implement required method
-    }
-
-    clear()! {
-        // Required mutable method
-    }
-
-    // info() and debug() inherited automatically!
-}
-
-fn main(): i32 {
-    let! logger = ConsoleLogger { };
-    logger.log("Required method");
-    logger.info("Default method");    // Works!
-    logger.debug("Default method");   // Works!
-    logger.clear()!;                  // Required !
-    return 0;
-}
-```
-
-### Overriding Defaults
-
-Implementing types can override default methods:
-
-```vex
-struct CustomLogger impl Logger {
-    log(msg: string) {
-        // Required method
-    }
-
-    clear()! {
-        // Required method
-    }
-
-    info(msg: string) {
-        // Override default implementation
-        self.log("[INFO] " + msg);
-    }
-
-    // debug() still uses default implementation
-}
-```
-
-### Default Method Access
-
-Default methods can call other contract methods:
-
-```vex
-contract Formatter {
-    format(): string;  // Required
-
-    format_bold(): string {
-        return "**" + self.format() + "**";
-    }
-
-    format_italic(): string {
-        return "_" + self.format() + "_";
-    }
-}
-```
-
----
-
-## Contract Bounds
-
-### Generic Constraints (Future)
-
-Restrict generic types to those implementing specific traits:
-
-```vex
-fn print_all<T: Display>(items: [T]) {
-    // T must implement Display
-    for item in items {
-        item.show();
-    }
-}
-```
-
-**Syntax**: `T: Trait` after type parameter
-
-### Multiple Bounds (Future)
-
-Require multiple traits:
-
-```vex
-fn compare_and_show<T: Comparable & Display>(a: T, b: T) {
-    // T must implement both traits
-    let result = a.compare(b);
-    a.show();
-    b.show();
-}
-```
-
-**Syntax**: `T: Trait1 & Trait2 & ...`
-
-### Where Clauses ✅ COMPLETE (v0.1.2)
-
-Complex bounds use where clause for readability:
-
-```vex
-fn print_both<T, U>(a: T, b: U): i32
-where
-    T: Display,
-    U: Display
-{
-    print("T: ");
-    print(a);
-    print("U: ");
-    print(b);
-    return 0;
-}
-
-fn main(): i32 {
-    let x: i32 = 42;
-    let y: i32 = 100;
-    print_both(x, y);
-    return 0;
-}
-```
-
-**Implementation Details**:
-
-- Parser: `parse_where_clause()` in `vex-parser/src/parser/items/functions.rs:138`
-- AST: `WhereClausePredicate { type_param, bounds }`
-- Syntax: `where T: Trait1 & Trait2, U: Trait3`
-- Test: `examples/test_where_clause.vx`
-- Verified: November 9, 2025
-
-**Limitations**:
-
-- Struct inline methods don't support where clauses yet (see `structs.rs:195`)
-
-### Bound on Methods (Future)
-
-```vex
-struct Container<T> {
-    value: T,
-
-    fn (self: &Container<T>!) show() where T: Display {
-        self.value.show();
-    }
-}
-```
-
----
-
-## Associated Types
+This file may be removed in a future release; it currently remains for historical reference.
 
 ### Definition (Future)
 
-Traits can have associated types:
+Contracts can have associated types:
 
 ```vex
 contract Iterator {
@@ -450,9 +54,9 @@ contract Container {
 
 ## Contract Inheritance
 
-### Supertraits
+### Supercontracts
 
-Traits can require other traits:
+Contracts can require other contracts:
 
 ```vex
 contract Eq {
@@ -483,7 +87,7 @@ struct Number impl Ord {
 }
 ```
 
-### Multiple Supertraits
+### Multiple Supercontracts
 
 ```vex
 contract Serializable: Display & Cloneable {
@@ -493,7 +97,7 @@ contract Serializable: Display & Cloneable {
 
 ---
 
-## Standard Traits
+## Standard Contracts
 
 ### Drop Contract ✅ IMPLEMENTED
 
@@ -672,7 +276,7 @@ struct Point impl Display {
 
 ## Examples
 
-### Basic Trait
+### Basic Contract
 
 ```vex
 contract Greet {
@@ -787,7 +391,7 @@ struct SimpleCounter impl Counter {
 ### 1. Single Responsibility
 
 ```vex
-// Good: Focused trait
+// Good: Focused contract
 contract Serializable {
     serialize(): string;
 }
@@ -843,10 +447,10 @@ contract Logger {
 }
 ```
 
-### 4. Small Traits
+### 4. Small Contracts
 
 ```vex
-// Good: Composable traits
+// Good: Composable contracts
 contract Display {
     show();
 }
@@ -859,7 +463,7 @@ struct Data impl Display, Clone {
     // Implement both
 }
 
-// Bad: Monolithic trait
+// Bad: Monolithic contract
 contract Everything {
     show();
     clone(): Self;
@@ -891,15 +495,15 @@ contract Ord {
 
 | Feature               | Syntax                 | Status     | Example               |
 | --------------------- | ---------------------- | ---------- | --------------------- |
-| Contract Definition      | `trait Name { }`       | ✅ Working | Method signatures     |
+| Contract Definition   | `contract Name { }`    | ✅ Working | Method signatures     |
 | Inline Implementation | `struct S impl T { }`  | ✅ Working | v1.3 syntax           |
 | Default Methods       | `fn (self) { body }`   | ✅ Working | With implementation   |
 | Self Type             | `Self`                 | ✅ Working | Refers to implementer |
-| Multiple Methods      | Multiple fn signatures | ✅ Working | In contract body         |
-| Contract Bounds          | `<T: Trait>`           | ✅ Working | Generic constraints   |
+| Multiple Methods      | Multiple fn signatures | ✅ Working | In contract body      |
+| Contract Bounds       | `<T: Contract>`        | ✅ Working | Generic constraints   |
 | Associated Types      | `type Item;`           | ✅ Working | Type members          |
-| Supertraits           | `trait T: U { }`       | ✅ Working | Contract inheritance     |
-| Where Clauses         | `where T: Trait`       | ✅ v0.1.2  | Complex bounds        |
+| Supercontracts        | `contract T: U { }`    | ✅ Working | Contract inheritance  |
+| Where Clauses         | `where T: Contract`    | ✅ v0.1.2  | Complex bounds        |
 
 ---
 
@@ -908,7 +512,7 @@ contract Ord {
 ### Current Implementation (v1.3)
 
 ```vex
-// 1. Define trait
+// 1. Define contract
 contract Logger {
     log(msg: string);
     info(msg: string) {
@@ -940,7 +544,7 @@ fn main(): i32 {
 
 1. **Parse**: Contract definition → AST
 2. **Register**: Store contract in `trait_defs` HashMap
-3. **Implement**: Inline `impl Trait` → `trait_impls` HashMap
+3. **Implement**: Inline `impl Contract` → `contract_impls` HashMap
 4. **Codegen**: Generate LLVM IR for methods
 5. **Link**: Default methods compiled on-demand
 6. **Call**: Method resolution at compile time (static dispatch)

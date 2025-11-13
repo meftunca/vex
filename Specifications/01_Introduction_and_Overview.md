@@ -40,7 +40,7 @@ Vex is a modern systems programming language that combines:
 
 - First-class concurrency with goroutines and async/await
 - Pattern matching with exhaustiveness checking
-- Trait-based polymorphism
+- Contract-based polymorphism
 - Powerful generics system
 - Policy-based metadata system
 - Comprehensive error handling
@@ -126,12 +126,12 @@ let c = a + b;  // Automatically vectorized!
 - Range patterns with `..` and `..=` (implemented)
 - Switch statements for integer matching (implemented)
 
-### Traits and Interfaces
+### Contracts and Interfaces
 
-- Trait-based polymorphism
+- Contract-based polymorphism
 - Multiple contract implementation
 - Default contract methods (implemented)
-- Contract inheritance with supertraits (implemented)
+- Contract inheritance with supercontracts (implemented)
 - Contract bounds on generics (partial)
 
 ### Policy System
@@ -194,7 +194,7 @@ fn add(a: i32, b: i32): i32 {
 }
 ```
 
-### Structs with Traits
+### Structs with Contracts
 
 ```vex
 struct Point impl Display, Eq {
@@ -327,7 +327,7 @@ Source (.vx) → AST → Borrow Check → LLVM IR → Object File (.o) → Execu
 - ✅ Borrow checker (Phases 1-3 complete, Phase 4 in progress)
 - ✅ Closures and lambda expressions with capture mode analysis
 - ✅ Pattern matching with OR patterns and guards
-- ✅ Traits with default methods and multiple inheritance
+- ✅ Contracts with default methods and multiple inheritance
 - ✅ Generics with monomorphization
 - ✅ Control flow (if/elif/else, while, for, match, switch)
 - ✅ Reference expressions (&expr, \*ptr) with &T! syntax
@@ -369,7 +369,7 @@ Source (.vx) → AST → Borrow Check → LLVM IR → Object File (.o) → Execu
 - Patterns: Destructuring, OR patterns, guards, rest patterns
 - Strings: F-strings, operations, UTF-8 support
 - Algorithms: Fibonacci, factorial, GCD, sorting
-- Traits: Multiple traits, default methods, inheritance
+- Contracts: Multiple contracts, default methods, inheritance
 - Borrow Checker: Immutability, moves, borrows, closure capture
 - Async: Goroutines, channels, async/await (MPSC channels complete)
 - Builtins: Arrays, collections, I/O, time, testing framework
@@ -431,7 +431,7 @@ This specification is organized into the following documents:
 6. **Control Flow** - If, match, switch, loops
 7. **Structs and Data Types** - Definition, instantiation, methods
 8. **Enums** - Unit enums, data-carrying variants
-9. **Traits and Interfaces** - Definition, implementation, inheritance
+9. **Contracts and Interfaces** - Definition, implementation, inheritance
 10. **Generics** - Type parameters, constraints, monomorphization
 11. **Pattern Matching** - Patterns, destructuring, guards
 12. **Closures and Lambda Expressions** - Anonymous functions, capture modes
@@ -454,36 +454,36 @@ This section documents features available in Rust and Go but not yet implemented
 
 #### Language Features
 
-| Feature                             | Rust                          | Vex v0.1               | Notes                                |
-| ----------------------------------- | ----------------------------- | ---------------------- | ------------------------------------ |
-| **Closures/Lambdas**                | ✅ `\|x\| x + 1`              | ✅ Complete            | Full capture mode analysis           |
-| **Lifetime Annotations**            | ✅ `'a, 'static`              | ✅ Automatic (Phase 4) | Borrow checker handles automatically |
-| **Contract Objects**                   | ✅ `&dyn Trait`               | ❌ Not implemented     | Dynamic dispatch pending             |
-| **Async/Await Runtime**             | ✅ Full tokio support         | ✅ Complete            | Core async runtime implemented       |
-| **Macros**                          | ✅ Declarative + Procedural   | ❌ Not implemented     | Low priority                         |
-| **Const Generics**                  | ✅ `[T; N]`                   | ❌ Not implemented     | Array size flexibility               |
-| **Higher-Ranked Contract Bounds**      | ✅ `for<'a>`                  | ❌ Not implemented     | Advanced feature                     |
-| **Associated Constants**            | ✅ `const X: i32;`            | ❌ Not implemented     | Trait-level constants                |
-| **Drop Trait**                      | ✅ RAII destructors           | ❌ Not implemented     | Resource cleanup                     |
-| **Deref Coercion**                  | ✅ Automatic `&String → &str` | ✅ Field access        | Auto-deref for field access complete |
-| **Type Aliases in Traits**          | ✅ `type Item = T;`           | ✅ Complete            | Associated types working             |
-| **Unsafe Blocks**                   | ✅ `unsafe { }`               | ✅ Complete            | FFI integration working              |
-| **Raw Pointers**                    | ✅ `*const T, *mut T`         | ✅ Complete            | Low-level operations working         |
-| **Interior Mutability**             | ✅ `Cell<T>, RefCell<T>`      | ❌ Not implemented     | Advanced pattern                     |
-| **Pattern Guards**                  | ✅ `Some(x) if x > 0`         | ✅ Complete            | Fully working                        |
-| **Range Patterns**                  | ✅ `1..=10`                   | ✅ Complete            | .. and ..= operators                 |
-| **Slice Patterns**                  | ✅ `[first, .., last]`        | ✅ Complete            | Rest patterns with `...rest`         |
-| **Tuple Indexing**                  | ✅ `point.0`                  | ✅ Complete (v0.1.2)   | Numeric field access implemented     |
-| **Impl Trait**                      | ✅ `fn f() -> impl Trait`     | ❌ Not implemented     | Return type flexibility              |
-| **Existential Types**               | ✅ `type Foo = impl Trait;`   | ❌ Not implemented     | Advanced feature                     |
-| **GATs (Generic Associated Types)** | ✅ Stable                     | ❌ Not implemented     | Complex generics                     |
+| Feature                             | Rust                           | Vex v0.1               | Notes                                |
+| ----------------------------------- | ------------------------------ | ---------------------- | ------------------------------------ |
+| **Closures/Lambdas**                | ✅ `\|x\| x + 1`               | ✅ Complete            | Full capture mode analysis           |
+| **Lifetime Annotations**            | ✅ `'a, 'static`               | ✅ Automatic (Phase 4) | Borrow checker handles automatically |
+| **Contract Objects**                | ✅ `&dyn Contract`             | ❌ Not implemented     | Dynamic dispatch pending             |
+| **Async/Await Runtime**             | ✅ Full tokio support          | ✅ Complete            | Core async runtime implemented       |
+| **Macros**                          | ✅ Declarative + Procedural    | ❌ Not implemented     | Low priority                         |
+| **Const Generics**                  | ✅ `[T; N]`                    | ❌ Not implemented     | Array size flexibility               |
+| **Higher-Ranked Contract Bounds**   | ✅ `for<'a>`                   | ❌ Not implemented     | Advanced feature                     |
+| **Associated Constants**            | ✅ `const X: i32;`             | ❌ Not implemented     | Contract-level constants             |
+| **Drop Contract**                   | ✅ RAII destructors            | ❌ Not implemented     | Resource cleanup                     |
+| **Deref Coercion**                  | ✅ Automatic `&String → &str`  | ✅ Field access        | Auto-deref for field access complete |
+| **Type Aliases in Contracts**       | ✅ `type Item = T;`            | ✅ Complete            | Associated types working             |
+| **Unsafe Blocks**                   | ✅ `unsafe { }`                | ✅ Complete            | FFI integration working              |
+| **Raw Pointers**                    | ✅ `*const T, *mut T`          | ✅ Complete            | Low-level operations working         |
+| **Interior Mutability**             | ✅ `Cell<T>, RefCell<T>`       | ❌ Not implemented     | Advanced pattern                     |
+| **Pattern Guards**                  | ✅ `Some(x) if x > 0`          | ✅ Complete            | Fully working                        |
+| **Range Patterns**                  | ✅ `1..=10`                    | ✅ Complete            | .. and ..= operators                 |
+| **Slice Patterns**                  | ✅ `[first, .., last]`         | ✅ Complete            | Rest patterns with `...rest`         |
+| **Tuple Indexing**                  | ✅ `point.0`                   | ✅ Complete (v0.1.2)   | Numeric field access implemented     |
+| **Impl Contract**                   | ✅ `fn f() -> impl Contract`   | ❌ Not implemented     | Return type flexibility              |
+| **Existential Types**               | ✅ `type Foo = impl Contract;` | ❌ Not implemented     | Advanced feature                     |
+| **GATs (Generic Associated Types)** | ✅ Stable                      | ❌ Not implemented     | Complex generics                     |
 
 #### Standard Library & Ecosystem
 
 | Feature                    | Rust                           | Vex v0.1             | Notes                                   |
 | -------------------------- | ------------------------------ | -------------------- | --------------------------------------- |
 | **Collections**            | ✅ Vec, HashMap, HashSet, etc. | ✅ Implemented       | Vec, Map, Set, Box                      |
-| **Iterators**              | ✅ Full Iterator contract         | ✅ Complete          | Basic iteration working                 |
+| **Iterators**              | ✅ Full Iterator contract      | ✅ Complete          | Basic iteration working                 |
 | **Option Type**            | ✅ `Option<T>`                 | ✅ Complete          | Some/None constructors                  |
 | **Result Type**            | ✅ `Result<T, E>`              | ✅ Complete          | Ok/Err constructors                     |
 | **Error Handling**         | ✅ `?` operator                | ✅ Complete (v0.1.2) | Result unwrapping with auto-propagation |
@@ -517,7 +517,7 @@ This section documents features available in Rust and Go but not yet implemented
 | **Select Statement**           | ✅ Multi-channel wait            | 🚧 Keyword reserved           | Channels working, select syntax pending |
 | **Defer Statement**            | ✅ `defer cleanup()`             | ✅ Fully working              | Go-style LIFO execution                 |
 | **Auto-Vectorization**         | ❌ Manual SIMD                   | ✅ Automatic                  | **Unique to Vex**                       |
-| **Interface Satisfaction**     | ✅ Implicit                      | ✅ Explicit `impl`            | Trait-based design                      |
+| **Interface Satisfaction**     | ✅ Implicit                      | ✅ Explicit `impl`            | Contract-based design                   |
 | **Type Embedding**             | ✅ Anonymous fields              | ❌ Not implemented            | Composition pattern                     |
 | **Type Assertions**            | ✅ `x.(Type)`                    | ❌ Not implemented            | Runtime type checking                   |
 | **Type Switches**              | ✅ `switch x.(type)`             | ❌ Not implemented            | Type-based matching                     |
@@ -562,16 +562,16 @@ This section documents features available in Rust and Go but not yet implemented
 
 While Vex is missing many features, it combines aspects from both languages in novel ways:
 
-| Feature                  | Vex Approach                 | Rust                  | Go                     |
-| ------------------------ | ---------------------------- | --------------------- | ---------------------- |
-| **Variable Mutability**  | `let` vs `let!`              | `let` vs `let mut`    | All mutable by default |
-| **Mutable References**   | `&T!` syntax                 | `&mut T`              | All references mutable |
-| **Method Syntax**        | Both inline and golang-style | Impl blocks only      | Receiver syntax only   |
-| **Elif Keyword**         | ✅ Native `elif`             | `else if`             | `else if`              |
+| Feature                     | Vex Approach                 | Rust                  | Go                     |
+| --------------------------- | ---------------------------- | --------------------- | ---------------------- |
+| **Variable Mutability**     | `let` vs `let!`              | `let` vs `let mut`    | All mutable by default |
+| **Mutable References**      | `&T!` syntax                 | `&mut T`              | All references mutable |
+| **Method Syntax**           | Both inline and golang-style | Impl blocks only      | Receiver syntax only   |
+| **Elif Keyword**            | ✅ Native `elif`             | `else if`             | `else if`              |
 | **Contract Implementation** | `struct S impl T { }` inline | Separate `impl` block | Implicit satisfaction  |
-| **Union Types**          | `(T \| U)` planned           | `enum` workaround     | `interface{}`          |
-| **Intersection Types**   | `(T & U)` planned            | Contract bounds          | Not available          |
-| **GPU Functions**        | `gpu fn` keyword             | Via compute crates    | Via CGO                |
+| **Union Types**             | `(T \| U)` planned           | `enum` workaround     | `interface{}`          |
+| **Intersection Types**      | `(T & U)` planned            | Contract bounds       | Not available          |
+| **GPU Functions**           | `gpu fn` keyword             | Via compute crates    | Via CGO                |
 
 ### Roadmap Priority
 
@@ -607,7 +607,7 @@ While Vex is missing many features, it combines aspects from both languages in n
 - ❌ Garbage collection (manual memory management by design)
 - ❌ Null pointers (use Option type instead)
 - ❌ Exceptions (use Result type instead)
-- ❌ Inheritance (use composition and traits)
+- ❌ Inheritance (use composition and contracts)
 - ❌ Function overloading (use generics instead)
 
 ### Current Limitations

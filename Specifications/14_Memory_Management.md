@@ -556,7 +556,7 @@ fn process(s: &string!) {
 | **Mutable Borrow**      | ✅ Phase 3   | `&T!` reference             |
 | **Borrow Checker**      | ✅ Phase 1-4 | Compile-time checking       |
 | **Lifetimes**           | ✅ Phase 4   | Reference validity tracking |
-| **Drop Trait**          | ❌ Future    | RAII destructors            |
+| **Drop Contract**       | ❌ Future    | RAII destructors            |
 | **Box Type**            | ❌ Future    | Heap allocation             |
 | **Reference Counting**  | ❌ Future    | Rc/Arc types                |
 | **Interior Mutability** | ❌ Future    | Cell/RefCell                |

@@ -151,6 +151,7 @@ pub(super) fn compile_print_variadic<'ctx>(
     codegen: &mut ASTCodeGen<'ctx>,
     func_name: &str,
     args: &[BasicValueEnum<'ctx>],
+    arg_types: &[vex_ast::Type],
 ) -> Result<BasicValueEnum<'ctx>, String> {
     // Determine which C function to call
     let fn_name = if func_name == "println" {
@@ -209,7 +210,9 @@ pub(super) fn compile_print_variadic<'ctx>(
                 .map_err(|e| format!("Failed to GEP args[{}]: {}", i, e))?
         };
 
-        convert_to_vex_value(codegen, val, elem_ptr)?;
+        // Use type-aware conversion if type info available
+        let arg_type = arg_types.get(i).ok_or_else(|| format!("Missing type for arg {}", i))?;
+        convert_to_vex_value_typed(codegen, val, elem_ptr, arg_type)?;
     }
 
     let args_ptr = codegen
@@ -315,33 +318,165 @@ fn convert_to_vex_value_typed<'ctx>(
 }
 
 /// ⭐ ZERO-OVERHEAD: Generate inline struct debug string at compile-time
-/// Converts struct to "StructName { field1: val, field2: val }" string via sprintf
-/// Zero runtime overhead - all code generated during compilation
+/// Rust-style: If Display trait implemented, call to_string(), else show "{StructName}@<address>"
 fn convert_struct_to_debug_string<'ctx>(
     codegen: &mut ASTCodeGen<'ctx>,
     struct_val: BasicValueEnum<'ctx>,
     vex_value_ptr: PointerValue<'ctx>,
-    _struct_name: &str,
+    struct_name: &str,
 ) -> Result<(), String> {
-    // For now, fall back to pointer printing for structs
-    // TODO: Implement proper recursive struct printing with VexString concatenation
-    // This would require:
-    // 1. Detect field types (int, float, string, nested struct)
-    // 2. For each field, call appropriate to_string conversion
-    // 3. Concatenate using VexString operations
-    // 4. Return final formatted string as VexValue
+    // 🎯 CHECK: Does this struct implement Display trait?
+    // If yes → call to_string() method (Rust-style Display)
+    // If no → fallback to {StructName}@<address> format
+    
+    if let Some(struct_ast_def) = codegen.struct_ast_defs.get(struct_name) {
+        // Check if struct implements Display trait
+        let implements_display = struct_ast_def.impl_traits.iter().any(|t| t.name == "Display");
+        
+        if implements_display {
+            // ✅ Display trait found! Call to_string() method
+            // Get struct pointer if needed
+            let struct_ptr = if struct_val.is_struct_value() {
+                let temp_ptr = codegen
+                    .builder
+                    .build_alloca(struct_val.get_type(), "struct_temp")
+                    .map_err(|e| format!("Failed to alloca struct: {}", e))?;
+                codegen
+                    .builder
+                    .build_store(temp_ptr, struct_val)
+                    .map_err(|e| format!("Failed to store struct: {}", e))?;
+                temp_ptr
+            } else if struct_val.is_pointer_value() {
+                struct_val.into_pointer_value()
+            } else {
+                return Err("Struct value is neither struct nor pointer".to_string());
+            };
+            
+            // Find to_string() method in struct
+            let method_name = format!("{}_to_string", struct_name);
+            if let Some(to_string_fn) = codegen.module.get_function(&method_name) {
+                // Call to_string() method: String result = struct.to_string();
+                let string_result = codegen
+                    .builder
+                    .build_call(to_string_fn, &[struct_ptr.into()], "to_string_call")
+                    .map_err(|e| format!("Failed to call to_string: {}", e))?
+                    .try_as_basic_value()
+                    .left()
+                    .ok_or("to_string returned void")?;
+                
+                // Convert String to VexValue
+                let helper_fn = declare_vex_value_helper(codegen, "vex_value_string", &vex_ast::Type::String)?;
+                let vex_value = codegen
+                    .builder
+                    .build_call(helper_fn, &[string_result.into()], "vex_value_string_call")
+                    .map_err(|e| format!("Failed to call vex_value_string: {}", e))?;
+                
+                let vex_value_result = vex_value
+                    .try_as_basic_value()
+                    .left()
+                    .ok_or_else(|| "vex_value_string returned void".to_string())?;
+                
+                codegen
+                    .builder
+                    .build_store(vex_value_ptr, vex_value_result)
+                    .map_err(|e| format!("Failed to store VexValue: {}", e))?;
+                
+                return Ok(());
+            }
+        }
+    }
+    
+    // ❌ No Display trait → fallback to {StructName}@<address> format
+    // Allocate buffer for struct debug string: "{StructName}@0x<address>\0"
+    // Max length: 64 bytes for struct name + "@0x" + 16 hex digits + null = ~84 bytes
+    let malloc_fn = codegen.module.get_function("malloc").unwrap_or_else(|| {
+        let fn_type = codegen.context.ptr_type(inkwell::AddressSpace::default()).fn_type(
+            &[codegen.context.i64_type().into()],
+            false,
+        );
+        codegen.module.add_function("malloc", fn_type, None)
+    });
 
-    // Fallback: use vex_value_ptr helper (shows pointer address)
-    let helper_fn = declare_vex_value_helper(codegen, "vex_value_ptr", &vex_ast::Type::I32)?;
+    let buffer = codegen
+        .builder
+        .build_call(
+            malloc_fn,
+            &[codegen.context.i64_type().const_int(128, false).into()],
+            "struct_debug_buf",
+        )
+        .map_err(|e| format!("Failed to allocate struct debug buffer: {}", e))?
+        .try_as_basic_value()
+        .left()
+        .ok_or("malloc didn't return a value")?
+        .into_pointer_value();
+
+    // Get struct address (convert struct value to pointer first if needed)
+    let struct_ptr = if struct_val.is_struct_value() {
+        // Struct passed by value - need to get its address
+        let temp_ptr = codegen
+            .builder
+            .build_alloca(struct_val.get_type(), "struct_temp")
+            .map_err(|e| format!("Failed to alloca struct: {}", e))?;
+        codegen
+            .builder
+            .build_store(temp_ptr, struct_val)
+            .map_err(|e| format!("Failed to store struct: {}", e))?;
+        temp_ptr
+    } else if struct_val.is_pointer_value() {
+        struct_val.into_pointer_value()
+    } else {
+        return Err("Struct value is neither struct nor pointer".to_string());
+    };
+
+    // Convert pointer to integer for formatting
+    let ptr_int = codegen
+        .builder
+        .build_ptr_to_int(struct_ptr, codegen.context.i64_type(), "ptr_int")
+        .map_err(|e| format!("Failed to convert pointer to int: {}", e))?;
+
+    // Use snprintf to format: "{StructName}@%p"
+    let snprintf = codegen.module.get_function("snprintf").unwrap_or_else(|| {
+        let fn_type = codegen.context.i32_type().fn_type(
+            &[
+                codegen.context.ptr_type(inkwell::AddressSpace::default()).into(),
+                codegen.context.i64_type().into(),
+                codegen.context.ptr_type(inkwell::AddressSpace::default()).into(),
+            ],
+            true, // variadic
+        );
+        codegen.module.add_function("snprintf", fn_type, None)
+    });
+
+    // Create format string "{StructName}@0x%lx"
+    let format_string = format!("{{{}}}@0x%lx", struct_name);
+    let format_str = codegen.builder.build_global_string_ptr(&format_string, "struct_fmt")
+        .map_err(|e| format!("Failed to create format string: {}", e))?;
+
+    codegen
+        .builder
+        .build_call(
+            snprintf,
+            &[
+                buffer.into(),
+                codegen.context.i64_type().const_int(128, false).into(),
+                format_str.as_pointer_value().into(),
+                ptr_int.into(),
+            ],
+            "snprintf_struct",
+        )
+        .map_err(|e| format!("Failed to format struct: {}", e))?;
+
+    // Now convert buffer to VexValue with type STRING
+    let helper_fn = declare_vex_value_helper(codegen, "vex_value_string", &vex_ast::Type::String)?;
     let vex_value = codegen
         .builder
-        .build_call(helper_fn, &[struct_val.into()], "vex_value_ptr_call")
-        .map_err(|e| format!("Failed to call vex_value_ptr: {}", e))?;
+        .build_call(helper_fn, &[buffer.into()], "vex_value_string_call")
+        .map_err(|e| format!("Failed to call vex_value_string: {}", e))?;
 
     let vex_value_result = vex_value
         .try_as_basic_value()
         .left()
-        .ok_or_else(|| "vex_value_ptr returned void".to_string())?;
+        .ok_or_else(|| "vex_value_string returned void".to_string())?;
 
     codegen
         .builder

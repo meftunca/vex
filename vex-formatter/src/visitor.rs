@@ -230,7 +230,7 @@ impl<'a> FormattingVisitor<'a> {
     }
 
     /// Visit trait impl block
-    fn visit_trait_impl(&mut self, impl_block: &TraitImpl) {
+    fn visit_trait_impl(&mut self, impl_block: &ExternalTraitImpl) {
         self.write_indent();
         self.write("impl ");
         self.write(&impl_block.trait_name);

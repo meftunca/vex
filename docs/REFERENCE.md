@@ -18,7 +18,7 @@ This document is the comprehensive syntax reference for the Vex programming lang
 6. [Control Flow](#control-flow)
 7. [Structs](#structs)
 8. [Enums](#enums)
-9. [Traits](#traits)
+9. [Contracts](#contracts)
 10. [Generics](#generics)
 11. [Pattern Matching](#pattern-matching)
 12. [Error Handling](#error-handling)
@@ -77,7 +77,7 @@ Vex is a modern systems programming language combining:
 
 ```
 fn          let         const       struct      enum
-trait       impl        type        extern      policy
+    contract       impl        type        extern      policy
 ```
 
 #### Control Flow Keywords
@@ -111,8 +111,8 @@ where       extends     try
 **IMPORTANT:**
 
 - ❌ NO `mut` keyword (removed in v0.1)
-- ❌ NO `interface` keyword (deprecated, use `trait`)
-- ✅ `trait` is the correct keyword for interfaces
+  -- ❌ NO `interface` keyword (deprecated, use `contract`)
+  -- ✅ `contract` is the correct keyword for interfaces
 - ✅ `defer` is implemented (Go-style cleanup)
 - ✅ `elif` is the keyword for else-if chains
 
@@ -132,7 +132,7 @@ PascalCase
 **Conventions:**
 
 - Variables/Functions: `snake_case`
-- Types/Traits: `PascalCase`
+- Types/Contracts: `PascalCase`
 - Constants: `UPPER_SNAKE_CASE`
 
 ### Operators
@@ -368,10 +368,10 @@ type Nullable<T> = T | nil;
 **Generic aliases with constraints:** ✅ (v0.1.2)
 
 ```vex
-// Simple trait bound
+// Simple contract bound
 type Displayable<T: Display> = T;
 
-// Multiple trait bounds
+// Multiple contract bounds
 type ComparableNumber<T: Ord + Clone> = T;
 
 // Complex constraint
@@ -383,10 +383,10 @@ type Processor<T: Display + Clone> = fn(T): T;
 
 **Properties:**
 
-- ✅ Type constraints enforce trait bounds at compile time
+- ✅ Type constraints enforce contract bounds at compile time
 - ✅ Invalid types cause compile errors
-- ✅ Works with all trait combinations
-- ✅ Supports associated types from traits
+- ✅ Works with all contract combinations
+- ✅ Supports associated types from contracts
 
 ### Reflection Builtins ✅
 
@@ -510,9 +510,9 @@ fn main(): i32 {
 
 Vex, metodun tanımlandığı bağlama göre değişen, esnek ve pragmatik bir mutasyon sözdizimi kullanır.
 
-#### Kural 1: Inline Metodlar (Struct ve Trait İçinde)
+#### Kural 1: Inline Metodlar (Struct ve Contract İçinde)
 
-**Amaç:** Kod tekrarını önlemek ve `struct`/`trait` tanımlarını temiz tutmak.
+**Amaç:** Kod tekrarını önlemek ve `struct`/`contract` tanımlarını temiz tutmak.
 
 - **Tanımlama:** Metodun `mutable` olduğu, imzanın sonuna eklenen `!` işareti ile belirtilir. Receiver (`self`) bu stilde implisittir ve yazılmaz.
   - `fn method_name()!`
@@ -690,7 +690,7 @@ for let i = 0; i < 10; i = i + 1 {
 }
 
 // For-in loop ✅ COMPLETE (Nov 11, 2025)
-// Works with any type implementing Iterator trait
+// Works with any type implementing Iterator contract
 for item in collection {
     // Desugars to: while let Some(item) = collection.next() { ... }
     // body
@@ -945,28 +945,28 @@ let failure = Err("error message");
 
 ---
 
-## Traits
+## Contracts
 
-> **See:** [Specifications/09_Traits.md](../Specifications/09_Traits.md)
+> **See:** [Specifications/09_Contracts.md](../Specifications/09_Contracts.md)
 
-### Trait Definition
+### Contract Definition
 
-**✅ Use `trait` keyword (NOT `interface`)**
+**✅ Use `contract` keyword (NOT `interface`)**
 
 ```vex
-trait Display {
+contract Display {
     fn show();
 }
 
-trait Logger {
+contract Logger {
     fn log(msg: string);     // Immutable contract
     fn clear()!;             // Mutable contract
 }
 ```
 
-### Trait Implementation
+### Contract Implementation
 
-**Syntax:** `struct Name impl Trait`
+**Syntax:** `struct Name impl Contract`
 
 **⚠️ NOT Rust syntax:**
 
@@ -980,17 +980,17 @@ struct Point impl Display {
 }
 ```
 
-**⚠️ ALL trait methods MUST be implemented:**
+**⚠️ ALL contract methods MUST be implemented:**
 
-When a struct implements a trait, it MUST provide implementations for ALL methods declared in the trait contract. Missing implementations will result in a compile error.
+When a struct implements a contract, it MUST provide implementations for ALL methods declared in the contract. Missing implementations will result in a compile error.
 
-**Inline (required for trait methods):**
+**Inline (required for contract methods):**
 
 ```vex
 struct ConsoleLogger impl Logger {
     prefix: string,
 
-    // ALL trait methods MUST be implemented in struct body
+    // ALL contract methods MUST be implemented in struct body
     fn log(msg: string) {
         print(self.prefix, ": ", msg);
     }
@@ -1004,7 +1004,7 @@ struct ConsoleLogger impl Logger {
 **❌ Missing implementation error:**
 
 ```vex
-// COMPILE ERROR: Missing trait method implementation
+// COMPILE ERROR: Missing contract method implementation
 struct BrokenLogger impl Logger {
     prefix: string,
 
@@ -1015,10 +1015,10 @@ struct BrokenLogger impl Logger {
 }
 ```
 
-**❌ Trait methods cannot be external:**
+**❌ Contract methods cannot be external:**
 
 ```vex
-// COMPILE ERROR: Trait method must be in struct body
+// COMPILE ERROR: Contract method must be in struct body
 fn (logger: &ConsoleLogger) log(msg: string) {
     print(msg);
 }
@@ -1026,10 +1026,10 @@ fn (logger: &ConsoleLogger) log(msg: string) {
 
 ### Default Methods
 
-Traits can provide default implementations for some methods. Implementing structs can override these or use the default behavior.
+Contracts can provide default implementations for some methods. Implementing structs can override these or use the default behavior.
 
 ```vex
-trait Logger {
+contract Logger {
     fn log(msg: string);  // Required - MUST be implemented
 
     fn info(msg: string) {  // Default implementation - optional to override
@@ -1053,7 +1053,7 @@ struct ConsoleLogger impl Logger {
         print(self.prefix, ": ", msg);
     }
 
-    // info() and debug() inherited from trait default
+    // info() and debug() inherited from contract default
 }
 
 // Can override defaults if needed:
@@ -1067,18 +1067,18 @@ struct CustomLogger impl Logger {
         print("[INFO] ", msg);
     }
 
-    // debug() still uses trait default
+    // debug() still uses contract default
 }
 ```
 
-### Core Traits (Standard Library)
+### Core Contracts (Standard Library)
 
-The Vex standard library provides essential traits in `std/core`:
+The Vex standard library provides essential contracts in `std/core`:
 
-#### Drop Trait - Automatic Cleanup
+#### Drop Contract - Automatic Cleanup
 
 ```vex
-trait Drop {
+contract Drop {
     fn drop()!;  // Called automatically when value goes out of scope
 }
 
@@ -1092,10 +1092,10 @@ struct File impl Drop {
 }
 ```
 
-#### Clone Trait - Deep Copy
+#### Clone Contract - Deep Copy
 
 ```vex
-trait Clone {
+contract Clone {
     fn clone(): Self;  // Create deep copy
 }
 
@@ -1112,14 +1112,14 @@ let p1 = Point { x: 10, y: 20 };
 let p2 = p1.clone();  // Deep copy
 ```
 
-#### Eq/Ord Traits - Comparison
+#### Eq/Ord Contracts - Comparison
 
 ```vex
-trait Eq {
+contract Eq {
     fn eq(other: Self): bool;
 }
 
-trait Ord {
+contract Ord {
     fn cmp(other: Self): i32;  // Returns -1, 0, or 1
 }
 
@@ -1139,12 +1139,12 @@ struct Person impl Eq, Ord {
 }
 ```
 
-#### Iterator Trait - Lazy Iteration ✅ COMPLETE (Nov 11, 2025)
+#### Iterator Contract - Lazy Iteration ✅ COMPLETE (Nov 11, 2025)
 
 **Status:** Fully implemented with for-in loop support
 
 ```vex
-trait Iterator {
+contract Iterator {
     type Item;  // Associated type
 
     fn next()!: Option<Self.Item>;  // Returns next element or None
@@ -1187,15 +1187,15 @@ for item in counter {  // ✅ Desugars to while let Some(item) = counter.next()
 
 - For-in loops automatically call `.next()` on the iterator
 - Loop terminates when `next()` returns `None`
-- Works with any type implementing the Iterator trait
+- Works with any type implementing the Iterator contract
 - File: `vex-compiler/src/codegen_ast/statements/loops.rs`
 
 ### Associated Types
 
-Traits can declare associated types for type-level abstraction:
+Contracts can declare associated types for type-level abstraction:
 
 ```vex
-trait Container {
+contract Container {
     type Item;  // Associated type
 
     fn get(index: i32): Option<Self.Item>;
@@ -1212,7 +1212,7 @@ struct IntVec impl Container {
 }
 ```
 
-### Trait Bounds (Future)
+### Contract Bounds (Future)
 
 ```vex
 fn print_all<T: Display>(items: [T]) {
@@ -1724,45 +1724,45 @@ let has = set.contains(42);
 
 ## Operators
 
-> **See:** [Specifications/03_Type_System.md#operator-overloading](../Specifications/03_Type_System.md#operator-overloading)
+> **See:** [Specifications/03_Type_System.md#operator-overloading](../Specifications/03_Type_System.md#operator-overloading) and [Specifications/23_Operator_Overloading.md](../Specifications/23_Operator_Overloading.md) for the full operator overloading description and examples.
 
 ### Operator Overloading
 
-Vex supports **trait-based operator overloading**, allowing custom types to define behavior for built-in operators.
+Vex supports **contract-based operator overloading**, allowing custom types to define behavior for built-in operators.
 
 **Supported Operators:**
 
-| Operator | Trait Method | Description      |
-| -------- | ------------ | ---------------- |
-| `+`      | `add`        | Addition         |
-| `-`      | `sub`        | Subtraction      |
-| `*`      | `mul`        | Multiplication   |
-| `/`      | `div`        | Division         |
-| `%`      | `rem`        | Remainder        |
-| `==`     | `eq`         | Equality         |
-| `!=`     | `ne`         | Inequality       |
-| `<`      | `lt`         | Less than        |
-| `<=`     | `le`         | Less or equal    |
-| `>`      | `gt`         | Greater than     |
-| `>=`     | `ge`         | Greater or equal |
-| `+=`     | `add_assign` | Add assign       |
-| `-=`     | `sub_assign` | Subtract assign  |
-| `*=`     | `mul_assign` | Multiply assign  |
-| `/=`     | `div_assign` | Divide assign    |
-| `%=`     | `rem_assign` | Remainder assign |
+| Operator | Contract Method | Description      |
+| -------- | --------------- | ---------------- |
+| `+`      | `op+`           | Addition         |
+| `-`      | `op-`           | Subtraction      |
+| `*`      | `op*`           | Multiplication   |
+| `/`      | `op/`           | Division         |
+| `%`      | `op%`           | Remainder        |
+| `==`     | `op==`          | Equality         |
+| `!=`     | `op!=`          | Inequality       |
+| `<`      | `op<`           | Less than        |
+| `<=`     | `op<=`          | Less or equal    |
+| `>`      | `op>`           | Greater than     |
+| `>=`     | `op>=`          | Greater or equal |
+| `+=`     | `op+=`          | Add assign       |
+| `-=`     | `op-=`          | Subtract assign  |
+| `*=`     | `op*=`          | Multiply assign  |
+| `/=`     | `op/=`          | Divide assign    |
+| `%=`     | `op%=`          | Remainder assign |
 
 **Example:**
 
 ```vex
-trait Add<Rhs, Output> {
-    fn add(rhs: Rhs): Output;
+contract Add {
+    op+(rhs: Self): Self;
 }
 
-struct Point impl Add<Point, Point> {
+struct Point impl Add {
     x: i32,
     y: i32,
 
-    fn add(rhs: Point): Point {
+    fn op+(rhs: Point): Point {
         return Point {
             x: self.x + rhs.x,
             y: self.y + rhs.y,
@@ -1883,7 +1883,7 @@ let value = <-ch;  // Desugars to ch.recv()
 
 | Category         | Keywords                                                                              |
 | ---------------- | ------------------------------------------------------------------------------------- |
-| **Declaration**  | `fn`, `let`, `const`, `struct`, `enum`, `trait`, `impl`, `type`, `policy`             |
+| **Declaration**  | `fn`, `let`, `const`, `struct`, `enum`, `contract`, `impl`, `type`, `policy`          |
 | **Control Flow** | `if`, `else`, `elif`, `match`, `for`, `while`, `return`, `break`, `continue`, `defer` |
 | **Concurrency**  | `async`, `await`, `go`, `gpu`, `launch`, `select`                                     |
 | **Modules**      | `import`, `export`, `from`, `as`                                                      |
@@ -1900,7 +1900,7 @@ let value = <-ch;  // Desugars to ch.recv()
 | **Collections**     | `Vec<T>`, `Map<K,V>`, `Set<T>`, `Box<T>`, `Channel<T>`               |
 | **Builtin Enums**   | `Option<T>`, `Result<T,E>`                                           |
 | **Advanced Types**  | Union: `T \| U`, Conditional: `T extends U ? X : Y`                  |
-| **Type Operations** | `typeof(expr)`, `infer T`, Type constraints: `T: Trait`              |
+| **Type Operations** | `typeof(expr)`, `infer T`, Type constraints: `T: Contract`           |
 
 ### Syntax Comparison: Vex vs Rust
 
@@ -1914,7 +1914,7 @@ let value = <-ch;  // Desugars to ch.recv()
 | **Mutable call**       | `obj.set()!`         | `obj.set()`               |
 | **Return type**        | `fn f(): i32 { }`    | `fn f() -> i32 { }`       |
 | **Else-if**            | `elif`               | `else if`                 |
-| **Interface**          | `trait`              | `trait`                   |
+| **Interface**          | `contract`           | `contract`                |
 | **Struct tags**        | `` id `json:"id"` `` | `#[serde(rename = "id")]` |
 
 ### Common Patterns
@@ -2231,10 +2231,10 @@ find src -name "*.vx" -exec vex format -i {} \;
    ❌ fn add(x: i32, y: i32) -> i32 { }
    ```
 
-4. **Use `trait` not `interface`**
+4. **Use `contract` not `interface`**
 
    ```vex
-   ✅ trait Display { }
+    ✅ contract Display { }
    ❌ interface Display { }
    ```
 
@@ -2245,7 +2245,7 @@ find src -name "*.vx" -exec vex format -i {} \;
    ❌ if x { } else if y { } else { }
    ```
 
-6. **Trait implementation syntax** → `struct A impl B`
+6. **Contract implementation syntax** → `struct A impl B`
 
    ```vex
    ✅ struct Point impl Display { }

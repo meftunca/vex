@@ -76,6 +76,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     // Otherwise check for user-defined contract implementation
                     if let Some(_) = self.has_operator_trait(type_name, contract_name) {
                         eprintln!("🎯 User operator contract: {}.{}()", type_name, method_name);
+                        eprintln!("   Left: {:?}", left);
+                        eprintln!("   Right: {:?}", right);
                         return self.compile_method_call(
                             left,
                             method_name,

@@ -29,7 +29,7 @@ impl<'a> Parser<'a> {
 
             if is_receiver {
                 // This is a receiver!
-                let _receiver_name = self.consume_identifier()?; // 'self', 'p', 'r', etc.
+                let receiver_name = self.consume_identifier()?; // 'self', 'p', 'r', etc.
                 self.consume(&Token::Colon, "Expected ':' after receiver name")?;
                 let receiver_type = self.parse_type()?;
                 self.consume(&Token::RParen, "Expected ')' after receiver")?;
@@ -38,6 +38,7 @@ impl<'a> Parser<'a> {
                 let is_mutable = matches!(receiver_type, Type::Reference(_, true));
 
                 Some(Receiver {
+                    name: receiver_name,
                     is_mutable,
                     ty: receiver_type,
                 })

@@ -12,7 +12,7 @@ This document defines the generic type system in Vex, enabling code reuse throug
 1. [Generic Functions](#generic-functions)
 2. [Generic Structs](#generic-structs)
 3. [Generic Enums](#generic-enums)
-4. [Generic Traits](#generic-traits)
+4. [Generic Contracts](#generic-contracts)
 5. [Type Constraints](#type-constraints)
 6. [Monomorphization](#monomorphization)
 
@@ -142,7 +142,7 @@ Methods on generic structs can operate on the generic types. Vex supports two st
 
 #### Kural 1: Inline Methods
 
-Methods defined inside a `struct` or `trait` use the `!` suffix on the function signature to indicate mutability.
+Methods defined inside a `struct` or `contract` use the `!` suffix on the function signature to indicate mutability.
 
 ```vex
 struct Container<T> {
@@ -315,12 +315,12 @@ let right: Either<i32, string> = Either::Right("text");
 
 ---
 
-## Generic Traits
+## Generic Contracts
 
 ### Generic Contract Definition (Future)
 
 ```vex
-trait Container<T> {
+contract Container<T> {
     fn get(): T;
     fn set(value: T);
 }
@@ -342,10 +342,10 @@ struct Box<T> impl Container<T> {
 }
 ```
 
-### Generic Methods in Traits (Future)
+### Generic Methods in Contracts (Future)
 
 ```vex
-trait Converter {
+contract Converter {
     fn convert<T>(): T;
 }
 
@@ -364,7 +364,7 @@ struct Value impl Converter {
 
 ### Contract Bounds (Future)
 
-Restrict generic types to those implementing specific traits:
+Restrict generic types to those implementing specific contracts:
 
 ```vex
 fn print_all<T: Display>(items: [T]) {
@@ -374,7 +374,7 @@ fn print_all<T: Display>(items: [T]) {
 }
 ```
 
-**Syntax**: `T: Trait` after type parameter
+**Syntax**: `T: Contract` after type parameter
 
 ### Multiple Constraints (Future)
 
@@ -387,7 +387,7 @@ fn compare_and_show<T: Comparable & Display>(a: T, b: T): i32 {
 }
 ```
 
-**Syntax**: `T: Trait1 & Trait2 & ...`
+**Syntax**: `T: Contract1 & Contract2 & ...`
 
 ### Where Clauses ✅ COMPLETE (v0.1.2)
 
@@ -418,7 +418,7 @@ fn main(): i32 {
 
 - Parser: `parse_where_clause()` in `vex-parser/src/parser/items/functions.rs:138`
 - AST: `WhereClausePredicate { type_param, bounds }`
-- Syntax: `where T: Trait1 & Trait2, U: Trait3`
+- Syntax: `where T: Contract1 & Contract2, U: Contract3`
 - Test: `examples/test_where_clause.vx`
 - Limitation: Struct inline methods don't support where clauses yet
 
@@ -774,20 +774,20 @@ fn create<T: Clone>(value: T): Container<T> {
 
 ## Generics Summary
 
-| Feature             | Syntax             | Status     | Example                        |
-| ------------------- | ------------------ | ---------- | ------------------------------ |
-| Generic Functions   | `fn name<T>()`     | ✅ Working | `identity<T>(x: T)`            |
-| Generic Structs     | `struct S<T> { }`  | ✅ Working | `Box<i32>`                     |
-| Multiple Parameters | `<T, U, V>`        | ✅ Working | `Pair<T, U>`                   |
-| Type Inference      | Omit type args     | ✅ Working | `identity(42)`                 |
-| Generic Methods     | `fn (self: &S<T>)` | ✅ Working | Methods on generic types       |
-| Monomorphization    | Automatic          | ✅ Working | Zero runtime cost              |
-| Generic Enums       | `enum E<T> { }`    | ✅ Working | `Option<T>`, `Result<T,E>`     |
-| Contract Bounds        | `<T: Trait>`       | ✅ Working | Constrained types              |
-| Where Clauses       | `where T: Trait`   | ✅ v0.1.2  | Complex constraints            |
-| Associated Types    | `type Item;`       | ✅ Working | Contract associated types working |
-| Higher-Kinded       | `F<T>`             | ❌ Future  | Generic over generics          |
-| Const Generics      | `[T; N]`           | ❌ Future  | Array size parameter           |
+| Feature             | Syntax              | Status     | Example                           |
+| ------------------- | ------------------- | ---------- | --------------------------------- |
+| Generic Functions   | `fn name<T>()`      | ✅ Working | `identity<T>(x: T)`               |
+| Generic Structs     | `struct S<T> { }`   | ✅ Working | `Box<i32>`                        |
+| Multiple Parameters | `<T, U, V>`         | ✅ Working | `Pair<T, U>`                      |
+| Type Inference      | Omit type args      | ✅ Working | `identity(42)`                    |
+| Generic Methods     | `fn (self: &S<T>)`  | ✅ Working | Methods on generic types          |
+| Monomorphization    | Automatic           | ✅ Working | Zero runtime cost                 |
+| Generic Enums       | `enum E<T> { }`     | ✅ Working | `Option<T>`, `Result<T,E>`        |
+| Contract Bounds     | `<T: Contract>`     | ✅ Working | Constrained types                 |
+| Where Clauses       | `where T: Contract` | ✅ v0.1.2  | Complex constraints               |
+| Associated Types    | `type Item;`        | ✅ Working | Contract associated types working |
+| Higher-Kinded       | `F<T>`              | ❌ Future  | Generic over generics             |
+| Const Generics      | `[T; N]`            | ❌ Future  | Array size parameter              |
 
 ---
 
@@ -822,7 +822,7 @@ let b = identity("hi");     // Instantiate identity<string>
 
 ---
 
-**Previous**: [09_Traits.md](./09_Traits.md)  
+**Previous**: [09_Contracts.md](./09_Contracts.md)  
 **Next**: [11_Pattern_Matching.md](./11_Pattern_Matching.md)
 
 **Maintained by**: Vex Language Team

@@ -1,0 +1,102 @@
+// Test generic impl clause - Multiple trait implementations with type parameters
+// Syntax: struct Type impl Trait1<T1>, Trait2<T2> { }
+
+contract Add<Rhs> {
+    op+(other: Rhs): Self;
+}
+
+contract Mul<Rhs> {
+    op*(other: Rhs): Self;
+}
+
+// ⭐ NEW: Generic impl with type arguments
+struct Vector impl Add<i32>, Add<f64>, Mul<i32> {
+    x: f64,
+    y: f64,
+
+    // Add<i32> implementation
+    fn (self: &Vector!) op+(other: i32): Vector {
+        print("Add<i32>: self.x=");
+        print(self.x as i32);
+        print(", self.y=");
+        print(self.y as i32);
+        print(", other=");
+        print(other);
+        println("");
+        return Vector { 
+            x: self.x + other as f64, 
+            y: self.y + other as f64 
+        };
+    }
+
+    // Add<f64> implementation  
+    fn (self: &Vector!) op+(other: f64): Vector {
+        print("Add<f64>: self.x=");
+        print(self.x as i32);
+        print(", other=");
+        print(other as i32);
+        println("");
+        return Vector { 
+            x: self.x + other, 
+            y: self.y + other 
+        };
+    }
+
+    // Mul<i32> implementation
+    fn (self: &Vector!) op*(other: i32): Vector {
+        print("Mul<i32>: self.x=");
+        print(self.x as i32);
+        print(", self.y=");
+        print(self.y as i32);
+        print(", other=");
+        print(other);
+        println("");
+        return Vector { 
+            x: self.x * other as f64, 
+            y: self.y * other as f64 
+        };
+    }
+}
+
+fn main(): i32 {
+    let v = Vector { x: 3.0, y: 4.0 };
+    
+    print("Initial v: x=");
+    print(v.x as i32);
+    print(", y=");
+    print(v.y as i32);
+    println("");
+    
+    // Test Add<i32>
+    let v2 = v + 5;
+    
+    print("After v+5, v: x=");
+    print(v.x as i32);
+    print(", y=");
+    print(v.y as i32);
+    println("");
+    
+    print("v + 5 = (");
+    print(v2.x as i32);
+    print(", ");
+    print(v2.y as i32);
+    println(")");
+    
+    // Test Add<f64>
+    let v3 = v + 2.5;
+    print("v + 2.5 = (");
+    print(v3.x as i32);
+    print(", ");
+    print(v3.y as i32);
+    println(")");
+    
+    // Test Mul<i32>
+    let v4 = v * 2;
+    print("v * 2 = (");
+    print(v4.x as i32);
+    print(", ");
+    print(v4.y as i32);
+    println(")");
+    
+    return 0;
+}

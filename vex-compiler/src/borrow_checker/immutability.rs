@@ -64,7 +64,7 @@ impl ImmutabilityChecker {
                     self.mutable_vars.insert(param.name.clone());
                 }
 
-                // ⭐ NEW: Handle method receiver (self)
+                // ⭐ NEW: Handle method receiver (self, p, this, etc.)
                 if let Some(ref receiver) = func.receiver {
                     // ⭐ CRITICAL FIX: Check receiver mutability from both:
                     // 1. Inline methods: func.is_mutable (fn method()!)
@@ -75,11 +75,11 @@ impl ImmutabilityChecker {
                         || matches!(&receiver.ty, Type::Reference(_, true));
 
                     if receiver_is_mutable {
-                        // Mutable method: self can be mutated
-                        self.mutable_vars.insert("self".to_string());
+                        // Mutable method: receiver can be mutated
+                        self.mutable_vars.insert(receiver.name.clone());
                     } else {
-                        // Immutable method: self is immutable
-                        self.immutable_vars.insert("self".to_string());
+                        // Immutable method: receiver is immutable
+                        self.immutable_vars.insert(receiver.name.clone());
                     }
                 }
 

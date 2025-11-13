@@ -19,6 +19,7 @@ This document describes Vex's conditional type system, inspired by TypeScript's 
 5. ✅ **Monomorphization** - Generic types fully resolved before LLVM codegen
 
 **Implementation:**
+
 - Parser: Parses conditional type syntax into AST
 - Type Checker: Evaluates conditions during type resolution
 - Compiler: Generates code as if types were written explicitly
@@ -276,12 +277,12 @@ type AddParams = GetParams<typeof add>;  // [i32, i32]
 
 ### Differences
 
-| Feature       | TypeScript            | Vex (Planned)          |
-| ------------- | --------------------- | ---------------------- | ------------------------ |
-| Type Aliases  | `type X = ...`        | `type X = ...` (same)  |
-| Contract Bounds  | Interface constraints | `T: Trait` constraints |
-| Literal Types | `"string"             | "number"`              | String literals as types |
-| Never Type    | `never`               | `never` (same)         |
+| Feature         | TypeScript            | Vex (Planned)             |
+| --------------- | --------------------- | ------------------------- | ------------------------ |
+| Type Aliases    | `type X = ...`        | `type X = ...` (same)     |
+| Contract Bounds | Interface constraints | `T: Contract` constraints |
+| Literal Types   | `"string"             | "number"`                 | String literals as types |
+| Never Type      | `never`               | `never` (same)            |
 
 ---
 
@@ -330,7 +331,7 @@ type A = ToArray<String | i32>;  // [String] | [i32]
 ### Practical Use Case: Generic API Response
 
 ```vex
-trait Deserialize {
+contract Deserialize {
     fn deserialize(data: String): Self;
 }
 

@@ -1,0 +1,15 @@
+// Debug version
+struct Point {
+    x: i32,
+    y: i32,
+}
+
+fn (p: &Point) show() {
+    print("Point(", p.x, ",", p.y, ")");
+}
+
+fn main(): i32 {
+    let! p = Point { x: 10, y: 20 };
+    p.show();
+    return 0;
+}

@@ -114,6 +114,10 @@ enum Commands {
         /// Output diagnostics as JSON (for IDE integration)
         #[arg(long)]
         json: bool,
+
+        /// Optimization level (0-3)
+        #[arg(short = 'O', long, default_value = "0")]
+        opt_level: u8,
     },
 
     /// Check syntax without compiling
@@ -471,6 +475,7 @@ fn main() -> Result<()> {
             code,
             args,
             json,
+            opt_level,
         } => {
             use inkwell::context::Context;
             use std::process::Command;
@@ -803,8 +808,15 @@ fn main() -> Result<()> {
 
             // Compile to object file
             let obj_path = temp_output.with_extension("o");
+            let llvm_opt_level = match opt_level {
+                0 => inkwell::OptimizationLevel::None,
+                1 => inkwell::OptimizationLevel::Less,
+                2 => inkwell::OptimizationLevel::Default,
+                3 => inkwell::OptimizationLevel::Aggressive,
+                _ => inkwell::OptimizationLevel::None,
+            };
             codegen
-                .compile_to_object(&obj_path)
+                .compile_to_object_with_opt(&obj_path, llvm_opt_level)
                 .map_err(|e| anyhow::anyhow!("Object file generation error: {}", e))?;
 
             let mut command = Command::new("clang");

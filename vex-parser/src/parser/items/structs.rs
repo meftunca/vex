@@ -27,10 +27,32 @@ impl<'a> Parser<'a> {
         };
 
         // Optional trait implementation declaration: struct File impl Reader, Writer
+        // Or with type args: struct Vector impl Add<i32>, Add<f64>
         let impl_traits = if self.match_token(&Token::Impl) {
             let mut traits = Vec::new();
             loop {
-                traits.push(self.consume_identifier()?);
+                let trait_name = self.consume_identifier()?;
+                
+                // Check for generic type arguments: Add<i32>
+                let type_args = if self.match_token(&Token::Lt) {
+                    let mut args = Vec::new();
+                    loop {
+                        args.push(self.parse_type()?);
+                        if !self.match_token(&Token::Comma) {
+                            break;
+                        }
+                    }
+                    self.consume(&Token::Gt, "Expected '>' after type arguments")?;
+                    args
+                } else {
+                    Vec::new()
+                };
+                
+                traits.push(TraitImpl {
+                    name: trait_name,
+                    type_args,
+                });
+                
                 if !self.match_token(&Token::Comma) {
                     break;
                 }
@@ -224,7 +246,11 @@ impl<'a> Parser<'a> {
                     false
                 };
 
-                Some(Receiver { is_mutable, ty })
+                Some(Receiver {
+                    name: "self".to_string(), // Inline methods always use 'self'
+                    is_mutable,
+                    ty,
+                })
             } else {
                 // Not a receiver, backtrack - this is method name
                 self.current = checkpoint;

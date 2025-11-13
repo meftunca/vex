@@ -44,8 +44,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
         self.struct_defs
             .insert(struct_def.name.clone(), StructDef { fields });
 
-        for trait_name in &struct_def.impl_traits {
-            let key = (trait_name.clone(), struct_def.name.clone());
+        for trait_impl in &struct_def.impl_traits {
+            let key = (trait_impl.name.clone(), struct_def.name.clone());
             let methods: Vec<Function> = struct_def.methods.clone();
             self.trait_impls.insert(key, methods);
         }
@@ -68,7 +68,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         Ok(())
     }
 
-    pub(crate) fn register_trait_impl(&mut self, trait_impl: &TraitImpl) -> Result<(), String> {
+    pub(crate) fn register_trait_impl(&mut self, trait_impl: &ExternalTraitImpl) -> Result<(), String> {
         let type_name = match &trait_impl.for_type {
             Type::Named(name) => name.clone(),
             _ => {

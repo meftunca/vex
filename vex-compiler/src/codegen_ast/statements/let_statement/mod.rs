@@ -52,6 +52,22 @@ impl<'ctx> ASTCodeGen<'ctx> {
         // Step 4: Compile the value expression
         let val = self.compile_value_expression(ty, &adjusted_value, name, is_mutable)?;
 
+        // Step 4.5: Check if this is a closure and register it with its environment
+        if let Expression::Closure { .. } = adjusted_value {
+            if let BasicValueEnum::PointerValue(fn_ptr) = val {
+                // Check if this closure has an environment in closure_envs
+                if let Some(env_ptr) = self.closure_envs.get(&fn_ptr).copied() {
+                    eprintln!("📝 Registering closure variable '{}' with environment", name);
+                    self.closure_variables.insert(name.clone(), (fn_ptr, env_ptr));
+                } else {
+                    eprintln!("📝 Registering closure variable '{}' without environment (pure function)", name);
+                    // For closures without environment, still register but with null environment
+                    let null_env = self.context.ptr_type(inkwell::AddressSpace::default()).const_null();
+                    self.closure_variables.insert(name.clone(), (fn_ptr, null_env));
+                }
+            }
+        }
+
         // Special case: If val is a pointer and variable is already registered, skip step 5-6
         // This happens when compile_value_expression handles large arrays directly
         if let BasicValueEnum::PointerValue(_) = val {

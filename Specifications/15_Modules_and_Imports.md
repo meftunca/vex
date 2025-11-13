@@ -165,7 +165,7 @@ export enum Status {
 }
 ```
 
-### Export Traits
+### Export Contracts
 
 ```vex
 export contract Display {

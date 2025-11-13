@@ -118,7 +118,7 @@ Vex, metodun tanımlandığı bağlama göre değişen, esnek ve pragmatik bir m
 
 ### Kural 1: Inline Metodlar (Struct ve Contract İçinde)
 
-**Amaç:** Kod tekrarını önlemek ve `struct`/`trait` tanımlarını temiz tutmak.
+**Amaç:** Kod tekrarını önlemek ve `struct`/`contract` tanımlarını temiz tutmak.
 
 - **Tanımlama:** Metodun `mutable` olduğu, imzanın sonuna eklenen `!` işareti ile belirtilir. Receiver (`self`) bu stilde implisittir ve yazılmaz.
   - `fn method_name()!`
@@ -195,7 +195,7 @@ rect_mut.scale(2); // '!' yok
 ### Contract Method Implementation
 
 ```vex
-trait Display {
+contract Display {
     fn show();        // Immutable contract
     fn update()!;     // Mutable contract
 }
@@ -286,7 +286,7 @@ fn compute(a, b: i32, factor: f64, c, d: i32): f64 {
 struct Point {
     x: f64,
     y: f64,
-    
+
     // Grouping works in methods
     distance_to(x1, y1: f64): f64 {
         let dx = self.x - x1;
@@ -312,6 +312,7 @@ contract Geometry {
 ```
 
 **Benefits**:
+
 - ✅ Reduces repetition for same-typed parameters
 - ✅ Cleaner, more readable function signatures
 - ✅ Familiar to Go developers
@@ -383,6 +384,7 @@ add_numbers(1, 2, 3);  // 1 + 2 + 3 = 6
 ```
 
 **Rules**:
+
 - Default values can be any compile-time constant expression
 - Parameters with defaults must come after required parameters
 - When calling, you can omit trailing parameters with defaults
@@ -451,6 +453,7 @@ count_all(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
 ```
 
 **Rules**:
+
 - ✅ Variadic parameter must be the LAST parameter
 - ✅ Only ONE variadic parameter per function
 - ✅ Can combine with default parameters
@@ -473,6 +476,7 @@ fn qux(items1: ...i32, items2: ...string) { }  // Compile error
 ```
 
 **Current Status**:
+
 - ✅ Parser support: `name: ...Type` syntax
 - ✅ Type checking: variadic type validation
 - ✅ Codegen: accepts variable argument count

@@ -139,6 +139,7 @@ fn (self: ConsoleLogger!) clear() {
 ```
 
 **Benefits**:
+
 - Keeps struct definitions small (400-line limit)
 - Separates data from behavior
 - More modular and testable
@@ -154,7 +155,7 @@ fn (self: ConsoleLogger!) clear() {
 struct ConsoleLogger impl Logger {
     prefix: string,
 
-    // Implementation of the `log` method from the `Logger` trait.
+    // Implementation of the `log` method from the `Logger` contract.
     log(msg: string) {
         println(self.prefix, ": ", msg);
     }
@@ -175,7 +176,7 @@ struct ConsoleLogger impl Logger {
 - Contract methods **MUST** be implemented directly inside the `struct`'s body.
 - The method signatures in the implementation must match the contract definition, including the `!` for mutability.
 
-### Multiple Traits (Future)
+### Multiple Contracts (Future)
 
 ```vex
 struct FileLogger impl Logger, Closeable {
@@ -223,20 +224,14 @@ struct Circle impl Shape {
 
 ### Definition
 
-Traits can provide default implementations:
+Contracts can provide default implementations:
 
 ```vex
 contract Logger {
     log(msg: string);        // Required (immutable)
     clear()!;                // Required (mutable)
-
-    info(msg: string) {      // Default (immutable)
-        self.log(msg);
-    }
-
-    debug(msg: string) {     // Default (immutable)
-        self.log(msg);
-    }
+    info(msg: string);     // Default (immutable)
+    debug(msg: string);     // Default (immutable)
 }
 ```
 
@@ -321,7 +316,7 @@ contract Formatter {
 
 ### Generic Constraints (Future)
 
-Restrict generic types to those implementing specific traits:
+Restrict generic types to those implementing specific contracts:
 
 ```vex
 fn print_all<T: Display>(items: [T]) {
@@ -332,22 +327,22 @@ fn print_all<T: Display>(items: [T]) {
 }
 ```
 
-**Syntax**: `T: Trait` after type parameter
+**Syntax**: `T: Contract` after type parameter
 
 ### Multiple Bounds (Future)
 
-Require multiple traits:
+Require multiple contracts:
 
 ```vex
 fn compare_and_show<T: Comparable & Display>(a: T, b: T) {
-    // T must implement both traits
+    // T must implement both contracts
     let result = a.compare(b);
     a.show();
     b.show();
 }
 ```
 
-**Syntax**: `T: Trait1 & Trait2 & ...`
+**Syntax**: `T: Contract1 & Contract2 & ...`
 
 ### Where Clauses ✅ COMPLETE (v0.1.2)
 
@@ -378,7 +373,7 @@ fn main(): i32 {
 
 - Parser: `parse_where_clause()` in `vex-parser/src/parser/items/functions.rs:138`
 - AST: `WhereClausePredicate { type_param, bounds }`
-- Syntax: `where T: Trait1 & Trait2, U: Trait3`
+- Syntax: `where T: Contract1 & Contract2, U: Contract3`
 - Test: `examples/test_where_clause.vx`
 - Verified: November 9, 2025
 
@@ -404,7 +399,7 @@ struct Container<T> {
 
 ### Definition (Future)
 
-Traits can have associated types:
+Contracts can have associated types:
 
 ```vex
 contract Iterator {
@@ -450,9 +445,9 @@ contract Container {
 
 ## Contract Inheritance
 
-### Supertraits
+### Supercontracts
 
-Traits can require other traits:
+Contracts can require other contracts:
 
 ```vex
 contract Eq {
@@ -483,7 +478,7 @@ struct Number impl Ord {
 }
 ```
 
-### Multiple Supertraits
+### Multiple Supercontracts
 
 ```vex
 contract Serializable: Display & Cloneable {
@@ -493,7 +488,9 @@ contract Serializable: Display & Cloneable {
 
 ---
 
-## Standard Traits
+## Standard Contracts
+
+> Operator overloading contracts (e.g., `Add`, `Eq`, `Index`) are documented in detail in [Specifications/23_Operator_Overloading.md](../Specifications/23_Operator_Overloading.md).
 
 ### Drop Contract ✅ IMPLEMENTED
 
@@ -672,7 +669,7 @@ struct Point impl Display {
 
 ## Examples
 
-### Basic Trait
+### Basic Contract
 
 ```vex
 contract Greet {
@@ -787,7 +784,7 @@ struct SimpleCounter impl Counter {
 ### 1. Single Responsibility
 
 ```vex
-// Good: Focused trait
+// Good: Focused contract
 contract Serializable {
     serialize(): string;
 }
@@ -843,10 +840,10 @@ contract Logger {
 }
 ```
 
-### 4. Small Traits
+### 4. Small Contracts
 
 ```vex
-// Good: Composable traits
+// Good: Composable contracts
 contract Display {
     show();
 }
@@ -859,7 +856,7 @@ struct Data impl Display, Clone {
     // Implement both
 }
 
-// Bad: Monolithic trait
+// Bad: Monolithic contract
 contract Everything {
     show();
     clone(): Self;
@@ -891,15 +888,15 @@ contract Ord {
 
 | Feature               | Syntax                 | Status     | Example               |
 | --------------------- | ---------------------- | ---------- | --------------------- |
-| Contract Definition      | `trait Name { }`       | ✅ Working | Method signatures     |
+| Contract Definition   | `contract Name { }`    | ✅ Working | Method signatures     |
 | Inline Implementation | `struct S impl T { }`  | ✅ Working | v1.3 syntax           |
 | Default Methods       | `fn (self) { body }`   | ✅ Working | With implementation   |
 | Self Type             | `Self`                 | ✅ Working | Refers to implementer |
-| Multiple Methods      | Multiple fn signatures | ✅ Working | In contract body         |
-| Contract Bounds          | `<T: Trait>`           | ✅ Working | Generic constraints   |
+| Multiple Methods      | Multiple fn signatures | ✅ Working | In contract body      |
+| Contract Bounds       | `<T: Contract>`        | ✅ Working | Generic constraints   |
 | Associated Types      | `type Item;`           | ✅ Working | Type members          |
-| Supertraits           | `trait T: U { }`       | ✅ Working | Contract inheritance     |
-| Where Clauses         | `where T: Trait`       | ✅ v0.1.2  | Complex bounds        |
+| Supercontracts        | `contract T: U { }`    | ✅ Working | Contract inheritance  |
+| Where Clauses         | `where T: Contract`    | ✅ v0.1.2  | Complex bounds        |
 
 ---
 
@@ -908,7 +905,7 @@ contract Ord {
 ### Current Implementation (v1.3)
 
 ```vex
-// 1. Define trait
+// 1. Define contract
 contract Logger {
     log(msg: string);
     info(msg: string) {
@@ -939,8 +936,8 @@ fn main(): i32 {
 ### Compilation Process
 
 1. **Parse**: Contract definition → AST
-2. **Register**: Store contract in `trait_defs` HashMap
-3. **Implement**: Inline `impl Trait` → `trait_impls` HashMap
+2. **Register**: Store contract in `contract_defs` HashMap
+3. **Implement**: Inline `impl Contract` → `contract_impls` HashMap
 4. **Codegen**: Generate LLVM IR for methods
 5. **Link**: Default methods compiled on-demand
 6. **Call**: Method resolution at compile time (static dispatch)

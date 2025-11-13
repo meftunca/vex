@@ -188,9 +188,9 @@ impl LifetimeChecker {
         // Enter function scope (parameters live here)
         self.enter_scope();
 
-        // Method receiver (self) is also a parameter in function scope
-        if func.receiver.is_some() {
-            self.declare_variable("self");
+        // ⭐ CRITICAL FIX: Method receiver uses custom name (p, self, this, etc.)
+        if let Some(ref receiver) = func.receiver {
+            self.declare_variable(&receiver.name);
         }
 
         // Parameters are in function scope (scope 1)

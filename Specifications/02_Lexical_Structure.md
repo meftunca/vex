@@ -119,7 +119,7 @@ While not enforced by the compiler, the following conventions are recommended:
 | Constants              | UPPER_SNAKE_CASE | `MAX_SIZE`        |
 | Functions              | snake_case       | `calculate_total` |
 | Types (Structs, Enums) | PascalCase       | `UserAccount`     |
-| Traits                 | PascalCase       | `Serializable`    |
+| Contracts              | PascalCase       | `Serializable`    |
 | Internal/Helper        | Prefix with `_`  | `_internal_fn`    |
 
 ---
@@ -197,7 +197,7 @@ true        false
 ### Deprecated Keywords
 
 - `mut` - Removed in v0.1 (use `let!` for mutable variables)
-- `interface` - Use `trait` instead
+- `interface` - Use `contract` instead
 
 ---
 
@@ -444,7 +444,7 @@ The lexer produces tokens in the following categories:
 #### 1. Keywords (67 tokens)
 
 - Control flow: `if`, `else`, `elif`, `for`, `while`, `match`, `switch`, etc.
-- Declarations: `fn`, `let`, `const`, `struct`, `enum`, `trait`, `impl`
+- Declarations: `fn`, `let`, `const`, `struct`, `enum`, `contract`, `impl`
 - Types: `i8`, `i16`, `i32`, `i64`, `u8`, `u16`, `u32`, `u64`, `f32`, `f64`, `bool`, `string`
 - Concurrency: `async`, `await`, `go`, `gpu`
 - Other: `import`, `export`, `return`, `nil`, `true`, `false`

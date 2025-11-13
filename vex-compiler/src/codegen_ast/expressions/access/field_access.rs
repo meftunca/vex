@@ -42,42 +42,22 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Case 2: Simple variable field access
         if let Expression::Ident(var_name) = object {
-            let func_name = self
-                .current_function
-                .map(|f| f.get_name().to_string_lossy().to_string())
-                .unwrap_or_else(|| "None".to_string());
-            eprintln!(
-                "🔍 Field access: {}.{} (in function: {})",
-                var_name, field, func_name
-            );
-            eprintln!(
-                "   variables = {:?}",
-                self.variables.keys().collect::<Vec<_>>()
-            );
-            eprintln!(
-                "   variable_struct_names = {:?}",
-                self.variable_struct_names
-            );
             // Check if this variable is tracked as a struct
             let maybe_struct_name = self.variable_struct_names.get(var_name).cloned();
 
             if maybe_struct_name.is_none() {
-                eprintln!("   ⚠️ Variable not tracked in variable_struct_names");
-                eprintln!("   → Checking type annotation...");
-
+                // Variable might be in current function scope but not yet registered
                 // Fallback: Try to infer from type annotation stored during Let statement
                 // This happens when type annotation is present: let inner: Box<i32> = ...
                 // In such cases, we might have tracked the type but not the struct name
                 // Look at variable_types to see if we can infer the struct name
                 if let Some(var_type) = self.variable_types.get(var_name) {
-                    eprintln!("   → Found type in variable_types: {:?}", var_type);
                     // For now, we can't easily extract struct name from LLVM type
                     // This is a limitation - we need better type tracking
                 }
             }
 
             if let Some(struct_name) = maybe_struct_name {
-                eprintln!("   ✅ Found struct: {}", struct_name);
                 let var_ptr = *self
                     .variables
                     .get(var_name)
@@ -97,7 +77,6 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     // For non-self variables, check if we need auto-deref (Box<T> case)
                     // This is complex, for now skip auto-deref for all non-self variables
                     // TODO: Add proper AST type tracking to determine when to auto-deref
-                    eprintln!("   ℹ️  No auto-deref for variable '{}'", var_name);
                 }
 
                 // Get struct definition from registry

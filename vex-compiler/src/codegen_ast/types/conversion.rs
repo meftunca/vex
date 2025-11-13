@@ -207,6 +207,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         .collect();
 
                     BasicTypeEnum::StructType(self.context.struct_type(&field_types, false))
+                } else if name == "ptr" {
+                    // Special case: 'ptr' is a generic pointer type (like void* in C)
+                    BasicTypeEnum::PointerType(self.context.ptr_type(inkwell::AddressSpace::default()))
                 } else {
                     // Unknown named type, default to i32
                     // TODO: Better error handling

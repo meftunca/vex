@@ -632,6 +632,14 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
     /// Compile to object file
     pub fn compile_to_object(&self, output_path: &Path) -> Result<(), String> {
+        self.compile_to_object_with_opt(output_path, OptimizationLevel::Default)
+    }
+
+    pub fn compile_to_object_with_opt(
+        &self,
+        output_path: &Path,
+        opt_level: OptimizationLevel,
+    ) -> Result<(), String> {
         Target::initialize_native(&InitializationConfig::default())
             .map_err(|e| format!("Failed to initialize native target: {}", e))?;
 
@@ -644,7 +652,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 &target_triple,
                 "generic",
                 "",
-                OptimizationLevel::Default,
+                opt_level,
                 RelocMode::Default,
                 CodeModel::Default,
             )

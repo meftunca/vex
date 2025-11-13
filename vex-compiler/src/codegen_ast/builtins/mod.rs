@@ -11,6 +11,7 @@ mod async_runtime; // Async/await runtime integration
 mod builtin_types; // Phase 0: Vec, Option, Result, Box
 mod channel;
 mod core;
+mod formatting; // Compile-time type-safe formatting
 mod hashmap;
 mod hints;
 mod intrinsics;
@@ -102,6 +103,11 @@ impl<'ctx> BuiltinRegistry<'ctx> {
         registry.register("strdup", string::builtin_strdup);
         registry.register("vex_string_as_cstr", string::builtin_string_as_cstr);
         registry.register("vex_string_len", string::builtin_string_len);
+
+        // Compile-time type-safe formatting (Rust-style zero-cost)
+        registry.register("i32_to_string", formatting::builtin_i32_to_string);
+        registry.register("f64_to_string", formatting::builtin_f64_to_string);
+        registry.register("bool_to_string", formatting::builtin_bool_to_string);
 
         // Register runtime memory operations
         registry.register("memcpy", memory_ops::builtin_memcpy);

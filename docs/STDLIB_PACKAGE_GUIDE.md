@@ -12,7 +12,7 @@
 2. [Package Architecture](#package-architecture)
 3. [File Structure Standards](#file-structure-standards)
 4. [Code Organization](#code-organization)
-5. [Trait & Struct Best Practices](#trait--struct-best-practices)
+5. [Contract & Struct Best Practices](#contract--struct-best-practices)
 6. [Multi-File Module Patterns](#multi-file-module-patterns)
 7. [Common Issues & Solutions](#common-issues--solutions)
 8. [Quality Checklist](#quality-checklist)
@@ -52,7 +52,7 @@ std/
     ├── src/
     │   ├── lib.vx            # Main entrypoint (REQUIRED)
     │   ├── types.vx          # Type definitions (if complex)
-    │   ├── traits.vx         # Trait definitions (if reusable)
+    │   ├── contracts.vx     # Contract definitions (if reusable)
     │   └── utils.vx          # Internal helpers (if needed)
     ├── native/               # C implementation (optional)
     │   └── src/
@@ -202,7 +202,7 @@ export struct DataType {
 // TRAITS
 // ============================================================================
 
-export trait Processable {
+export contract Processable {
     fn process(): i32;
 }
 
@@ -235,15 +235,15 @@ fn internal_helper(): i32 {
 
 ### Rule 2: File Naming Conventions
 
-| File Type | Naming Pattern | Example |
-|-----------|----------------|---------|
-| **Main entrypoint** | `lib.vx` | `src/lib.vx` |
-| **Platform-specific** | `lib.{os}.vx` | `src/lib.macos.vx` |
-| **Arch-specific** | `lib.{arch}.vx` | `src/lib.x64.vx` |
-| **Type definitions** | `types.vx` | `src/types.vx` |
-| **Trait definitions** | `traits.vx` | `src/traits.vx` |
-| **Internal utilities** | `utils.vx` or `helpers.vx` | `src/utils.vx` |
-| **Submodules** | `{feature}.vx` | `src/iterator.vx` |
+| File Type              | Naming Pattern             | Example            |
+| ---------------------- | -------------------------- | ------------------ |
+| **Main entrypoint**    | `lib.vx`                   | `src/lib.vx`       |
+| **Platform-specific**  | `lib.{os}.vx`              | `src/lib.macos.vx` |
+| **Arch-specific**      | `lib.{arch}.vx`            | `src/lib.x64.vx`   |
+| **Type definitions**   | `types.vx`                 | `src/types.vx`     |
+| **Trait definitions**  | `traits.vx`                | `src/traits.vx`    |
+| **Internal utilities** | `utils.vx` or `helpers.vx` | `src/utils.vx`     |
+| **Submodules**         | `{feature}.vx`             | `src/iterator.vx`  |
 
 ### Rule 3: Platform-Specific Files (Only When Needed)
 
@@ -340,7 +340,7 @@ export fn sqrt_f64(x: f64): f64 {
 
 ---
 
-## Trait & Struct Best Practices
+## Contract & Struct Best Practices
 
 ### Trait Definition Rules
 
@@ -348,10 +348,10 @@ export fn sqrt_f64(x: f64): f64 {
 
 ```vex
 // Correct: Trait defines contract
-trait Logger {
+contract Logger {
     fn log(msg: str);         // Immutable method
     fn clear()!;              // Mutable method
-    
+
     fn info(msg: str) {       // Default method
         self.log("[INFO] " + msg);
     }
@@ -361,15 +361,15 @@ trait Logger {
 **❌ DON'T:**
 
 ```vex
-// WRONG: Trait methods cannot have bodies (except defaults)
-trait Logger {
+// WRONG: Contract methods cannot have bodies (except defaults)
+contract Logger {
     fn log(msg: str) {        // ERROR: Non-default with body
         print(msg);
     }
 }
 ```
 
-### Struct + Trait Implementation
+### Struct + Contract Implementation
 
 **✅ CORRECT (Inline Implementation):**
 
@@ -377,7 +377,7 @@ trait Logger {
 struct ConsoleLogger impl Logger {
     prefix: str,
 
-    // ALL trait methods MUST be implemented here
+    // ALL contract methods MUST be implemented here
     fn log(msg: str) {
         print(self.prefix, ": ", msg);
     }
@@ -385,15 +385,15 @@ struct ConsoleLogger impl Logger {
     fn clear()! {
         // Mutable method implementation
     }
-    
-    // info() inherited from trait default
+
+    // info() inherited from contract default
 }
 ```
 
 **❌ WRONG (External Implementation):**
 
 ```vex
-// ERROR: Trait methods cannot be external
+// ERROR: Contract methods cannot be external
 fn (logger: &ConsoleLogger) log(msg: str) {
     print(msg);
 }
@@ -403,7 +403,7 @@ fn (logger: &ConsoleLogger) log(msg: str) {
 
 Vex uses **two syntaxes** depending on context:
 
-#### Syntax 1: Inline Methods (in `struct` or `trait`)
+#### Syntax 1: Inline Methods (in `struct` or `contract`)
 
 **Immutable:**
 
@@ -462,17 +462,17 @@ let! counter = Counter { value: 10 };
 counter.reset();  // No '!' at call site
 ```
 
-### Trait Methods vs Extra Methods
+### Contract Methods vs Extra Methods
 
-| Method Type | Location | Syntax |
-|-------------|----------|--------|
-| **Trait Methods** | MUST be in struct body | Inline only |
-| **Extra Methods** | Can be external | Golang-style OK |
+| Method Type          | Location               | Syntax          |
+| -------------------- | ---------------------- | --------------- |
+| **Contract Methods** | MUST be in struct body | Inline only     |
+| **Extra Methods**    | Can be external        | Golang-style OK |
 
 **Example**:
 
 ```vex
-trait Shape {
+contract Shape {
     fn area(): f64;
 }
 
@@ -536,7 +536,7 @@ import { HashSet, new_hashset } from "hashset";
 export { HashMap, new_hashmap, HashSet, new_hashset };
 ```
 
-### Pattern 3: Type-Trait Split
+### Pattern 3: Type-Contract Split
 
 **Use Case**: Complex traits, reusable across types
 
@@ -551,17 +551,17 @@ testing/
     └── types.vx      # T, B structs
 ```
 
-**`traits.vx`**:
+**`contracts.vx`**:
 
 ```vex
-export trait Testable {
+export contract Testable {
     fn error(msg: str)!;
     fn skip(msg: str)!;
     fn log(msg: str);
     fn failed(): bool;
 }
 
-export trait Benchmarkable {
+export contract Benchmarkable {
     fn reset_timer()!;
     fn start_timer()!;
     fn stop_timer()!;
@@ -571,16 +571,16 @@ export trait Benchmarkable {
 **`types.vx`**:
 
 ```vex
-import { Testable, Benchmarkable } from "traits";
+import { Testable, Benchmarkable } from "contracts";
 
 export struct T impl Testable {
     name: str,
     failed: bool,
-    
+
     fn error(msg: str)! {
         self.failed = true;
     }
-    
+
     // ... other methods
 }
 ```
@@ -599,6 +599,7 @@ export { Testable, Benchmarkable, T, B };
 **Use Case**: OS-specific syscalls (ONLY when truly needed)
 
 **⚠️ Note**: Most modules do NOT need this pattern. Only use when:
+
 - Different system calls required per OS
 - Platform-specific features (Windows registry, macOS keychain, etc.)
 
@@ -780,16 +781,16 @@ extern "C" {
 
 **Type Mapping**:
 
-| C Type | Vex Type |
-|--------|----------|
-| `int` | `i32` |
-| `long` | `i64` |
-| `size_t` | `u64` |
-| `char*` | `*u8` |
-| `void*` | `*u8` or `*void` |
-| `bool` | `bool` |
-| `float` | `f32` |
-| `double` | `f64` |
+| C Type   | Vex Type         |
+| -------- | ---------------- |
+| `int`    | `i32`            |
+| `long`   | `i64`            |
+| `size_t` | `u64`            |
+| `char*`  | `*u8`            |
+| `void*`  | `*u8` or `*void` |
+| `bool`   | `bool`           |
+| `float`  | `f32`            |
+| `double` | `f64`            |
 
 **Corrected**:
 
@@ -813,7 +814,7 @@ Error: Circular dependency detected: A -> B -> A
 
 ```vex
 // common.vx
-export trait Common {
+export contract Common {
     fn shared_method(): i32;
 }
 
@@ -1010,7 +1011,7 @@ collections/
 import { HashMap, new_hashmap, with_capacity_hashmap } from "hashmap";
 import { HashSet, new_hashset, with_capacity_hashset } from "hashset";
 
-export { 
+export {
     HashMap, new_hashmap, with_capacity_hashmap,
     HashSet, new_hashset, with_capacity_hashset
 };

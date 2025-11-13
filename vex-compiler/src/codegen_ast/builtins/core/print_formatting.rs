@@ -35,7 +35,13 @@ pub fn compile_print_call<'ctx>(
         compile_print_fmt(codegen, func_name, compiled_args, &arg_types)
     } else {
         // Go-style variadic mode: print("x =", 42, "y =", 3.14)
-        compile_print_variadic(codegen, func_name, compiled_args)
+        // Infer types for all arguments
+        let mut arg_types = Vec::new();
+        for arg in ast_args {
+            let ty = codegen.infer_expression_type(arg)?;
+            arg_types.push(ty);
+        }
+        compile_print_variadic(codegen, func_name, compiled_args, &arg_types)
     }
 }
 

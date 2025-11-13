@@ -135,8 +135,8 @@ impl ModuleResolver {
                 return Err(format!("Module file not found: {:?}", file_path));
             }
 
-            // Otherwise try common module file names
-            for module_file in &["mod.vx", "lib.vx", "index.vx", "main.vx"] {
+            // Otherwise try common module file names (prefer src/lib.vx pattern)
+            for module_file in &["src/lib.vx", "mod.vx", "lib.vx", "index.vx", "main.vx"] {
                 let candidate = file_path.join(module_file);
                 if candidate.exists() {
                     return Ok(candidate);
@@ -171,8 +171,13 @@ impl ModuleResolver {
                 file_path.push(part);
             }
 
-            // Add mod.vx at the end
-            file_path.push("mod.vx");
+            // Try multiple file patterns (prefer src/lib.vx)
+            for module_file in &["src/lib.vx", "mod.vx", "lib.vx"] {
+                let candidate = file_path.join(module_file);
+                if candidate.exists() {
+                    return Ok(candidate);
+                }
+            }
         }
 
         // Check if file exists

@@ -219,11 +219,11 @@ impl VexBackend {
 
     fn add_trait_impl_tokens(
         &self,
-        _impl_block: &vex_ast::TraitImpl,
+        _impl_block: &vex_ast::ExternalTraitImpl,
         _source: &str,
         _tokens: &mut Vec<SemanticToken>,
     ) {
-        // TODO: Implement trait impl block semantic tokens
+        // TODO: Implement external trait impl block semantic tokens
     }
 
     fn add_import_tokens(

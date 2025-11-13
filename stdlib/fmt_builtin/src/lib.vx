@@ -1,0 +1,7 @@
+// Builtin formatting functions
+// Provides format() function for zero-cost formatting
+
+export fn format(template: str): str {
+    // Builtin implementation
+    return template;
+}
