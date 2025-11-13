@@ -202,16 +202,30 @@ impl<'ctx> ASTCodeGen<'ctx> {
                             eprintln!("📌 Method already mangled: {}", func.name);
                             func.name.clone()
                         } else {
-                            // ⭐ NEW: For operator overloading, include parameter count to distinguish
-                            // unary vs binary operators (e.g., op-(self) vs op-(self, other))
+                            // ⭐ Method name mangling with type-based overloading support
                             let param_count = func.params.len();
                             let base_name = format!("{}_{}", sn, func.name);
                             
-                            // Only add parameter count suffix for operators that can be both unary and binary
-                            let name = if func.name.starts_with("op") && 
-                                       (func.name == "op-" || func.name == "op+" || func.name == "op*") {
-                                format!("{}_{}", base_name, param_count)
+                            // ⭐ For method overloading: Include first parameter type in mangling
+                            // This allows overloading like: add(i32), add(f64), op+(i32), op+(f64)
+                            let name = if !func.params.is_empty() {
+                                let first_param_type = &func.params[0].ty;
+                                let type_suffix = self.generate_type_suffix(first_param_type);
+                                
+                                // Only add type suffix for operators (for backward compatibility)
+                                // Format: StructName_methodname_typename_paramcount
+                                if func.name.starts_with("op") {
+                                    format!("{}{}_{}", base_name, type_suffix, param_count)
+                                } else {
+                                    // For non-operators, add suffix only if type_suffix is not empty
+                                    if !type_suffix.is_empty() {
+                                        format!("{}{}_{}", base_name, type_suffix, param_count)
+                                    } else {
+                                        format!("{}_{}", base_name, param_count)
+                                    }
+                                }
                             } else {
+                                // No parameters (e.g., getter methods)
                                 base_name
                             };
                             

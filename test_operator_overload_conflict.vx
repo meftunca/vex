@@ -1,0 +1,50 @@
+// Test: Same operator with different parameter types
+// Should work: op+(i32) and op+(f64) are different signatures
+
+contract Add<Rhs> {
+    op+(rhs: Rhs): Self;
+}
+
+struct Point impl Add<i32>, Add<f64> {
+    x: f64,
+    y: f64,
+    
+    // First overload: Point + i32
+    op+(other: i32): Point {
+        print("Called op+(i32)");
+        return Point { 
+            x: self.x + (other as f64), 
+            y: self.y + (other as f64) 
+        };
+    }
+    
+    // Second overload: Point + f64
+    op+(other: f64): Point {
+        print("Called op+(f64)");
+        return Point { 
+            x: self.x + other, 
+            y: self.y + other 
+        };
+    }
+}
+
+fn main(): i32 {
+    let p = Point { x: 10.0, y: 20.0 };
+    
+    // Test 1: p + 5 (i32)
+    let p1 = p + 5;
+    print("p + 5 = ({}, {})", p1.x as i32, p1.y as i32);
+    
+    // Test 2: p + 2.5 (f64)
+    let p2 = p + 2.5;
+    print("p + 2.5 = ({}, {})", p2.x as i32, p2.y as i32);
+    
+    // Verify results
+    if p1.x as i32 == 15 {
+        if p2.x as i32 == 12 {
+            return 0; // Success
+        }
+    }
+    
+    return 1; // Failure
+}

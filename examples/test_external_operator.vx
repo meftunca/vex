@@ -2,7 +2,7 @@
 // Expected: Parse and compile successfully
 
 contract Add {
-    op+(rhs: Self): Self;
+    fn op+(rhs: Self): Self;
 }
 
 // External operator method AFTER struct definition

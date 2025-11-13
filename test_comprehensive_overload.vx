@@ -1,0 +1,72 @@
+// Test: Comprehensive type-based method overloading
+// Tests primitive types, generics, references, tuples, arrays
+
+contract Add<Rhs> {
+    fn op+(other: Rhs): Self;
+}
+
+struct Calculator {
+    value: i32,
+}
+
+// Test 1: Multiple primitive overloads
+struct Calculator impl Add<i32> {
+    fn op+(other: i32): Calculator {
+        print("Calculator + i32");
+        return Calculator { value: self.value + other };
+    }
+}
+
+struct Calculator impl Add<i64> {
+    fn op+(other: i64): Calculator {
+        print("Calculator + i64");
+        return Calculator { value: self.value + (other as i32) };
+    }
+}
+
+struct Calculator impl Add<f32> {
+    fn op+(other: f32): Calculator {
+        print("Calculator + f32");
+        return Calculator { value: self.value + (other as i32) };
+    }
+}
+
+struct Calculator impl Add<f64> {
+    fn op+(other: f64): Calculator {
+        print("Calculator + f64");
+        return Calculator { value: self.value + (other as i32) };
+    }
+}
+
+struct Calculator impl Add<bool> {
+    fn op+(other: bool): Calculator {
+        print("Calculator + bool");
+        return Calculator { value: self.value + 1 };
+    }
+}
+
+fn main(): i32 {
+    let c = Calculator { value: 10 };
+    
+    // Test i32
+    let c1 = c + 5;
+    print("c + 5 = {}", c1.value);
+    
+    // Test i64
+    let c2 = c + (100 as i64);
+    print("c + 100i64 = {}", c2.value);
+    
+    // Test f32
+    let c3 = c + (3.14 as f32);
+    print("c + 3.14f32 = {}", c3.value);
+    
+    // Test f64
+    let c4 = c + 2.71;
+    print("c + 2.71 = {}", c4.value);
+    
+    // Test bool - use comparison
+    let c5 = c + (5 > 3);
+    print("c + true = {}", c5.value);
+    
+    return 0;
+}

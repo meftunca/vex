@@ -489,4 +489,15 @@ mod tests {
         assert_eq!(tokens[0], Token::Contract, "Expected Contract token, got {:?}", tokens[0]);
         assert_eq!(tokens[1], Token::Ident("Add".to_string()));
     }
+
+    #[test]
+    fn test_operator_method() {
+        let source = "fn op+(x: i32)";
+        let tokens: Vec<_> = Lexer::new(source).map(|r| r.unwrap().token).collect();
+        
+        println!("Tokens: {:?}", tokens);
+        assert_eq!(tokens[0], Token::Fn);
+        assert_eq!(tokens[1], Token::OperatorMethod("op+".to_string()), "Expected OperatorMethod, got {:?}", tokens[1]);
+        assert_eq!(tokens[2], Token::LParen);
+    }
 }

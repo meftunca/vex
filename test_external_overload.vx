@@ -1,0 +1,39 @@
+// Test: External methods with same operator, different types
+// Golang-style: fn (self: Type) method()
+
+struct Vec2 {
+    x: f64,
+    y: f64,
+}
+
+// External method: Vec2 + i32
+fn (self: &Vec2) op+(other: i32): Vec2 {
+    print("External: Vec2 + i32");
+    return Vec2 { 
+        x: self.x + (other as f64), 
+        y: self.y + (other as f64) 
+    };
+}
+
+// External method: Vec2 + f64
+fn (self: &Vec2) op+(other: f64): Vec2 {
+    print("External: Vec2 + f64");
+    return Vec2 { 
+        x: self.x + other, 
+        y: self.y + other 
+    };
+}
+
+fn main(): i32 {
+    let v = Vec2 { x: 1.0, y: 2.0 };
+    
+    // Should call Vec2 + i32
+    let v1 = v + 3;
+    print("v + 3 = ({}, {})", v1.x as i32, v1.y as i32);
+    
+    // Should call Vec2 + f64
+    let v2 = v + 1.5;
+    print("v + 1.5 = ({}, {})", v2.x as i32, v2.y as i32);
+    
+    return 0;
+}

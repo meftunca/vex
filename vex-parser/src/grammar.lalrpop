@@ -68,7 +68,7 @@ EnumVariant: EnumVariant = {
 // ============================================================================
 
 Function: Function = {
-    <qualifiers:FunctionQualifier*> "fn" <name:Ident> <generics:Generics?> "(" <params:Comma<Param>> ")" <return_type:("->" <Type>)?> <body:Block> => Function {
+    <qualifiers:FunctionQualifier*> "fn" <name:FunctionName> <generics:Generics?> "(" <params:Comma<Param>> ")" <return_type:("->" <Type>)?> <body:Block> => Function {
         name,
         generics: generics.unwrap_or_default(),
         params,
@@ -126,7 +126,7 @@ Interface: Interface = {
 };
 
 InterfaceMethod: InterfaceMethod = {
-    "fn" <name:Ident> "(" <params:Comma<Type>> ")" <return_type:("->" <Type>)?> ";" => InterfaceMethod {
+    "fn" <name:FunctionName> "(" <params:Comma<Type>> ")" <return_type:("->" <Type>)?> ";" => InterfaceMethod {
         name,
         params,
         return_type,
@@ -471,6 +471,12 @@ ArrayLiteral: Expression = {
 
 Ident: String = {
     r"[a-zA-Z_][a-zA-Z0-9_]*" => <>.to_string(),
+};
+
+// Function names: identifiers or operator names (op+, op-, op*, etc.)
+FunctionName: String = {
+    <id:Ident> => id,
+    r"op[+\-*/%<>=!&|^~\[\]]+" => <>.to_string(),
 };
 
 IntLiteral: i64 = {

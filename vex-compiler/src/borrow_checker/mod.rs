@@ -6,6 +6,7 @@
 
 pub mod borrows;
 pub mod builtin_metadata;
+pub mod builtins_list;
 pub mod closure_traits;
 pub mod errors;
 pub mod immutability;

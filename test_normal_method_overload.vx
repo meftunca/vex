@@ -1,0 +1,29 @@
+// Test: Normal method overloading (non-operator)
+
+struct Calculator {
+    value: i32,
+}
+
+// Method overload 1: add(i32)
+fn (self: Calculator) add(x: i32): Calculator {
+    print("add(i32) called");
+    return Calculator { value: self.value + x };
+}
+
+// Method overload 2: add(f64)
+fn (self: Calculator) add(x: f64): Calculator {
+    print("add(f64) called");
+    return Calculator { value: self.value + (x as i32) };
+}
+
+fn main(): i32 {
+    let c = Calculator { value: 10 };
+    
+    let c1 = c.add(5);      // Should call add(i32)
+    let c2 = c.add(2.5);    // Should call add(f64)
+    
+    print("c1.value = {}", c1.value);
+    print("c2.value = {}", c2.value);
+    
+    return 0;
+}

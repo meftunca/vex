@@ -1,0 +1,35 @@
+// Test: Inline operator overloading with generic traits
+
+
+contract Add<Rhs> {
+    fn op+(other: Rhs): Self;
+}
+
+struct Point impl Add<i32>,Add<f64>  {
+    x: f64,
+    y: f64,
+    
+    fn op+(other: i32): Point {
+        print("Point + i32");
+        return Point { x: self.x + (other as f64), y: self.y + (other as f64) };
+    }
+
+    fn op+(other: f64): Point {
+        print("Point + f64");
+        return Point { x: self.x + other, y: self.y + other };
+    }
+}
+
+fn main(): i32 {
+    let p = Point { x: 1.0, y: 2.0 };
+    
+    // Should call Point + i32
+    let p1 = p + 5;
+    print("p + 5 = ({}, {})", p1.x as i32, p1.y as i32);
+    
+    // Should call Point + f64
+    let p2 = p + 2.5;
+    print("p + 2.5 = ({}, {})", p2.x, p2.y);
+    
+    return 0;
+}

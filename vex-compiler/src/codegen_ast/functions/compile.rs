@@ -37,22 +37,33 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     )
                 }
             };
+            
             // Check if name is already mangled (imported methods)
             if func.name.starts_with(&format!("{}_", type_name)) {
                 func.name.clone()
             } else {
-                // ⭐ NEW: For operators that can be both unary and binary, add parameter count suffix
-                // to distinguish them (e.g., op-(self) vs op-(self, other))
+                // ⭐ Type-based method overloading: Include first parameter type in mangling
                 let param_count = func.params.len();
                 let base_name = format!("{}_{}", type_name, func.name);
                 
-                // Only add parameter count suffix for operators that can be both unary and binary
-                if func.name.starts_with("op") && 
-                   (func.name == "op-" || func.name == "op+" || func.name == "op*") {
-                    format!("{}_{}", base_name, param_count)
+                // Add type suffix for overloading (same logic as program.rs registration)
+                let name = if !func.params.is_empty() {
+                    let first_param_type = &func.params[0].ty;
+                    let type_suffix = self.generate_type_suffix(first_param_type);
+                    
+                    // Add type suffix for operators
+                    if func.name.starts_with("op") && !type_suffix.is_empty() {
+                        format!("{}{}_{}", base_name, type_suffix, param_count)
+                    } else if !type_suffix.is_empty() {
+                        // For non-operators, add suffix only if not empty
+                        format!("{}{}_{}", base_name, type_suffix, param_count)
+                    } else {
+                        format!("{}_{}", base_name, param_count)
+                    }
                 } else {
                     base_name
-                }
+                };
+                name
             }
         } else {
             func.name.clone()

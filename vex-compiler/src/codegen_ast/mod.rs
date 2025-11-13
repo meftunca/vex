@@ -199,4 +199,161 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         Ok(())
     }
+
+    /// ⭐ NEW: Generate comprehensive type suffix for method overloading
+    /// Handles ALL type variants including primitives, generics, references, tuples, etc.
+    /// Returns a mangled suffix that uniquely identifies the type for method dispatch
+    pub(crate) fn generate_type_suffix(&self, ty: &Type) -> String {
+        match ty {
+            // Primitive integer types
+            Type::I8 => "_i8".to_string(),
+            Type::I16 => "_i16".to_string(),
+            Type::I32 => "_i32".to_string(),
+            Type::I64 => "_i64".to_string(),
+            Type::I128 => "_i128".to_string(),
+            Type::U8 => "_u8".to_string(),
+            Type::U16 => "_u16".to_string(),
+            Type::U32 => "_u32".to_string(),
+            Type::U64 => "_u64".to_string(),
+            Type::U128 => "_u128".to_string(),
+
+            // Primitive float types
+            Type::F16 => "_f16".to_string(),
+            Type::F32 => "_f32".to_string(),
+            Type::F64 => "_f64".to_string(),
+
+            // Other primitives
+            Type::Bool => "_bool".to_string(),
+            Type::String => "_String".to_string(),
+            Type::Byte => "_byte".to_string(),
+
+            // Named types (structs, enums, custom types)
+            Type::Named(name) => format!("_{}", name),
+
+            // Generic types: Vec<i32> -> _Vec_i32, Map<String,i32> -> _Map_String_i32
+            Type::Generic { name, type_args } => {
+                let mut suffix = format!("_{}", name);
+                for arg in type_args {
+                    suffix.push_str(&self.generate_type_suffix(arg));
+                }
+                suffix
+            }
+
+            // Reference types: &T -> _ref_T, &!T -> _refmut_T
+            Type::Reference(inner, is_mutable) => {
+                let mut suffix = if *is_mutable {
+                    "_refmut".to_string()
+                } else {
+                    "_ref".to_string()
+                };
+                suffix.push_str(&self.generate_type_suffix(inner));
+                suffix
+            }
+
+            // Array types: [i32; 5] -> _arr5_i32
+            Type::Array(elem, size) => {
+                format!("_arr{}{}", size, self.generate_type_suffix(elem))
+            }
+
+            // Const array: [T; N] -> _arrN_T
+            Type::ConstArray {
+                elem_type,
+                size_param,
+            } => {
+                format!("_arr{}{}", size_param, self.generate_type_suffix(elem_type))
+            }
+
+            // Slice types: &[T] -> _slice_T, &![T] -> _slicemut_T
+            Type::Slice(elem, is_mutable) => {
+                let mut suffix = if *is_mutable {
+                    "_slicemut".to_string()
+                } else {
+                    "_slice".to_string()
+                };
+                suffix.push_str(&self.generate_type_suffix(elem));
+                suffix
+            }
+
+            // Tuple types: (i32, f64) -> _tuple_i32_f64
+            Type::Tuple(elements) => {
+                let mut suffix = "_tuple".to_string();
+                for elem in elements {
+                    suffix.push_str(&self.generate_type_suffix(elem));
+                }
+                suffix
+            }
+
+            // Function types: fn(i32, f64): bool -> _fn_i32_f64_ret_bool
+            Type::Function {
+                params,
+                return_type,
+            } => {
+                let mut suffix = "_fn".to_string();
+                for param in params {
+                    suffix.push_str(&self.generate_type_suffix(param));
+                }
+                suffix.push_str("_ret");
+                suffix.push_str(&self.generate_type_suffix(return_type));
+                suffix
+            }
+
+            // Union types: (i32 | f64) -> _union_i32_f64
+            Type::Union(types) => {
+                let mut suffix = "_union".to_string();
+                for ty in types {
+                    suffix.push_str(&self.generate_type_suffix(ty));
+                }
+                suffix
+            }
+
+            // Intersection types: (Display & Clone) -> _inter_Display_Clone
+            Type::Intersection(types) => {
+                let mut suffix = "_inter".to_string();
+                for ty in types {
+                    suffix.push_str(&self.generate_type_suffix(ty));
+                }
+                suffix
+            }
+
+            // Raw pointer: *T -> _ptr_T, *const T -> _constptr_T
+            Type::RawPtr { inner, is_const } => {
+                let mut suffix = if *is_const {
+                    "_constptr".to_string()
+                } else {
+                    "_ptr".to_string()
+                };
+                suffix.push_str(&self.generate_type_suffix(inner));
+                suffix
+            }
+
+            // Builtin wrapper types
+            Type::Option(inner) => format!("_Option{}", self.generate_type_suffix(inner)),
+            Type::Result(ok, err) => format!(
+                "_Result{}{}",
+                self.generate_type_suffix(ok),
+                self.generate_type_suffix(err)
+            ),
+            Type::Vec(elem) => format!("_Vec{}", self.generate_type_suffix(elem)),
+            Type::Box(inner) => format!("_Box{}", self.generate_type_suffix(inner)),
+            Type::Channel(inner) => format!("_Channel{}", self.generate_type_suffix(inner)),
+
+            // Special types - use simple names
+            Type::Unit => "_unit".to_string(),
+            Type::Never => "_never".to_string(),
+            Type::Any => "_any".to_string(),
+            Type::SelfType => "_Self".to_string(),
+            Type::Error => "_error".to_string(),
+            Type::Nil => "_nil".to_string(),
+
+            // Associated types: Self::Item -> _Self_Item
+            Type::AssociatedType { self_type, name } => {
+                format!("{}__{}", self.generate_type_suffix(self_type), name)
+            }
+
+            // Complex types - fallback to empty (skip in mangling)
+            Type::Conditional { .. } => String::new(),
+            Type::Infer(_) => String::new(),
+            Type::Typeof(_) => String::new(),
+        }
+    }
 }

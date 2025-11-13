@@ -1,0 +1,6 @@
+// Simple array test without repeat syntax
+fn main(): i32 {
+    let arr = [1, 2, 3, 4, 5];
+    let len = arr.len();
+    return 0;  // Return 0 for success
+}
