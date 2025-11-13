@@ -1,0 +1,39 @@
+// Test trait bounds validation - Should FAIL at compile time
+// Purpose: Verify that type checker rejects invalid type arguments
+
+contract Display {
+    show(): i32;
+}
+
+struct Point impl Display {
+    x: i32,
+    y: i32,
+
+    fn (self: &Point!) show(): i32 {
+        print("Point(");
+        print(self.x);
+        print(", ");
+        print(self.y);
+        print(")");
+        return 0;
+    }
+}
+
+// This struct does NOT implement Display
+struct NoDisplay {
+    value: i32,
+}
+
+// Generic function requiring Display
+fn print_value<T: Display>(val: T): i32 {
+    return val.show();
+}
+
+fn main(): i32 {
+    let nd = NoDisplay { value: 42 };
+    
+    // ❌ This should FAIL: NoDisplay doesn't implement Display
+    print_value(nd);
+    
+    return 0;
+}

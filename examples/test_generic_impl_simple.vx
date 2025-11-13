@@ -1,0 +1,30 @@
+// Test generic impl clause - simplified version for testing
+contract Add<Rhs> {
+    op+(other: Rhs): Self;
+}
+
+struct Point impl Add<i32> {
+    x: i32,
+    y: i32,
+    
+    fn op+(other: i32): Point {
+        return Point { 
+            x: self.x + other, 
+            y: self.y + other 
+        };
+    }
+}
+
+fn main(): i32 {
+    let p1 = Point { x: 10, y: 20 };
+    let p2 = p1 + 5;
+    
+    // Verify: p2.x should be 15, p2.y should be 25
+    if p2.x == 15 {
+        if p2.y == 25 {
+            return 0; // Success
+        }
+    }
+    
+    return 1; // Fail
+}

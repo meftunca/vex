@@ -1,0 +1,65 @@
+// Test trait bounds validation - Type checker enforcement
+// Purpose: Verify that trait bounds are checked at compile time
+
+contract Display {
+    show(): i32;
+}
+
+contract Clone {
+    clone(): Self;
+}
+
+struct Point impl Display, Clone {
+    x: i32,
+    y: i32,
+
+    fn (self: &Point!) show(): i32 {
+        print("Point(");
+        print(self.x);
+        print(", ");
+        print(self.y);
+        print(")");
+        return 0;
+    }
+
+    fn (self: &Point) clone(): Point {
+        return Point { x: self.x, y: self.y };
+    }
+}
+
+struct NoDisplay {
+    value: i32,
+}
+
+// Generic function with trait bound
+fn print_value<T: Display>(val: T): i32 {
+    return val.show();
+}
+
+// Generic function with multiple bounds - using where clause
+fn clone_and_show<T>(val: T): i32
+where
+    T: Display,
+    T: Clone
+{
+    let cloned = val.clone();
+    cloned.show();
+    return 0;
+}
+
+fn main(): i32 {
+    let p = Point { x: 10, y: 20 };
+    
+    // ✅ Should work: Point implements Display
+    print_value(p);
+    
+    // ✅ Should work: Point implements both Display & Clone
+    clone_and_show(p);
+    
+    // ❌ TODO: Should fail at compile time: NoDisplay doesn't implement Display
+    // Uncomment to test type checker enforcement:
+    // let nd = NoDisplay { value: 42 };
+    // print_value(nd);  // ERROR: trait bound not satisfied
+    
+    return 0;
+}
