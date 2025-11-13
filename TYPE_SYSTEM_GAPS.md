@@ -1,6 +1,6 @@
 # Type System Gaps - Missing Features
 
-**Status:** 100% test pass (378/378) - Phase 1 ✅ COMPLETE!
+**Status:** 100% test pass (382/382) - Phase 1 & 2 ✅ COMPLETE!
 **Date:** November 13, 2025
 
 ---
@@ -19,7 +19,7 @@
 - ✅ LLVM: Operator name encoding for function names
 - ✅ Method lookup: Type-aware trait method resolution
 - ✅ Type checker: Trait bounds validation
-- ✅ Tests: 378/378 passing (100%)
+- ✅ Tests: 382/382 passing (100%)
 
 **Working Syntax:**
 ```vex
@@ -68,7 +68,7 @@ let v4 = v * 2;      // ✅ Mul<i32> implementation
 - ✅ Parser: Parses inline bounds `T: Display`
 - ✅ Type checker: `TraitBoundsChecker` validates at instantiation
 - ✅ Enforcement: Compile-time errors for violations
-- ✅ Tests: 378/378 passing (100%)
+- ✅ Tests: 382/382 passing (100%)
 
 **Working Syntax:**
 ```vex
@@ -123,54 +123,63 @@ print_value(NoDisplay { value: 42 });
 
 ---
 
-## 🔴 CRITICAL - High Priority
-
-### 1. Default Type Parameters
-**Status:** ❌ Not Implemented  
+### 3. Default Type Parameters
+**Status:** ✅ **FULLY IMPLEMENTED**  
 **Importance:** HIGH - Ergonomics & Rust compatibility
+**Completed:** November 13, 2025
 
-**Current Limitation:**
-```rust
-// vex-ast/src/lib.rs:16
-pub struct TypeParam {
-    pub name: String,
-    pub bounds: Vec<TraitBound>,
-    // ❌ No default_type field
-}
-```
+**Implementation Summary:**
+- ✅ AST: `TypeParam { name, bounds, default_type: Option<Type> }`
+- ✅ Parser: Parses `T = DefaultType` syntax
+- ✅ Type substitution: Uses defaults for omitted type args
+- ✅ TraitBoundsChecker: Allows fewer args when defaults present
+- ✅ Tests: 382/382 passing (100%)
 
-**Needed:**
+**Working Syntax:**
 ```vex
-// ❌ Current: Must always specify Rhs
-contract Add<Rhs> {
-    op+(other: Rhs): Self;
-}
-
-// ✅ Want: Default to Self if not specified
+// ✅ WORKS: Default type parameters in traits
 contract Add<Rhs = Self> {
     op+(other: Rhs): Self;
 }
 
-// Usage with impl:
-struct Point impl Add { }        // Rhs defaults to Point (Point + Point)
-struct Point impl Add<f64> { }   // Rhs is f64 (Point + f64)
-struct Point impl Add, Add<i32> { } // Both Point + Point and Point + i32
+// Usage - defaults make code cleaner:
+struct Point impl Add { }        // ✅ Rhs defaults to Point
+struct Point impl Add<f64> { }   // ✅ Rhs explicitly set to f64
+struct Vector impl Add, Add<i32> { } // ✅ Both Add<Self> and Add<i32>
+
+// Generic structs with defaults:
+struct Container<T, U = T> {
+    first: T,
+    second: U,  // Defaults to same type as T
+}
+
+let c1: Container<i32> = ...;      // ✅ Container<i32, i32>
+let c2: Container<i32, f64> = ...; // ✅ Container<i32, f64>
 ```
 
-**Required Changes:**
-1. AST: Add `default_type: Option<Type>` to `TypeParam`
-2. Parser: Parse `=` and default type in type parameter lists
-3. Type checker: Substitute defaults when type args omitted
-4. Validation: Ensure defaults appear after required params
+**Technical Details:**
+- Default types substituted during generic instantiation
+- Type checker validates that unprovided params have defaults
+- Manual `Eq`/`Hash` for `TypeParam` (ignores default_type)
+- Mangled names include all type args (with defaults resolved)
+
+**Test Files:**
+- `examples/test_default_type_params.vx` - Basic defaults
+- `examples/test_default_explicit.vx` - Override defaults
+- `examples/test_default_mixed.vx` - Partial defaults
+- `examples/test_default_self.vx` - Self reference defaults
 
 **Use Cases:**
 - Rust-style trait defaults (`Add<Rhs = Self>`)
 - Simplify common generic patterns
 - Reduce boilerplate in trait implementations
+- Better ergonomics for generic containers
 
 ---
 
-### 2. Higher-Kinded Types (HKT)
+## 🔴 CRITICAL - High Priority
+
+### 1. Higher-Kinded Types (HKT)
 **Status:** ❌ Not Implemented  
 **Importance:** HIGH - Advanced abstraction
 
@@ -494,7 +503,7 @@ struct Point {
 |----------|---------|--------|------------|----------|
 | 🟢 P0 | ~~Generic Impl Clause~~ | ~~Critical~~ | ~~Medium~~ | ✅ DONE |
 | 🟢 P1 | ~~Trait Bounds Enforcement~~ | ~~High~~ | ~~Low~~ | ✅ DONE |
-| 🔴 P2 | Default Type Params | High | Low | 0.5 day |
+| 🟢 P2 | ~~Default Type Params~~ | ~~High~~ | ~~Low~~ | ✅ DONE |
 | 🟡 P3 | Const Generics | Medium | Medium | 1-2 days |
 | 🟡 P4 | Associated Type Constraints | Medium | Medium | 1 day |
 | 🟡 P5 | Lifetime Annotations | Medium | High | 2-3 days |
@@ -507,17 +516,17 @@ struct Point {
 
 ## 🎯 Recommended Implementation Order
 
-### ✅ Phase 1: Core Polymorphism (COMPLETE)
+### ✅ Phase 1 & 2: Core Polymorphism (COMPLETE!)
 1. ✅ **Generic Impl Clause** - Multiple trait implementations with type parameters
 2. ✅ **Trait Bounds Enforcement** - Type checker validation
+3. ✅ **Default Type Params** - Ergonomics & Rust compatibility
 
-### Phase 2: Advanced Generics (2-3 days)
-3. **Default Type Params** - Quick win, improves ergonomics
-4. **Const Generics** - Static array safety
+### Phase 3: Advanced Generics (2-3 days) - CURRENT
+4. **Const Generics** - Static array safety (NEXT)
 5. **Associated Type Constraints** - Advanced trait patterns
 6. **External Operators Fix** - Complete operator overloading
 
-### Phase 3: Advanced Type System (5-8 days)
+### Phase 4: Advanced Type System (5-8 days)
 7. **Higher-Kinded Types** - Most complex, highest abstraction
 8. **Lifetime Annotations** - Complex but valuable
 9. **Conditional Impls** - Polish feature
