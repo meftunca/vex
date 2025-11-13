@@ -25,11 +25,21 @@ impl<'ctx> ASTCodeGen<'ctx> {
             );
         }
 
+        // Build type substitution map, using defaults for missing type args
         let mut type_subst = HashMap::new();
         for (i, type_param) in func_def.type_params.iter().enumerate() {
-            if let Some(concrete_type) = type_args.get(i) {
-                type_subst.insert(type_param.name.clone(), concrete_type.clone());
-            }
+            let concrete_type = if let Some(provided_type) = type_args.get(i) {
+                provided_type.clone()
+            } else if let Some(ref default_type) = type_param.default_type {
+                // Use default type (Self will be substituted later if needed)
+                default_type.clone()
+            } else {
+                return Err(format!(
+                    "Missing type argument for parameter '{}' in function '{}'",
+                    type_param.name, func_def.name
+                ));
+            };
+            type_subst.insert(type_param.name.clone(), concrete_type);
         }
 
         let subst_func = self.substitute_types_in_function(func_def, &type_subst)?;
@@ -162,9 +172,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
             .cloned()
             .ok_or_else(|| format!("Generic struct '{}' not found", struct_name))?;
 
-        if struct_ast.type_params.len() != type_args.len() {
+        // Allow fewer type args if remaining params have defaults
+        if type_args.len() > struct_ast.type_params.len() {
             return Err(format!(
-                "Struct '{}' expects {} type parameters, got {}",
+                "Struct '{}' expects at most {} type parameters, got {}",
                 struct_name,
                 struct_ast.type_params.len(),
                 type_args.len()
@@ -181,12 +192,37 @@ impl<'ctx> ASTCodeGen<'ctx> {
             );
         }
 
+        // Build type substitution map, using defaults for missing type args
         let mut type_subst = HashMap::new();
-        for (param, arg) in struct_ast.type_params.iter().zip(type_args.iter()) {
-            type_subst.insert(param.name.clone(), arg.clone());
+        for (i, param) in struct_ast.type_params.iter().enumerate() {
+            let concrete_type = if let Some(provided_type) = type_args.get(i) {
+                provided_type.clone()
+            } else if let Some(ref default_type) = param.default_type {
+                // Use default type (Self will be substituted later if needed)
+                default_type.clone()
+            } else {
+                return Err(format!(
+                    "Missing type argument for parameter '{}' in struct '{}'",
+                    param.name, struct_name
+                ));
+            };
+            type_subst.insert(param.name.clone(), concrete_type);
         }
 
-        let mangled_name = format!("{}_{}", struct_name, type_arg_strings.join("_"));
+        // Rebuild mangled name with all type args (including defaults)
+        let all_type_args: Vec<Type> = struct_ast
+            .type_params
+            .iter()
+            .map(|p| {
+                type_subst
+                    .get(&p.name)
+                    .cloned()
+                    .expect("type_subst should have all params")
+            })
+            .collect();
+        let all_type_arg_strings: Vec<String> =
+            all_type_args.iter().map(|t| self.type_to_string(t)).collect();
+        let mangled_name = format!("{}_{}", struct_name, all_type_arg_strings.join("_"));
 
         let specialized_fields: Vec<(String, Type)> = struct_ast
             .fields

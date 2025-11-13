@@ -1,0 +1,25 @@
+// Test 2: Default type parameters - Mixed (default + explicit)
+// Scenario: Multiple type params, some with defaults, some explicit
+
+contract Convert<From, To = From> {
+    fn convert(value: From): To;
+}
+
+struct Converter<T, U = T> impl Convert<T, U> {
+    multiplier: i32,
+
+    fn (self: &Converter<T, U>!) convert(value: T): U {
+        // This is a stub - real impl would need type-specific logic
+        return value as U;
+    }
+}
+
+fn main(): i32 {
+    // Test 1: Both explicit - Converter<i32, i64>
+    let c1: Converter<i32, i64> = Converter { multiplier: 2 };
+    
+    // Test 2: One default - Converter<i32> means Converter<i32, i32>
+    let c2: Converter<i32> = Converter { multiplier: 1 };
+    
+    return 0;  // Success if compiles
+}

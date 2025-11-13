@@ -71,23 +71,35 @@ impl TraitBoundsChecker {
 
     /// Check if a function call with generic type arguments satisfies trait bounds
     /// Example: print_value<Point>(...) where print_value<T: Display>
+    /// Note: type_args may be shorter than type_params if defaults are used
     pub fn check_function_bounds(
         &mut self,
         func: &Function,
         type_args: &[Type],
     ) -> Result<(), String> {
-        if func.type_params.len() != type_args.len() {
+        // Allow type_args to be shorter if remaining params have defaults
+        if type_args.len() > func.type_params.len() {
             return Err(format!(
-                "Generic argument count mismatch for function '{}': expected {} type parameters, got {}",
+                "Too many type arguments for function '{}': expected at most {} type parameters, got {}",
                 func.name,
                 func.type_params.len(),
                 type_args.len()
             ));
         }
 
-        // Check each type parameter's bounds
+        // Check each provided type parameter's bounds
         for (type_param, concrete_type) in func.type_params.iter().zip(type_args.iter()) {
             self.check_type_bounds(&type_param, concrete_type)?;
+        }
+
+        // Check that any unprovided params have defaults
+        for (i, type_param) in func.type_params.iter().enumerate() {
+            if i >= type_args.len() && type_param.default_type.is_none() {
+                return Err(format!(
+                    "Missing type argument for parameter '{}' in function '{}' (no default provided)",
+                    type_param.name, func.name
+                ));
+            }
         }
 
         Ok(())
@@ -95,23 +107,35 @@ impl TraitBoundsChecker {
 
     /// Check if a struct instantiation with generic type arguments satisfies trait bounds
     /// Example: Box<Point> where Box<T: Clone>
+    /// Note: type_args may be shorter than type_params if defaults are used
     pub fn check_struct_bounds(
         &mut self,
         struct_def: &Struct,
         type_args: &[Type],
     ) -> Result<(), String> {
-        if struct_def.type_params.len() != type_args.len() {
+        // Allow type_args to be shorter if remaining params have defaults
+        if type_args.len() > struct_def.type_params.len() {
             return Err(format!(
-                "Generic argument count mismatch for struct '{}': expected {} type parameters, got {}",
+                "Too many type arguments for struct '{}': expected at most {} type parameters, got {}",
                 struct_def.name,
                 struct_def.type_params.len(),
                 type_args.len()
             ));
         }
 
-        // Check each type parameter's bounds
+        // Check each provided type parameter's bounds
         for (type_param, concrete_type) in struct_def.type_params.iter().zip(type_args.iter()) {
             self.check_type_bounds(&type_param, concrete_type)?;
+        }
+
+        // Check that any unprovided params have defaults
+        for (i, type_param) in struct_def.type_params.iter().enumerate() {
+            if i >= type_args.len() && type_param.default_type.is_none() {
+                return Err(format!(
+                    "Missing type argument for parameter '{}' in struct '{}' (no default provided)",
+                    type_param.name, struct_def.name
+                ));
+            }
         }
 
         Ok(())
