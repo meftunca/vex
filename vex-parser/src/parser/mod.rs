@@ -427,7 +427,18 @@ impl<'a> Parser<'a> {
                 }
             }
 
-            params.push(TypeParam { name, bounds });
+            // Optional default type: T = i32, Rhs = Self
+            let default_type = if self.match_token(&Token::Eq) {
+                Some(self.parse_type()?)
+            } else {
+                None
+            };
+
+            params.push(TypeParam {
+                name,
+                bounds,
+                default_type,
+            });
 
             if !self.match_token(&Token::Comma) {
                 break;

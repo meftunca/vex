@@ -10,12 +10,26 @@ pub struct Program {
 /// File is an alias for Program (used in parser)
 pub type File = Program;
 
-/// Generic type parameter with optional trait bounds
-/// Examples: T, T: Display, T: Display + Clone, F: Callable(i32): i32
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+/// Generic type parameter with optional trait bounds and default type
+/// Examples: T, T: Display, T = i32, Rhs = Self
+/// Note: default_type is not used in Hash/Eq since it doesn't affect type identity
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TypeParam {
     pub name: String,
-    pub bounds: Vec<TraitBound>, // Trait bounds: Display, Callable(i32): i32, etc.
+    pub bounds: Vec<TraitBound>,   // Trait bounds: Display, Callable(i32): i32, etc.
+    pub default_type: Option<Type>, // Default type: Rhs = Self, T = i32, etc.
+}
+
+// Manual Eq and Hash implementations for TypeParam
+// Ignore default_type since it doesn't affect type parameter identity
+impl Eq for TypeParam {}
+
+impl std::hash::Hash for TypeParam {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.name.hash(state);
+        self.bounds.hash(state);
+        // Intentionally skip default_type - it's a convenience, not part of identity
+    }
 }
 
 /// Trait bound - can be a simple trait or a closure trait with signature
