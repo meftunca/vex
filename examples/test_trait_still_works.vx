@@ -1,13 +1,13 @@
 // Test: contract keyword hala çalışıyor mu?
 
 contract Logger {
-    log(msg: string);
+   fn log(msg: string);
 }
 
 struct ConsoleLogger impl Logger {
     prefix: string,
     
-    log(msg: string) {
+   fn log(msg: string) {
         print(self.prefix, ": ", msg);
         return;
     }

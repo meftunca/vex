@@ -168,6 +168,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
             self.variables.insert(receiver.name.clone(), receiver_var);
             self.variable_types
                 .insert(receiver.name.clone(), param_type);
+            
+            // ⭐ CRITICAL: Store AST type for type inference
+            self.variable_ast_types.insert(receiver.name.clone(), receiver.ty.clone());
 
             // Extract struct type name from receiver type
             // Handle: Type::Named, Type::Reference(Type::Named | Type::Vec | Type::Box | ...)
@@ -259,6 +262,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     .map_err(|e| format!("Failed to store parameter: {}", e))?;
                 self.variables.insert(param.name.clone(), alloca);
                 self.variable_types.insert(param.name.clone(), param_type);
+                
+                // ⭐ CRITICAL: Store AST type for type inference (print, format, etc.)
+                self.variable_ast_types.insert(param.name.clone(), param.ty.clone());
 
                 let extract_struct_name = |ty: &Type| -> Option<String> {
                     match ty {

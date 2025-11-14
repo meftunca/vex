@@ -44,8 +44,8 @@ impl MoveChecker {
             Type::Vec(_) => true,       // Vec<T> is Move (owns heap data)
             Type::Box(_) => false,
             Type::Channel(_) => false,
-            Type::Future(_) => false,   // Future<T> is Copy (pointer to runtime handle)
-            Type::Named(_) => true, // Assume move for now, will be refined with Copy trait
+            Type::Future(_) => false, // Future<T> is Copy (pointer to runtime handle)
+            Type::Named(_) => true,   // Assume move for now, will be refined with Copy trait
             Type::Generic { .. } => true,
 
             // Arrays and slices are Move

@@ -1,5 +1,6 @@
 // src/codegen/functions/asynchronous.rs
 use super::super::*;
+use super::await_scanner::count_await_points;
 use inkwell::values::FunctionValue;
 
 impl<'ctx> ASTCodeGen<'ctx> {
@@ -76,16 +77,31 @@ impl<'ctx> ASTCodeGen<'ctx> {
             .build_load(self.context.i32_type(), state_field_ptr, "current_state")
             .map_err(|e| format!("Failed to load state: {}", e))?;
 
-        // Create switch on state
+        // ⭐ PRE-SCAN: Count total await points in function body
+        let await_count = count_await_points(&func.body);
+
+        // Create switch on state - pre-allocate ALL blocks before building switch
         let state0_block = self.context.append_basic_block(resume_fn, "state0");
         let done_block = self.context.append_basic_block(resume_fn, "done");
 
+        // Pre-create resume blocks for each await point
+        let mut resume_blocks = vec![];
+        for i in 1..=await_count {
+            let resume_block = self
+                .context
+                .append_basic_block(resume_fn, &format!("resume_{}", i));
+            resume_blocks.push(resume_block);
+        }
+
+        // Build switch with ALL cases (state 0 + all resume states)
+        let mut switch_cases = vec![(self.context.i32_type().const_int(0, false), state0_block)];
+        for (i, block) in resume_blocks.iter().enumerate() {
+            let state_id = (i + 1) as u64;
+            switch_cases.push((self.context.i32_type().const_int(state_id, false), *block));
+        }
+
         self.builder
-            .build_switch(
-                current_state.into_int_value(),
-                done_block,
-                &[(self.context.i32_type().const_int(0, false), state0_block)],
-            )
+            .build_switch(current_state.into_int_value(), done_block, &switch_cases)
             .map_err(|e| format!("Failed to build switch: {}", e))?;
 
         // State 0: Initial execution
@@ -93,8 +109,18 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Load parameters from state struct
         self.current_function = Some(resume_fn);
+        self.current_async_resume_fn = Some(resume_fn);
         self.variables.clear();
         self.variable_types.clear();
+
+        // Push state machine context for await expressions
+        // Store resume blocks in codegen state for await compilation
+        self.async_resume_blocks = resume_blocks.clone();
+        self.async_state_stack.push((state_ptr, state_field_ptr, 0));
+        eprintln!(
+            "🔧 Pushed state context: state_id=0, resume_blocks_count={}",
+            resume_blocks.len()
+        );
 
         for (i, param) in func.params.iter().enumerate() {
             let param_ptr = self
@@ -110,14 +136,47 @@ impl<'ctx> ASTCodeGen<'ctx> {
             let param_type = self.ast_type_to_llvm(&param.ty);
             self.variables.insert(param.name.clone(), param_ptr);
             self.variable_types.insert(param.name.clone(), param_type);
+
+            // ⭐ CRITICAL: Store AST type for type inference
+            self.variable_ast_types
+                .insert(param.name.clone(), param.ty.clone());
         }
 
-        // Compile function body
+        // Compile function body (await expressions will use state machine context)
         self.compile_block(&func.body)?;
+
+        // Pop state machine context and clear resume blocks
+        self.async_state_stack.pop();
+        self.current_async_resume_fn = None;
+
+        // ⭐ Resume blocks already have terminators (added during await compilation)
+        // Just verify and add fallback if needed
+        let done_status = self.context.i32_type().const_int(2, false);
+
+        // ⚠️ CRITICAL: Position builder back to state0 block's end before checking terminators
+        let current_insert_block = self.builder.get_insert_block();
+
+        for resume_block in &self.async_resume_blocks {
+            // Each resume block should already have a branch to continuation
+            // If it doesn't, add DONE return as fallback
+            if resume_block.get_terminator().is_none() {
+                self.builder.position_at_end(*resume_block);
+                self.builder.build_return(Some(&done_status)).map_err(|e| {
+                    format!("Failed to build resume block fallback terminator: {}", e)
+                })?;
+            }
+        }
+
+        // Restore builder position
+        if let Some(block) = current_insert_block {
+            self.builder.position_at_end(block);
+        }
+
+        // Clear resume blocks for next async function
+        self.async_resume_blocks.clear();
 
         // ⚠️ CRITICAL: Only add return if block doesn't already have terminator
         // (compile_return_statement already adds one)
-        let done_status = self.context.i32_type().const_int(2, false);
         let current_block = self.builder.get_insert_block().unwrap();
         if current_block.get_terminator().is_none() {
             // Return CORO_STATUS_DONE (2)

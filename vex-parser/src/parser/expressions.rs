@@ -7,6 +7,7 @@ use vex_lexer::Token;
 
 impl<'a> Parser<'a> {
     pub(crate) fn parse_expression(&mut self) -> Result<Expression, ParseError> {
+        eprintln!("📝 parse_expression: token = {:?}", self.peek());
         self.parse_range()
     }
 

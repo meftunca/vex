@@ -250,6 +250,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         self.variables.clear();
         self.variable_types.clear();
         self.variable_struct_names.clear();
+        self.variable_ast_types.clear();
 
         let param_offset;
 
@@ -280,6 +281,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
             self.variables.insert("self".to_string(), self_ptr);
             self.variable_types
                 .insert("self".to_string(), receiver_llvm_ty);
+            
+            // ⭐ CRITICAL: Store AST type for type inference
+            self.variable_ast_types.insert("self".to_string(), receiver.ty.clone());
 
             let struct_name_opt = match &receiver.ty {
                 Type::Named(name) => Some(name.clone()),
@@ -319,6 +323,13 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 .insert("self".to_string(), receiver_ty.into());
             self.variable_struct_names
                 .insert("self".to_string(), struct_name.to_string());
+            
+            // ⭐ CRITICAL: Store AST type for type inference (implicit receiver)
+            let receiver_ast_type = Type::Reference(
+                Box::new(Type::Named(struct_name.to_string())),
+                false
+            );
+            self.variable_ast_types.insert("self".to_string(), receiver_ast_type);
 
 
             param_offset = 1;
@@ -354,6 +365,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 self.variables.insert(param.name.clone(), alloca);
                 self.variable_types
                     .insert(param.name.clone(), struct_val.get_type().into());
+                
+                // ⭐ CRITICAL: Store AST type for type inference
+                self.variable_ast_types.insert(param.name.clone(), param.ty.clone());
             } else {
                 // Non-struct parameter - allocate and store as usual
                 let param_ty = self.ast_type_to_llvm(&param.ty);
@@ -368,6 +382,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
                 self.variables.insert(param.name.clone(), alloca);
                 self.variable_types.insert(param.name.clone(), param_ty);
+                
+                // ⭐ CRITICAL: Store AST type for type inference
+                self.variable_ast_types.insert(param.name.clone(), param.ty.clone());
             }
 
             self.track_param_struct_name(&param.name, &param.ty);

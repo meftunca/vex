@@ -1,0 +1,44 @@
+// Test await expression with state machine
+// Tests: await expr within async functions
+
+async fn get_value(): i32 {
+    return 42;
+}
+
+async fn double_value(x: i32): i32 {
+    return x * 2;
+}
+
+async fn test_simple_await(): i32 {
+    let value = await get_value();
+    return value + 10;
+}
+
+async fn test_chained_await(): i32 {
+    let v1 = await get_value();
+    let v2 = await double_value(v1);
+    return v2 + 8;
+}
+
+async fn test_await_in_expression(): i32 {
+    let result = (await get_value()) + (await double_value(10));
+    return result;
+}
+
+fn main() {
+    println("=== Await State Machine Tests ===");
+    
+    println("\n1. Simple await:");
+    let fut1 = test_simple_await();
+    println("  Created Future<i32>");
+    
+    println("\n2. Chained await:");
+    let fut2 = test_chained_await();
+    println("  Created Future<i32>");
+    
+    println("\n3. Await in expression:");
+    let fut3 = test_await_in_expression();
+    println("  Created Future<i32>");
+    
+    println("\n✅ All await tests compiled successfully");
+}

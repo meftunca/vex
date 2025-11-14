@@ -141,7 +141,6 @@ impl<'ctx> ASTCodeGen<'ctx> {
             Expression::Ident(name) => {
                 // Check if we have AST type information first (most accurate)
                 if let Some(ast_type) = self.variable_ast_types.get(name) {
-                    eprintln!("  📍 Found AST type for '{}': {:?}", name, ast_type);
                     return Ok(ast_type.clone());
                 }
 
@@ -200,8 +199,15 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 let base_type = self.infer_expression_type(object)?;
                 
                 // Get struct definition to find field type
+                // Handle both Named and Reference(Named)
                 let struct_name = match &base_type {
                     Type::Named(name) => name.clone(),
+                    Type::Reference(inner, _) => {
+                        match &**inner {
+                            Type::Named(name) => name.clone(),
+                            _ => return Ok(Type::I32), // Fallback
+                        }
+                    }
                     _ => return Ok(Type::I32), // Fallback
                 };
                 
@@ -283,6 +289,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 }
                 
                 Ok(Type::I32) // Fallback
+            }
+            Expression::Typeof(_) => {
+                // typeof always returns string
+                Ok(Type::String)
             }
             Expression::Call { func, .. } => {
                 // Infer return type of function call

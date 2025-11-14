@@ -114,6 +114,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
             source_file: source_file.to_string(), // ⭐ NEW: Store source file path
             global_runtime: None,             // ⭐ ASYNC: Initialize runtime handle as None
             async_block_counter: 0,           // ⭐ ASYNC BLOCKS: Counter for unique names
+            async_state_stack: Vec::new(),    // ⭐ ASYNC STATE MACHINE: State tracking
+            async_state_counter: 0,           // ⭐ ASYNC STATE MACHINE: State ID counter
+            current_async_resume_fn: None,    // ⭐ ASYNC STATE MACHINE: Resume function
+            async_resume_blocks: Vec::new(),  // ⭐ ASYNC STATE MACHINE: Pre-allocated resume blocks
         };
 
         // Register Phase 0 builtin types (Vec, Option, Result, Box)

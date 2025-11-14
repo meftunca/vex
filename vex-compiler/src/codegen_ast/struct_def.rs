@@ -151,4 +151,18 @@ pub struct ASTCodeGen<'ctx> {
 
     // ⭐ ASYNC BLOCKS: Counter for generating unique async block function names
     pub(crate) async_block_counter: u32,
+
+    // ⭐ ASYNC STATE MACHINE: State tracking for await points
+    // Stack of (state_struct_ptr, state_field_ptr, next_state_id)
+    pub(crate) async_state_stack: Vec<(PointerValue<'ctx>, PointerValue<'ctx>, u32)>,
+
+    // ⭐ ASYNC STATE MACHINE: Counter for generating unique state IDs
+    pub(crate) async_state_counter: u32,
+
+    // ⭐ ASYNC STATE MACHINE: Current async function's resume function
+    pub(crate) current_async_resume_fn: Option<FunctionValue<'ctx>>,
+
+    // ⭐ ASYNC STATE MACHINE: Pre-allocated resume blocks for await points
+    // Maps state_id -> BasicBlock for resume continuation
+    pub(crate) async_resume_blocks: Vec<inkwell::basic_block::BasicBlock<'ctx>>,
 }

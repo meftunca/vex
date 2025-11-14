@@ -36,6 +36,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
         ty: Option<&Type>,
         value: &Expression,
     ) -> Result<(), String> {
+        eprintln!("🔵 compile_let_statement: name='{}', ty={:?}", name, ty);
+        
         // Step 1: Infer struct name from expression if no type annotation
         let struct_name_from_expr = self.infer_struct_name_from_expression(ty, value)?;
 
