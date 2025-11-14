@@ -191,14 +191,14 @@ impl<'a> Parser<'a> {
             let checkpoint = self.current;
 
             // Try parsing first key
-            let first_key_result = self.parse_expression();
+            let first_key = self.parse_expression()?;
 
-            if first_key_result.is_ok() && self.check(&Token::Colon) {
+            if self.check(&Token::Colon) {
                 // It's a map literal!
                 self.advance(); // consume ':'
                 let first_value = self.parse_expression()?;
 
-                let mut entries = vec![(first_key_result.unwrap(), first_value)];
+                let mut entries = vec![(first_key, first_value)];
 
                 while self.match_token(&Token::Comma) {
                     // Allow trailing comma

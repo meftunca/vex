@@ -122,10 +122,12 @@ pub struct AsyncRuntime {
 impl AsyncRuntime {
     /// Create a new async runtime with N worker threads
     /// If `num_workers` is 0, auto-detects CPU count
-    pub fn new(num_workers: usize) -> Self {
+    pub fn new(num_workers: usize) -> Result<Self, String> {
         let inner = unsafe { runtime_create(num_workers as c_int) };
-        assert!(!inner.is_null(), "Failed to create runtime");
-        Self { inner }
+        if inner.is_null() {
+            return Err("Failed to create runtime".to_string());
+        }
+        Ok(Self { inner })
     }
 
     /// Get raw pointer (for FFI)
@@ -202,7 +204,7 @@ mod tests {
 
     #[test]
     fn test_runtime_creation() {
-        let rt = AsyncRuntime::new(2);
+        let rt = AsyncRuntime::new(2).expect("Failed to create runtime");
         let stats = rt.stats();
         assert_eq!(stats.tasks_spawned, 0);
     }

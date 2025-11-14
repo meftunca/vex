@@ -53,8 +53,24 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let entry = self.context.append_basic_block(resume_fn, "entry");
         self.builder.position_at_end(entry);
 
-        let ctx_param = resume_fn.get_nth_param(0).unwrap().into_pointer_value();
-        let state_param = resume_fn.get_nth_param(1).unwrap().into_pointer_value();
+        let ctx_param = resume_fn
+            .get_nth_param(0)
+            .ok_or_else(|| {
+                format!(
+                    "Failed to get context parameter for async function {}",
+                    fn_name
+                )
+            })?
+            .into_pointer_value();
+        let state_param = resume_fn
+            .get_nth_param(1)
+            .ok_or_else(|| {
+                format!(
+                    "Failed to get state parameter for async function {}",
+                    fn_name
+                )
+            })?
+            .into_pointer_value();
 
         // Cast state_param to state struct
         let state_ptr = self
@@ -177,7 +193,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // ⚠️ CRITICAL: Only add return if block doesn't already have terminator
         // (compile_return_statement already adds one)
-        let current_block = self.builder.get_insert_block().unwrap();
+        let current_block = self
+            .builder
+            .get_insert_block()
+            .ok_or_else(|| format!("No current block in async function {}", fn_name))?;
         if current_block.get_terminator().is_none() {
             // Return CORO_STATUS_DONE (2)
             self.builder
@@ -204,7 +223,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Allocate state struct
         let malloc_fn = self.get_or_declare_malloc();
-        let state_size = state_struct_type.size_of().unwrap();
+        let state_size = state_struct_type.size_of().ok_or_else(|| {
+            format!(
+                "Failed to get size of state struct for async function {}",
+                fn_name
+            )
+        })?;
         let state_alloc = self
             .builder
             .build_call(malloc_fn, &[state_size.into()], "state_alloc")
@@ -236,7 +260,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Copy parameters into state struct
         for (i, param) in func.params.iter().enumerate() {
-            let param_val = fn_val.get_nth_param(i as u32).unwrap();
+            let param_val = fn_val.get_nth_param(i as u32).ok_or_else(|| {
+                format!(
+                    "Failed to get parameter {} for async function {}",
+                    i, fn_name
+                )
+            })?;
             let param_dest = self
                 .builder
                 .build_struct_gep(

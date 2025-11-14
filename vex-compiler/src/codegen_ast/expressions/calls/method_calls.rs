@@ -79,12 +79,16 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
             if is_type_name && is_not_variable {
                 // This is a static method call: Type.method(args) or Vec<i32>.new()
-                return self.compile_static_method_call(
+                // Try static method first; if not found, fall through to instance method
+                // resolution so that inline/instance methods are not shadowed by type name.
+                if let Ok(val) = self.compile_static_method_call(
                     potential_type_name,
                     method,
                     type_args,
                     args,
-                );
+                ) {
+                    return Ok(val);
+                }
             }
         }
 

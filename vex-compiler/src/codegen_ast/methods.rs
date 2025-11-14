@@ -3,6 +3,53 @@ use super::*;
 use inkwell::types::BasicTypeEnum;
 
 impl<'ctx> ASTCodeGen<'ctx> {
+    /// Replace `Self` types with concrete struct name in local context
+    fn replace_self_in_type(ty: &vex_ast::Type, concrete_type: &str) -> vex_ast::Type {
+        match ty {
+            vex_ast::Type::Named(name) if name == "Self" => {
+                vex_ast::Type::Named(concrete_type.to_string())
+            }
+            vex_ast::Type::Reference(inner, is_mut) => vex_ast::Type::Reference(
+                Box::new(Self::replace_self_in_type(inner, concrete_type)),
+                *is_mut,
+            ),
+            vex_ast::Type::Generic { name, type_args } => {
+                let new_name = if name == "Self" {
+                    concrete_type.to_string()
+                } else {
+                    name.clone()
+                };
+                vex_ast::Type::Generic {
+                    name: new_name,
+                    type_args: type_args
+                        .iter()
+                        .map(|t| Self::replace_self_in_type(t, concrete_type))
+                        .collect(),
+                }
+            }
+            vex_ast::Type::Array(inner, size) => vex_ast::Type::Array(
+                Box::new(Self::replace_self_in_type(inner, concrete_type)),
+                *size,
+            ),
+            vex_ast::Type::Slice(inner, is_mut) => vex_ast::Type::Slice(
+                Box::new(Self::replace_self_in_type(inner, concrete_type)),
+                *is_mut,
+            ),
+            vex_ast::Type::Union(types) => vex_ast::Type::Union(
+                types
+                    .iter()
+                    .map(|t| Self::replace_self_in_type(t, concrete_type))
+                    .collect(),
+            ),
+            vex_ast::Type::Intersection(types) => vex_ast::Type::Intersection(
+                types
+                    .iter()
+                    .map(|t| Self::replace_self_in_type(t, concrete_type))
+                    .collect(),
+            ),
+            _ => ty.clone(),
+        }
+    }
     /// Encode operator names for LLVM compatibility
     /// LLVM doesn't allow special characters like +, -, *, / in function names
     pub(crate) fn encode_operator_name(name: &str) -> String {
@@ -119,7 +166,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
         // Add receiver parameter (explicit or implicit)
         if let Some(ref receiver) = method.receiver {
             // Explicit receiver: fn (self: &T) method()
-            param_types.push(self.ast_type_to_llvm(&receiver.ty).into());
+            // Replace `Self` with the concrete struct name for LLVM type generation
+            let receiver_ty_concrete = Self::replace_self_in_type(&receiver.ty, struct_name);
+            param_types.push(self.ast_type_to_llvm(&receiver_ty_concrete).into());
         } else {
             // Implicit receiver: fn method() - auto-generate &StructName! parameter (mutable by default)
             // This allows both read and write access to struct fields
@@ -128,13 +177,16 @@ impl<'ctx> ASTCodeGen<'ctx> {
         }
 
         for param in &method.params {
-            let param_llvm_ty = self.ast_type_to_llvm(&param.ty);
+            let param_concrete_ty = Self::replace_self_in_type(&param.ty, struct_name);
+            let param_llvm_ty = self.ast_type_to_llvm(&param_concrete_ty);
 
             param_types.push(param_llvm_ty.into());
         }
 
         let ret_type = if let Some(ref ty) = method.return_type {
-            self.ast_type_to_llvm(ty)
+            // Substitute Self -> Named(struct_name) for inline methods
+            let concrete_ret = Self::replace_self_in_type(ty, struct_name);
+            self.ast_type_to_llvm(&concrete_ret)
         } else {
             inkwell::types::BasicTypeEnum::IntType(self.context.i32_type())
         };
@@ -154,6 +206,18 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         let mut mangled_method = method.clone();
         mangled_method.name = mangled_name.clone();
+        // Also update AST method signature in the mangled copy: replace `Self` with actual struct name
+        if let Some(ref mut receiver) = mangled_method.receiver {
+            receiver.ty = Self::replace_self_in_type(&receiver.ty, struct_name);
+        }
+
+        for param in &mut mangled_method.params {
+            param.ty = Self::replace_self_in_type(&param.ty, struct_name);
+        }
+
+        if let Some(ref mut rt) = mangled_method.return_type {
+            *rt = Self::replace_self_in_type(rt, struct_name);
+        }
         self.function_defs.insert(mangled_name, mangled_method);
         Ok(())
     }
@@ -260,7 +324,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
             // CRITICAL FIX: For reference types, we need to get the inner type for LLVM
             // because the parameter is already a pointer (C calling convention)
-            let receiver_llvm_ty = match &receiver.ty {
+            let receiver_concrete_ty = Self::replace_self_in_type(&receiver.ty, struct_name);
+            let receiver_llvm_ty = match &receiver_concrete_ty {
                 Type::Reference(inner, _) => {
                     // For &Type, the LLVM parameter is already a pointer
                     // so we need the inner type's LLVM representation
@@ -280,9 +345,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
             // ⭐ CRITICAL: Store AST type for type inference
             self.variable_ast_types
-                .insert("self".to_string(), receiver.ty.clone());
+                .insert("self".to_string(), receiver_concrete_ty.clone());
 
-            let struct_name_opt = match &receiver.ty {
+            let struct_name_opt = match &receiver_concrete_ty {
                 Type::Named(name) => Some(name.clone()),
                 Type::Reference(inner, _) => {
                     if let Type::Named(name) = &**inner {
@@ -335,7 +400,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
             // ⚠️ CRITICAL: Struct parameters are now passed BY VALUE (as StructValue)
             // We need to allocate storage and store the value
-            let is_struct_param = match &param.ty {
+            let param_concrete_ty = Self::replace_self_in_type(&param.ty, struct_name);
+            let is_struct_param = match &param_concrete_ty {
                 Type::Named(type_name) => self.struct_defs.contains_key(type_name),
                 _ => false,
             };
@@ -358,10 +424,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
                 // ⭐ CRITICAL: Store AST type for type inference
                 self.variable_ast_types
-                    .insert(param.name.clone(), param.ty.clone());
+                    .insert(param.name.clone(), param_concrete_ty.clone());
             } else {
                 // Non-struct parameter - allocate and store as usual
-                let param_ty = self.ast_type_to_llvm(&param.ty);
+                let param_ty = self.ast_type_to_llvm(&param_concrete_ty);
                 let alloca = self
                     .builder
                     .build_alloca(param_ty, &param.name)
@@ -376,10 +442,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
                 // ⭐ CRITICAL: Store AST type for type inference
                 self.variable_ast_types
-                    .insert(param.name.clone(), param.ty.clone());
+                    .insert(param.name.clone(), param_concrete_ty.clone());
             }
 
-            self.track_param_struct_name(&param.name, &param.ty);
+            self.track_param_struct_name(&param.name, &param_concrete_ty);
         }
 
         // Compile method body

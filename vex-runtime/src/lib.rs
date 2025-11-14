@@ -40,7 +40,7 @@ mod tests {
 
     #[test]
     fn test_runtime_creation() {
-        let rt = AsyncRuntime::new(2);
+        let rt = AsyncRuntime::new(2).expect("Failed to create runtime");
         let stats = rt.stats();
         assert_eq!(stats.tasks_spawned, 0);
     }

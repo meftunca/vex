@@ -46,31 +46,72 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Prefer user-defined/static stdlib implementations before compiler builtins
         if let Some(fn_val) = self.functions.get(&base_method_name).copied() {
-            let mut arg_vals: Vec<BasicMetadataValueEnum> = vec![];
-            for arg in args {
-                let val = self.compile_expression(arg)?;
-                arg_vals.push(val.into());
+            // If the function is actually an inline/instance method (has a receiver),
+            // don't treat it as a static method. This allows calling instance methods
+            // on variables while still supporting Type.method() for true static functions.
+            if let Some(func_def) = self.function_defs.get(&base_method_name) {
+                if func_def.receiver.is_some() {
+                    // It's an instance method - skip static resolution
+                } else {
+                    let mut arg_vals: Vec<BasicMetadataValueEnum> = vec![];
+                    for arg in args {
+                        let val = self.compile_expression(arg)?;
+                        arg_vals.push(val.into());
+                    }
+
+                    let call_site = self
+                        .builder
+                        .build_call(fn_val, &arg_vals, "static_method_call")
+                        .map_err(|e| format!("Failed to build static method call: {}", e))?;
+
+                    return Ok(call_site.try_as_basic_value().unwrap_basic());
+                }
+            } else {
+                let mut arg_vals: Vec<BasicMetadataValueEnum> = vec![];
+                for arg in args {
+                    let val = self.compile_expression(arg)?;
+                    arg_vals.push(val.into());
+                }
+
+                let call_site = self
+                    .builder
+                    .build_call(fn_val, &arg_vals, "static_method_call")
+                    .map_err(|e| format!("Failed to build static method call: {}", e))?;
+
+                return Ok(call_site.try_as_basic_value().unwrap_basic());
             }
-
-            let call_site = self
-                .builder
-                .build_call(fn_val, &arg_vals, "static_method_call")
-                .map_err(|e| format!("Failed to build static method call: {}", e))?;
-
-            return Ok(call_site.try_as_basic_value().unwrap_basic());
         } else if let Some(fn_val) = self.functions.get(&pascal_method_name).copied() {
-            let mut arg_vals: Vec<BasicMetadataValueEnum> = vec![];
-            for arg in args {
-                let val = self.compile_expression(arg)?;
-                arg_vals.push(val.into());
+            if let Some(func_def) = self.function_defs.get(&pascal_method_name) {
+                if func_def.receiver.is_some() {
+                    // Skip instance method match
+                } else {
+                    let mut arg_vals: Vec<BasicMetadataValueEnum> = vec![];
+                    for arg in args {
+                        let val = self.compile_expression(arg)?;
+                        arg_vals.push(val.into());
+                    }
+
+                    let call_site = self
+                        .builder
+                        .build_call(fn_val, &arg_vals, "static_method_call")
+                        .map_err(|e| format!("Failed to build static method call: {}", e))?;
+
+                    return Ok(call_site.try_as_basic_value().unwrap_basic());
+                }
+            } else {
+                let mut arg_vals: Vec<BasicMetadataValueEnum> = vec![];
+                for arg in args {
+                    let val = self.compile_expression(arg)?;
+                    arg_vals.push(val.into());
+                }
+
+                let call_site = self
+                    .builder
+                    .build_call(fn_val, &arg_vals, "static_method_call")
+                    .map_err(|e| format!("Failed to build static method call: {}", e))?;
+
+                return Ok(call_site.try_as_basic_value().unwrap_basic());
             }
-
-            let call_site = self
-                .builder
-                .build_call(fn_val, &arg_vals, "static_method_call")
-                .map_err(|e| format!("Failed to build static method call: {}", e))?;
-
-            return Ok(call_site.try_as_basic_value().unwrap_basic());
         }
 
         // No user-defined version found; try compiler builtin as fallback

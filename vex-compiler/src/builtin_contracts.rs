@@ -198,7 +198,7 @@ pub fn codegen_builtin_operator<'ctx>(
     method_name: &str,
     left: inkwell::values::BasicValueEnum<'ctx>,
     right: inkwell::values::BasicValueEnum<'ctx>,
-) -> Option<inkwell::values::BasicValueEnum<'ctx>> {
+) -> Result<inkwell::values::BasicValueEnum<'ctx>, String> {
     use inkwell::FloatPredicate;
     use inkwell::IntPredicate;
 
@@ -212,61 +212,49 @@ pub fn codegen_builtin_operator<'ctx>(
         // ⭐ PHASE 1: Arithmetic operators
         ("Add", "op+") => {
             if is_int {
-                Some(
-                    builder
-                        .build_int_add(left.into_int_value(), right.into_int_value(), "add")
-                        .unwrap()
-                        .into(),
-                )
+                Ok(builder
+                    .build_int_add(left.into_int_value(), right.into_int_value(), "add")
+                    .map_err(|e| format!("Failed to build int add: {}", e))?
+                    .into())
             } else if is_float {
-                Some(
-                    builder
-                        .build_float_add(left.into_float_value(), right.into_float_value(), "fadd")
-                        .unwrap()
-                        .into(),
-                )
+                Ok(builder
+                    .build_float_add(left.into_float_value(), right.into_float_value(), "fadd")
+                    .map_err(|e| format!("Failed to build float add: {}", e))?
+                    .into())
             } else {
-                None
+                Err(format!("Add operator not supported for type {}", type_name))
             }
         }
 
         ("Sub", "op-") => {
             if is_int {
-                Some(
-                    builder
-                        .build_int_sub(left.into_int_value(), right.into_int_value(), "sub")
-                        .unwrap()
-                        .into(),
-                )
+                Ok(builder
+                    .build_int_sub(left.into_int_value(), right.into_int_value(), "sub")
+                    .map_err(|e| format!("Failed to build int sub: {}", e))?
+                    .into())
             } else if is_float {
-                Some(
-                    builder
-                        .build_float_sub(left.into_float_value(), right.into_float_value(), "fsub")
-                        .unwrap()
-                        .into(),
-                )
+                Ok(builder
+                    .build_float_sub(left.into_float_value(), right.into_float_value(), "fsub")
+                    .map_err(|e| format!("Failed to build float sub: {}", e))?
+                    .into())
             } else {
-                None
+                Err(format!("Sub operator not supported for type {}", type_name))
             }
         }
 
         ("Mul", "op*") => {
             if is_int {
-                Some(
-                    builder
-                        .build_int_mul(left.into_int_value(), right.into_int_value(), "mul")
-                        .unwrap()
-                        .into(),
-                )
+                Ok(builder
+                    .build_int_mul(left.into_int_value(), right.into_int_value(), "mul")
+                    .map_err(|e| format!("Failed to build int mul: {}", e))?
+                    .into())
             } else if is_float {
-                Some(
-                    builder
-                        .build_float_mul(left.into_float_value(), right.into_float_value(), "fmul")
-                        .unwrap()
-                        .into(),
-                )
+                Ok(builder
+                    .build_float_mul(left.into_float_value(), right.into_float_value(), "fmul")
+                    .map_err(|e| format!("Failed to build float mul: {}", e))?
+                    .into())
             } else {
-                None
+                Err(format!("Mul operator not supported for type {}", type_name))
             }
         }
 
@@ -274,37 +262,27 @@ pub fn codegen_builtin_operator<'ctx>(
             if is_int {
                 let is_signed = matches!(type_name, "i32" | "i64" | "i8" | "i16" | "i128");
                 if is_signed {
-                    Some(
-                        builder
-                            .build_int_signed_div(
-                                left.into_int_value(),
-                                right.into_int_value(),
-                                "sdiv",
-                            )
-                            .unwrap()
-                            .into(),
-                    )
+                    Ok(builder
+                        .build_int_signed_div(left.into_int_value(), right.into_int_value(), "sdiv")
+                        .map_err(|e| format!("Failed to build signed int div: {}", e))?
+                        .into())
                 } else {
-                    Some(
-                        builder
-                            .build_int_unsigned_div(
-                                left.into_int_value(),
-                                right.into_int_value(),
-                                "udiv",
-                            )
-                            .unwrap()
-                            .into(),
-                    )
+                    Ok(builder
+                        .build_int_unsigned_div(
+                            left.into_int_value(),
+                            right.into_int_value(),
+                            "udiv",
+                        )
+                        .map_err(|e| format!("Failed to build unsigned int div: {}", e))?
+                        .into())
                 }
             } else if is_float {
-                Some(
-                    builder
-                        .build_float_div(left.into_float_value(), right.into_float_value(), "fdiv")
-                        .unwrap()
-                        .into(),
-                )
+                Ok(builder
+                    .build_float_div(left.into_float_value(), right.into_float_value(), "fdiv")
+                    .map_err(|e| format!("Failed to build float div: {}", e))?
+                    .into())
             } else {
-                None
+                Err(format!("Div operator not supported for type {}", type_name))
             }
         }
 
@@ -312,166 +290,148 @@ pub fn codegen_builtin_operator<'ctx>(
             if is_int {
                 let is_signed = matches!(type_name, "i32" | "i64" | "i8" | "i16" | "i128");
                 if is_signed {
-                    Some(
-                        builder
-                            .build_int_signed_rem(
-                                left.into_int_value(),
-                                right.into_int_value(),
-                                "srem",
-                            )
-                            .unwrap()
-                            .into(),
-                    )
+                    Ok(builder
+                        .build_int_signed_rem(left.into_int_value(), right.into_int_value(), "srem")
+                        .map_err(|e| format!("Failed to build signed int rem: {}", e))?
+                        .into())
                 } else {
-                    Some(
-                        builder
-                            .build_int_unsigned_rem(
-                                left.into_int_value(),
-                                right.into_int_value(),
-                                "urem",
-                            )
-                            .unwrap()
-                            .into(),
-                    )
+                    Ok(builder
+                        .build_int_unsigned_rem(
+                            left.into_int_value(),
+                            right.into_int_value(),
+                            "urem",
+                        )
+                        .map_err(|e| format!("Failed to build unsigned int rem: {}", e))?
+                        .into())
                 }
             } else {
-                None
+                Err(format!("Mod operator not supported for type {}", type_name))
             }
         }
 
         // ⭐ PHASE 1.5: Bitwise operators
         ("BitAnd", "op&") => {
             if is_int {
-                Some(
-                    builder
-                        .build_and(left.into_int_value(), right.into_int_value(), "and")
-                        .unwrap()
-                        .into(),
-                )
+                Ok(builder
+                    .build_and(left.into_int_value(), right.into_int_value(), "and")
+                    .map_err(|e| format!("Failed to build and: {}", e))?
+                    .into())
             } else {
-                None
+                Err(format!(
+                    "BitAnd operator not supported for type {}",
+                    type_name
+                ))
             }
         }
 
         ("BitOr", "op|") => {
             if is_int {
-                Some(
-                    builder
-                        .build_or(left.into_int_value(), right.into_int_value(), "or")
-                        .unwrap()
-                        .into(),
-                )
+                Ok(builder
+                    .build_or(left.into_int_value(), right.into_int_value(), "or")
+                    .map_err(|e| format!("Failed to build or: {}", e))?
+                    .into())
             } else {
-                None
+                Err(format!(
+                    "BitOr operator not supported for type {}",
+                    type_name
+                ))
             }
         }
 
         ("BitXor", "op^") => {
             if is_int {
-                Some(
-                    builder
-                        .build_xor(left.into_int_value(), right.into_int_value(), "xor")
-                        .unwrap()
-                        .into(),
-                )
+                Ok(builder
+                    .build_xor(left.into_int_value(), right.into_int_value(), "xor")
+                    .map_err(|e| format!("Failed to build xor: {}", e))?
+                    .into())
             } else {
-                None
+                Err(format!(
+                    "BitXor operator not supported for type {}",
+                    type_name
+                ))
             }
         }
 
         ("Shl", "op<<") => {
             if is_int {
-                Some(
-                    builder
-                        .build_left_shift(left.into_int_value(), right.into_int_value(), "shl")
-                        .unwrap()
-                        .into(),
-                )
+                Ok(builder
+                    .build_left_shift(left.into_int_value(), right.into_int_value(), "shl")
+                    .map_err(|e| format!("Failed to build left shift: {}", e))?
+                    .into())
             } else {
-                None
+                Err(format!("Shl operator not supported for type {}", type_name))
             }
         }
 
         ("Shr", "op>>") => {
             if is_int {
                 let is_signed = matches!(type_name, "i32" | "i64" | "i8" | "i16" | "i128");
-                Some(
-                    builder
-                        .build_right_shift(
-                            left.into_int_value(),
-                            right.into_int_value(),
-                            is_signed,
-                            "shr",
-                        )
-                        .unwrap()
-                        .into(),
-                )
+                Ok(builder
+                    .build_right_shift(
+                        left.into_int_value(),
+                        right.into_int_value(),
+                        is_signed,
+                        "shr",
+                    )
+                    .map_err(|e| format!("Failed to build right shift: {}", e))?
+                    .into())
             } else {
-                None
+                Err(format!("Shr operator not supported for type {}", type_name))
             }
         }
 
         // ⭐ PHASE 2: Comparison operators
         ("Eq", "op==") => {
             if is_int {
-                Some(
-                    builder
-                        .build_int_compare(
-                            IntPredicate::EQ,
-                            left.into_int_value(),
-                            right.into_int_value(),
-                            "eq",
-                        )
-                        .unwrap()
-                        .into(),
-                )
+                Ok(builder
+                    .build_int_compare(
+                        IntPredicate::EQ,
+                        left.into_int_value(),
+                        right.into_int_value(),
+                        "eq",
+                    )
+                    .map_err(|e| format!("Failed to build int eq: {}", e))?
+                    .into())
             } else if is_float {
-                Some(
-                    builder
-                        .build_float_compare(
-                            FloatPredicate::OEQ,
-                            left.into_float_value(),
-                            right.into_float_value(),
-                            "feq",
-                        )
-                        .unwrap()
-                        .into(),
-                )
+                Ok(builder
+                    .build_float_compare(
+                        FloatPredicate::OEQ,
+                        left.into_float_value(),
+                        right.into_float_value(),
+                        "feq",
+                    )
+                    .map_err(|e| format!("Failed to build float eq: {}", e))?
+                    .into())
             } else {
-                None
+                Err(format!("Eq operator not supported for type {}", type_name))
             }
         }
 
         ("Eq", "op!=") => {
             if is_int {
-                Some(
-                    builder
-                        .build_int_compare(
-                            IntPredicate::NE,
-                            left.into_int_value(),
-                            right.into_int_value(),
-                            "ne",
-                        )
-                        .unwrap()
-                        .into(),
-                )
+                Ok(builder
+                    .build_int_compare(
+                        IntPredicate::NE,
+                        left.into_int_value(),
+                        right.into_int_value(),
+                        "ne",
+                    )
+                    .map_err(|e| format!("Failed to build int ne: {}", e))?
+                    .into())
             } else if is_float {
-                Some(
-                    builder
-                        .build_float_compare(
-                            FloatPredicate::ONE,
-                            left.into_float_value(),
-                            right.into_float_value(),
-                            "fne",
-                        )
-                        .unwrap()
-                        .into(),
-                )
+                Ok(builder
+                    .build_float_compare(
+                        FloatPredicate::ONE,
+                        left.into_float_value(),
+                        right.into_float_value(),
+                        "fne",
+                    )
+                    .map_err(|e| format!("Failed to build float ne: {}", e))?
+                    .into())
             } else {
-                None
+                Err(format!("Eq operator not supported for type {}", type_name))
             }
         }
-
         ("Ord", "op<") => {
             if is_int {
                 let is_signed = matches!(type_name, "i32" | "i64" | "i8" | "i16" | "i128");
@@ -480,31 +440,22 @@ pub fn codegen_builtin_operator<'ctx>(
                 } else {
                     IntPredicate::ULT
                 };
-                Some(
-                    builder
-                        .build_int_compare(
-                            pred,
-                            left.into_int_value(),
-                            right.into_int_value(),
-                            "lt",
-                        )
-                        .unwrap()
-                        .into(),
-                )
+                Ok(builder
+                    .build_int_compare(pred, left.into_int_value(), right.into_int_value(), "lt")
+                    .map_err(|e| format!("Failed to build int lt: {}", e))?
+                    .into())
             } else if is_float {
-                Some(
-                    builder
-                        .build_float_compare(
-                            FloatPredicate::OLT,
-                            left.into_float_value(),
-                            right.into_float_value(),
-                            "flt",
-                        )
-                        .unwrap()
-                        .into(),
-                )
+                Ok(builder
+                    .build_float_compare(
+                        FloatPredicate::OLT,
+                        left.into_float_value(),
+                        right.into_float_value(),
+                        "flt",
+                    )
+                    .map_err(|e| format!("Failed to build float lt: {}", e))?
+                    .into())
             } else {
-                None
+                Err(format!("Ord operator not supported for type {}", type_name))
             }
         }
 
@@ -516,31 +467,22 @@ pub fn codegen_builtin_operator<'ctx>(
                 } else {
                     IntPredicate::ULE
                 };
-                Some(
-                    builder
-                        .build_int_compare(
-                            pred,
-                            left.into_int_value(),
-                            right.into_int_value(),
-                            "le",
-                        )
-                        .unwrap()
-                        .into(),
-                )
+                Ok(builder
+                    .build_int_compare(pred, left.into_int_value(), right.into_int_value(), "le")
+                    .map_err(|e| format!("Failed to build int le: {}", e))?
+                    .into())
             } else if is_float {
-                Some(
-                    builder
-                        .build_float_compare(
-                            FloatPredicate::OLE,
-                            left.into_float_value(),
-                            right.into_float_value(),
-                            "fle",
-                        )
-                        .unwrap()
-                        .into(),
-                )
+                Ok(builder
+                    .build_float_compare(
+                        FloatPredicate::OLE,
+                        left.into_float_value(),
+                        right.into_float_value(),
+                        "fle",
+                    )
+                    .map_err(|e| format!("Failed to build float le: {}", e))?
+                    .into())
             } else {
-                None
+                Err(format!("Ord operator not supported for type {}", type_name))
             }
         }
 
@@ -552,31 +494,22 @@ pub fn codegen_builtin_operator<'ctx>(
                 } else {
                     IntPredicate::UGT
                 };
-                Some(
-                    builder
-                        .build_int_compare(
-                            pred,
-                            left.into_int_value(),
-                            right.into_int_value(),
-                            "gt",
-                        )
-                        .unwrap()
-                        .into(),
-                )
+                Ok(builder
+                    .build_int_compare(pred, left.into_int_value(), right.into_int_value(), "gt")
+                    .map_err(|e| format!("Failed to build int gt: {}", e))?
+                    .into())
             } else if is_float {
-                Some(
-                    builder
-                        .build_float_compare(
-                            FloatPredicate::OGT,
-                            left.into_float_value(),
-                            right.into_float_value(),
-                            "fgt",
-                        )
-                        .unwrap()
-                        .into(),
-                )
+                Ok(builder
+                    .build_float_compare(
+                        FloatPredicate::OGT,
+                        left.into_float_value(),
+                        right.into_float_value(),
+                        "fgt",
+                    )
+                    .map_err(|e| format!("Failed to build float gt: {}", e))?
+                    .into())
             } else {
-                None
+                Err(format!("Ord operator not supported for type {}", type_name))
             }
         }
 
@@ -588,35 +521,29 @@ pub fn codegen_builtin_operator<'ctx>(
                 } else {
                     IntPredicate::UGE
                 };
-                Some(
-                    builder
-                        .build_int_compare(
-                            pred,
-                            left.into_int_value(),
-                            right.into_int_value(),
-                            "ge",
-                        )
-                        .unwrap()
-                        .into(),
-                )
+                Ok(builder
+                    .build_int_compare(pred, left.into_int_value(), right.into_int_value(), "ge")
+                    .map_err(|e| format!("Failed to build int ge: {}", e))?
+                    .into())
             } else if is_float {
-                Some(
-                    builder
-                        .build_float_compare(
-                            FloatPredicate::OGE,
-                            left.into_float_value(),
-                            right.into_float_value(),
-                            "fge",
-                        )
-                        .unwrap()
-                        .into(),
-                )
+                Ok(builder
+                    .build_float_compare(
+                        FloatPredicate::OGE,
+                        left.into_float_value(),
+                        right.into_float_value(),
+                        "fge",
+                    )
+                    .map_err(|e| format!("Failed to build float ge: {}", e))?
+                    .into())
             } else {
-                None
+                Err(format!("Ord operator not supported for type {}", type_name))
             }
         }
 
-        _ => None,
+        _ => Err(format!(
+            "Unsupported operator {} for contract {} and type {}",
+            method_name, contract_name, type_name
+        )),
     }
 }
 

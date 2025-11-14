@@ -120,7 +120,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Evaluate count - must be a constant integer
         let count_val = self.compile_expression(count)?;
-        
+
         // Extract constant count value
         let repeat_count = if let BasicValueEnum::IntValue(int_val) = count_val {
             if let Some(const_val) = int_val.get_zero_extended_constant() {
@@ -148,8 +148,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let elem_size = match elem_type {
             inkwell::types::BasicTypeEnum::IntType(it) => (it.get_bit_width() / 8) as u64,
             inkwell::types::BasicTypeEnum::FloatType(ft) => {
-                if ft == self.context.f32_type() { 4 } else { 8 }
-            },
+                if ft == self.context.f32_type() {
+                    4
+                } else {
+                    8
+                }
+            }
             inkwell::types::BasicTypeEnum::PointerType(_) => 8,
             inkwell::types::BasicTypeEnum::StructType(_) => 8,
             _ => 4,
@@ -160,7 +164,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         let call_site = self
             .builder
-            .build_call(vec_new_fn, &[elem_size_val.into(), capacity_val.into()], "vec_repeat")
+            .build_call(
+                vec_new_fn,
+                &[elem_size_val.into(), capacity_val.into()],
+                "vec_repeat",
+            )
             .map_err(|e| format!("Failed to call vex_vec_new: {}", e))?;
 
         let vec_ptr = call_site.try_as_basic_value().unwrap_basic();
@@ -172,21 +180,36 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 elem_value.into_pointer_value()
             } else {
                 // Allocate temporary for non-pointer values
-                let temp = self.builder.build_alloca(elem_type.try_into().unwrap(), "temp_elem")
+                let temp = self
+                    .builder
+                    .build_alloca(
+                        elem_type.try_into().map_err(|_| {
+                            format!("Failed to convert element type for array repeat")
+                        })?,
+                        "temp_elem",
+                    )
                     .map_err(|e| format!("Failed to allocate temp: {}", e))?;
-                self.builder.build_store(temp, elem_value)
+                self.builder
+                    .build_store(temp, elem_value)
                     .map_err(|e| format!("Failed to store temp: {}", e))?;
                 temp
             };
 
-            let void_ptr = self.builder.build_pointer_cast(
-                elem_ptr,
-                self.context.ptr_type(inkwell::AddressSpace::default()),
-                "elem_void_ptr"
-            ).map_err(|e| format!("Failed to cast element: {}", e))?;
+            let void_ptr = self
+                .builder
+                .build_pointer_cast(
+                    elem_ptr,
+                    self.context.ptr_type(inkwell::AddressSpace::default()),
+                    "elem_void_ptr",
+                )
+                .map_err(|e| format!("Failed to cast element: {}", e))?;
 
             self.builder
-                .build_call(vec_push_fn, &[vec_ptr.into(), void_ptr.into()], "vec_push_repeat")
+                .build_call(
+                    vec_push_fn,
+                    &[vec_ptr.into(), void_ptr.into()],
+                    "vec_push_repeat",
+                )
                 .map_err(|e| format!("Failed to call vex_vec_push: {}", e))?;
         }
 
@@ -213,7 +236,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         for (key_expr, value_expr) in entries {
             // Compile key (must be String)
             let key_val = self.compile_expression(key_expr)?;
-            
+
             // Ensure key is a string pointer
             let key_ptr = if key_val.is_pointer_value() {
                 key_val.into_pointer_value()
@@ -223,34 +246,43 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
             // Compile value
             let value_val = self.compile_expression(value_expr)?;
-            
+
             // Cast value to void pointer
             let value_ptr = if value_val.is_pointer_value() {
                 value_val.into_pointer_value()
             } else {
                 // Allocate temporary for non-pointer values (i64, f64, etc.)
-                let temp = self.builder.build_alloca(
-                    value_val.get_type().try_into().unwrap(),
-                    "temp_value"
-                ).map_err(|e| format!("Failed to allocate temp value: {}", e))?;
-                
-                self.builder.build_store(temp, value_val)
+                let temp =
+                    self.builder
+                        .build_alloca(
+                            value_val.get_type().try_into().map_err(|_| {
+                                format!("Failed to convert value type for map literal")
+                            })?,
+                            "temp_value",
+                        )
+                        .map_err(|e| format!("Failed to allocate temp value: {}", e))?;
+
+                self.builder
+                    .build_store(temp, value_val)
                     .map_err(|e| format!("Failed to store temp value: {}", e))?;
                 temp
             };
 
-            let void_ptr = self.builder.build_pointer_cast(
-                value_ptr,
-                self.context.ptr_type(inkwell::AddressSpace::default()),
-                "value_void_ptr"
-            ).map_err(|e| format!("Failed to cast value: {}", e))?;
+            let void_ptr = self
+                .builder
+                .build_pointer_cast(
+                    value_ptr,
+                    self.context.ptr_type(inkwell::AddressSpace::default()),
+                    "value_void_ptr",
+                )
+                .map_err(|e| format!("Failed to cast value: {}", e))?;
 
             // Call vex_map_insert(map, key, value)
             self.builder
                 .build_call(
                     map_insert_fn,
                     &[map_ptr.into(), key_ptr.into(), void_ptr.into()],
-                    "map_insert_literal"
+                    "map_insert_literal",
                 )
                 .map_err(|e| format!("Failed to call vex_map_insert: {}", e))?;
         }
@@ -354,8 +386,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
         // TODO: Handle runtime count with a loop
         let count_const = match count {
             BasicValueEnum::IntValue(iv) => match iv.get_type().get_bit_width() {
-                32 => iv.get_zero_extended_constant().unwrap_or(0) as usize,
-                64 => iv.get_zero_extended_constant().unwrap_or(0) as usize,
+                32 => iv.get_zero_extended_constant().ok_or_else(|| {
+                    "Array repeat count must be a compile-time constant".to_string()
+                })? as usize,
+                64 => iv.get_zero_extended_constant().ok_or_else(|| {
+                    "Array repeat count must be a compile-time constant".to_string()
+                })? as usize,
                 _ => return Err("Unsupported count type for array repeat".to_string()),
             },
             _ => return Err("Array repeat count must be a constant integer".to_string()),

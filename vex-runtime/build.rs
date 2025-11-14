@@ -4,8 +4,9 @@
 use std::env;
 use std::path::PathBuf;
 
-fn main() {
-    let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let manifest_dir = env::var("CARGO_MANIFEST_DIR")
+        .map_err(|e| format!("Failed to get CARGO_MANIFEST_DIR: {}", e))?;
     let c_dir = PathBuf::from(&manifest_dir).join("c");
     let async_io_dir = c_dir.join("async_runtime");
 
@@ -37,7 +38,8 @@ fn main() {
     ];
 
     // Detect platform and add appropriate poller
-    let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap();
+    let target_os = env::var("CARGO_CFG_TARGET_OS")
+        .map_err(|e| format!("Failed to get CARGO_CFG_TARGET_OS: {}", e))?;
     let poller_source = match target_os.as_str() {
         "macos" | "ios" | "freebsd" | "openbsd" | "netbsd" | "dragonfly" => {
             async_io_dir.join("src/poller_kqueue.c")
@@ -47,7 +49,7 @@ fn main() {
             async_io_dir.join("src/poller_epoll.c")
         }
         "windows" => async_io_dir.join("src/poller_iocp.c"),
-        _ => panic!("Unsupported target OS: {}", target_os),
+        _ => return Err(format!("Unsupported target OS: {}", target_os).into()),
     };
 
     println!(
@@ -81,7 +83,8 @@ fn main() {
 
     // --- Linker Configuration ---
 
-    let out_dir = env::var("OUT_DIR").unwrap();
+    let out_dir = env::var("OUT_DIR")
+        .map_err(|e| format!("Failed to get OUT_DIR: {}", e))?;
 
     // 1. Instruct Cargo how to link the `vex` binary itself (for `cargo test`, etc.).
     println!("cargo:rustc-link-search=native={}", out_dir);
@@ -140,4 +143,6 @@ fn main() {
     println!("cargo:rerun-if-changed=c/vex_channel.h");
     println!("cargo:rerun-if-changed=c/vex_channel.c");
     println!("cargo:rerun-if-changed=build.rs");
+
+    Ok(())
 }
