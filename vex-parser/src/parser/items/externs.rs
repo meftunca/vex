@@ -36,12 +36,7 @@ impl<'a> Parser<'a> {
 
         self.consume(&Token::RBrace, "Expected '}' after extern block")?;
 
-        eprintln!(
-            "🔧 Parser: Parsed extern block with {} types and {} functions",
-            types.len(),
-            functions.len()
-        );
-
+     
         Ok(Item::ExternBlock(ExternBlock {
             abi,
             types,

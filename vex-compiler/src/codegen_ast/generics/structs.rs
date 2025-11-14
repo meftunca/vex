@@ -55,6 +55,21 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 struct_name,
                 type_arg_strings.join(", ")
             );
+
+            // ⭐ NEW: Check where clause constraints (if struct has where clause)
+            if !struct_ast.where_clause.is_empty() {
+                use crate::trait_bounds_checker::TraitBoundsChecker;
+                let type_substitutions = TraitBoundsChecker::build_type_substitutions(
+                    &struct_ast.type_params,
+                    type_args,
+                );
+                checker.check_where_clause(&struct_ast.where_clause, &type_substitutions)?;
+                eprintln!(
+                    "✅ Where clause validated for {}<{}>",
+                    struct_name,
+                    type_arg_strings.join(", ")
+                );
+            }
         }
 
         // Build type substitution map, using defaults for missing type args

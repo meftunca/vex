@@ -101,6 +101,16 @@ impl<'ctx> ASTCodeGen<'ctx> {
             let is_not_variable = !self.variables.contains_key(potential_type_name);
 
             if is_type_name && is_not_variable {
+                // Special case: For builtin types with constructors, return the type name
+                // This ensures variable_struct_names gets populated correctly
+                if method == "new" {
+                    match potential_type_name.as_str() {
+                        "Vec" | "Box" | "Map" | "Set" | "String" | "Channel" => {
+                            return Ok(Some(potential_type_name.clone()));
+                        }
+                        _ => {}
+                    }
+                }
                 return Ok(Some(potential_type_name.clone()));
             }
         }
@@ -130,19 +140,33 @@ impl<'ctx> ASTCodeGen<'ctx> {
         };
 
         if let Some(struct_name) = struct_name {
+            // Try simple method name first (backward compat)
             let method_func_name = format!("{}_{}", struct_name, method);
             if let Some(func_def) = self.function_defs.get(&method_func_name) {
-                if let Some(Type::Named(s_name)) = &func_def.return_type {
-                    return Ok(Some(s_name.clone()));
-                } else if let Some(Type::Option(_)) = &func_def.return_type {
-                    return Ok(Some("Option".to_string()));
-                } else if let Some(Type::Result(_, _)) = &func_def.return_type {
-                    return Ok(Some("Result".to_string()));
+                return self.extract_return_type_name(func_def);
+            }
+            
+            // ⭐ NEW: Try type-based overloaded methods
+            // Look for any method starting with StructName_method_
+            let method_prefix = format!("{}_{}_", struct_name, method);
+            for (func_name, func_def) in &self.function_defs {
+                if func_name.starts_with(&method_prefix) {
+                    // Found an overloaded version, return its type
+                    return self.extract_return_type_name(func_def);
                 }
             }
         }
 
         Ok(None)
+    }
+
+    fn extract_return_type_name(&self, func_def: &Function) -> Result<Option<String>, String> {
+        match &func_def.return_type {
+            Some(Type::Named(s_name)) => Ok(Some(s_name.clone())),
+            Some(Type::Option(_)) => Ok(Some("Option".to_string())),
+            Some(Type::Result(_, _)) => Ok(Some("Result".to_string())),
+            _ => Ok(None),
+        }
     }
 
     fn infer_from_type_constructor(
@@ -167,6 +191,25 @@ impl<'ctx> ASTCodeGen<'ctx> {
         type_args: &[Type],
     ) -> Result<Option<String>, String> {
         if let Expression::Ident(func_name) = func {
+            // Check if this is a type constructor (e.g., Vec<i32>())
+            if !type_args.is_empty() {
+                // Check stdlib types
+                match func_name.as_str() {
+                    "Vec" => return Ok(Some("Vec".to_string())),
+                    "Box" => return Ok(Some("Box".to_string())),
+                    "Option" => return Ok(Some("Option".to_string())),
+                    "Result" => return Ok(Some("Result".to_string())),
+                    "Map" => return Ok(Some("Map".to_string())),
+                    "Set" => return Ok(Some("Set".to_string())),
+                    _ => {}
+                }
+                
+                // Check if it's a registered struct
+                if self.struct_defs.contains_key(func_name) || self.struct_ast_defs.contains_key(func_name) {
+                    return Ok(Some(func_name.clone()));
+                }
+            }
+            
             // Check for builtin constructors
             match func_name.as_str() {
                 "vec_new" | "vec_with_capacity" => return Ok(Some("Vec".to_string())),
@@ -286,6 +329,16 @@ impl<'ctx> ASTCodeGen<'ctx> {
             if let Type::Named(type_name) = &left_type {
                 let (trait_name, method_name) = self.binary_op_to_trait(op);
                 if !trait_name.is_empty() {
+                    // ⭐ NEW: Try to look up actual method implementation first
+                    // This handles external operator methods that may not have explicit trait impls
+                    if let Ok(right_type) = self.infer_expression_type(right) {
+                        if let Some(return_type_name) = 
+                            self.infer_operator_return_from_method(&left_type, &right_type, op)? {
+                            return Ok(Some(return_type_name));
+                        }
+                    }
+                    
+                    // Fallback: Check trait-based operator overloading
                     if let Some(_) = self.has_operator_trait(type_name, trait_name) {
                         // For operator overloading, return type is often Self
                         // Check trait definition to see if it returns Self or a specific type
@@ -358,6 +411,74 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         }
                     }
                     break;
+                }
+            }
+        }
+        Ok(None)
+    }
+
+    /// Infer operator return type by looking up the actual method implementation
+    /// This handles external operator methods that may not have explicit trait impls
+    fn infer_operator_return_from_method(
+        &self,
+        left_type: &Type,
+        right_type: &Type,
+        op: &BinaryOp,
+    ) -> Result<Option<String>, String> {
+        if let Type::Named(type_name) = left_type {
+            // Get the encoded operator name
+            let op_method = match op {
+                BinaryOp::Add => "opadd",
+                BinaryOp::Sub => "opsub",
+                BinaryOp::Mul => "opmul",
+                BinaryOp::Div => "opdiv",
+                BinaryOp::Mod => "opmod",
+                BinaryOp::Eq => "opeq",
+                BinaryOp::NotEq => "opne",
+                BinaryOp::Lt => "oplt",
+                BinaryOp::LtEq => "ople",
+                BinaryOp::Gt => "opgt",
+                BinaryOp::GtEq => "opge",
+                BinaryOp::And => return Ok(None), // Logical ops don't use methods
+                BinaryOp::Or => return Ok(None),
+                BinaryOp::BitAnd => "opbitand",
+                BinaryOp::BitOr => "opbitor",
+                BinaryOp::BitXor => "opbitxor",
+                BinaryOp::Shl => "opshl",
+                BinaryOp::Shr => "opshr",
+                _ => return Ok(None), // Other operators not relevant
+            };
+
+            // Try to find method with type-based overloading
+            // Format: Type_opmethod_typename_paramcount
+            let right_type_suffix = self.generate_type_suffix(right_type);
+            let method_name_typed = format!("{}_{}{}_1", type_name, op_method, right_type_suffix);
+            
+            // Fallback: Try without type suffix
+            let method_name_untyped = format!("{}_{}_2", type_name, op_method);
+            
+            // Check function definitions
+            if let Some(func_def) = self.function_defs.get(&method_name_typed)
+                .or_else(|| self.function_defs.get(&method_name_untyped)) {
+                if let Some(return_type) = &func_def.return_type {
+                    match return_type {
+                        Type::Named(ret_type_name) => {
+                            if ret_type_name == "Self" {
+                                return Ok(Some(type_name.clone()));
+                            } else if self.struct_defs.contains_key(ret_type_name) {
+                                return Ok(Some(ret_type_name.clone()));
+                            } else {
+                                return Ok(Some(ret_type_name.clone()));
+                            }
+                        }
+                        Type::I32 => return Ok(Some("i32".to_string())),
+                        Type::I64 => return Ok(Some("i64".to_string())),
+                        Type::F32 => return Ok(Some("f32".to_string())),
+                        Type::F64 => return Ok(Some("f64".to_string())),
+                        Type::Bool => return Ok(Some("bool".to_string())),
+                        Type::String => return Ok(Some("String".to_string())),
+                        _ => {}
+                    }
                 }
             }
         }

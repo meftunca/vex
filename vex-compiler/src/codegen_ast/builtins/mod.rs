@@ -204,17 +204,21 @@ impl<'ctx> BuiltinRegistry<'ctx> {
     fn register_builtin_types(&mut self) {
         // Vec, Box, String constructors
         self.register("vec_new", builtin_types::builtin_vec_new);
+        self.register("Vec.new", builtin_types::builtin_vec_new); // Type constructor syntax
         self.register(
             "vec_with_capacity",
             builtin_types::builtin_vec_with_capacity,
         );
         self.register("vec_free", builtin_types::builtin_vec_free);
         self.register("box_new", builtin_types::builtin_box_new);
+        self.register("Box.new", builtin_types::builtin_box_new); // Type constructor syntax
         self.register("box_free", builtin_types::builtin_box_free);
         self.register("string_new", builtin_types::builtin_string_new);
+        self.register("String.new", builtin_types::builtin_string_new); // Type constructor syntax
         self.register("string_from", builtin_types::builtin_string_from);
         self.register("string_free", builtin_types::builtin_string_free);
         self.register("channel_new", channel::builtin_channel_new);
+        self.register("Channel.new", channel::builtin_channel_new); // Type constructor syntax
 
         // Option and Result constructors
         self.register("Some", builtin_types::builtin_option_some);

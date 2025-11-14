@@ -6,11 +6,17 @@ impl<'ctx> ASTCodeGen<'ctx> {
     /// &HashMap<K, V> → Some("HashMap")
     /// HashMap<K, V> → Some("HashMap")
     /// &SomeStruct → Some("SomeStruct")
+    /// &Vec<T> → Some("Vec")
+    /// &Box<T> → Some("Box")
     fn extract_struct_name_from_receiver(&self, ty: &Type) -> Option<String> {
         match ty {
             Type::Reference(inner, _) => self.extract_struct_name_from_receiver(inner),
             Type::Named(name) => Some(name.clone()),
             Type::Generic { name, .. } => Some(name.clone()),
+            Type::Vec(_) => Some("Vec".to_string()),
+            Type::Box(_) => Some("Box".to_string()),
+            Type::Option(_) => Some("Option".to_string()),
+            Type::Result(_, _) => Some("Result".to_string()),
             _ => None,
         }
     }
@@ -22,30 +28,22 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         let mut resolver = ModuleResolver::new("stdlib");
 
-        eprintln!("🔄 Resolving {} imports...", program.imports.len());
-        eprintln!("   📄 Source file: {}", self.source_file);
 
         // Collect all items from imported modules
         let mut imported_items = Vec::new();
 
         for import in &program.imports {
-            eprintln!("   → Import: {}", import.module);
 
             // Load the module - pass source file for relative path resolution
             let imported_module = resolver.load_module(&import.module, Some(&self.source_file))?;
 
-            eprintln!("      Items in module: {}", imported_module.items.len());
 
             // Add all items from imported module
             // (In a real implementation, we'd respect the import { ... } selectors)
             for item in &imported_module.items {
                 match item {
                     Item::Function(func) => {
-                        eprintln!(
-                            "         ✅ Function: {} (receiver: {})",
-                            func.name,
-                            func.receiver.is_some()
-                        );
+                      
 
                         // If this is a method (has receiver), mangle its name NOW
                         // This prevents double-mangling in compile_program
@@ -56,7 +54,6 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                 let mut mangled_func = func.clone();
                                 let mangled_name = format!("{}_{}", struct_name, func.name);
                                 mangled_func.name = mangled_name.clone();
-                                eprintln!("            → Mangled to: {}", mangled_name);
                                 imported_items.push(Item::Function(mangled_func));
                             } else {
                                 imported_items.push(item.clone());
@@ -66,15 +63,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         }
                     }
                     Item::Struct(s) => {
-                        eprintln!("         ✅ Struct: {}", s.name);
                         imported_items.push(item.clone());
                     }
                     Item::Enum(e) => {
-                        eprintln!("         ✅ Enum: {}", e.name);
                         imported_items.push(item.clone());
                     }
                     Item::Contract(c) => {
-                        eprintln!("         ✅ Contract: {}", c.name);
                         imported_items.push(item.clone());
                     }
                     _ => {
@@ -84,10 +78,6 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }
         }
 
-        eprintln!(
-            "   → Merging {} imported items into program",
-            imported_items.len()
-        );
 
         // Merge imported items into program (before original items to avoid shadowing)
         let original_items = program.items.clone();
@@ -98,19 +88,16 @@ impl<'ctx> ASTCodeGen<'ctx> {
     }
 
     pub fn compile_program(&mut self, program: &Program) -> Result<(), String> {
-        eprintln!(
-            "📋 compile_program: {} total items in AST (before import resolution)",
-            program.items.len()
-        );
+      
 
-        // ⭐ NEW: Resolve and merge imported modules
+        // ⭐ NEW: Inject core prelude (auto-import stdlib/core)
         let mut merged_program = program.clone();
+        merged_program.inject_core_prelude();
+        
+        // ⭐ NEW: Resolve and merge imported modules
         self.resolve_and_merge_imports(&mut merged_program)?;
 
-        eprintln!(
-            "📋 After import resolution: {} total items",
-            merged_program.items.len()
-        );
+
 
         // Check if any async functions exist in the program
         let has_async = merged_program
@@ -126,7 +113,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         use crate::trait_bounds_checker::TraitBoundsChecker;
         let mut trait_checker = TraitBoundsChecker::new();
         trait_checker.initialize(&merged_program);
-        
+
         // Validate const generic parameters in functions and structs
         for item in &merged_program.items {
             match item {
@@ -143,9 +130,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 _ => {}
             }
         }
-        
+
         self.trait_bounds_checker = Some(trait_checker);
-        eprintln!("✅ Trait bounds checker initialized");
 
         // First pass: register types, constants, and function signatures
         for item in &merged_program.items {
@@ -167,13 +153,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 self.compile_extern_block(extern_block)?;
             } else if let Item::Const(const_decl) = item {
                 // Register constants as global variables
-                eprintln!("📋 Found const item: {}", const_decl.name);
                 self.compile_const(const_decl)?;
             }
         }
 
         // Apply policies to structs (after all policies registered)
-        eprintln!("📋 Applying policies to structs...");
         for item in &merged_program.items {
             if let Item::Struct(struct_def) = item {
                 self.apply_policies_to_struct(struct_def)?;
@@ -199,51 +183,50 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     if let Some(sn) = struct_name {
                         // Check if name is already mangled (from imported modules)
                         let mangled_name = if func.name.starts_with(&format!("{}_", sn)) {
-                            eprintln!("📌 Method already mangled: {}", func.name);
                             func.name.clone()
                         } else {
                             // ⭐ Method name mangling with type-based overloading support
+                            // CRITICAL: Encode operator symbols (op[], op[]=) for LLVM
+                            let encoded_method_name = Self::encode_operator_name(&func.name);
                             let param_count = func.params.len();
-                            let base_name = format!("{}_{}", sn, func.name);
-                            
+                            let base_name = format!("{}_{}", sn, encoded_method_name);
+
                             // ⭐ For method overloading: Include first parameter type in mangling
                             // This allows overloading like: add(i32), add(f64), op+(i32), op+(f64)
                             let name = if !func.params.is_empty() {
                                 let first_param_type = &func.params[0].ty;
                                 let type_suffix = self.generate_type_suffix(first_param_type);
-                                
-                                // Only add type suffix for operators (for backward compatibility)
+
+                                // Add type suffix for all external methods (operators and regular methods)
                                 // Format: StructName_methodname_typename_paramcount
-                                if func.name.starts_with("op") {
+                                if !type_suffix.is_empty() {
                                     format!("{}{}_{}", base_name, type_suffix, param_count)
                                 } else {
-                                    // For non-operators, add suffix only if type_suffix is not empty
-                                    if !type_suffix.is_empty() {
-                                        format!("{}{}_{}", base_name, type_suffix, param_count)
-                                    } else {
-                                        format!("{}_{}", base_name, param_count)
-                                    }
+                                    format!("{}_{}", base_name, param_count)
                                 }
                             } else {
                                 // No parameters (e.g., getter methods)
                                 base_name
                             };
+
                             
-                            eprintln!(
-                                "📌 Registering method: {} (receiver type: {}, generic: {}, params: {}) as {}",
-                                func.name,
-                                sn,
-                                !func.type_params.is_empty(),
-                                param_count,
-                                name
-                            );
                             name
                         };
 
                         // Store with mangled name (but keep original func structure)
                         let mut method_func = func.clone();
                         method_func.name = mangled_name.clone();
-                        self.function_defs.insert(mangled_name.clone(), method_func);
+                        
+                        // ⭐ CRITICAL FIX: Store BOTH the fully mangled name AND the base name
+                        // Fully mangled: Vec_push_i32_1 (for direct lookups)
+                        // Base name: Vec_push (for generic instantiation)
+                        self.function_defs.insert(mangled_name.clone(), method_func.clone());
+                        
+                        // Also store with base name (no type suffix) for generic lookup
+                        let base_lookup_name = format!("{}_{}", sn, Self::encode_operator_name(&func.name));
+                        if base_lookup_name != mangled_name {
+                            self.function_defs.insert(base_lookup_name, method_func);
+                        }
 
                         (mangled_name, true)
                     } else {
@@ -259,7 +242,38 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
                 // Skip generic functions for now - they'll be instantiated on-demand
                 // But we still register them above for later instantiation
-                if func.type_params.is_empty() {
+                // Also skip if this is a method on a generic struct
+                let is_on_generic_struct = if let Some(ref receiver) = func.receiver {
+                    // Extract struct name from receiver type
+                    let struct_name = match &receiver.ty {
+                        Type::Named(name) => Some(name.as_str()),
+                        Type::Generic { name, .. } => Some(name.as_str()),
+                        Type::Reference(inner, _) => match &**inner {
+                            Type::Named(name) => Some(name.as_str()),
+                            Type::Generic { name, .. } => Some(name.as_str()),
+                            Type::Vec(_) => Some("Vec"),
+                            Type::Box(_) => Some("Box"),
+                            Type::Option(_) => Some("Option"),
+                            Type::Result(_, _) => Some("Result"),
+                            _ => None,
+                        },
+                        Type::Vec(_) => Some("Vec"),
+                        Type::Box(_) => Some("Box"),
+                        Type::Option(_) => Some("Option"),
+                        Type::Result(_, _) => Some("Result"),
+                        _ => None,
+                    };
+                    
+                    // Check if the struct is generic
+                    struct_name
+                        .and_then(|name| self.struct_ast_defs.get(name))
+                        .map(|s| !s.type_params.is_empty())
+                        .unwrap_or(false)
+                } else {
+                    false
+                };
+                
+                if func.type_params.is_empty() && !is_on_generic_struct {
                     // For methods with receivers, we already mangled the name
                     if is_method {
                         let method_func = self.function_defs.get(&func_name).cloned();
@@ -269,6 +283,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     } else {
                         self.declare_function(func)?;
                     }
+                } else if is_on_generic_struct {
+                    eprintln!("⏭️  Skipping method {} on generic struct (will be instantiated on-demand)", func_name);
                 }
             }
         }
@@ -307,17 +323,14 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }
         }
 
+        // ⭐ NEW: Auto-generate op!= from op== for Eq trait implementations
+        self.auto_generate_eq_methods(&merged_program)?;
+
         // Fourth pass: compile inline struct method bodies (new trait system v1.3)
         // MUST come before function bodies, as generic instantiation may need these methods
-        eprintln!("📋 Fourth pass: compiling inline struct method bodies...");
         for item in &merged_program.items {
             if let Item::Struct(struct_def) = item {
-                eprintln!(
-                    "   Struct: {} (generic: {}, methods: {})",
-                    struct_def.name,
-                    !struct_def.type_params.is_empty(),
-                    struct_def.methods.len()
-                );
+          
                 if struct_def.type_params.is_empty() {
                     for method in &struct_def.methods {
                         self.compile_struct_method(&struct_def.name, method)?;
@@ -332,22 +345,199 @@ impl<'ctx> ASTCodeGen<'ctx> {
             if let Item::Function(func) = item {
                 // Skip generic functions - they'll be compiled when instantiated
                 // Also skip methods with generic receivers (they'll be instantiated with their struct)
-                let is_generic_method = if let Some(receiver) = &func.receiver {
-                    match &receiver.ty {
-                        Type::Generic { .. } => true,
-                        Type::Reference(inner, _) => matches!(&**inner, Type::Generic { .. }),
-                        _ => false,
-                    }
+                let is_on_generic_struct_compile = if let Some(ref receiver) = func.receiver {
+                    // Extract struct name from receiver type
+                    let struct_name = match &receiver.ty {
+                        Type::Named(name) => Some(name.as_str()),
+                        Type::Generic { name, .. } => Some(name.as_str()),
+                        Type::Reference(inner, _) => match &**inner {
+                            Type::Named(name) => Some(name.as_str()),
+                            Type::Generic { name, .. } => Some(name.as_str()),
+                            Type::Vec(_) => Some("Vec"),
+                            Type::Box(_) => Some("Box"),
+                            Type::Option(_) => Some("Option"),
+                            Type::Result(_, _) => Some("Result"),
+                            _ => None,
+                        },
+                        Type::Vec(_) => Some("Vec"),
+                        Type::Box(_) => Some("Box"),
+                        Type::Option(_) => Some("Option"),
+                        Type::Result(_, _) => Some("Result"),
+                        _ => None,
+                    };
+                    
+                    // Check if the struct is generic
+                    struct_name
+                        .and_then(|name| self.struct_ast_defs.get(name))
+                        .map(|s| !s.type_params.is_empty())
+                        .unwrap_or(false)
                 } else {
                     false
                 };
 
-                if func.type_params.is_empty() && !is_generic_method {
+                if func.type_params.is_empty() && !is_on_generic_struct_compile {
                     self.compile_function(func)?;
+                } else if is_on_generic_struct_compile {
+                    eprintln!("⏭️  Skipping compilation of method {} on generic struct", func.name);
                 }
             }
         }
 
         Ok(())
     }
+
+    /// Auto-generate op!= from op== for Eq trait implementations
+    /// If a type implements op== but not op!=, we generate: op!=(rhs) = !op==(rhs)
+    fn auto_generate_eq_methods(&mut self, program: &Program) -> Result<(), String> {
+        use inkwell::values::BasicMetadataValueEnum;
+
+        // Collect all types that implement Eq and have op== but not op!=
+        let mut types_needing_ne = Vec::new();
+
+        for item in &program.items {
+            match item {
+                Item::Struct(struct_def) if struct_def.impl_traits.iter().any(|t| t.name == "Eq") => {
+                    let has_eq = struct_def.methods.iter().any(|m| m.name == "op==");
+                    let has_ne = struct_def.methods.iter().any(|m| m.name == "op!=");
+                    
+                    if has_eq && !has_ne {
+                        types_needing_ne.push((struct_def.name.clone(), false)); // false = inline method
+                    }
+                }
+                Item::Function(func) if func.receiver.is_some() && func.name == "op==" => {
+                    // External method: fn (self: Point) op==
+                    if let Some(receiver) = &func.receiver {
+                        let type_name = match &receiver.ty {
+                            Type::Named(name) => Some(name.clone()),
+                            Type::Reference(inner, _) => {
+                                if let Type::Named(name) = &**inner {
+                                    Some(name.clone())
+                                } else {
+                                    None
+                                }
+                            }
+                            _ => None,
+                        };
+                        
+                        if let Some(type_name) = type_name {
+                            // Check if op!= exists for this type
+                            let has_ne = program.items.iter().any(|i| {
+                                if let Item::Function(f) = i {
+                                    if f.name == "op!=" && f.receiver.is_some() {
+                                        if let Some(r) = &f.receiver {
+                                            match &r.ty {
+                                                Type::Named(n) => n == &type_name,
+                                                Type::Reference(inner, _) => {
+                                                    if let Type::Named(n) = &**inner {
+                                                        n == &type_name
+                                                    } else {
+                                                        false
+                                                    }
+                                                }
+                                                _ => false,
+                                            }
+                                        } else {
+                                            false
+                                        }
+                                    } else {
+                                        false
+                                    }
+                                } else {
+                                    false
+                                }
+                            });
+                            
+                            if !has_ne && !types_needing_ne.iter().any(|(t, _)| t == &type_name) {
+                                types_needing_ne.push((type_name, true)); // true = external method
+                            }
+                        }
+                    }
+                }
+                Item::TraitImpl(trait_impl) if trait_impl.trait_name == "Eq" => {
+                    let has_eq = trait_impl.methods.iter().any(|m| m.name == "op==");
+                    let has_ne = trait_impl.methods.iter().any(|m| m.name == "op!=");
+                    
+                    if has_eq && !has_ne {
+                        if let Type::Named(type_name) = &trait_impl.for_type {
+                            types_needing_ne.push((type_name.clone(), false));
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        // Generate op!= for each type
+        for (type_name, is_external) in types_needing_ne {
+            eprintln!("🔧 Auto-generating op!= from op== for type: {} (external: {})", type_name, is_external);
+            
+            // For inline methods, use param_count=2, for external use param_count=1
+            let eq_method_name = if is_external {
+                // External: Point_opeq_Point_1 (has type suffix)
+                // Try to find the actual method name
+                let base_name = format!("{}_opeq", type_name);
+                
+                // Search for method with type suffix
+                let mut found_name = None;
+                for (name, _) in &self.functions {
+                    if name.starts_with(&base_name) {
+                        found_name = Some(name.clone());
+                        break;
+                    }
+                }
+                
+                found_name.unwrap_or(base_name)
+            } else {
+                // Inline: Point_opeq_2
+                format!("{}_opeq_2", type_name)
+            };
+            
+            let eq_fn = self.module.get_function(&eq_method_name)
+                .ok_or_else(|| format!("op== method '{}' not found for auto-generation", eq_method_name))?;
+            
+            // Create op!= function with same signature
+            let ne_method_name = if is_external {
+                eq_method_name.replace("_opeq", "_opne")
+            } else {
+                format!("{}_opne_2", type_name)
+            };
+            
+            let fn_type = eq_fn.get_type();
+            let ne_fn = self.module.add_function(&ne_method_name, fn_type, None);
+            
+            // Build function body: return !op==(rhs)
+            let entry = self.context.append_basic_block(ne_fn, "entry");
+            let builder = self.context.create_builder();
+            builder.position_at_end(entry);
+            
+            // Get parameters (same as op==)
+            let params: Vec<BasicMetadataValueEnum> = ne_fn.get_params()
+                .iter()
+                .map(|p| (*p).into())
+                .collect();
+            
+            // Call op==(self, rhs)
+            let eq_result = builder.build_call(eq_fn, &params, "eq_result")
+                .map_err(|e| format!("Failed to call op== in auto-generated op!=: {}", e))?;
+            
+            let eq_val = eq_result.try_as_basic_value().left()
+                .ok_or("op== should return a value")?;
+            
+            // Negate the result: !eq_val
+            let ne_val = builder.build_not(eq_val.into_int_value(), "ne_result")
+                .map_err(|e| format!("Failed to negate op== result: {}", e))?;
+            
+            // Return !op==(rhs)
+            builder.build_return(Some(&ne_val))
+                .map_err(|e| format!("Failed to build return in auto-generated op!=: {}", e))?;
+            
+            // Register in functions map
+            self.functions.insert(ne_method_name.clone(), ne_fn);
+            
+            eprintln!("✅ Auto-generated: {} (from {})", ne_method_name, eq_method_name);
+        }
+
+        Ok(())
+    }
 }
+

@@ -15,15 +15,27 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 Type::Reference(inner, _) => match &**inner {
                     Type::Named(name) => name.clone(),
                     Type::Generic { name, .. } => name.clone(),
+                    // Handle Vec<T>, Box<T>, etc.
+                    Type::Vec(_) => "Vec".to_string(),
+                    Type::Box(_) => "Box".to_string(),
+                    Type::Option(_) => "Option".to_string(),
+                    Type::Result(_, _) => "Result".to_string(),
                     _ => {
+                        eprintln!("⚠️  Unsupported receiver type: {:?}", inner);
                         return Err(
-                            "Receiver must be a named type or reference to named type".to_string()
+                            format!("Receiver must be a named type or reference to named type, got {:?}", inner)
                         );
                     }
                 },
+                // Direct Vec/Box without reference
+                Type::Vec(_) => "Vec".to_string(),
+                Type::Box(_) => "Box".to_string(),
+                Type::Option(_) => "Option".to_string(),
+                Type::Result(_, _) => "Result".to_string(),
                 _ => {
+                    eprintln!("⚠️  Unsupported receiver type: {:?}", receiver.ty);
                     return Err(
-                        "Receiver must be a named type or reference to named type".to_string()
+                        format!("Receiver must be a named type or reference to named type, got {:?}", receiver.ty)
                     );
                 }
             };

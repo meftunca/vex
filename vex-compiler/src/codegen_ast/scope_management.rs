@@ -43,10 +43,6 @@ impl<'ctx> super::ASTCodeGen<'ctx> {
         self.destructor_impls
             .insert("Set".to_string(), "vex_map_free".to_string()); // Set uses Map backend
 
-        eprintln!(
-            "📝 Registered {} built-in destructor implementations",
-            self.destructor_impls.len()
-        );
     }
 
     /// Pop scope and emit cleanup calls for types implementing Destructor trait
@@ -59,10 +55,7 @@ impl<'ctx> super::ASTCodeGen<'ctx> {
             for (var_name, type_name) in scope_vars.iter().rev() {
                 // Check if this type implements Destructor trait (has a registered cleanup function)
                 if let Some(cleanup_func_name) = self.destructor_impls.get(type_name) {
-                    eprintln!(
-                        "🧹 Auto-cleanup: {}({}) [trait-based]",
-                        cleanup_func_name, var_name
-                    );
+                   
 
                     // Get variable pointer
                     let var_ptr = match self.variables.get(var_name) {
@@ -172,10 +165,7 @@ impl<'ctx> super::ASTCodeGen<'ctx> {
         // Check if this type implements Destructor trait
         if self.destructor_impls.contains_key(&type_name) {
             if let Some(current_scope) = self.scope_stack.last_mut() {
-                eprintln!(
-                    "📝 Register for cleanup: {} ({}) [trait-based]",
-                    var_name, type_name
-                );
+           
                 current_scope.push((var_name, type_name));
             }
         } else {

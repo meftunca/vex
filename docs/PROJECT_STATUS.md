@@ -1,8 +1,8 @@
 # Vex Language - Project Status
 
 **Version:** 0.2.0 (Syntax v0.1.2)
-**Last Updated:** November 13, 2025
-**Test Status:** 407/407 passing (100%) ✅🎉 - PRODUCTION READY!
+**Last Updated:** November 14, 2025
+**Test Status:** 424/424 passing (100%) ✅🎉 - PRODUCTION READY!
 
 ## 📊 Code Metrics
 
@@ -10,8 +10,8 @@
 
 | Component | File | Lines |
 |-----------|------|-------|
-| AST | vex-ast/src/lib.rs | 936 |
-| Parser | vex-parser/src/parser/mod.rs | 462 |
+| AST | vex-ast/src/lib.rs | 972 |
+| Parser | vex-parser/src/parser/mod.rs | 511 |
 | Codegen | vex-compiler/src/codegen_ast/mod.rs | 359 |
 | Types | vex-compiler/src/codegen_ast/types.rs | 0 |
 | Pattern Matching | vex-compiler/src/codegen_ast/expressions/pattern_matching.rs | 0 |

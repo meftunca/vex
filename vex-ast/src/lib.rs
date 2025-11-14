@@ -7,6 +7,42 @@ pub struct Program {
     pub items: Vec<Item>,
 }
 
+impl Program {
+    /// Inject core prelude imports (Vec, Box, Option, Result, etc.)
+    /// Called by compiler before compilation to auto-import stdlib/core
+    ///
+    /// Layer 1 (stdlib/core) is the global prelude - always available without explicit imports
+    /// This injects: Vec, Box, Option, Result, String, and core contracts (Display, Clone, Debug)
+    pub fn inject_core_prelude(&mut self) {
+        // Core modules that should be auto-imported as prelude
+        let core_modules = vec![
+            "core/vec", // Vec<T> type definition
+            // "core/vec_methods", // Vec<T> methods (push, get, len, etc.)
+            "core/box",    // Box<T>
+            "core/option", // Option<T>
+            "core/result", // Result<T,E>
+            "core",        // Display, Clone, Debug contracts
+        ];
+
+        for module in core_modules {
+            // Skip if already imported by user
+            if self.imports.iter().any(|i| i.module == module) {
+                continue;
+            }
+
+            let import = Import {
+                kind: ImportKind::Module,
+                items: vec![], // Module import (not selective)
+                module: module.to_string(),
+                alias: None,
+            };
+
+            // Insert at beginning so user imports can override if needed
+            self.imports.insert(0, import);
+        }
+    }
+}
+
 /// File is an alias for Program (used in parser)
 pub type File = Program;
 
@@ -16,7 +52,7 @@ pub type File = Program;
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TypeParam {
     pub name: String,
-    pub bounds: Vec<TraitBound>,   // Trait bounds: Display, Callable(i32): i32, etc.
+    pub bounds: Vec<TraitBound>, // Trait bounds: Display, Callable(i32): i32, etc.
     pub default_type: Option<Type>, // Default type: Rhs = Self, T = i32, etc.
 }
 
@@ -133,7 +169,7 @@ pub struct PolicyField {
 pub enum Item {
     Function(Function),
     Struct(Struct),
-    Contract(Trait), // Renamed from Trait - using Contract keyword only
+    Contract(Trait),              // Renamed from Trait - using Contract keyword only
     TraitImpl(ExternalTraitImpl), // External trait impl (rarely used in Vex)
     BuiltinExtension(BuiltinExtension), // NEW: Type extends Contract declarations
     TypeAlias(TypeAlias),
@@ -149,7 +185,7 @@ pub enum Item {
 pub struct Function {
     pub is_async: bool,
     pub is_gpu: bool,
-    pub is_mutable: bool, // ⭐ NEW: Method-level mutability (fn method()!)
+    pub is_mutable: bool,  // ⭐ NEW: Method-level mutability (fn method()!)
     pub is_operator: bool, // ⭐ NEW: Operator overload method (fn op+(...))
     pub receiver: Option<Receiver>, // For methods
     pub name: String,
@@ -182,7 +218,7 @@ pub enum WhereClausePredicate {
 /// Method receiver: (self: &Vector2) or (self: &mut Vector2)
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Receiver {
-    pub name: String,        // Receiver variable name: 'self', 'p', 'this', etc.
+    pub name: String, // Receiver variable name: 'self', 'p', 'this', etc.
     pub is_mutable: bool,
     pub ty: Type,
 }
@@ -298,8 +334,8 @@ pub struct Trait {
 /// Builtin type contract extension: i32 extends Display, Clone, Eq;
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BuiltinExtension {
-    pub type_name: String,        // i32, f64, bool, string
-    pub contracts: Vec<String>,   // Display, Clone, Eq, Debug
+    pub type_name: String,      // i32, f64, bool, string
+    pub contracts: Vec<String>, // Display, Clone, Eq, Debug
 }
 
 /// Type alias inside a trait
@@ -315,7 +351,7 @@ pub struct TraitTypeAlias {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TraitMethod {
     pub name: String,
-    pub is_mutable: bool, // ⭐ NEW: Method-level mutability (fn method()!)
+    pub is_mutable: bool,  // ⭐ NEW: Method-level mutability (fn method()!)
     pub is_operator: bool, // ⭐ NEW: Operator overload method (fn op+(...))
     pub receiver: Option<Receiver>, // self parameter (must use Self type)
     pub params: Vec<Param>,
@@ -840,7 +876,7 @@ pub enum BinaryOp {
     Mul,
     Div,
     Mod,
-    Pow,    // **
+    Pow, // **
     Eq,
     NotEq,
     Lt,
@@ -849,14 +885,14 @@ pub enum BinaryOp {
     GtEq,
     And,
     Or,
-    BitAnd, // &
-    BitOr,  // |
-    BitXor, // ^
-    Shl,    // <<
-    Shr,    // >>
-    Range,  // ..
+    BitAnd,         // &
+    BitOr,          // |
+    BitXor,         // ^
+    Shl,            // <<
+    Shr,            // >>
+    Range,          // ..
     RangeInclusive, // ..=
-    NullCoalesce, // ??
+    NullCoalesce,   // ??
 }
 
 /// Unary operators

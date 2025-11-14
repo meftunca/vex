@@ -21,20 +21,30 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let fn_name = if let Some(ref receiver) = func.receiver {
             let type_name = match &receiver.ty {
                 Type::Named(name) => name.clone(),
-                Type::Generic { name, .. } => name.clone(), // Generic types like Container<T>
+                Type::Generic { name, .. } => name.clone(),
                 Type::Reference(inner, _) => match &**inner {
                     Type::Named(name) => name.clone(),
                     Type::Generic { name, .. } => name.clone(),
+                    Type::Vec(_) => "Vec".to_string(),
+                    Type::Box(_) => "Box".to_string(),
+                    Type::Option(_) => "Option".to_string(),
+                    Type::Result(_, _) => "Result".to_string(),
                     _ => {
+                        eprintln!("⚠️  Unsupported receiver type in compile: {:?}", inner);
                         return Err(
-                            "Receiver must be a named type or reference to named type".to_string()
+                            format!("Receiver must be a named type or reference to named type, got {:?}", inner)
                         );
                     }
                 },
+                Type::Vec(_) => "Vec".to_string(),
+                Type::Box(_) => "Box".to_string(),
+                Type::Option(_) => "Option".to_string(),
+                Type::Result(_, _) => "Result".to_string(),
                 _ => {
+                    eprintln!("⚠️  Unsupported receiver type in compile: {:?}", receiver.ty);
                     return Err(
-                        "Receiver must be a named type or reference to named type".to_string()
-                    )
+                        format!("Receiver must be a named type or reference to named type, got {:?}", receiver.ty)
+                    );
                 }
             };
             
@@ -42,20 +52,19 @@ impl<'ctx> ASTCodeGen<'ctx> {
             if func.name.starts_with(&format!("{}_", type_name)) {
                 func.name.clone()
             } else {
-                // ⭐ Type-based method overloading: Include first parameter type in mangling
+                // CRITICAL: Encode operator symbols (op[], op[]=) for LLVM
+                let encoded_method_name = Self::encode_operator_name(&func.name);
                 let param_count = func.params.len();
-                let base_name = format!("{}_{}", type_name, func.name);
+                let base_name = format!("{}_{}", type_name, encoded_method_name);
                 
-                // Add type suffix for overloading (same logic as program.rs registration)
+                // Add type suffix for overloading (same logic as program.rs)
                 let name = if !func.params.is_empty() {
                     let first_param_type = &func.params[0].ty;
                     let type_suffix = self.generate_type_suffix(first_param_type);
                     
-                    // Add type suffix for operators
                     if func.name.starts_with("op") && !type_suffix.is_empty() {
                         format!("{}{}_{}", base_name, type_suffix, param_count)
                     } else if !type_suffix.is_empty() {
-                        // For non-operators, add suffix only if not empty
                         format!("{}{}_{}", base_name, type_suffix, param_count)
                     } else {
                         format!("{}_{}", base_name, param_count)

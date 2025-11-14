@@ -275,4 +275,120 @@ impl TraitBoundsChecker {
             _ => false,
         }
     }
+
+    /// Check where clause predicates for a function
+    /// Validates that concrete type arguments satisfy where clause constraints
+    /// Example: where T: Display, T.Item: Clone
+    pub fn check_where_clause(
+        &mut self,
+        where_clause: &[vex_ast::WhereClausePredicate],
+        type_substitutions: &HashMap<String, Type>,
+    ) -> Result<(), String> {
+        use vex_ast::WhereClausePredicate;
+
+        for predicate in where_clause {
+            match predicate {
+                WhereClausePredicate::TypeBound { type_param, bounds } => {
+                    // Get the concrete type for this type parameter
+                    let concrete_type = type_substitutions
+                        .get(type_param)
+                        .ok_or_else(|| {
+                            format!("Type parameter '{}' not found in substitutions", type_param)
+                        })?;
+
+                    let type_name = self.extract_type_name(concrete_type);
+
+                    // Check each trait bound
+                    for bound in bounds {
+                        match bound {
+                            TraitBound::Simple(trait_name) => {
+                                if !self.type_implements_trait(&type_name, trait_name) {
+                                    return Err(format!(
+                                        "Where clause not satisfied: type `{}` does not implement trait `{}` (required for type parameter `{}`)",
+                                        type_name, trait_name, type_param
+                                    ));
+                                }
+                            }
+                            TraitBound::Callable { trait_name, .. } => {
+                                match concrete_type {
+                                    Type::Function { .. } => {
+                                        // Function types satisfy closure traits
+                                    }
+                                    _ => {
+                                        return Err(format!(
+                                            "Where clause not satisfied: type `{}` does not implement closure trait `{}` (required for type parameter `{}`)",
+                                            type_name, trait_name, type_param
+                                        ));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                WhereClausePredicate::AssociatedTypeBound {
+                    type_param,
+                    assoc_type,
+                    bounds,
+                } => {
+                    // For associated type bounds like T.Item: Display
+                    // We need to:
+                    // 1. Get the concrete type for T
+                    // 2. Find what T.Item resolves to
+                    // 3. Check if that type implements the required traits
+
+                    let concrete_type = type_substitutions
+                        .get(type_param)
+                        .ok_or_else(|| {
+                            format!("Type parameter '{}' not found in substitutions", type_param)
+                        })?;
+
+                    // For now, we'll do basic validation
+                    // Full implementation would require resolving associated types
+                    let type_name = self.extract_type_name(concrete_type);
+
+                    // TODO: Resolve associated type T.Item to concrete type
+                    // For now, we'll just validate that T implements the trait that defines Item
+                    // This is incomplete but better than nothing
+                    eprintln!(
+                        "⚠️  Associated type bound validation incomplete: {}.{}: {:?}",
+                        type_name, assoc_type, bounds
+                    );
+
+                    // At minimum, ensure the type is known
+                    if type_name == "Unknown" || type_name == "error" {
+                        return Err(format!(
+                            "Cannot validate associated type bound {}.{} for unknown type",
+                            type_param, assoc_type
+                        ));
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Build type substitution map for generic function call
+    /// Maps type parameter names to concrete types
+    pub fn build_type_substitutions(
+        type_params: &[TypeParam],
+        type_args: &[Type],
+    ) -> HashMap<String, Type> {
+        let mut substitutions = HashMap::new();
+
+        for (param, arg) in type_params.iter().zip(type_args.iter()) {
+            substitutions.insert(param.name.clone(), arg.clone());
+        }
+
+        // Fill in defaults for missing arguments
+        for (i, param) in type_params.iter().enumerate() {
+            if i >= type_args.len() {
+                if let Some(default_ty) = &param.default_type {
+                    substitutions.insert(param.name.clone(), default_ty.clone());
+                }
+            }
+        }
+
+        substitutions
+    }
 }

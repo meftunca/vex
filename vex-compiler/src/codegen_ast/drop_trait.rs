@@ -19,7 +19,6 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
             // Drop in LIFO order (reverse)
             for (var_name, type_name) in drop_vars.iter().rev() {
-                eprintln!("🗑️  Calling drop on {} (type: {})", var_name, type_name);
 
                 // Get variable pointer
                 let var_ptr = if let Some(ptr) = self.variables.get(var_name) {
@@ -43,7 +42,6 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         )
                         .map_err(|e| format!("Failed to call drop: {:?}", e))?;
 
-                    eprintln!("  ✅ Called {}({})", drop_method, var_name);
                 } else {
                     eprintln!("  ⚠️  Drop method {} not found", drop_method);
                 }
@@ -56,12 +54,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
     /// Push a new scope for tracking Drop variables
     pub(crate) fn push_drop_scope(&mut self) {
         self.scope_stack.push(Vec::new());
-        eprintln!("📋 Pushed Drop scope (depth: {})", self.scope_stack.len());
     }
 
     /// Pop a scope and call drop() on all variables (LIFO order)
     pub(crate) fn pop_drop_scope(&mut self) -> Result<(), String> {
-        eprintln!("📋 Popping Drop scope (depth: {})", self.scope_stack.len());
 
         // Call drops on current scope
         self.call_scope_drops()?;

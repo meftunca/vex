@@ -1,0 +1,37 @@
+// Test if stdlib Vec is auto-loaded (Layer 1 prelude)
+// NO IMPORT NEEDED - Vec is in global prelude!
+
+fn main() {
+    print("=== Available Vec Methods ===\n");
+    
+    // Test 1: new() and push()
+    let v = Vec<i32>.new();
+    v.push(10);
+    v.push(20);
+    v.push(30);
+    print("✓ new() and push()\n");
+    
+    // Test 2: len()
+    let len = v.len();
+    print("✓ len() = ");
+    print(len);
+    print("\n");
+    
+    // Test 3: get()
+    let val = v.get(1);
+    print("✓ get(1) = ");
+    print(val);
+    print("\n");
+    
+    // Test 4: with_capacity()
+    let v2 = vec_with_capacity(100);
+    v2.push(42);
+    print("✓ vec_with_capacity(100)\n");
+    
+    // Test 5: Constructor syntax
+    let v3 = Vec<i32>();
+    v3.push(777);
+    print("✓ Vec<i32>() constructor\n");
+    
+    print("\n=== All available methods work! ===\n");
+}

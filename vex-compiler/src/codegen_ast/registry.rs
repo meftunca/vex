@@ -225,7 +225,6 @@ impl<'ctx> ASTCodeGen<'ctx> {
             return Err(format!("Policy '{}' is already defined", policy.name));
         }
 
-        eprintln!("📋 Registering policy: {}", policy.name);
         self.policy_defs.insert(policy.name.clone(), policy.clone());
         Ok(())
     }
@@ -252,7 +251,6 @@ impl<'ctx> ASTCodeGen<'ctx> {
             return Ok(()); // No policies and no inline metadata
         }
 
-        eprintln!("  📋 Processing metadata for struct '{}'", struct_def.name);
 
         // Get struct field names
         let field_names: Vec<String> = struct_def.fields.iter().map(|f| f.name.clone()).collect();
@@ -265,10 +263,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Step 1: Apply policies (if any)
         if !struct_def.policies.is_empty() {
-            eprintln!("    ├─ Applying {} policies", struct_def.policies.len());
 
             for policy_name in &struct_def.policies {
-                eprintln!("       ├─ Policy '{}'", policy_name);
 
                 // Apply policy with full hierarchy (parents + current)
                 let field_results =
@@ -309,14 +305,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
         // Step 2: Apply inline metadata (overrides policy metadata)
         let has_inline = struct_def.fields.iter().any(|f| f.metadata.is_some());
         if has_inline {
-            eprintln!("    ├─ Applying inline metadata (overrides policies)");
 
             for field in &struct_def.fields {
                 if let Some(inline_metadata_str) = &field.metadata {
-                    eprintln!(
-                        "       ├─ Field '{}': `{}`",
-                        field.name, inline_metadata_str
-                    );
 
                     // Parse inline metadata
                     match parse_metadata(inline_metadata_str) {
@@ -349,28 +340,18 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }
         }
 
-        eprintln!(
-            "    └─ ✅ Final metadata for {} fields",
-            merged_metadata.len()
-        );
 
         // Store merged_metadata in struct registry for runtime access
         if !merged_metadata.is_empty() {
             self.struct_metadata
                 .insert(struct_def.name.clone(), merged_metadata.clone());
 
-            eprintln!(
-                "       💾 Stored metadata for struct '{}' ({} fields):",
-                struct_def.name,
-                merged_metadata.len()
-            );
-
+ 
             for (field_name, field_meta) in &merged_metadata {
                 let meta_str: Vec<String> = field_meta
                     .iter()
                     .map(|(k, v)| format!("{}:\"{}\"", k, v))
                     .collect();
-                eprintln!("          • {} → {{ {} }}", field_name, meta_str.join(", "));
             }
         }
 

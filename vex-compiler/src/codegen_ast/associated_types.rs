@@ -39,10 +39,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         // 2. Look up the associated type binding
         let key = (type_name.clone(), assoc_name.to_string());
         if let Some(bound_type) = self.associated_type_bindings.get(&key) {
-            eprintln!(
-                "✅ Resolved {}.{} → {:?}",
-                type_name, assoc_name, bound_type
-            );
+           
             return Ok(bound_type.clone());
         }
 
@@ -50,10 +47,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         if let Some(struct_def) = self.struct_ast_defs.get(&type_name) {
             for (name, bound_type) in &struct_def.associated_type_bindings {
                 if name == assoc_name {
-                    eprintln!(
-                        "✅ Resolved {}.{} → {:?} (from struct def)",
-                        type_name, name, bound_type
-                    );
+                  
                     return Ok(bound_type.clone());
                 }
             }
@@ -74,10 +68,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
     ) {
         for (assoc_name, concrete_type) in bindings {
             let key = (type_name.to_string(), assoc_name.clone());
-            eprintln!(
-                "📝 Registering associated type: {}.{} = {:?}",
-                type_name, assoc_name, concrete_type
-            );
+           
             self.associated_type_bindings
                 .insert(key, concrete_type.clone());
         }

@@ -290,15 +290,9 @@ impl<'a> Parser<'a> {
 
             // Condition
             let condition = if !self.check(&Token::Semicolon) {
-                eprintln!(
-                    "🟢 For loop: parsing condition, current token: {:?}",
-                    self.peek()
-                );
+              
                 let expr = self.parse_expression()?;
-                eprintln!(
-                    "🟢 For loop: condition parsed, current token: {:?}",
-                    self.peek()
-                );
+              
                 Some(expr)
             } else {
                 None
@@ -307,11 +301,7 @@ impl<'a> Parser<'a> {
 
             // Post (can be assignment or expression, no semicolon before brace)
             let post = if !self.check(&Token::LBrace) {
-                eprintln!(
-                    "🟢 For loop: parsing post, current token: {:?}",
-                    self.peek()
-                );
-
+          
                 // Try to parse as assignment first (i = i + 1)
                 let checkpoint = self.current;
                 if let Ok(expr) = self.parse_expression() {
@@ -321,17 +311,10 @@ impl<'a> Parser<'a> {
                         let target = self.parse_expression()?;
                         self.consume(&Token::Eq, "Expected '='")?;
                         let value = self.parse_expression()?;
-                        eprintln!(
-                            "🟢 For loop: parsed assignment post, current token: {:?}",
-                            self.peek()
-                        );
+                       
                         Some(Box::new(Statement::Assign { target, value }))
                     } else {
-                        // Just an expression
-                        eprintln!(
-                            "🟢 For loop: parsed expression post, current token: {:?}",
-                            self.peek()
-                        );
+                        
                         Some(Box::new(Statement::Expression(expr)))
                     }
                 } else {
@@ -341,10 +324,7 @@ impl<'a> Parser<'a> {
                 None
             };
 
-            eprintln!(
-                "🟢 For loop: about to parse body, current token: {:?}",
-                self.peek()
-            );
+        
             let body = self.parse_block()?;
 
             let span_id = self.span_map.generate_id();

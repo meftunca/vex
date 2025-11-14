@@ -150,6 +150,85 @@ fn main(): i32 {
 
 ## 🏗️ Architecture
 
+### Layer Architecture
+
+Vex is built on a **4-layer self-hosting architecture**:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ Layer 3: Pure Vex (vex-libs/std)                            │
+│ - Standard library modules (manual import)                  │
+│ - High-level abstractions built on Layer 1/2                │
+└─────────────────────────────────────────────────────────────┘
+                           ↓
+┌─────────────────────────────────────────────────────────────┐
+│ Layer 2: Vex Stdlib (stdlib/core - Auto-imported Prelude)   │
+│ - Core types: Vec<T>, Box<T>, Option<T>, Result<T,E>        │
+│ - Global prelude - no import needed                         │
+│ - Wraps Layer 0 with type-safe Vex interface                │
+└─────────────────────────────────────────────────────────────┘
+                           ↓
+┌─────────────────────────────────────────────────────────────┐
+│ Layer 1: C Runtime (vex-runtime/)                           │
+│ - SIMD operations, memory allocators, async runtime         │
+│ - extern "C" functions: vex_vec_*, vex_box_*, vex_alloc_*   │
+│ - Performance-critical primitives (13,258+ lines)           │
+└─────────────────────────────────────────────────────────────┘
+                           ↓
+┌─────────────────────────────────────────────────────────────┐
+│ Layer 0: Rust/LLVM Compiler Infrastructure                  │
+│ - Type system, borrow checker, LLVM codegen                 │
+│ - Bootstrap compiler (eventually replaceable by Vex)        │
+│ - Critical dependencies that need Layer 0 support           │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Layer 0 Dependencies (Rust/LLVM)
+
+**Current requirements that MUST stay at compiler level:**
+
+1. **Type System Core**
+
+   - Generic type instantiation (`Vec<T>` → `Vec_i32`)
+   - Trait bound checking and resolution
+   - Associated type constraints
+   - Type inference engine
+
+2. **Borrow Checker**
+
+   - 4-phase borrow analysis (initialization, borrowing, usage, cleanup)
+   - Lifetime tracking and validation
+   - Move semantics enforcement
+   - Reference validity checking
+
+3. **Memory Model**
+
+   - Struct layout and alignment
+   - Enum discriminant placement
+   - Generic monomorphization
+   - SIMD type alignment
+
+4. **Code Generation**
+
+   - LLVM IR generation
+   - Optimization passes
+   - Platform-specific ABI
+   - Debug info generation
+
+5. **FFI Bridge**
+   - extern "C" function declarations
+   - C type compatibility layer
+   - Calling convention handling
+
+**Future self-hosting migration path:**
+
+- Phase 1: Layer 2 (stdlib/core) in Vex with method support ✅ (in progress)
+- Phase 2: Layer 0 primitives exposed as compiler intrinsics
+- Phase 3: Gradual migration of Layer 0 to Vex with compiler builtins
+- Phase 4: Bootstrap compiler written in Vex
+
+### Directory Structure
+
 ```
 vex_lang/
 ├── vex-lexer/           # Tokenization (logos)
@@ -159,7 +238,9 @@ vex_lang/
 │   ├── codegen_ast/     # AST→LLVM compilation (722 lines)
 │   ├── borrow_checker/  # 4-phase memory safety (762+691+645 lines)
 │   └── diagnostics/     # Error reporting system
-├── vex-runtime/         # C runtime (SIMD, async, allocators)
+├── vex-runtime/         # C runtime (SIMD, async, allocators) - Layer 1
+├── stdlib/core/         # Core types (Vec, Box, Option, Result) - Layer 2
+├── vex-libs/std/        # Standard library modules - Layer 3
 ├── vex-cli/             # Command-line interface
 ├── vex-lsp/             # Language Server Protocol (95% complete)
 ├── vex-formatter/       # Code formatter
@@ -170,6 +251,9 @@ vex_lang/
 
 ```
 Source (.vx) → Lexer → Parser → AST → Borrow Check → LLVM IR → Binary
+                                    ↑
+                              Prelude Injection
+                           (stdlib/core auto-import)
 ```
 
 ---

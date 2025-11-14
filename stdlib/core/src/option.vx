@@ -1,0 +1,10 @@
+// stdlib/core/src/option.vx
+// Option<T> - Optional value (self-hosted Vex implementation)
+
+export enum Option<T> {
+    Some(T),
+    None,
+}
+
+// Methods will be implemented in Vex (TODO: need method syntax support)
+// For now, just type definition is exported to prelude

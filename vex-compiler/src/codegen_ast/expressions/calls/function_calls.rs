@@ -17,6 +17,27 @@ impl<'ctx> ASTCodeGen<'ctx> {
             eprintln!("  Type args: {:?}", type_args);
         }
 
+        // EARLY CHECK: Type constructor with explicit type args (e.g., Vec<i32>())
+        if !type_args.is_empty() {
+            if let Expression::Ident(func_name) = func_expr {
+                // Try builtin type constructor: Type.new
+                let builtin_name = format!("{}.new", func_name);
+                eprintln!("  🔍 Checking builtin: {}", builtin_name);
+                if let Some(builtin_fn) = self.builtins.get(&builtin_name) {
+                    eprintln!("  ✅ Using builtin constructor: {}", builtin_name);
+                    // Compile arguments first
+                    let mut arg_basic_vals: Vec<BasicValueEnum> = Vec::new();
+                    for arg in args.iter() {
+                        let val = self.compile_expression(arg)?;
+                        arg_basic_vals.push(val);
+                    }
+                    return builtin_fn(self, &arg_basic_vals);
+                } else {
+                    eprintln!("  ⚠️  Builtin not found: {}", builtin_name);
+                }
+            }
+        }
+
         // Get function definition to check for default parameters
         let func_def_opt = if let Expression::Ident(func_name) = func_expr {
             self.function_defs.get(func_name).cloned()
@@ -198,6 +219,16 @@ impl<'ctx> ASTCodeGen<'ctx> {
             // Check if this is a builtin function
             if let Some(builtin_fn) = self.builtins.get(func_name) {
                 return builtin_fn(self, &arg_basic_vals);
+            }
+
+            // Check if this is a type constructor (e.g., Vec<i32>())
+            if !type_args.is_empty() {
+                // Try builtin type constructor: Type.new
+                let builtin_name = format!("{}.new", func_name);
+                if let Some(builtin_fn) = self.builtins.get(&builtin_name) {
+                    eprintln!("  ✅ Using builtin constructor: {}", builtin_name);
+                    return builtin_fn(self, &arg_basic_vals);
+                }
             }
 
             // Check if this is a local variable (could be a closure stored in a variable)

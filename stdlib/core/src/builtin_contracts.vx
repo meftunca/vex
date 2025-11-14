@@ -37,6 +37,7 @@ u64 extends Add, Sub, Mul, Div, Mod;
 u128 extends Add, Sub, Mul, Div, Mod;
 
 // Floating point types: no Mod
+f16 extends Add, Sub, Mul, Div, Neg;
 f32 extends Add, Sub, Mul, Div, Neg;
 f64 extends Add, Sub, Mul, Div, Neg;
 
@@ -73,6 +74,7 @@ u32 extends Eq, Ord;
 u64 extends Eq, Ord;
 u128 extends Eq, Ord;
 
+f16 extends Eq, Ord;
 f32 extends Eq, Ord;
 f64 extends Eq, Ord;
 
@@ -106,6 +108,7 @@ u32 extends Display, Clone, Debug;
 u64 extends Display, Clone, Debug;
 u128 extends Display, Clone, Debug;
 
+f16 extends Display, Clone, Debug;
 f32 extends Display, Clone, Debug;
 f64 extends Display, Clone, Debug;
 

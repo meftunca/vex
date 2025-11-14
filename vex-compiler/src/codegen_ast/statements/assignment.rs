@@ -151,10 +151,30 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         let impl_key = ("IndexMut".to_string(), struct_name.clone());
                         
                         if self.trait_impls.contains_key(&impl_key) {
-                            // Call op[]=(index, value)
-                            let method_name = format!("{}_op[]=", struct_name);
+                            // CRITICAL: Encode op[]= -> opindexset for LLVM compatibility
+                            // Try type-specific method first (with type suffix and param count)
+                            let index_type_suffix = if let Ok(index_type) = self.infer_expression_type(index) {
+                                self.generate_type_suffix(&index_type)
+                            } else {
+                                String::new()
+                            };
+                            
+                            let typed_method_name = if !index_type_suffix.is_empty() {
+                                format!("{}_opindexset{}_2", struct_name, index_type_suffix)
+                            } else {
+                                String::new()
+                            };
+                            
+                            let generic_method_name = format!("{}_opindexset", struct_name);
+                            
+                            let method_name = if !typed_method_name.is_empty() && self.module.get_function(&typed_method_name).is_some() {
+                                typed_method_name
+                            } else {
+                                generic_method_name.clone()
+                            };
+                            
                             let function = self.module.get_function(&method_name)
-                                .ok_or_else(|| format!("IndexMut operator method '{}' not found", method_name))?;
+                                .ok_or_else(|| format!("IndexMut operator method '{}' not found (tried: {})", generic_method_name, method_name))?;
                             
                             // Get self pointer (NOT loaded - pass pointer for mutation)
                             let var_ptr = *self.variables.get(var_name)
@@ -163,7 +183,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                             // Compile index and value
                             let index_val = self.compile_expression(index)?;
                             
-                            // Call op[]=(self_ptr, index, value) - pass pointer for mutation
+                            // Call opindexset(self_ptr, index, value) - pass pointer for mutation
                             self.builder.build_call(
                                 function,
                                 &[var_ptr.into(), index_val.into(), val.into()],

@@ -1,0 +1,53 @@
+// Test: Comprehensive type-based method overloading (EXTERNAL SYNTAX)
+// Tests primitive types with external methods
+
+contract Add<Rhs> {
+    fn op+(other: Rhs): Self;
+}
+
+struct Calculator {
+    value: i32,
+}
+
+// Test: Multiple primitive overloads using external syntax
+fn (self: Calculator) op+(other: i32): Calculator {
+    print("Calculator + i32");
+    return Calculator { value: self.value + other };
+}
+
+fn (self: Calculator) op+(other: i64): Calculator {
+    print("Calculator + i64");
+    return Calculator { value: self.value + (other as i32) };
+}
+
+fn (self: Calculator) op+(other: f32): Calculator {
+    print("Calculator + f32");
+    return Calculator { value: self.value + (other as i32) };
+}
+
+fn (self: Calculator) op+(other: f64): Calculator {
+    print("Calculator + f64");
+    return Calculator { value: self.value + (other as i32) };
+}
+
+fn main(): i32 {
+    let c = Calculator { value: 10 };
+    
+    // Test i32
+    let c1 = c + 5;
+    print("c + 5 = {}", c1.value);
+    
+    // Test i64
+    let c2 = c + (100 as i64);
+    print("c + 100i64 = {}", c2.value);
+    
+    // Test f32
+    let c3 = c + (3.14 as f32);
+    print("c + 3.14f32 = {}", c3.value);
+    
+    // Test f64
+    let c4 = c + 2.71;
+    print("c + 2.71 = {}", c4.value);
+    
+    return 0;
+}

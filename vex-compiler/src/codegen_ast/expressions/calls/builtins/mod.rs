@@ -75,14 +75,18 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let struct_name = self.variable_struct_names.get(&var_name).cloned();
 
         if let Some(type_name) = struct_name {
-            // ⚠️ CRITICAL: Check if this is a user-defined struct vs builtin type
-            // User-defined structs take precedence over builtin types with same name
-            let is_user_defined_struct = self.struct_defs.contains_key(&type_name);
-
             // Extract base type name (Vec_i32 -> Vec, Box_string -> Box)
             let base_type = type_name.split('_').next().unwrap_or(&type_name);
 
+            // ⚠️ CRITICAL: Check if this is a user-defined struct vs builtin type
+            // User-defined structs take precedence over builtin types with same name
+            // Check using BASE type name (Vec, not Vec_i32)
+            // Check BOTH struct_defs (non-generic) AND struct_ast_defs (all structs including generics)
+            let is_user_defined_struct = self.struct_defs.contains_key(base_type)
+                || self.struct_ast_defs.contains_key(base_type);
+            
             // Handle builtin type methods ONLY if not shadowed by user struct
+            // AND stdlib method resolution fails
             if !is_user_defined_struct {
                 match base_type {
                     "Vec" => return self.compile_vec_method(&var_name, method, args),

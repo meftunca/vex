@@ -30,6 +30,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             Expression::Ident(name) => {
                 // Check if we have AST type information first (most accurate)
                 if let Some(ast_type) = self.variable_ast_types.get(name) {
+                    eprintln!("  📍 Found AST type for '{}': {:?}", name, ast_type);
                     return Ok(ast_type.clone());
                 }
 
@@ -77,6 +78,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 } else {
                     Ok(Type::I32) // Default fallback
                 }
+            }
+            Expression::Reference { expr, is_mutable } => {
+                // For references (&x), return Reference type wrapping the inner type
+                let inner_type = self.infer_expression_type(expr)?;
+                Ok(Type::Reference(Box::new(inner_type), *is_mutable))
             }
             Expression::FieldAccess { object, field } => {
                 // Infer type of field access (self.x, obj.field)

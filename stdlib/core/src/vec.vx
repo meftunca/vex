@@ -1,0 +1,108 @@
+// stdlib/core/src/vec.vx
+// Vec<T> - Pure Vex dynamic array implementation
+// Zero-cost abstractions via compile-time monomorphization
+
+extern "C" {
+    fn alloc(size: i64): ptr;
+    fn free(ptr: ptr);
+    fn realloc(ptr: ptr, new_size: i64): ptr;
+}
+
+// Type definition - Generic dynamic array
+export struct Vec<T> impl Drop {
+    data: *T,
+    len: i64,
+    cap: i64
+}
+
+// External methods for Vec<T> (Go-style)
+
+// Static constructors - standalone functions that return Vec<T>
+export fn vec_new<T>(): Vec<T> {
+    let null_ptr: ptr = 0 as ptr;
+    return Vec<T> {
+        data: null_ptr as *T,
+        len: 0,
+        cap: 0
+    };
+}
+
+export fn vec_with_capacity<T>(capacity: i64): Vec<T> {
+    let elem_size = sizeof<T>();
+    let size = capacity * elem_size;
+    let ptr = alloc(size);
+    return Vec<T> {
+        data: ptr as *T,
+        len: 0,
+        cap: capacity
+    };
+}
+
+// Instance methods
+fn (self: &Vec<T>) push(value: T) {
+    if self.len == self.cap {
+        self.grow();
+    }
+    
+    // Store element at data[len]
+    let elem_size = sizeof<T>();
+    let offset = self.len * elem_size;
+    let target = (self.data as i64 + offset) as *T;
+    *target = value;
+    self.len = self.len + 1;
+}
+
+fn (self: &Vec<T>) get(index: i64): T {
+    if index >= self.len {
+        panic("Vec index out of bounds");
+    }
+    
+    let elem_size = sizeof<T>();
+    let offset = index * elem_size;
+    let ptr = (self.data as i64 + offset) as *T;
+    return *ptr;
+}
+
+fn (self: &Vec<T>) len(): i64 {
+    return self.len;
+}
+
+fn (self: &Vec<T>) capacity(): i64 {
+    return self.cap;
+}
+
+fn (self: &Vec<T>) is_empty(): bool {
+    return self.len == 0;
+}
+
+fn (self: &Vec<T>) clear() {
+    self.len = 0;
+}
+
+// Internal growth function
+fn (self: &Vec<T>) grow() {
+    let new_cap: i64 = 0;
+    if self.cap == 0 {
+        new_cap = 4;
+    } else {
+        new_cap = self.cap * 2;
+    }
+    
+    let elem_size = sizeof<T>();
+    let new_size = new_cap * elem_size;
+    
+    if self.cap == 0 {
+        self.data = alloc(new_size) as *T;
+    } else {
+        self.data = realloc(self.data as ptr, new_size) as *T;
+    }
+    
+    self.cap = new_cap;
+}
+
+// Drop implementation
+fn (self: &Vec<T>) drop() {
+    if self.cap > 0 {
+        free(self.data as ptr);
+    }
+}

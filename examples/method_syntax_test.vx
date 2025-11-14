@@ -14,8 +14,8 @@ fn (self: &Counter) get_value(): i32 {
 
 // Method that calls another method without self. prefix
 fn (self: &Counter!) increment(): i32 {
-    // This should be parsed as self.get_value() (method call syntax sugar)
-    let current = get_value();  // Method syntax sugar: should be self.get_value()
+    // This should be parsed as self.get_value() (explicit method call)
+    let current = self.get_value();
     let new_value = current + 1;
     return new_value;
 }

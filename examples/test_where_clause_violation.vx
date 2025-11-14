@@ -1,0 +1,21 @@
+// Test where clause violation
+// Expected: Compile error - i32 does not implement Display
+
+contract Display {
+    fn show(): string;
+}
+
+// Function with where clause
+fn process<T>(value: T): i32
+where
+    T: Display
+{
+    return 42;
+}
+
+fn main(): i32 {
+    // This should fail: i32 does not implement Display
+    let result = process<i32>(10);
+    
+    return result;
+}

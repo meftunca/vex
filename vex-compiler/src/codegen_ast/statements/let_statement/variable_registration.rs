@@ -120,47 +120,63 @@ impl<'ctx> ASTCodeGen<'ctx> {
         struct_name_from_expr: &Option<String>,
         value: &Expression,
     ) -> Result<Type, String> {
+        eprintln!("🔍 finalize_variable_type called");
+        eprintln!("  var_type: {:?}", var_type);
+        eprintln!("  struct_name_from_expr: {:?}", struct_name_from_expr);
+        eprintln!("  expression: {:?}", value);
+
+        // ⭐ NEW: Extract generic type args from static method calls
+        // Vec<i32>.new() parses as: MethodCall { receiver: Ident("Vec"), method: "new", type_args: [I32] }
+        if let Expression::MethodCall {
+            receiver,
+            method,
+            type_args,
+            ..
+        } = value
+        {
+            eprintln!("  → Is MethodCall, method: {}", method);
+            eprintln!("  → Receiver: {:?}", receiver);
+            eprintln!("  → Type args in MethodCall: {:?}", type_args);
+
+            // Vec<i32>.new() has type_args in the MethodCall itself, receiver is just Ident("Vec")
+            if let Expression::Ident(type_name) = &**receiver {
+                eprintln!("  → Receiver is Ident: {}", type_name);
+                if !type_args.is_empty() && (method == "new" || method == "with_capacity") {
+                    let result = self.build_generic_type(type_name, type_args);
+                    eprintln!("  → Built generic type: {:?}", result);
+                    return Ok(result);
+                }
+            }
+        }
+
+        // Type finalization - actual variable_struct_names insertion happens in register_struct_or_tuple_variable
         match var_type {
-            Type::Box(inner_ty) => {
-                let mangled = format!("Box_{}", self.type_to_string(inner_ty.as_ref()));
-                self.variable_struct_names
-                    .insert(format!("temp"), mangled.clone());
+            Type::Box(_) => {
+                // Note: Don't insert here, will be done in register_struct_or_tuple_variable
                 Ok(var_type.clone())
             }
-            Type::Vec(inner_ty) => {
-                let mangled = format!("Vec_{}", self.type_to_string(inner_ty.as_ref()));
-                self.variable_struct_names
-                    .insert(format!("temp"), mangled.clone());
+            Type::Vec(_) => {
+                // Note: Don't insert here, will be done in register_struct_or_tuple_variable
                 Ok(var_type.clone())
             }
-            Type::Channel(inner_ty) => {
-                self.variable_struct_names
-                    .insert(format!("temp"), "Channel".to_string());
+            Type::Channel(_) => {
+                // Note: Don't insert here, will be done in register_struct_or_tuple_variable
                 Ok(var_type.clone())
             }
-            Type::Option(inner_ty) => {
-                let mangled = format!("Option_{}", self.type_to_string(inner_ty.as_ref()));
-                self.variable_struct_names
-                    .insert(format!("temp"), mangled.clone());
+            Type::Option(_) => {
+                // Note: Don't insert here, will be done in register_struct_or_tuple_variable
                 Ok(var_type.clone())
             }
-            Type::Result(ok_ty, err_ty) => {
-                let mangled = format!(
-                    "Result_{}_{}",
-                    self.type_to_string(ok_ty.as_ref()),
-                    self.type_to_string(err_ty.as_ref())
-                );
-                self.variable_struct_names
-                    .insert(format!("temp"), mangled.clone());
+            Type::Result(_, _) => {
+                // Note: Don't insert here, will be done in register_struct_or_tuple_variable
                 Ok(var_type.clone())
             }
             Type::Generic {
                 name: struct_name,
                 type_args,
             } => match self.instantiate_generic_struct(struct_name, type_args) {
-                Ok(mangled_name) => {
-                    self.variable_struct_names
-                        .insert(format!("temp"), mangled_name.clone());
+                Ok(_mangled_name) => {
+                    // Note: Don't insert here, will be done in register_struct_or_tuple_variable
                     Ok(Type::Generic {
                         name: struct_name.clone(),
                         type_args: type_args.clone(),
@@ -448,6 +464,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
             ) || matches!(final_var_type, Type::Option(_) | Type::Result(_, _))
                 || is_tuple_literal);
 
+        eprintln!(
+            "📝 Variable '{}': is_struct_or_tuple={}, is_builtin_pointer={}, final_var_type={:?}",
+            name, is_struct_or_tuple, is_builtin_pointer, final_var_type
+        );
+
         if is_struct_or_tuple || is_builtin_pointer || is_array {
             self.register_struct_or_tuple_variable(
                 name,
@@ -515,6 +536,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 // Track struct name for field access
                 match final_var_type {
                     Type::Named(type_name) => {
+                        eprintln!(
+                            "📝 Registering variable '{}' with struct name: {}",
+                            name, type_name
+                        );
                         self.variable_struct_names
                             .insert(name.to_string(), type_name.clone());
                     }
@@ -599,6 +624,22 @@ impl<'ctx> ASTCodeGen<'ctx> {
         }
 
         Ok(())
+    }
+
+    fn build_generic_type(&self, type_name: &str, type_args: &[Type]) -> Type {
+        match type_name {
+            "Vec" if type_args.len() == 1 => Type::Vec(Box::new(type_args[0].clone())),
+            "Box" if type_args.len() == 1 => Type::Box(Box::new(type_args[0].clone())),
+            "Option" if type_args.len() == 1 => Type::Option(Box::new(type_args[0].clone())),
+            "Result" if type_args.len() == 2 => Type::Result(
+                Box::new(type_args[0].clone()),
+                Box::new(type_args[1].clone()),
+            ),
+            _ => Type::Generic {
+                name: type_name.to_string(),
+                type_args: type_args.to_vec(),
+            },
+        }
     }
 
     fn register_regular_variable(

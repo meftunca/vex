@@ -247,10 +247,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             Type::Named(field_type_name) => {
                 if self.struct_defs.contains_key(field_type_name) {
                     // Field is a struct - return pointer without loading (zero-copy)
-                    eprintln!(
-                        "  → Returning pointer to nested struct: {}",
-                        field_type_name
-                    );
+
                     return Ok(field_ptr.into());
                 }
             }
@@ -261,13 +258,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
             Type::Generic { name, type_args: _ } => {
                 // Generic struct (e.g., Container<Point>) - use type_to_string for consistent mangling
                 let mangled_name = self.type_to_string(field_ast_type);
-                eprintln!(
-                    "  → Generic field type: {}<?>, mangled: {}",
-                    name, mangled_name
-                );
-
+              
                 if self.struct_defs.contains_key(&mangled_name) {
-                    eprintln!("  → Returning pointer to generic struct: {}", mangled_name);
                     return Ok(field_ptr.into());
                 } else {
                     eprintln!(
@@ -383,19 +375,14 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         match field_type {
                             Type::Named(field_struct_name) => {
                                 if self.struct_defs.contains_key(&field_struct_name) {
-                                    eprintln!(
-                                        "  → Field type is Named struct: {}",
-                                        field_struct_name
-                                    );
+                                 
                                     return Ok(Some(field_struct_name));
                                 }
                             }
                             Type::Generic { name, type_args } => {
                                 // Generic struct field - get mangled name
-                                eprintln!("  → Field type is Generic: {}<??>", name);
                                 match self.instantiate_generic_struct(&name, &type_args) {
                                     Ok(mangled) => {
-                                        eprintln!("  → Mangled name: {}", mangled);
                                         return Ok(Some(mangled));
                                     }
                                     Err(e) => {
@@ -406,10 +393,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
                             }
                             Type::Box(inner_ty) => {
                                 // Phase 0: Box<T> builtin type
-                                eprintln!("  → Field type is Box<?>");
                                 let mangled =
                                     format!("Box_{}", self.type_to_string(inner_ty.as_ref()));
-                                eprintln!("  → Box mangled: {}", mangled);
                                 if self.struct_defs.contains_key(&mangled) {
                                     return Ok(Some(mangled));
                                 }

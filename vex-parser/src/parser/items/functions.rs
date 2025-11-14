@@ -56,15 +56,20 @@ impl<'a> Parser<'a> {
             let op_name_owned = op_name.clone();
             self.advance(); // consume operator token
             (true, op_name_owned)
+        } else if let Token::New = self.peek() {
+            // Allow 'new' as method name
+            self.advance();
+            (false, "new".to_string())
         } else {
             (false, self.consume_identifier()?)
         };
 
         // Optional generic type parameters with bounds: fn foo<T: Display, U: Clone>()
+        // Note: For static method syntax (fn Vec<T>.new()), generics are already consumed by caller
         let (type_params, const_params) = self.parse_type_params()?;
 
         self.consume(&Token::LParen, "Expected '('")?;
-        
+
         // Parse parameters and check for variadic
         let (params, is_variadic, variadic_type) = self.parse_parameters_with_variadic()?;
 
@@ -100,7 +105,7 @@ impl<'a> Parser<'a> {
         Ok(Function {
             is_async: false,
             is_gpu: false,
-            is_mutable, // ⭐ NEW: Store mutability flag
+            is_mutable,  // ⭐ NEW: Store mutability flag
             is_operator, // ⭐ NEW: Store operator flag
             receiver,
             name,
@@ -126,7 +131,7 @@ impl<'a> Parser<'a> {
             // Check for associated type constraint: T.Item: Display
             if self.match_token(&Token::Dot) {
                 let assoc_type = self.consume_identifier()?;
-                
+
                 // Expect ':' after associated type
                 self.consume(
                     &Token::Colon,
@@ -193,10 +198,7 @@ impl<'a> Parser<'a> {
                     }
                 }
 
-                predicates.push(WhereClausePredicate::TypeBound {
-                    type_param,
-                    bounds,
-                });
+                predicates.push(WhereClausePredicate::TypeBound { type_param, bounds });
             }
 
             // Check for more predicates
@@ -227,12 +229,12 @@ impl<'a> Parser<'a> {
         loop {
             // Collect parameter names (supports grouping: a, b, c: i32)
             let mut param_names = vec![self.consume_identifier()?];
-            
+
             // Check for grouped parameters: name1, name2, name3: type
             while self.match_token(&Token::Comma) && !self.check(&Token::RParen) {
                 // Peek ahead to see if this is a new parameter or grouped name
                 let next_name = self.consume_identifier()?;
-                
+
                 // If followed by colon, it's the type. Otherwise it's another grouped name
                 if self.check(&Token::Colon) {
                     // This is the last name in the group, followed by type
@@ -243,7 +245,7 @@ impl<'a> Parser<'a> {
                     param_names.push(next_name);
                 }
             }
-            
+
             if !self.match_token(&Token::Colon) {
                 return Err(ParseError::Other(format!(
                     "Expected ':' after parameter name(s) '{}'",
@@ -254,14 +256,14 @@ impl<'a> Parser<'a> {
             // Check for variadic: ...Type
             if self.match_token(&Token::DotDotDot) {
                 let var_type = self.parse_type()?;
-                
+
                 // Grouped parameters cannot be variadic
                 if param_names.len() > 1 {
                     return Err(ParseError::Other(
                         "Cannot use parameter grouping with variadic parameters".to_string(),
                     ));
                 }
-                
+
                 // Variadic must be the last parameter
                 if self.match_token(&Token::Comma) {
                     return Err(ParseError::Other(

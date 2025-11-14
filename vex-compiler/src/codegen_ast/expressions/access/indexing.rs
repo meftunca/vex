@@ -521,14 +521,15 @@ impl<'ctx> ASTCodeGen<'ctx> {
             String::new()
         };
         
-        // Call op[](index) method - try type-specific first, then generic
+        // CRITICAL: Encode op[] -> opindex for LLVM compatibility
+        // Call opindex(index) method - try type-specific first, then generic
         let typed_method_name = if !index_type_suffix.is_empty() {
-            format!("{}_op[]{}_1", struct_name, index_type_suffix)
+            format!("{}_opindex{}_1", struct_name, index_type_suffix)
         } else {
             String::new()
         };
         
-        let generic_method_name = format!("{}_op[]", struct_name);
+        let generic_method_name = format!("{}_opindex", struct_name);
         
         let method_name = if !typed_method_name.is_empty() && self.module.get_function(&typed_method_name).is_some() {
             typed_method_name
@@ -551,7 +552,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             return Err("Index operator on complex expressions not yet supported".to_string());
         };
         
-        // Call function: op[](self, index)
+        // Call function: opindex(self, index)
         let result = self.builder.build_call(
             function,
             &[self_ptr.into(), index_val.into()],

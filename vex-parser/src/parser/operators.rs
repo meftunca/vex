@@ -273,9 +273,7 @@ impl<'a> Parser<'a> {
 
         // Pre-increment: ++i
         if self.match_token(&Token::Increment) {
-            eprintln!("🔵 Parser: Matched pre-increment (++) at position {}", self.current);
             let expr = self.parse_unary()?;
-            eprintln!("🔵 Parser: Pre-increment expr: {:?}", expr);
             return Ok(Expression::Unary {
                 span_id: None,
                 op: UnaryOp::PreInc,
@@ -323,7 +321,6 @@ impl<'a> Parser<'a> {
                 // Lookahead: is this a generic call or comparison?
                 let checkpoint = self.current;
                 self.advance(); // consume <
-                eprintln!("🟣 Generic check: after '<', next token={:?}", self.peek());
 
                 // Better heuristic: check if this looks like a type argument list
                 // Generic: Foo<Type>, Foo<T>, Foo<i32, i64>
@@ -363,11 +360,7 @@ impl<'a> Parser<'a> {
                     looks_like_type
                 };
 
-                eprintln!(
-                    "🟣 Generic check: looks_like_generic={}",
-                    looks_like_generic
-                );
-
+               
                 self.current = checkpoint; // backtrack
 
                 if looks_like_generic {
@@ -429,13 +422,15 @@ impl<'a> Parser<'a> {
                                 args,
                             };
                         } else {
-                            // This is a method call on self
-                            expr = Expression::MethodCall {
-                                receiver: Box::new(Expression::Ident("self".to_string())),
-                                method: name.clone(),
-                                type_args: vec![], // No generic args for method body self calls
+                            // Treat all function calls inside method bodies as regular Call
+                            // not MethodCall. The compiler will resolve whether it's:
+                            // - A global function (log2(msg))
+                            // - A method on self (self.log(msg))
+                            expr = Expression::Call {
+                                span_id: None,
+                                func: Box::new(expr),
+                                type_args,
                                 args,
-                                is_mutable_call: false, // self calls don't use ! syntax
                             };
                         }
                     }

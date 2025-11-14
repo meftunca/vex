@@ -334,13 +334,11 @@ impl<'a> Parser<'a> {
             }
             Token::Not => {
                 // Never type: !
-                eprintln!("🔵 Token::Not in match statement");
                 self.advance();
                 Type::Never
             }
             Token::Star => {
                 // Raw pointer: *T or *const T
-                eprintln!("🔵 Token::Star in match statement");
                 self.advance();
 
                 let is_const = if self.check(&Token::Const) {
@@ -426,22 +424,16 @@ impl<'a> Parser<'a> {
     /// Parse a primary type (without union operator)
     /// This is used internally to avoid infinite recursion in union type parsing
     pub(crate) fn parse_type_primary(&mut self) -> Result<Type, ParseError> {
-        eprintln!(
-            "🔵 parse_type_primary called, current token: {:?} at position {}",
-            self.peek(),
-            self.current
-        );
+    
 
         // Never type: !
         if self.check(&Token::Not) {
-            eprintln!("🔵 parse_type_primary: Detected Token::Not, parsing Never type");
             self.advance();
             return Ok(Type::Never);
         }
 
         // Raw pointer type: *T (immutable) or *T! (mutable)
         if self.check(&Token::Star) {
-            eprintln!("🔵 parse_type_primary: Detected Token::Star, parsing RawPtr type");
             self.advance();
 
             // Parse inner type first

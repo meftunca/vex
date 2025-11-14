@@ -58,12 +58,21 @@ impl<'a> Parser<'a> {
     }
 
     /// Emit a warning diagnostic
-    pub(crate) fn emit_warning(&mut self, code: &str, message: String, span: vex_diagnostics::Span) {
-        self.diagnostics.push(vex_diagnostics::Diagnostic::warning(code, message, span));
+    pub(crate) fn emit_warning(
+        &mut self,
+        code: &str,
+        message: String,
+        span: vex_diagnostics::Span,
+    ) {
+        self.diagnostics
+            .push(vex_diagnostics::Diagnostic::warning(code, message, span));
     }
 
     /// Convert lexer span to diagnostic span
-    pub(crate) fn token_to_diag_span(&self, token_span: &std::ops::Range<usize>) -> vex_diagnostics::Span {
+    pub(crate) fn token_to_diag_span(
+        &self,
+        token_span: &std::ops::Range<usize>,
+    ) -> vex_diagnostics::Span {
         vex_diagnostics::Span::from_file_and_span(&self.file_name, self.source, token_span.clone())
     }
 
@@ -80,17 +89,7 @@ impl<'a> Parser<'a> {
         let mut imports = Vec::new();
         let mut items = Vec::new();
 
-        println!(
-            "🔧 Parser: Starting parse, total tokens: {}",
-            self.tokens.len()
-        );
-
         while !self.is_at_end() {
-            println!(
-                "🔧 Parser: Current token at {}: {:?}",
-                self.current,
-                self.peek()
-            );
             // Parse top-level items
             if self.check(&Token::Import) {
                 imports.push(self.parse_import()?);
@@ -107,8 +106,46 @@ impl<'a> Parser<'a> {
                 items.push(Item::Function(func));
             } else if self.check(&Token::Fn) {
                 self.advance(); // consume 'fn'
-                                // Note: parse_function() handles receiver syntax: fn (self: Type) name()
-                items.push(Item::Function(self.parse_function()?));
+
+                // Check for static method syntax: fn Type<T>.method()
+                let checkpoint = self.current;
+
+                // Try to consume type name (could be identifier or keyword like 'new')
+                let is_static_method = if let Token::Ident(_) = self.peek() {
+                    self.advance(); // consume type name
+
+                    // Check for generic args: Type<T>
+                    if self.check(&Token::Lt) {
+                        // Skip generic args
+                        self.advance(); // '<'
+                        let mut depth = 1;
+                        while depth > 0 && !self.is_at_end() {
+                            match self.peek() {
+                                Token::Lt => depth += 1,
+                                Token::Gt => depth -= 1,
+                                _ => {}
+                            }
+                            self.advance();
+                        }
+                    }
+
+                    // Check for dot: Type.method or Type<T>.method
+                    self.check(&Token::Dot)
+                } else {
+                    false
+                };
+
+                if is_static_method {
+                    self.advance(); // consume '.'
+                                    // This is a static method! Parse rest as normal function
+                    let func = self.parse_function()?;
+                    items.push(Item::Function(func));
+                } else {
+                    // Not a static method, backtrack
+                    self.current = checkpoint;
+                    // Note: parse_function() handles receiver syntax: fn (self: Type) name()
+                    items.push(Item::Function(self.parse_function()?));
+                }
             } else if self.check(&Token::Struct) {
                 items.push(self.parse_struct()?);
             } else if self.check(&Token::Type) {
@@ -125,7 +162,6 @@ impl<'a> Parser<'a> {
             } else if self.check(&Token::Policy) {
                 items.push(Item::Policy(self.parse_policy()?));
             } else if self.check(&Token::Extern) {
-                eprintln!("🔧 Parser: Found extern keyword");
                 items.push(self.parse_extern_block()?);
             } else {
                 eprintln!("🔧 Parser: Unknown token: {:?}", self.peek());
@@ -184,9 +220,20 @@ impl<'a> Parser<'a> {
         }
         matches!(
             self.peek(),
-            Token::I8 | Token::I16 | Token::I32 | Token::I64 | Token::I128 |
-            Token::U8 | Token::U16 | Token::U32 | Token::U64 | Token::U128 |
-            Token::F32 | Token::F64 | Token::Bool | Token::String
+            Token::I8
+                | Token::I16
+                | Token::I32
+                | Token::I64
+                | Token::I128
+                | Token::U8
+                | Token::U16
+                | Token::U32
+                | Token::U64
+                | Token::U128
+                | Token::F32
+                | Token::F64
+                | Token::Bool
+                | Token::String
         )
     }
 
@@ -372,14 +419,16 @@ impl<'a> Parser<'a> {
     /// Parse generic type parameters with optional trait bounds and const params
     /// Examples: <T>, <T: Display>, <const N: usize>, <T, const N: usize, const M: i32>
     /// Closure traits: <F: Callable(i32): i32>, <F: CallableMut(T, U): bool>
-    pub(crate) fn parse_type_params(&mut self) -> Result<(Vec<TypeParam>, Vec<(String, Type)>), ParseError> {
+    pub(crate) fn parse_type_params(
+        &mut self,
+    ) -> Result<(Vec<TypeParam>, Vec<(String, Type)>), ParseError> {
         if !self.match_token(&Token::Lt) {
             return Ok((Vec::new(), Vec::new()));
         }
 
         let mut type_params = Vec::new();
         let mut const_params = Vec::new();
-        
+
         loop {
             // Check for const parameter
             if self.match_token(&Token::Const) {

@@ -89,10 +89,14 @@ impl StdlibResolver {
     /// # use vex_compiler::resolver::stdlib_resolver::StdlibResolver;
     /// let resolver = StdlibResolver::new("vex-libs/std");
     /// assert!(resolver.is_stdlib_module("io"));
+    /// assert!(resolver.is_stdlib_module("core/vec")); // Submodule
     /// assert!(!resolver.is_stdlib_module("my_custom_lib"));
     /// ```
     pub fn is_stdlib_module(&self, module_name: &str) -> bool {
-        STDLIB_MODULES.contains(&module_name)
+        // Check if module_name or its root is in STDLIB_MODULES
+        // e.g., "core" → true, "core/vec" → true (root is "core")
+        let root_module = module_name.split('/').next().unwrap_or(module_name);
+        STDLIB_MODULES.contains(&root_module)
     }
 
     /// Get all stdlib module names
@@ -102,11 +106,19 @@ impl StdlibResolver {
 
     /// Resolve a module name to a file path
     ///
+    /// Supports both top-level modules and submodules:
+    /// - "io" → stdlib/io/src/lib.vx
+    /// - "core/vec" → stdlib/core/src/vec.vx
+    ///
     /// Priority chain (first match wins):
     /// 1. `lib.{os}.{arch}.vx` - Platform + architecture specific
     /// 2. `lib.{arch}.vx` - Architecture specific
     /// 3. `lib.{os}.vx` - Platform specific
     /// 4. `lib.vx` - Generic fallback
+    ///
+    /// For submodules (e.g., "core/vec"):
+    /// 1. `{submodule}.vx` - Direct file
+    /// 2. `{submodule}/lib.vx` - Submodule directory
     ///
     /// # Example
     /// On Linux x64:
@@ -122,7 +134,16 @@ impl StdlibResolver {
             return Err(ResolveError::ModuleNotFound(module_name.to_string()));
         }
 
-        let module_dir = self.stdlib_root.join(module_name);
+        // Split module path: "core/vec" → ("core", Some("vec"))
+        let parts: Vec<&str> = module_name.split('/').collect();
+        let root_module = parts[0];
+        let submodule_path = if parts.len() > 1 {
+            Some(parts[1..].join("/"))
+        } else {
+            None
+        };
+
+        let module_dir = self.stdlib_root.join(root_module);
         if !module_dir.exists() {
             return Err(ResolveError::ModuleNotFound(module_name.to_string()));
         }
@@ -131,7 +152,27 @@ impl StdlibResolver {
         if !src_dir.exists() {
             return Err(ResolveError::InvalidPath(format!(
                 "Module '{}' has no src/ directory",
-                module_name
+                root_module
+            )));
+        }
+
+        // If we have a submodule path, try to find it directly
+        if let Some(subpath) = submodule_path {
+            // Try: core/src/vec.vx
+            let direct_file = src_dir.join(format!("{}.vx", subpath));
+            if direct_file.exists() {
+                return Ok(direct_file);
+            }
+
+            // Try: core/src/vec/lib.vx
+            let submodule_lib = src_dir.join(&subpath).join("lib.vx");
+            if submodule_lib.exists() {
+                return Ok(submodule_lib);
+            }
+
+            return Err(ResolveError::ModuleNotFound(format!(
+                "Submodule '{}' not found in '{}'",
+                subpath, root_module
             )));
         }
 

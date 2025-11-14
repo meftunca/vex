@@ -1,0 +1,41 @@
+// Test where clause enforcement
+// Expected: Compile successfully with trait bound validation
+
+contract Display {
+    fn show(): string;
+}
+
+contract Clone {
+    fn clone(): Self;
+}
+
+struct Point impl Display, Clone {
+    x: i32,
+    y: i32,
+}
+
+fn (self: Point) show(): string {
+    return "Point";
+}
+
+fn (self: Point) clone(): Point {
+    return Point { x: self.x, y: self.y };
+}
+
+// Function with where clause
+fn process<T>(value: T): i32
+where
+    T: Display,
+    T: Clone
+{
+    return 42;
+}
+
+fn main(): i32 {
+    let p = Point { x: 10, y: 20 };
+    
+    // This should validate: Point implements Display and Clone
+    let result = process<Point>(p);
+    
+    return result; // 42
+}

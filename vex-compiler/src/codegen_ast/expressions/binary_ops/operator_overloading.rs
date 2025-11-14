@@ -41,10 +41,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                     )
                                     .map_err(|e| format!("Failed to call vex_vec_concat: {}", e))?;
 
-                                return Ok(Some(result
-                                    .try_as_basic_value()
-                                    .left()
-                                    .ok_or("vex_vec_concat didn't return a value".to_string())?));
+                                return Ok(Some(
+                                    result.try_as_basic_value().left().ok_or(
+                                        "vex_vec_concat didn't return a value".to_string(),
+                                    )?,
+                                ));
                             }
                         }
                     }
@@ -58,7 +59,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     // Check if builtin contract exists (e.g., i32 extends Add)
                     use crate::builtin_contracts;
                     if builtin_contracts::has_builtin_contract(type_name, contract_name) {
-                        eprintln!("🎯 Builtin operator contract: {}.{}()", type_name, method_name);
+                        eprintln!(
+                            "🎯 Builtin operator contract: {}.{}()",
+                            type_name, method_name
+                        );
 
                         // Compile operands
                         let left_val = self.compile_expression(left)?;
@@ -80,51 +84,46 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     // ⭐ NEW: Check for user-defined operator methods by function existence
                     // For binary operators, param_count = 1 (just rhs, receiver not counted in params)
                     let param_count = 1;
-                    let base_method_name = format!("{}_{}", type_name, method_name);
-                    
+
+                    // CRITICAL: Encode operator name for LLVM compatibility (op+ -> opadd)
+                    let method_encoded = Self::encode_operator_name(method_name);
+                    let base_method_name = format!("{}_{}", type_name, method_encoded);
+
                     // Try to get right operand type for type-based lookup (for overloading)
-                    let first_arg_type_suffix = if let Ok(arg_type) = self.infer_expression_type(right) {
-                        self.generate_type_suffix(&arg_type)
-                    } else {
-                        String::new()
-                    };
-                    
+                    let first_arg_type_suffix =
+                        if let Ok(arg_type) = self.infer_expression_type(right) {
+                            self.generate_type_suffix(&arg_type)
+                        } else {
+                            String::new()
+                        };
+
                     // Try external method with type suffix first (for overloading support)
-                    let external_method_typed = if !first_arg_type_suffix.is_empty() && method_name.starts_with("op") {
-                        format!("{}{}_{}", base_method_name, first_arg_type_suffix, param_count)
-                    } else {
-                        String::new()
-                    };
-                    
+                    let external_method_typed =
+                        if !first_arg_type_suffix.is_empty() && method_name.starts_with("op") {
+                            format!(
+                                "{}{}_{}",
+                                base_method_name, first_arg_type_suffix, param_count
+                            )
+                        } else {
+                            String::new()
+                        };
+
                     // Fallback: external method without type suffix
                     let external_method_name = if method_name.starts_with("op") {
                         format!("{}_{}", base_method_name, param_count)
                     } else {
                         base_method_name.clone()
                     };
-                    
-                    // If external method not found, try encoded names for inline methods
-                    // Helper: encode operator names (op+ -> opadd, op- -> opsub, etc.)
-                    let method_encoded = method_name
-                        .replace("+", "add")
-                        .replace("-", "sub")
-                        .replace("*", "mul")
-                        .replace("/", "div")
-                        .replace("%", "mod")
-                        .replace("==", "eq")
-                        .replace("!=", "ne")
-                        .replace("<", "lt")
-                        .replace(">", "gt")
-                        .replace("<=", "le")
-                        .replace(">=", "ge")
-                        .replace("[", "index")
-                        .replace("]", "");
-                    let encoded_base = format!("{}_{}", type_name, method_encoded);
-                    let encoded_param_count = 2; // For inline methods: receiver + rhs
-                    let inline_method_name = format!("{}_{}", encoded_base, encoded_param_count);
-                    
+
+                    // For inline methods: receiver + rhs (param_count = 2)
+                    let encoded_param_count = 2;
+                    let inline_method_name =
+                        format!("{}_{}", base_method_name, encoded_param_count);
+
                     // Check all naming schemes
-                    let method_func_name = if !external_method_typed.is_empty() && self.functions.contains_key(&external_method_typed) {
+                    let method_func_name = if !external_method_typed.is_empty()
+                        && self.functions.contains_key(&external_method_typed)
+                    {
                         external_method_typed
                     } else if self.functions.contains_key(&external_method_name) {
                         external_method_name
@@ -135,14 +134,27 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         external_method_name
                     };
 
-                    eprintln!("   Checking for method: {} (contract: {})", method_func_name, contract_name);
-                    eprintln!("   has_operator_trait: {}", self.has_operator_trait(type_name, contract_name).is_some());
-                    eprintln!("   functions.contains_key: {}", self.functions.contains_key(&method_func_name));
+                    eprintln!(
+                        "   Checking for method: {} (contract: {})",
+                        method_func_name, contract_name
+                    );
+                    eprintln!(
+                        "   has_operator_trait: {}",
+                        self.has_operator_trait(type_name, contract_name).is_some()
+                    );
+                    eprintln!(
+                        "   functions.contains_key: {}",
+                        self.functions.contains_key(&method_func_name)
+                    );
 
                     // Check if method exists (either in trait_impls OR as external method)
-                    if self.has_operator_trait(type_name, contract_name).is_some() ||
-                       self.functions.contains_key(&method_func_name) {
-                        eprintln!("🎯 User operator contract: {}.{}() → {}", type_name, method_name, method_func_name);
+                    if self.has_operator_trait(type_name, contract_name).is_some()
+                        || self.functions.contains_key(&method_func_name)
+                    {
+                        eprintln!(
+                            "🎯 User operator contract: {}.{}() → {}",
+                            type_name, method_name, method_func_name
+                        );
                         eprintln!("   Left: {:?}", left);
                         eprintln!("   Right: {:?}", right);
                         return Ok(Some(self.compile_method_call(

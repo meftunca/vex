@@ -1,8 +1,8 @@
-// Test new Vec() constructor syntax (type-as-constructor pattern)
+// Test new Vec<i32>() constructor syntax (type-as-constructor pattern)
 
 fn main(): i32 {
-    // Test 1: Empty Vec() constructor
-    let v1 = Vec();
+    // Test 1: Empty Vec<i32>() constructor
+    let v1 = Vec<i32>();
     println("Test 1: Created empty Vec");
     
     // Test 2: Vec with capacity (will be implemented later)
@@ -10,7 +10,7 @@ fn main(): i32 {
     // println("Test 2: Created Vec with capacity 100");
     
     // Test 3: Push elements to Vec
-    let v3 = Vec();
+    let v3 = Vec<i32>();
     v3.push(10);
     v3.push(20);
     v3.push(30);

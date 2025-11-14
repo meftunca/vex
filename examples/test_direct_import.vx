@@ -1,0 +1,7 @@
+// Test: Direct file import from stdlib/core/
+import "core/vec";
+
+fn main() {
+    let v = Vec.new();
+    print("Direct import works!\n");
+}

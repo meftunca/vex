@@ -33,6 +33,21 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 func_def.name,
                 type_names.join(", ")
             );
+
+            // ⭐ NEW: Check where clause constraints
+            if !func_def.where_clause.is_empty() {
+                use crate::trait_bounds_checker::TraitBoundsChecker;
+                let type_substitutions = TraitBoundsChecker::build_type_substitutions(
+                    &func_def.type_params,
+                    type_args,
+                );
+                checker.check_where_clause(&func_def.where_clause, &type_substitutions)?;
+                eprintln!(
+                    "✅ Where clause validated for {}::<{}>",
+                    func_def.name,
+                    type_names.join(", ")
+                );
+            }
         }
 
         // Build type substitution map, using defaults for missing type args

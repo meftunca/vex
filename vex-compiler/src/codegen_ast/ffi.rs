@@ -73,14 +73,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Add function to module with external linkage
         let fn_val = self.module.add_function(&func.name, fn_type, None);
-        eprintln!("      → Added to LLVM module");
 
         // Store in symbol table so Vex code can call it
         self.functions.insert(func.name.clone(), fn_val);
-        eprintln!(
-            "      → Added to self.functions HashMap (count: {})",
-            self.functions.len()
-        );
+       
 
         Ok(fn_val)
     }

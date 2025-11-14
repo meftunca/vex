@@ -1,0 +1,12 @@
+// Test auto-import of core types
+// Should work without explicit "import Vec from 'core'"
+
+fn main() {
+    // These types should be auto-imported from stdlib/core
+    let v = Vec.new();
+    let b = Box.new(42);
+    let opt = Option.Some(10);
+    let res: Result<i32, str> = Result.Ok(20);
+    
+    print("Auto-import test passed!\n");
+}

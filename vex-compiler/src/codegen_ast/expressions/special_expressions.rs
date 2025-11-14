@@ -57,12 +57,15 @@ impl<'ctx> ASTCodeGen<'ctx> {
         type_args: &[vex_ast::Type],
         args: &[vex_ast::Expression],
     ) -> Result<BasicValueEnum<'ctx>, String> {
-        // Type constructor: Vec(), Point(10, 20)
-        // Desugar to static method call: Type.new(args)
+        // Type constructor: Vec<i32>(), Point(10, 20)
+        // Desugar to static method call: Type<T>.new(args)
+
+        // ⭐ CRITICAL: Preserve generic type arguments!
+        // Vec<i32>() should become Vec<i32>.new(), not Vec.new()
         let method_call = vex_ast::Expression::MethodCall {
             receiver: Box::new(vex_ast::Expression::Ident(type_name.to_string())),
             method: "new".to_string(),
-            type_args: vec![], // No generic args for simple constructor syntax
+            type_args: type_args.to_vec(), // ✅ Pass through generic type args
             args: args.to_vec(),
             is_mutable_call: false,
         };

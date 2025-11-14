@@ -1,0 +1,13 @@
+// stdlib/core/src/result.vx
+// Result<T, E> - Error handling (self-hosted Vex implementation)
+
+export enum Result<T, E> {
+    Ok(T),
+    Err(E),
+}
+
+// Methods will be implemented in Vex (TODO: need method syntax support)
+// For now, just type definition is exported to prelude
+
+// TODO: Add methods once export impl syntax is supported
+// For now, just the type definition is available globally

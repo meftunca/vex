@@ -67,16 +67,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             // Use alignment-aware load to fix memory corruption
             let loaded = self.build_load_aligned(*ty, *ptr, name)?;
 
-            if name == "t" {
-                eprintln!(
-                    "[DEBUG VAR LOAD] Loaded value is_struct: {}",
-                    loaded.is_struct_value()
-                );
-                eprintln!(
-                    "[DEBUG VAR LOAD] Loaded value is_pointer: {}",
-                    loaded.is_pointer_value()
-                );
-            }
+          
 
             return Ok(loaded);
         }
