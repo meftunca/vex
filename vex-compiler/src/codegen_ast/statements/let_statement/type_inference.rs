@@ -15,8 +15,6 @@ impl<'ctx> ASTCodeGen<'ctx> {
             return Ok(None);
         }
 
-        eprintln!("  → Type inference needed, analyzing expression...");
-
         let result = match value {
             Expression::StructLiteral {
                 name: s_name,
@@ -145,7 +143,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             if let Some(func_def) = self.function_defs.get(&method_func_name) {
                 return self.extract_return_type_name(func_def);
             }
-            
+
             // ⭐ NEW: Try type-based overloaded methods
             // Look for any method starting with StructName_method_
             let method_prefix = format!("{}_{}_", struct_name, method);
@@ -191,6 +189,18 @@ impl<'ctx> ASTCodeGen<'ctx> {
         type_args: &[Type],
     ) -> Result<Option<String>, String> {
         if let Expression::Ident(func_name) = func {
+            // ⭐ Phase 3: Vec() constructor without type args - create Unknown placeholder
+            // This will be resolved later by constraint unification
+            if type_args.is_empty() {
+                match func_name.as_str() {
+                    "Vec" | "Box" | "Option" => {
+                        eprintln!("⭐ Phase 3: {}() constructor without type args - will infer from usage", func_name);
+                        return Ok(Some(func_name.clone()));
+                    }
+                    _ => {}
+                }
+            }
+
             // Check if this is a type constructor (e.g., Vec<i32>())
             if !type_args.is_empty() {
                 // Check stdlib types
@@ -203,13 +213,15 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     "Set" => return Ok(Some("Set".to_string())),
                     _ => {}
                 }
-                
+
                 // Check if it's a registered struct
-                if self.struct_defs.contains_key(func_name) || self.struct_ast_defs.contains_key(func_name) {
+                if self.struct_defs.contains_key(func_name)
+                    || self.struct_ast_defs.contains_key(func_name)
+                {
                     return Ok(Some(func_name.clone()));
                 }
             }
-            
+
             // Check for builtin constructors
             match func_name.as_str() {
                 "vec_new" | "vec_with_capacity" => return Ok(Some("Vec".to_string())),
@@ -332,12 +344,13 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     // ⭐ NEW: Try to look up actual method implementation first
                     // This handles external operator methods that may not have explicit trait impls
                     if let Ok(right_type) = self.infer_expression_type(right) {
-                        if let Some(return_type_name) = 
-                            self.infer_operator_return_from_method(&left_type, &right_type, op)? {
+                        if let Some(return_type_name) =
+                            self.infer_operator_return_from_method(&left_type, &right_type, op)?
+                        {
                             return Ok(Some(return_type_name));
                         }
                     }
-                    
+
                     // Fallback: Check trait-based operator overloading
                     if let Some(_) = self.has_operator_trait(type_name, trait_name) {
                         // For operator overloading, return type is often Self
@@ -453,13 +466,16 @@ impl<'ctx> ASTCodeGen<'ctx> {
             // Format: Type_opmethod_typename_paramcount
             let right_type_suffix = self.generate_type_suffix(right_type);
             let method_name_typed = format!("{}_{}{}_1", type_name, op_method, right_type_suffix);
-            
+
             // Fallback: Try without type suffix
             let method_name_untyped = format!("{}_{}_2", type_name, op_method);
-            
+
             // Check function definitions
-            if let Some(func_def) = self.function_defs.get(&method_name_typed)
-                .or_else(|| self.function_defs.get(&method_name_untyped)) {
+            if let Some(func_def) = self
+                .function_defs
+                .get(&method_name_typed)
+                .or_else(|| self.function_defs.get(&method_name_untyped))
+            {
                 if let Some(return_type) = &func_def.return_type {
                     match return_type {
                         Type::Named(ret_type_name) => {

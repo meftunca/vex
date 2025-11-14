@@ -30,7 +30,50 @@ impl<'ctx> ASTCodeGen<'ctx> {
             format!("{}_{}", type_name.to_lowercase(), method)
         };
 
-        // Try builtin registry first (check both PascalCase and lowercase)
+        // Determine PascalCase variant once so we can reuse it below
+        let pascal_method_name = if !type_args.is_empty() {
+            let mut mangled = type_name.to_string();
+            for ty in type_args {
+                mangled.push('_');
+                mangled.push_str(&self.type_to_string(ty));
+            }
+            mangled.push('_');
+            mangled.push_str(method);
+            mangled
+        } else {
+            format!("{}_{}", type_name, method)
+        };
+
+        // Prefer user-defined/static stdlib implementations before compiler builtins
+        if let Some(fn_val) = self.functions.get(&base_method_name).copied() {
+            let mut arg_vals: Vec<BasicMetadataValueEnum> = vec![];
+            for arg in args {
+                let val = self.compile_expression(arg)?;
+                arg_vals.push(val.into());
+            }
+
+            let call_site = self
+                .builder
+                .build_call(fn_val, &arg_vals, "static_method_call")
+                .map_err(|e| format!("Failed to build static method call: {}", e))?;
+
+            return Ok(call_site.try_as_basic_value().unwrap_basic());
+        } else if let Some(fn_val) = self.functions.get(&pascal_method_name).copied() {
+            let mut arg_vals: Vec<BasicMetadataValueEnum> = vec![];
+            for arg in args {
+                let val = self.compile_expression(arg)?;
+                arg_vals.push(val.into());
+            }
+
+            let call_site = self
+                .builder
+                .build_call(fn_val, &arg_vals, "static_method_call")
+                .map_err(|e| format!("Failed to build static method call: {}", e))?;
+
+            return Ok(call_site.try_as_basic_value().unwrap_basic());
+        }
+
+        // No user-defined version found; try compiler builtin as fallback
         let pascal_builtin_name = format!("{}.{}", type_name, method);
         if let Some(builtin_fn) = self
             .builtins
@@ -46,83 +89,21 @@ impl<'ctx> ASTCodeGen<'ctx> {
             return builtin_fn(self, &arg_vals);
         }
 
-        // Check if the function exists in LLVM module
-        if !self.functions.contains_key(&base_method_name) {
-            // Try PascalCase version: TypeName_method or Vec_i32_new
-            let pascal_method_name = if !type_args.is_empty() {
-                let mut mangled = type_name.to_string();
-                for ty in type_args {
-                    mangled.push('_');
-                    mangled.push_str(&self.type_to_string(ty));
-                }
-                mangled.push('_');
-                mangled.push_str(method);
-                mangled
-            } else {
-                format!("{}_{}", type_name, method)
-            };
+        let is_stdlib_type = matches!(
+            type_name,
+            "Vec" | "Box" | "String" | "Map" | "Set" | "Channel"
+        );
 
-            if !self.functions.contains_key(&pascal_method_name) {
-                // ⚠️ FALLBACK: For stdlib types (Vec, Box, etc.), try compiler builtin
-                // This allows Vec<i32>() to work even without stdlib methods
-                let is_stdlib_type = matches!(type_name, "Vec" | "Box" | "String" | "Map" | "Set" | "Channel");
-                
-                if is_stdlib_type && method == "new" {
-                    eprintln!("⚠️  Static method {}.{}() not found, falling back to compiler builtin", type_name, method);
-                    
-                    // Try builtin registry with PascalCase name
-                    let builtin_name = format!("{}.{}", type_name, method);
-                    if let Some(builtin_fn) = self.builtins.get(&builtin_name) {
-                        let mut arg_vals: Vec<BasicValueEnum> = vec![];
-                        for arg in args {
-                            let val = self.compile_expression(arg)?;
-                            arg_vals.push(val);
-                        }
-                        return builtin_fn(self, &arg_vals);
-                    }
-                }
-                
-                return Err(format!(
-                    "Static method {}.{}() not found. Expected function: {} or {}",
-                    type_name, method, base_method_name, pascal_method_name
-                ));
-            }
-
-            // Use PascalCase version
-            let mut arg_vals: Vec<BasicMetadataValueEnum> = vec![];
-            for arg in args {
-                let val = self.compile_expression(arg)?;
-                arg_vals.push(val.into());
-            }
-
-            let fn_val = *self.functions.get(&pascal_method_name).unwrap();
-            let call_site = self
-                .builder
-                .build_call(fn_val, &arg_vals, "static_method_call")
-                .map_err(|e| format!("Failed to build static method call: {}", e))?;
-
-            return call_site
-                .try_as_basic_value()
-                .left()
-                .ok_or_else(|| "Static method returned void".to_string());
+        if is_stdlib_type && method == "new" {
+            eprintln!(
+                "⚠️  Static method {}.{}() not found, no compiler builtin registered",
+                type_name, method
+            );
         }
 
-        // Call lowercase version from LLVM module
-        let mut arg_vals: Vec<BasicMetadataValueEnum> = vec![];
-        for arg in args {
-            let val = self.compile_expression(arg)?;
-            arg_vals.push(val.into());
-        }
-
-        let fn_val = *self.functions.get(&base_method_name).unwrap();
-        let call_site = self
-            .builder
-            .build_call(fn_val, &arg_vals, "static_method_call")
-            .map_err(|e| format!("Failed to build static method call: {}", e))?;
-
-        call_site
-            .try_as_basic_value()
-            .left()
-            .ok_or_else(|| "Static method returned void".to_string())
+        Err(format!(
+            "Static method {}.{}() not found. Expected function: {} or {}",
+            type_name, method, base_method_name, pascal_method_name
+        ))
     }
 }

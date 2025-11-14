@@ -20,6 +20,42 @@ impl<'ctx> ASTCodeGen<'ctx> {
     pub(crate) fn register_struct(&mut self, struct_def: &Struct) -> Result<(), String> {
         use super::StructDef;
 
+        // ⭐ LAYER 1 PROTECTION: Prevent redefinition of core stdlib types
+        // These are fundamental types that must not be shadowed by user code
+        const RESERVED_STDLIB_TYPES: &[&str] = &["Vec", "Box", "Option", "Result", "String", "Channel"];
+        
+        if RESERVED_STDLIB_TYPES.contains(&struct_def.name.as_str()) {
+            // Check if already registered (from stdlib prelude)
+            if self.struct_ast_defs.contains_key(&struct_def.name) {
+                // Get the existing definition to check if it's from stdlib or user
+                let existing = self.struct_ast_defs.get(&struct_def.name).unwrap();
+                
+                // Compare field signatures - if different, it's a user redefinition
+                let existing_fields: Vec<String> = existing.fields.iter()
+                    .map(|f| f.name.clone())
+                    .collect();
+                let new_fields: Vec<String> = struct_def.fields.iter()
+                    .map(|f| f.name.clone())
+                    .collect();
+                
+                if existing_fields != new_fields {
+                    return Err(format!(
+                        "Cannot redefine stdlib type '{}'. This is a reserved Layer 1 type.\n\
+                         Stdlib definition has fields: {:?}\n\
+                         Your definition has fields: {:?}\n\
+                         \n\
+                         Help: Use a different name for your custom struct, or use the stdlib type as-is.",
+                        struct_def.name,
+                        existing_fields,
+                        new_fields
+                    ));
+                }
+                
+                // Same signature - allow (duplicate import from stdlib, harmless)
+                return Ok(());
+            }
+        }
+
         self.struct_ast_defs
             .insert(struct_def.name.clone(), struct_def.clone());
 

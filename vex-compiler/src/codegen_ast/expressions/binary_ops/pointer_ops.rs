@@ -34,10 +34,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     .build_call(strcat_fn, &[l.into(), r.into()], "strcat_result")
                     .map_err(|e| format!("Failed to call vex_strcat_new: {}", e))?;
 
-                let result_ptr = concat_result
-                    .try_as_basic_value()
-                    .left()
-                    .ok_or("vex_strcat_new didn't return a value")?;
+                let result_ptr = concat_result.try_as_basic_value().unwrap_basic();
 
                 Ok(result_ptr)
             }
@@ -58,10 +55,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     .build_call(strcmp_fn, &[l.into(), r.into()], "strcmp_result")
                     .map_err(|e| format!("Failed to call vex_strcmp: {}", e))?;
 
-                let cmp_value = cmp_result
-                    .try_as_basic_value()
-                    .left()
-                    .ok_or("vex_strcmp didn't return a value")?
+                let cmp_value = cmp_result.try_as_basic_value().unwrap_basic()
                     .into_int_value();
 
                 // vex_strcmp returns 0 if equal

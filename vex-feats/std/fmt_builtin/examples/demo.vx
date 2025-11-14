@@ -1,6 +1,0 @@
-// fmt_builtin demo placeholder
-
-fn main(): i32 {
-    println("fmt_builtin module (scaffold)");
-    return 0;
-}

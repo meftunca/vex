@@ -23,7 +23,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
     pub(crate) fn compile_block(&mut self, block: &Block) -> Result<(), String> {
         eprintln!("📋 compile_block: {} statements", block.statements.len());
         for stmt in &block.statements {
-            eprintln!("   → Compiling statement: {:?}", std::mem::discriminant(stmt));
+            eprintln!(
+                "   → Compiling statement: {:?}",
+                std::mem::discriminant(stmt)
+            );
             self.compile_statement(stmt)?;
 
             // Stop compiling statements after a terminator (return/break/continue/branch)

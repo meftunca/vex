@@ -33,10 +33,7 @@ pub fn builtin_strlen<'ctx>(
         .build_call(vex_strlen, &[str_ptr.into()], "strlen_call")
         .map_err(|e| format!("Failed to call strlen: {}", e))?;
 
-    result
-        .try_as_basic_value()
-        .left()
-        .ok_or("strlen didn't return a value".to_string())
+    Ok(result.try_as_basic_value().unwrap_basic())
 }
 
 /// strcmp(s1, s2) - Compare strings
@@ -70,10 +67,7 @@ pub fn builtin_strcmp<'ctx>(
         .build_call(vex_strcmp, &[s1.into(), s2.into()], "strcmp_call")
         .map_err(|e| format!("Failed to call strcmp: {}", e))?;
 
-    result
-        .try_as_basic_value()
-        .left()
-        .ok_or("strcmp didn't return a value".to_string())
+    Ok(result.try_as_basic_value().unwrap_basic())
 }
 
 /// strcpy(dest, src) - Copy string
@@ -104,10 +98,7 @@ pub fn builtin_strcpy<'ctx>(
         .build_call(vex_strcpy, &[dest.into(), src.into()], "strcpy_call")
         .map_err(|e| format!("Failed to call strcpy: {}", e))?;
 
-    result
-        .try_as_basic_value()
-        .left()
-        .ok_or("strcpy didn't return a value".to_string())
+    Ok(result.try_as_basic_value().unwrap_basic())
 }
 
 /// strcat(dest, src) - Concatenate strings
@@ -138,10 +129,7 @@ pub fn builtin_strcat<'ctx>(
         .build_call(vex_strcat, &[dest.into(), src.into()], "strcat_call")
         .map_err(|e| format!("Failed to call strcat: {}", e))?;
 
-    result
-        .try_as_basic_value()
-        .left()
-        .ok_or("strcat didn't return a value".to_string())
+    Ok(result.try_as_basic_value().unwrap_basic())
 }
 
 /// strdup(s) - Duplicate string
@@ -166,10 +154,7 @@ pub fn builtin_strdup<'ctx>(
         .build_call(vex_strdup, &[str_ptr.into()], "strdup_call")
         .map_err(|e| format!("Failed to call strdup: {}", e))?;
 
-    result
-        .try_as_basic_value()
-        .left()
-        .ok_or("strdup didn't return a value".to_string())
+    Ok(result.try_as_basic_value().unwrap_basic())
 }
 
 /// vex_string_as_cstr(s: *String): *u8 - Get raw C string pointer from String
@@ -195,10 +180,7 @@ pub fn builtin_string_as_cstr<'ctx>(
         .build_call(vex_string_as_cstr, &[str_ptr.into()], "string_as_cstr")
         .map_err(|e| format!("Failed to call vex_string_as_cstr: {}", e))?;
 
-    result
-        .try_as_basic_value()
-        .left()
-        .ok_or("vex_string_as_cstr didn't return a value".to_string())
+    Ok(result.try_as_basic_value().unwrap_basic())
 }
 
 /// vex_string_len(s: *String): u64 - Get length of String in bytes
@@ -225,8 +207,5 @@ pub fn builtin_string_len<'ctx>(
         .build_call(vex_string_len, &[str_ptr.into()], "string_len")
         .map_err(|e| format!("Failed to call vex_string_len: {}", e))?;
 
-    result
-        .try_as_basic_value()
-        .left()
-        .ok_or("vex_string_len didn't return a value".to_string())
+    Ok(result.try_as_basic_value().unwrap_basic())
 }

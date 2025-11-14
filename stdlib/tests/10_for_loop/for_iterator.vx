@@ -1,0 +1,31 @@
+// Layer 1: For Loop - Iterator Protocol
+// Tests for-in loop with custom iterator
+
+struct Counter {
+    current: i32,
+    limit: i32,
+}
+
+impl Counter {
+    fn next()!: Option<i32> {
+        if self.current < self.limit {
+            let val = self.current;
+            self.current = self.current + 1;
+            return Some(val);
+        } else {
+            return None;
+        }
+    }
+}
+
+fn main(): i32 {
+    // Test 1: For loop with custom iterator
+    let! counter = Counter { current: 0, limit: 5 };
+    let! sum = 0;
+    
+    for item in counter {
+        sum = sum + item;
+    }
+    
+    return sum;  // 0+1+2+3+4 = 10
+}

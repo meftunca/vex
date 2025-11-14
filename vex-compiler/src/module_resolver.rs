@@ -59,9 +59,14 @@ impl ModuleResolver {
 
         // Use StdlibResolver if it's a stdlib module
         let file_path = if self.stdlib_resolver.is_stdlib_module(module_path) {
-            self.stdlib_resolver
-                .resolve_module(module_path)
-                .map_err(|e| format!("Failed to resolve stdlib module {}: {}", module_path, e))?
+            // Try StdlibResolver first (vex-libs/std)
+            match self.stdlib_resolver.resolve_module(module_path) {
+                Ok(path) => path,
+                Err(_) => {
+                    // Fallback to legacy stdlib/ directory
+                    self.module_path_to_file_path(module_path, relative_to)?
+                }
+            }
         } else {
             // Fallback to old resolution for non-stdlib modules
             self.module_path_to_file_path(module_path, relative_to)?
@@ -149,7 +154,7 @@ impl ModuleResolver {
         // Normalize path: convert both :: and / separators to a common format
         let normalized_path = module_path.replace("::", "/");
 
-        // Start with base path (vex-libs/std)
+        // Start with base path (stdlib or vex-libs/std)
         let mut file_path = self.std_lib_path.clone();
 
         // For "std" module specifically, just add mod.vx
@@ -178,6 +183,9 @@ impl ModuleResolver {
                     return Ok(candidate);
                 }
             }
+            
+            // If not found, return error with the directory path (not file)
+            return Err(format!("Module file not found: {:?}", file_path));
         }
 
         // Check if file exists

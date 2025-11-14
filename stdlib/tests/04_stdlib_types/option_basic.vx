@@ -1,0 +1,21 @@
+// Layer 1: Option<T> - Optional Value Type
+// Tests standard library Option<T> enum
+
+fn main(): i32 {
+    // Test 1: Some variant
+    let opt1: Option<i32> = Some(42);
+    
+    // Test 2: None variant
+    let opt2: Option<i32> = None;
+    
+    // Test 3: Pattern matching on Option
+    let value = match opt1 {
+        Some(v) => v,
+        None => 0,
+    };
+    
+    // Test 4: Nested Option
+    let opt3: Option<Option<i32>> = Some(Some(10));
+    
+    return value;  // 42
+}

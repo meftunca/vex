@@ -138,10 +138,7 @@ pub fn builtin_slice_from_vec<'ctx>(
         .build_call(slice_from_vec_fn, &[vec_ptr.into()], "slice_from_vec_call")
         .map_err(|e| format!("Failed to call slice_from_vec: {}", e))?;
 
-    result
-        .try_as_basic_value()
-        .left()
-        .ok_or("slice_from_vec didn't return a value".to_string())
+    Ok(result.try_as_basic_value().unwrap_basic())
 }
 
 /// Builtin slice_new(data, len, elem_size) - Create slice from raw data
@@ -179,10 +176,7 @@ pub fn builtin_slice_new<'ctx>(
         )
         .map_err(|e| format!("Failed to call slice_new: {}", e))?;
 
-    result
-        .try_as_basic_value()
-        .left()
-        .ok_or("slice_new didn't return a value".to_string())
+    Ok(result.try_as_basic_value().unwrap_basic())
 }
 
 /// Builtin slice_get(slice, index) - Get element from slice
@@ -215,10 +209,7 @@ pub fn builtin_slice_get<'ctx>(
         )
         .map_err(|e| format!("Failed to call slice_get: {}", e))?;
 
-    result
-        .try_as_basic_value()
-        .left()
-        .ok_or("slice_get didn't return a value".to_string())
+    Ok(result.try_as_basic_value().unwrap_basic())
 }
 
 /// Builtin slice_len(slice) - Get slice length
@@ -242,8 +233,5 @@ pub fn builtin_slice_len<'ctx>(
         .build_call(slice_len_fn, &[slice_ptr.into()], "slice_len_call")
         .map_err(|e| format!("Failed to call slice_len: {}", e))?;
 
-    result
-        .try_as_basic_value()
-        .left()
-        .ok_or("slice_len didn't return a value".to_string())
+    Ok(result.try_as_basic_value().unwrap_basic())
 }

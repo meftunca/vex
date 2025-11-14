@@ -1,20 +1,20 @@
 // Debug Nested Generic - Step by Step
-struct Box<T> {
+struct Container<T> {
     value: T,
 }
 
 fn main(): i32 {
     // Step 1: Create inner box
-    let inner: Box<i32> = Box<i32> { value: 42 };
+    let inner: Container<i32> = Container<i32> { value: 42 };
     
     // Step 2: Access inner value (should work)
     let v1 = inner.value;
     
     // Step 3: Create outer box
-    let outer: Box<Box<i32>> = Box<Box<i32>> { value: inner };
+    let outer: Container<Container<i32>> = Container<Container<i32>> { value: inner };
     
-    // Step 4: Try to access outer.value (returns Box<i32>)
-    // let middle: Box<i32> = outer.value;
+    // Step 4: Try to access outer.value (returns Container<i32>)
+    // let middle: Container<i32> = outer.value;
     
     return v1;  // Should return 42
 }

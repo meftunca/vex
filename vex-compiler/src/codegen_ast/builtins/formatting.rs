@@ -22,12 +22,12 @@ pub fn builtin_i32_to_string<'ctx>(
     // Allocate buffer: max i32 is "-2147483648" = 11 chars + null = 12 bytes
     let i8_type = codegen.context.i8_type();
     let buffer_size = codegen.context.i32_type().const_int(12, false);
-    
+
     let malloc_fn = codegen.module.get_function("malloc").unwrap_or_else(|| {
-        let fn_type = codegen.context.ptr_type(AddressSpace::default()).fn_type(
-            &[codegen.context.i64_type().into()],
-            false,
-        );
+        let fn_type = codegen
+            .context
+            .ptr_type(AddressSpace::default())
+            .fn_type(&[codegen.context.i64_type().into()], false);
         codegen.module.add_function("malloc", fn_type, None)
     });
 
@@ -40,13 +40,12 @@ pub fn builtin_i32_to_string<'ctx>(
         )
         .map_err(|e| format!("Failed to allocate buffer: {}", e))?
         .try_as_basic_value()
-        .left()
-        .ok_or("malloc didn't return a value")?
+        .unwrap_basic()
         .into_pointer_value();
 
     // Generate inline integer-to-string conversion
     // Instead of calling snprintf, generate direct LLVM IR
-    
+
     // For now, use snprintf as a bridge (will be replaced with pure LLVM IR)
     let snprintf = codegen.module.get_function("snprintf").unwrap_or_else(|| {
         let fn_type = codegen.context.i32_type().fn_type(
@@ -61,7 +60,9 @@ pub fn builtin_i32_to_string<'ctx>(
     });
 
     // Create format string "%d"
-    let format_str = codegen.builder.build_global_string_ptr("%d", "fmt_i32")
+    let format_str = codegen
+        .builder
+        .build_global_string_ptr("%d", "fmt_i32")
         .map_err(|e| format!("Failed to create format string: {}", e))?;
 
     codegen
@@ -97,10 +98,10 @@ pub fn builtin_f64_to_string<'ctx>(
 
     // Allocate buffer: max reasonable float representation ~32 bytes
     let malloc_fn = codegen.module.get_function("malloc").unwrap_or_else(|| {
-        let fn_type = codegen.context.ptr_type(AddressSpace::default()).fn_type(
-            &[codegen.context.i64_type().into()],
-            false,
-        );
+        let fn_type = codegen
+            .context
+            .ptr_type(AddressSpace::default())
+            .fn_type(&[codegen.context.i64_type().into()], false);
         codegen.module.add_function("malloc", fn_type, None)
     });
 
@@ -113,8 +114,7 @@ pub fn builtin_f64_to_string<'ctx>(
         )
         .map_err(|e| format!("Failed to allocate buffer: {}", e))?
         .try_as_basic_value()
-        .left()
-        .ok_or("malloc didn't return a value")?
+        .unwrap_basic()
         .into_pointer_value();
 
     let snprintf = codegen.module.get_function("snprintf").unwrap_or_else(|| {
@@ -129,7 +129,9 @@ pub fn builtin_f64_to_string<'ctx>(
         codegen.module.add_function("snprintf", fn_type, None)
     });
 
-    let format_str = codegen.builder.build_global_string_ptr("%.6g", "fmt_f64")
+    let format_str = codegen
+        .builder
+        .build_global_string_ptr("%.6g", "fmt_f64")
         .map_err(|e| format!("Failed to create format string: {}", e))?;
 
     codegen
@@ -164,9 +166,13 @@ pub fn builtin_bool_to_string<'ctx>(
     };
 
     // Create constant strings "true" and "false"
-    let true_str = codegen.builder.build_global_string_ptr("true", "bool_true")
+    let true_str = codegen
+        .builder
+        .build_global_string_ptr("true", "bool_true")
         .map_err(|e| format!("Failed to create true string: {}", e))?;
-    let false_str = codegen.builder.build_global_string_ptr("false", "bool_false")
+    let false_str = codegen
+        .builder
+        .build_global_string_ptr("false", "bool_false")
         .map_err(|e| format!("Failed to create false string: {}", e))?;
 
     // Select based on boolean value

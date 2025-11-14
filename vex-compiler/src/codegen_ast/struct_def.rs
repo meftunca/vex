@@ -12,6 +12,27 @@ pub struct StructDef {
     pub fields: Vec<(String, Type)>, // Field name and type
 }
 
+/// Type constraint for type inference unification
+/// Collected during first compilation pass, resolved in unification phase
+#[derive(Debug, Clone)]
+pub enum TypeConstraint {
+    /// Two types must be equal: T = i32
+    Equal(Type, Type),
+
+    /// Method receiver type constraint
+    /// receiver_expr (e.g., "v") must have type that supports method with arg_types
+    MethodReceiver {
+        receiver_name: String,
+        method_name: String,
+        arg_types: Vec<Type>,
+        inferred_receiver_type: Type,
+    },
+
+    /// Assignment constraint: variable = expression
+    /// Variable type must match expression type
+    Assignment { var_name: String, expr_type: Type },
+}
+
 pub struct ASTCodeGen<'ctx> {
     pub context: &'ctx Context,
     pub module: Module<'ctx>,
@@ -23,6 +44,15 @@ pub struct ASTCodeGen<'ctx> {
     pub(crate) variable_ast_types: HashMap<String, Type>, // Track AST types for correct print() formatting
     pub(crate) variable_struct_names: HashMap<String, String>,
     pub(crate) variable_enum_names: HashMap<String, String>, // Track enum variable names
+
+    // ⭐ Phase 1: Type Inference - Variable type tracking with full AST types
+    // Maps variable name → concrete AST Type (including Generic with type_args)
+    // Used for method call receiver type resolution and generic instantiation
+    pub variable_concrete_types: HashMap<String, Type>,
+
+    // ⭐ Phase 1: Type Inference - Type constraint collection
+    // Collects constraints during first pass, resolved in unification phase
+    pub type_constraints: Vec<TypeConstraint>,
     // Track tuple variables separately to know their struct types for pattern matching
     pub(crate) tuple_variable_types: HashMap<String, StructType<'ctx>>,
     // Track function pointer parameters (stored as values, not allocas)
@@ -114,4 +144,11 @@ pub struct ASTCodeGen<'ctx> {
 
     // ⭐ NEW: Source file path for resolving relative imports
     pub(crate) source_file: String,
+
+    // ⭐ ASYNC/AWAIT: Global runtime handle for spawning async tasks
+    // Initialized in main() when async functions exist
+    pub(crate) global_runtime: Option<PointerValue<'ctx>>,
+
+    // ⭐ ASYNC BLOCKS: Counter for generating unique async block function names
+    pub(crate) async_block_counter: u32,
 }

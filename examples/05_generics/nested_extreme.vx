@@ -1,16 +1,16 @@
 // Extreme Depth Test - Start simple with 4 levels
 // Should compile successfully
 
-struct Box<T> {
+struct Container<T> {
     value: T,
 }
 
 fn main(): i32 {
     // Test with 4 nested Box types - explicit type args
-    let b1: Box<i32> = Box { value: 42 };
-    let b2: Box<Box<i32>> = Box { value: b1 };
-    let b3: Box<Box<Box<i32>>> = Box { value: b2 };
-    let b4: Box<Box<Box<Box<i32>>>> = Box { value: b3 };
+    let b1: Container<i32> = Box { value: 42 };
+    let b2: Container<Container<i32>> = Box { value: b1 };
+    let b3: Container<Container<Container<i32>>> = Box { value: b2 };
+    let b4: Container<Container<Container<Container<i32>>>> = Box { value: b3 };
     
     return 0;
 }

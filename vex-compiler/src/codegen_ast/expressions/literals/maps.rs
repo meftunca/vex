@@ -29,9 +29,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             .builder
             .build_call(vex_map_create, &[capacity.into()], "map_create")
             .map_err(|e| format!("Failed to create map: {}", e))?
-            .try_as_basic_value()
-            .left()
-            .ok_or("map_create should return a value")?;
+            .try_as_basic_value();
 
         // Insert each entry
         if !entries.is_empty() {
@@ -48,13 +46,13 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 self.builder
                     .build_call(
                         vex_map_insert,
-                        &[map_ptr.into(), key.into(), value.into()],
+                        &[map_ptr.unwrap_basic().into(), key.into(), value.into()],
                         "map_insert",
                     )
                     .map_err(|e| format!("Failed to insert map entry: {}", e))?;
             }
         }
 
-        Ok(map_ptr)
+        Ok(map_ptr.unwrap_basic())
     }
 }

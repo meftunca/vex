@@ -109,6 +109,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
             eprintln!("🔄 Async functions detected - runtime will be initialized in main");
         }
 
+        // ⭐ ASYNC: Track if we need runtime initialization
+        let needs_runtime_init = has_async;
+
         // Initialize trait bounds checker
         use crate::trait_bounds_checker::TraitBoundsChecker;
         let mut trait_checker = TraitBoundsChecker::new();
@@ -341,6 +344,21 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Fifth pass: compile non-generic function bodies
         // Comes AFTER struct methods, so generic instantiation can use them
+        
+        // ⭐ ASYNC: Declare global runtime variable if needed
+        if needs_runtime_init {
+            eprintln!("🔄 Declaring global async runtime variable");
+            
+            // Create global runtime variable: Runtime* __vex_global_runtime = NULL;
+            let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+            let global_runtime = self.module.add_global(ptr_type, Some(inkwell::AddressSpace::default()), "__vex_global_runtime");
+            global_runtime.set_initializer(&ptr_type.const_null());
+            
+            // Store the global variable for later use
+            self.global_runtime = Some(global_runtime.as_pointer_value());
+            eprintln!("✅ Global runtime variable declared");
+        }
+        
         for item in &merged_program.items {
             if let Item::Function(func) = item {
                 // Skip generic functions - they'll be compiled when instantiated
@@ -376,13 +394,31 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 };
 
                 if func.type_params.is_empty() && !is_on_generic_struct_compile {
-                    self.compile_function(func)?;
+                    eprintln!("🔨 Compiling function: {}", func.name);
+                    match self.compile_function(func) {
+                        Ok(_) => eprintln!("✅ Successfully compiled: {}", func.name),
+                        Err(e) => {
+                            eprintln!("❌ Failed to compile {}: {}", func.name, e);
+                            return Err(e);
+                        }
+                    }
                 } else if is_on_generic_struct_compile {
                     eprintln!("⏭️  Skipping compilation of method {} on generic struct", func.name);
                 }
             }
         }
 
+        eprintln!("✅ All functions compiled successfully");
+        
+        // ⭐ ASYNC: Verify LLVM module for correctness
+        eprintln!("🔍 Verifying LLVM module...");
+        if let Err(e) = self.module.verify() {
+            eprintln!("❌ LLVM module verification failed:");
+            eprintln!("{}", e.to_string());
+            return Err(format!("Invalid LLVM IR generated: {}", e));
+        }
+        eprintln!("✅ LLVM module verification passed");
+        
         Ok(())
     }
 
@@ -520,8 +556,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             let eq_result = builder.build_call(eq_fn, &params, "eq_result")
                 .map_err(|e| format!("Failed to call op== in auto-generated op!=: {}", e))?;
             
-            let eq_val = eq_result.try_as_basic_value().left()
-                .ok_or("op== should return a value")?;
+            let eq_val = eq_result.try_as_basic_value().unwrap_basic();
             
             // Negate the result: !eq_val
             let ne_val = builder.build_not(eq_val.into_int_value(), "ne_result")

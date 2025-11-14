@@ -1,0 +1,27 @@
+// Layer 1: Generic Struct - Basic Instantiation
+// Tests user-defined generic struct (avoiding stdlib conflicts)
+
+struct Holder<T> {
+    value: T,
+}
+
+fn main(): i32 {
+    // Test 1: Generic struct with i32
+    let h1 = Holder<i32> { value: 42 };
+    let v1 = h1.value;
+    
+    // Test 2: Generic struct with bool
+    let h2 = Holder<bool> { value: true };
+    let v2 = h2.value;
+    
+    // Test 3: Generic struct with f64
+    let h3 = Holder<f64> { value: 3.14 };
+    let v3 = h3.value;
+    
+    // Test 4: Multiple instances of same type
+    let h4 = Holder<i32> { value: 100 };
+    let h5 = Holder<i32> { value: 200 };
+    let sum = h4.value + h5.value;  // 300
+    
+    return 0;  // Success
+}

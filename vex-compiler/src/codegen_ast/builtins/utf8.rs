@@ -44,10 +44,7 @@ pub fn builtin_utf8_valid<'ctx>(
         )
         .map_err(|e| format!("Failed to call utf8_valid: {}", e))?;
 
-    result
-        .try_as_basic_value()
-        .left()
-        .ok_or("utf8_valid didn't return a value".to_string())
+    Ok(result.try_as_basic_value().unwrap_basic())
 }
 
 /// utf8_char_count(s) - Count UTF-8 characters
@@ -80,10 +77,7 @@ pub fn builtin_utf8_char_count<'ctx>(
         )
         .map_err(|e| format!("Failed to call utf8_char_count: {}", e))?;
 
-    result
-        .try_as_basic_value()
-        .left()
-        .ok_or("utf8_char_count didn't return a value".to_string())
+    Ok(result.try_as_basic_value().unwrap_basic())
 }
 
 /// utf8_char_at(s, index) - Get character at index
@@ -126,8 +120,5 @@ pub fn builtin_utf8_char_at<'ctx>(
         )
         .map_err(|e| format!("Failed to call utf8_char_at: {}", e))?;
 
-    result
-        .try_as_basic_value()
-        .left()
-        .ok_or("utf8_char_at didn't return a value".to_string())
+    Ok(result.try_as_basic_value().unwrap_basic())
 }

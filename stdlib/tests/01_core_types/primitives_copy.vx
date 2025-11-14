@@ -1,0 +1,33 @@
+// Layer 1: Primitive Types - Copy Semantics
+// Tests that primitive types are Copy (not Move)
+
+fn main(): i32 {
+    // Test 1: i32 is Copy
+    let x = 42;
+    let y = x;  // Should copy, not move
+    let z = x;  // x should still be usable
+    
+    // Test 2: Multiple uses after copy
+    let sum = x + y + z;  // All three should be accessible
+    
+    // Test 3: Function calls with Copy
+    let a = 10;
+    let b = add(a, a);  // a used twice, should work
+    let c = a + b;      // a still usable
+    
+    // Test 4: bool is Copy
+    let flag = true;
+    let f1 = flag;
+    let f2 = flag;  // Should not move
+    
+    // Test 5: f64 is Copy  
+    let pi = 3.14;
+    let p1 = pi;
+    let p2 = pi;  // Should not move
+    
+    return 0;  // Success
+}
+
+fn add(x: i32, y: i32): i32 {
+    return x + y;
+}

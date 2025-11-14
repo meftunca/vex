@@ -1,0 +1,28 @@
+// Layer 1: Nested Generics - Two Levels
+// Tests Wrapper<Holder<i32>> nesting
+
+struct Holder<T> {
+    value: T,
+}
+
+struct Wrapper<T> {
+    inner: T,
+}
+
+fn main(): i32 {
+    // Test 1: Create nested structure
+    let h = Holder<i32> { value: 42 };
+    let w = Wrapper<Holder<i32>> { inner: h };
+    
+    // Test 2: Extract through levels
+    let extracted = w.inner;
+    let final_value = extracted.value;
+    
+    // Test 3: Direct nested creation
+    let direct = Wrapper<Holder<i32>> {
+        inner: Holder<i32> { value: 100 }
+    };
+    let val = direct.inner.value;
+    
+    return val;  // Should be 100
+}

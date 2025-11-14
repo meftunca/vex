@@ -199,6 +199,7 @@ impl TraitBoundsChecker {
     /// Extract type name from Type enum for lookup
     fn extract_type_name(&self, ty: &Type) -> String {
         match ty {
+            Type::Unknown => "unknown".to_string(),
             Type::Named(name) => name.clone(),
             Type::Generic { name, type_args: _ } => name.clone(),
             Type::I8 => "i8".to_string(),
@@ -245,6 +246,7 @@ impl TraitBoundsChecker {
                 }
             }
             Type::Channel(inner) => format!("Channel<{}>", self.extract_type_name(inner)),
+            Type::Future(inner) => format!("Future<{}>", self.extract_type_name(inner)),
             Type::Typeof(_) => "typeof".to_string(), // Compile-time evaluated
             Type::SelfType => "Self".to_string(),
             Type::AssociatedType { name, .. } => name.clone(), // Return associated type name

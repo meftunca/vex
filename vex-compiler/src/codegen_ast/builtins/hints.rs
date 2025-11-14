@@ -81,10 +81,7 @@ pub fn builtin_likely<'ctx>(
         )
         .map_err(|e| format!("Failed to call likely: {}", e))?;
 
-    result
-        .try_as_basic_value()
-        .left()
-        .ok_or("likely didn't return a value".to_string())
+    Ok(result.try_as_basic_value().unwrap_basic())
 }
 
 /// unlikely(x) - Hint that condition is likely false
@@ -119,10 +116,7 @@ pub fn builtin_unlikely<'ctx>(
         )
         .map_err(|e| format!("Failed to call unlikely: {}", e))?;
 
-    result
-        .try_as_basic_value()
-        .left()
-        .ok_or("unlikely didn't return a value".to_string())
+    Ok(result.try_as_basic_value().unwrap_basic())
 }
 
 /// prefetch(addr, rw, locality, cache_type) - Memory prefetch hint

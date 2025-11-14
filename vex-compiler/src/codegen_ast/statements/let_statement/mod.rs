@@ -70,19 +70,74 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Special case: If val is a pointer and variable is already registered, skip step 5-6
         // This happens when compile_value_expression handles large arrays directly
-        if let BasicValueEnum::PointerValue(_) = val {
-            if self.variables.contains_key(name) {
-                // Variable already registered by compile_value_expression
-                return Ok(());
+        let early_return_needed = if let BasicValueEnum::PointerValue(_) = val {
+            self.variables.contains_key(name)
+        } else {
+            false
+        };
+
+        if !early_return_needed {
+            // Step 5: Determine final type
+            let (final_var_type, final_llvm_type) =
+                self.determine_final_type(ty, val, value, &struct_name_from_expr)?;
+
+            // ⭐ Phase 2/3: Track concrete type BEFORE registering variable
+            // Store full AST type (including Generic with type_args) for receiver type resolution
+            if let Some(type_annotation) = ty {
+                // Explicit type annotation - use it directly
+                self.variable_concrete_types.insert(name.clone(), type_annotation.clone());
+            } else if let Some(ref struct_name_str) = struct_name_from_expr {
+                // Inferred struct type - determine if generic
+                if let Some(struct_def) = self.struct_ast_defs.get(struct_name_str) {
+                    if !struct_def.type_params.is_empty() {
+                        // ⭐ Phase 3: Generic struct without explicit type args - check constructor
+                        let type_args_from_value = match value {
+                            Expression::Call { type_args, .. } => type_args,
+                            Expression::TypeConstructor { type_args, .. } => type_args,
+                            _ => &[] as &[Type],
+                        };
+                        
+                        if type_args_from_value.is_empty() {
+                            // ⭐ Phase 3.5: Try to infer from constructor args
+                            let inferred_from_args = match value {
+                                Expression::TypeConstructor { args, .. } if !args.is_empty() => {
+                                    // Box(42) - infer T from first arg
+                                    if let Ok(arg_type) = self.infer_expression_type_with_context(&args[0], None) {
+                                        Some(Type::Generic {
+                                            name: struct_name_str.clone(),
+                                            type_args: vec![arg_type],
+                                        })
+                                    } else {
+                                        None
+                                    }
+                                }
+                                _ => None,
+                            };
+                            
+                            if let Some(concrete_type) = inferred_from_args {
+                                // Successfully inferred from constructor args
+                                self.variable_concrete_types.insert(name.clone(), concrete_type);
+                            } else {
+                                // Vec() or Box() without args - create Unknown placeholder
+                                let unknown_type = Type::Generic {
+                                    name: struct_name_str.clone(),
+                                    type_args: vec![Type::Unknown],
+                                };
+                                self.variable_concrete_types.insert(name.clone(), unknown_type);
+                            }
+                        } else {
+                            // Explicit type args - use them
+                            if let Ok(inferred_type) = self.infer_expression_type_with_context(value, None) {
+                                self.variable_concrete_types.insert(name.clone(), inferred_type);
+                            }
+                        }
+                    }
+                }
             }
+
+            // Step 6: Register the variable (now variable_concrete_types is populated)
+            self.register_variable(name, val, &final_var_type, final_llvm_type, is_mutable)?;
         }
-
-        // Step 5: Determine final type
-        let (final_var_type, final_llvm_type) =
-            self.determine_final_type(ty, val, value, &struct_name_from_expr)?;
-
-        // Step 6: Register the variable
-        self.register_variable(name, val, &final_var_type, final_llvm_type, is_mutable)?;
 
         Ok(())
     }

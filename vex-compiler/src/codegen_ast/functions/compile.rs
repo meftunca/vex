@@ -14,6 +14,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
             eprintln!("   First stmt: {:?}", func.body.statements[0]);
         }
 
+        // Initialize async runtime if this is main() and we have a runtime handle
+        if func.name == "main" && self.global_runtime.is_some() {
+            eprintln!("🔄 main() function with async runtime - runtime already initialized");
+        }
+
         if func.is_async {
             return self.compile_async_function(func);
         }
@@ -31,9 +36,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     Type::Result(_, _) => "Result".to_string(),
                     _ => {
                         eprintln!("⚠️  Unsupported receiver type in compile: {:?}", inner);
-                        return Err(
-                            format!("Receiver must be a named type or reference to named type, got {:?}", inner)
-                        );
+                        return Err(format!(
+                            "Receiver must be a named type or reference to named type, got {:?}",
+                            inner
+                        ));
                     }
                 },
                 Type::Vec(_) => "Vec".to_string(),
@@ -41,13 +47,17 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 Type::Option(_) => "Option".to_string(),
                 Type::Result(_, _) => "Result".to_string(),
                 _ => {
-                    eprintln!("⚠️  Unsupported receiver type in compile: {:?}", receiver.ty);
-                    return Err(
-                        format!("Receiver must be a named type or reference to named type, got {:?}", receiver.ty)
+                    eprintln!(
+                        "⚠️  Unsupported receiver type in compile: {:?}",
+                        receiver.ty
                     );
+                    return Err(format!(
+                        "Receiver must be a named type or reference to named type, got {:?}",
+                        receiver.ty
+                    ));
                 }
             };
-            
+
             // Check if name is already mangled (imported methods)
             if func.name.starts_with(&format!("{}_", type_name)) {
                 func.name.clone()
@@ -56,12 +66,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 let encoded_method_name = Self::encode_operator_name(&func.name);
                 let param_count = func.params.len();
                 let base_name = format!("{}_{}", type_name, encoded_method_name);
-                
+
                 // Add type suffix for overloading (same logic as program.rs)
                 let name = if !func.params.is_empty() {
                     let first_param_type = &func.params[0].ty;
                     let type_suffix = self.generate_type_suffix(first_param_type);
-                    
+
                     if func.name.starts_with("op") && !type_suffix.is_empty() {
                         format!("{}{}_{}", base_name, type_suffix, param_count)
                     } else if !type_suffix.is_empty() {
@@ -87,6 +97,32 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let entry = self.context.append_basic_block(fn_val, "entry");
         self.builder.position_at_end(entry);
 
+        // ⭐ ASYNC: Initialize runtime at the start of main if needed
+        if func.name == "main" && self.global_runtime.is_some() {
+            eprintln!("🔄 Initializing runtime at start of main()");
+
+            // Runtime* rt = runtime_create(4);
+            let runtime_create = self.get_or_declare_runtime_create();
+            let num_workers = self.context.i32_type().const_int(4, false);
+            let runtime_call = self
+                .builder
+                .build_call(runtime_create, &[num_workers.into()], "runtime")
+                .map_err(|e| format!("Failed to call runtime_create: {}", e))?;
+
+            let runtime_ptr = runtime_call
+                .try_as_basic_value()
+                .unwrap_basic()
+                .into_pointer_value();
+
+            // Store in global: __vex_global_runtime = rt;
+            let global_runtime = self.global_runtime.unwrap();
+            self.builder
+                .build_store(global_runtime, runtime_ptr)
+                .map_err(|e| format!("Failed to store runtime: {}", e))?;
+
+            eprintln!("✅ Runtime initialized and stored in global");
+        }
+
         self.variables.clear();
         self.variable_types.clear();
         self.variable_struct_names.clear();
@@ -100,28 +136,62 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 .get_nth_param(0)
                 .ok_or_else(|| "Receiver parameter not found".to_string())?;
 
-            // CRITICAL: External methods use Golang-style `fn (p: Point)` (pass by value)
-            // Inline methods use `fn op+(self)` (also pass by value in new convention)
-            // Both should ALWAYS allocate and store for consistent access
             let param_type = self.ast_type_to_llvm(&receiver.ty);
-            let alloca = self.create_entry_block_alloca(&receiver.name, &receiver.ty, true)?;
-            self.builder
-                .build_store(alloca, param_val)
-                .map_err(|e| format!("Failed to store receiver: {}", e))?;
-            self.variables.insert(receiver.name.clone(), alloca);
-            self.variable_types.insert(receiver.name.clone(), param_type);
 
-            eprintln!("📌 Receiver '{}': allocated and stored", receiver.name);
+            // CRITICAL: Handle reference receivers differently
+            // Reference receivers (&Vec<T>, &Point, etc.) are already pointers - use directly
+            // Value receivers (Vec<T>, Point, etc.) need allocation
+            let receiver_var = match &receiver.ty {
+                Type::Reference(_, _) => {
+                    // Reference receiver: param_val is already a pointer, use it directly
+                    eprintln!(
+                        "📌 Receiver '{}': reference type, using pointer directly",
+                        receiver.name
+                    );
+                    param_val.into_pointer_value()
+                }
+                _ => {
+                    // Value receiver: allocate and store (Golang-style)
+                    eprintln!(
+                        "📌 Receiver '{}': value type, allocating and storing",
+                        receiver.name
+                    );
+                    let alloca =
+                        self.create_entry_block_alloca(&receiver.name, &receiver.ty, true)?;
+                    self.builder
+                        .build_store(alloca, param_val)
+                        .map_err(|e| format!("Failed to store receiver: {}", e))?;
+                    alloca
+                }
+            };
 
+            self.variables.insert(receiver.name.clone(), receiver_var);
+            self.variable_types
+                .insert(receiver.name.clone(), param_type);
+
+            // Extract struct type name from receiver type
+            // Handle: Type::Named, Type::Reference(Type::Named | Type::Vec | Type::Box | ...)
             let type_name = match &receiver.ty {
                 Type::Named(name) => Some(name.clone()),
                 Type::Reference(inner, _) => {
-                    if let Type::Named(name) = &**inner {
-                        Some(name.clone())
-                    } else {
-                        None
+                    // Handle references to any struct type (Named, Vec, Box, etc.)
+                    match &**inner {
+                        Type::Named(name) => Some(name.clone()),
+                        Type::Vec(_) | Type::Box(_) | Type::Option(_) | Type::Result(_, _) => {
+                            // Use type_to_string to get mangled name: Vec<i32> -> Vec_i32
+                            Some(self.type_to_string(inner))
+                        }
+                        Type::Generic { .. } => {
+                            // Generic types get mangled: HashMap<K, V> -> HashMap_K_V
+                            Some(self.type_to_string(inner))
+                        }
+                        _ => None,
                     }
                 }
+                Type::Vec(_) | Type::Box(_) | Type::Option(_) | Type::Result(_, _) => {
+                    Some(self.type_to_string(&receiver.ty))
+                }
+                Type::Generic { .. } => Some(self.type_to_string(&receiver.ty)),
                 _ => None,
             };
 
@@ -131,7 +201,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 if self.struct_defs.contains_key(&struct_name)
                     || self.struct_ast_defs.contains_key(&struct_name)
                 {
-                    eprintln!("   ✅ Tracking '{}' as struct: {}", receiver.name, struct_name);
+                    eprintln!(
+                        "   ✅ Tracking '{}' as struct: {}",
+                        receiver.name, struct_name
+                    );
                     self.variable_struct_names
                         .insert(receiver.name.clone(), struct_name);
                 } else {
@@ -224,7 +297,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
         }
 
         self.push_scope();
-        eprintln!("📋 About to compile function body with {} statements", func.body.statements.len());
+        eprintln!(
+            "📋 About to compile function body with {} statements",
+            func.body.statements.len()
+        );
         self.compile_block(&func.body)?;
         eprintln!("📋 Finished compiling function body");
 
@@ -239,23 +315,57 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         if let Some(current_block) = self.builder.get_insert_block() {
             if current_block.get_terminator().is_none() {
-                // Simple approach: if it's not the entry block, it's unreachable
-                let is_entry_block = current_block == fn_val.get_first_basic_block().unwrap();
+                // ⭐ ASYNC: If this is main() with runtime, add runtime_run() and runtime_destroy()
+                if func.name == "main" && self.global_runtime.is_some() {
+                    eprintln!("🔄 Adding runtime_run() and runtime_destroy() to main()");
 
-                if is_entry_block {
-                    if func.return_type.is_none() {
-                        let zero = self.context.i32_type().const_int(0, false);
-                        self.builder
-                            .build_return(Some(&zero))
-                            .map_err(|e| format!("Failed to build return: {}", e))?;
-                    } else {
-                        return Err("Non-void function must have explicit return".to_string());
-                    }
-                } else {
-                    // Non-entry block without terminator = unreachable
+                    let runtime_ptr = self.global_runtime.unwrap();
+
+                    // void runtime_run(Runtime* runtime);
+                    let runtime_run = self.get_or_declare_runtime_run();
                     self.builder
-                        .build_unreachable()
-                        .map_err(|e| format!("Failed to build unreachable: {}", e))?;
+                        .build_call(runtime_run, &[runtime_ptr.into()], "run_runtime")
+                        .map_err(|e| format!("Failed to call runtime_run: {}", e))?;
+
+                    // void runtime_destroy(Runtime* runtime);
+                    let runtime_destroy = self.get_or_declare_runtime_destroy();
+                    self.builder
+                        .build_call(runtime_destroy, &[runtime_ptr.into()], "destroy_runtime")
+                        .map_err(|e| format!("Failed to call runtime_destroy: {}", e))?;
+                }
+
+                // ✅ FIX: Void functions should always get implicit return, not unreachable
+                if func.return_type.is_none() {
+                    // Void function - add implicit return
+                    self.builder
+                        .build_return(None)
+                        .map_err(|e| format!("Failed to build void return: {}", e))?;
+                } else {
+                    // Non-void function - check if entry block
+                    let is_entry_block = current_block == fn_val.get_first_basic_block().unwrap();
+
+                    if is_entry_block {
+                        // Get the actual return type to generate correct default value
+                        let ret_type = self.ast_type_to_llvm(func.return_type.as_ref().unwrap());
+                        match ret_type {
+                            BasicTypeEnum::IntType(int_ty) => {
+                                let zero = int_ty.const_int(0, false);
+                                self.builder
+                                    .build_return(Some(&zero))
+                                    .map_err(|e| format!("Failed to build return: {}", e))?;
+                            }
+                            _ => {
+                                return Err(
+                                    "Non-void function must have explicit return".to_string()
+                                );
+                            }
+                        }
+                    } else {
+                        // Non-entry block without terminator in non-void function = unreachable
+                        self.builder
+                            .build_unreachable()
+                            .map_err(|e| format!("Failed to build unreachable: {}", e))?;
+                    }
                 }
             }
         }

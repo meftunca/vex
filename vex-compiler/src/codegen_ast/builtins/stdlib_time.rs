@@ -24,8 +24,7 @@ pub fn stdlib_time_now<'ctx>(
         .build_call(time_now_fn, &[], "time_now_call")
         .map_err(|e| format!("Failed to call vex_time_now: {}", e))?
         .try_as_basic_value()
-        .left()
-        .ok_or("vex_time_now should return i64")?;
+        .unwrap_basic();
 
     Ok(call)
 }
@@ -50,8 +49,7 @@ pub fn stdlib_time_high_res<'ctx>(
         .build_call(monotonic_fn, &[], "time_monotonic_call")
         .map_err(|e| format!("Failed to call vex_time_monotonic: {}", e))?
         .try_as_basic_value()
-        .left()
-        .ok_or("vex_time_monotonic should return i64")?;
+        .unwrap_basic();
 
     Ok(call)
 }

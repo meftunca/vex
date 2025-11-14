@@ -1,0 +1,28 @@
+// Layer 1: Copy Semantics - Primitive Types
+// Tests that Copy types duplicate on assignment
+
+fn main(): i32 {
+    // Test 1: i32 copies
+    let x = 10;
+    let y = x;
+    let sum1 = x + y;  // Both x and y valid - 20
+    
+    // Test 2: bool copies
+    let b1 = true;
+    let b2 = b1;
+    // Both b1 and b2 valid
+    
+    // Test 3: f64 copies
+    let f1 = 3.14;
+    let f2 = f1;
+    // Both f1 and f2 valid
+    
+    // Test 4: Multiple copies in sequence
+    let a = 5;
+    let b = a;
+    let c = a;
+    let d = b;
+    let sum2 = a + b + c + d;  // All valid - 20
+    
+    return sum1 + sum2;  // 40
+}

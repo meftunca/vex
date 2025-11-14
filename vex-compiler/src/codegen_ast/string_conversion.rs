@@ -20,10 +20,7 @@ impl<'ctx> super::ASTCodeGen<'ctx> {
                             .builder
                             .build_call(to_str_fn, &[int_val.into()], "i32_to_str")
                             .map_err(|e| format!("Failed to call i32_to_string: {}", e))?;
-                        Ok(result
-                            .try_as_basic_value()
-                            .left()
-                            .ok_or("i32_to_string returned void")?)
+                        Ok(result.try_as_basic_value().unwrap_basic())
                     }
                     64 => {
                         // i64 → vex_i64_to_string
@@ -32,10 +29,7 @@ impl<'ctx> super::ASTCodeGen<'ctx> {
                             .builder
                             .build_call(to_str_fn, &[int_val.into()], "i64_to_str")
                             .map_err(|e| format!("Failed to call i64_to_string: {}", e))?;
-                        Ok(result
-                            .try_as_basic_value()
-                            .left()
-                            .ok_or("i64_to_string returned void")?)
+                        Ok(result.try_as_basic_value().unwrap_basic())
                     }
                     1 => {
                         // bool → "true" or "false"
@@ -75,10 +69,7 @@ impl<'ctx> super::ASTCodeGen<'ctx> {
                         .builder
                         .build_call(to_str_fn, &[float_val.into()], "f32_to_str")
                         .map_err(|e| format!("Failed to call f32_to_string: {}", e))?;
-                    Ok(result
-                        .try_as_basic_value()
-                        .left()
-                        .ok_or("f32_to_string returned void")?)
+                    Ok(result.try_as_basic_value().unwrap_basic())
                 } else {
                     // f64 → vex_f64_to_string
                     let to_str_fn = self.get_or_declare_f64_to_string()?;
@@ -86,10 +77,7 @@ impl<'ctx> super::ASTCodeGen<'ctx> {
                         .builder
                         .build_call(to_str_fn, &[float_val.into()], "f64_to_str")
                         .map_err(|e| format!("Failed to call f64_to_string: {}", e))?;
-                    Ok(result
-                        .try_as_basic_value()
-                        .left()
-                        .ok_or("f64_to_string returned void")?)
+                    Ok(result.try_as_basic_value().unwrap_basic())
                 }
             }
             BasicValueEnum::PointerValue(_) => {

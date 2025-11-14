@@ -154,10 +154,7 @@ pub fn builtin_vex_i32_to_string<'ctx>(
         .build_call(fn_val, &[args[0].into()], "i32_to_str")
         .map_err(|e| format!("Failed to call vex_i32_to_string: {}", e))?;
 
-    call_site
-        .try_as_basic_value()
-        .left()
-        .ok_or_else(|| "vex_i32_to_string returned void".to_string())
+    Ok(call_site.try_as_basic_value().unwrap_basic())
 }
 
 /// Builtin: vex_i64_to_string(value: i64): *const u8
@@ -178,10 +175,7 @@ pub fn builtin_vex_i64_to_string<'ctx>(
         .build_call(fn_val, &[args[0].into()], "i64_to_str")
         .map_err(|e| format!("Failed to call vex_i64_to_string: {}", e))?;
 
-    call_site
-        .try_as_basic_value()
-        .left()
-        .ok_or_else(|| "vex_i64_to_string returned void".to_string())
+    Ok(call_site.try_as_basic_value().unwrap_basic())
 }
 
 /// Builtin: vex_u32_to_string(value: u32): *const u8
@@ -202,10 +196,7 @@ pub fn builtin_vex_u32_to_string<'ctx>(
         .build_call(fn_val, &[args[0].into()], "u32_to_str")
         .map_err(|e| format!("Failed to call vex_u32_to_string: {}", e))?;
 
-    call_site
-        .try_as_basic_value()
-        .left()
-        .ok_or_else(|| "vex_u32_to_string returned void".to_string())
+    Ok(call_site.try_as_basic_value().unwrap_basic())
 }
 
 /// Builtin: vex_u64_to_string(value: u64): *const u8
@@ -226,10 +217,7 @@ pub fn builtin_vex_u64_to_string<'ctx>(
         .build_call(fn_val, &[args[0].into()], "u64_to_str")
         .map_err(|e| format!("Failed to call vex_u64_to_string: {}", e))?;
 
-    call_site
-        .try_as_basic_value()
-        .left()
-        .ok_or_else(|| "vex_u64_to_string returned void".to_string())
+    Ok(call_site.try_as_basic_value().unwrap_basic())
 }
 
 /// Builtin: vex_f32_to_string(value: f32): *const u8
@@ -250,10 +238,7 @@ pub fn builtin_vex_f32_to_string<'ctx>(
         .build_call(fn_val, &[args[0].into()], "f32_to_str")
         .map_err(|e| format!("Failed to call vex_f32_to_string: {}", e))?;
 
-    call_site
-        .try_as_basic_value()
-        .left()
-        .ok_or_else(|| "vex_f32_to_string returned void".to_string())
+    Ok(call_site.try_as_basic_value().unwrap_basic())
 }
 
 /// Builtin: vex_f64_to_string(value: f64): *const u8
@@ -274,10 +259,7 @@ pub fn builtin_vex_f64_to_string<'ctx>(
         .build_call(fn_val, &[args[0].into()], "f64_to_str")
         .map_err(|e| format!("Failed to call vex_f64_to_string: {}", e))?;
 
-    call_site
-        .try_as_basic_value()
-        .left()
-        .ok_or_else(|| "vex_f64_to_string returned void".to_string())
+    Ok(call_site.try_as_basic_value().unwrap_basic())
 }
 
 /// Builtin: vex_bool_to_string(value: bool): *const u8
@@ -298,10 +280,7 @@ pub fn builtin_vex_bool_to_string<'ctx>(
         .build_call(fn_val, &[args[0].into()], "bool_to_str")
         .map_err(|e| format!("Failed to call vex_bool_to_string: {}", e))?;
 
-    call_site
-        .try_as_basic_value()
-        .left()
-        .ok_or_else(|| "vex_bool_to_string returned void".to_string())
+    Ok(call_site.try_as_basic_value().unwrap_basic())
 }
 
 /// Builtin: vex_string_to_string(value: *const u8): *const u8
@@ -323,8 +302,5 @@ pub fn builtin_vex_string_to_string<'ctx>(
         .build_call(fn_val, &[args[0].into()], "string_to_str")
         .map_err(|e| format!("Failed to call vex_string_to_string: {}", e))?;
 
-    call_site
-        .try_as_basic_value()
-        .left()
-        .ok_or_else(|| "vex_string_to_string returned void".to_string())
+    Ok(call_site.try_as_basic_value().unwrap_basic())
 }

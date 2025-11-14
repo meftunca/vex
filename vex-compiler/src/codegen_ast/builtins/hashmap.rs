@@ -37,8 +37,7 @@ pub fn builtin_hashmap_new<'ctx>(
         .build_call(vex_map_create, &[capacity.into()], "map_create")
         .map_err(|e| format!("Failed to build map_new call: {:?}", e))?
         .try_as_basic_value()
-        .left()
-        .ok_or("map_new should return a value")?;
+        .unwrap_basic();
 
     Ok(map_ptr)
 }
@@ -98,8 +97,7 @@ pub fn builtin_hashmap_insert<'ctx>(
         )
         .map_err(|e| format!("Failed to build map_insert call: {:?}", e))?
         .try_as_basic_value()
-        .left()
-        .ok_or("map_insert should return a value")?;
+        .unwrap_basic();
 
     Ok(success)
 }
@@ -151,8 +149,7 @@ pub fn builtin_hashmap_get<'ctx>(
         .build_call(vex_map_get, &[map_ptr.into(), key_ptr.into()], "map_get")
         .map_err(|e| format!("Failed to build map_get call: {:?}", e))?
         .try_as_basic_value()
-        .left()
-        .ok_or("map_get should return a value")?;
+        .unwrap_basic();
 
     Ok(value_ptr)
 }
@@ -192,8 +189,7 @@ pub fn builtin_hashmap_len<'ctx>(
         .build_call(vex_map_len, &[map_ptr.into()], "map_len")
         .map_err(|e| format!("Failed to build map_len call: {:?}", e))?
         .try_as_basic_value()
-        .left()
-        .ok_or("map_len should return a value")?;
+        .unwrap_basic();
 
     Ok(len)
 }
@@ -300,8 +296,7 @@ pub fn builtin_hashmap_remove<'ctx>(
         )
         .map_err(|e| format!("Failed to build hashmap_remove call: {:?}", e))?
         .try_as_basic_value()
-        .left()
-        .ok_or("hashmap_remove should return a value")?;
+        .unwrap_basic();
 
     Ok(success)
 }

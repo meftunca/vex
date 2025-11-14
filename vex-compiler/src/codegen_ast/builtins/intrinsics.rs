@@ -42,10 +42,7 @@ pub fn builtin_ctlz<'ctx>(
         )
         .map_err(|e| format!("Failed to call ctlz: {}", e))?;
 
-    result
-        .try_as_basic_value()
-        .left()
-        .ok_or("ctlz didn't return a value".to_string())
+    Ok(result.try_as_basic_value().unwrap_basic())
 }
 
 /// cttz(x) - Count trailing zeros
@@ -81,10 +78,7 @@ pub fn builtin_cttz<'ctx>(
         )
         .map_err(|e| format!("Failed to call cttz: {}", e))?;
 
-    result
-        .try_as_basic_value()
-        .left()
-        .ok_or("cttz didn't return a value".to_string())
+    Ok(result.try_as_basic_value().unwrap_basic())
 }
 
 /// ctpop(x) - Count population (number of 1 bits)
@@ -112,10 +106,7 @@ pub fn builtin_ctpop<'ctx>(
         .build_call(intrinsic, &[value.into()], "ctpop_call")
         .map_err(|e| format!("Failed to call ctpop: {}", e))?;
 
-    result
-        .try_as_basic_value()
-        .left()
-        .ok_or("ctpop didn't return a value".to_string())
+    Ok(result.try_as_basic_value().unwrap_basic())
 }
 
 /// bswap(x) - Byte swap (reverse byte order)
@@ -143,10 +134,7 @@ pub fn builtin_bswap<'ctx>(
         .build_call(intrinsic, &[value.into()], "bswap_call")
         .map_err(|e| format!("Failed to call bswap: {}", e))?;
 
-    result
-        .try_as_basic_value()
-        .left()
-        .ok_or("bswap didn't return a value".to_string())
+    Ok(result.try_as_basic_value().unwrap_basic())
 }
 
 /// bitreverse(x) - Reverse all bits
@@ -174,10 +162,7 @@ pub fn builtin_bitreverse<'ctx>(
         .build_call(intrinsic, &[value.into()], "bitreverse_call")
         .map_err(|e| format!("Failed to call bitreverse: {}", e))?;
 
-    result
-        .try_as_basic_value()
-        .left()
-        .ok_or("bitreverse didn't return a value".to_string())
+    Ok(result.try_as_basic_value().unwrap_basic())
 }
 
 // ============================================================================
@@ -223,10 +208,7 @@ pub fn builtin_sadd_overflow<'ctx>(
         .build_call(intrinsic, &[a.into(), b.into()], "sadd_overflow_call")
         .map_err(|e| format!("Failed to call sadd_overflow: {}", e))?;
 
-    result
-        .try_as_basic_value()
-        .left()
-        .ok_or("sadd_overflow didn't return a value".to_string())
+    Ok(result.try_as_basic_value().unwrap_basic())
 }
 
 /// ssub_overflow(a, b) - Signed subtract with overflow check
@@ -267,10 +249,7 @@ pub fn builtin_ssub_overflow<'ctx>(
         .build_call(intrinsic, &[a.into(), b.into()], "ssub_overflow_call")
         .map_err(|e| format!("Failed to call ssub_overflow: {}", e))?;
 
-    result
-        .try_as_basic_value()
-        .left()
-        .ok_or("ssub_overflow didn't return a value".to_string())
+    Ok(result.try_as_basic_value().unwrap_basic())
 }
 
 /// smul_overflow(a, b) - Signed multiply with overflow check
@@ -311,8 +290,5 @@ pub fn builtin_smul_overflow<'ctx>(
         .build_call(intrinsic, &[a.into(), b.into()], "smul_overflow_call")
         .map_err(|e| format!("Failed to call smul_overflow: {}", e))?;
 
-    result
-        .try_as_basic_value()
-        .left()
-        .ok_or("smul_overflow didn't return a value".to_string())
+    Ok(result.try_as_basic_value().unwrap_basic())
 }

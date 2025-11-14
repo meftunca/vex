@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use vex_ast::*;
 
 impl<'ctx> ASTCodeGen<'ctx> {
-    pub(crate) fn type_to_string(&self, ty: &Type) -> String {
+    pub fn type_to_string(&self, ty: &Type) -> String {
         match ty {
             Type::I8 => "i8".to_string(),
             Type::I16 => "i16".to_string(),

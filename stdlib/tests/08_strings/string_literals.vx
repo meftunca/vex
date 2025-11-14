@@ -1,0 +1,19 @@
+// Layer 1: String Literals and Types
+// Tests string literal syntax
+
+fn main(): i32 {
+    // Test 1: String literal
+    let name: String = String.from("Vex");
+    
+    // Test 2: Empty string
+    let empty: String = String.from("");
+    
+    // Test 3: String with special characters
+    let special: String = String.from("Hello\nWorld");
+    
+    // Test 4: Unicode string
+    let unicode: String = String.from("🚀 Vex Lang");
+    
+    // Return success
+    return 42;
+}

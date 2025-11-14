@@ -1,0 +1,39 @@
+// Layer 1: While Loops
+// Tests while loop iteration
+
+fn main(): i32 {
+    // Test 1: Simple while loop
+    let! i = 0;
+    let! sum1 = 0;
+    while i < 5 {
+        sum1 = sum1 + i;
+        i = i + 1;
+    }
+    // sum1 = 0 + 1 + 2 + 3 + 4 = 10
+    
+    // Test 2: While with break
+    let! j = 0;
+    let! sum2 = 0;
+    while true {
+        if j >= 3 {
+            break;
+        }
+        sum2 = sum2 + j;
+        j = j + 1;
+    }
+    // sum2 = 0 + 1 + 2 = 3
+    
+    // Test 3: While with continue
+    let! k = 0;
+    let! sum3 = 0;
+    while k < 5 {
+        k = k + 1;
+        if k == 3 {
+            continue;
+        }
+        sum3 = sum3 + k;
+    }
+    // sum3 = 1 + 2 + 4 + 5 = 12
+    
+    return sum1 + sum2 + sum3;  // 10 + 3 + 12 = 25
+}

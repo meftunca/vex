@@ -13,7 +13,67 @@ impl<'ctx> ASTCodeGen<'ctx> {
         // This creates a pointer to the value
         match expr {
             vex_ast::Expression::Ident(name) => {
-                // For identifiers, return the pointer directly (don't load)
+                // Check if this is an array - if so, treat as slice reference
+                let var_type = self
+                    .variable_types
+                    .get(name)
+                    .ok_or_else(|| format!("Type for variable {} not found", name))?;
+
+                // If the variable is an array, create a slice struct
+                if let inkwell::types::BasicTypeEnum::ArrayType(arr_ty) = var_type {
+                    // Create slice struct: { i8* data, i64 len, i64 elem_size }
+                    let ptr_ty = self.context.ptr_type(inkwell::AddressSpace::default());
+                    let size_ty = self.context.i64_type();
+                    let slice_struct_ty = self.context.struct_type(
+                        &[
+                            ptr_ty.into(),  // void *data
+                            size_ty.into(), // size_t len
+                            size_ty.into(), // size_t elem_size
+                        ],
+                        false,
+                    );
+
+                    // Get array pointer
+                    let arr_ptr = self
+                        .variables
+                        .get(name)
+                        .ok_or_else(|| format!("Variable {} not found", name))?;
+
+                    // Cast array to i8* for data field
+                    let data_ptr = self
+                        .builder
+                        .build_pointer_cast(*arr_ptr, ptr_ty, "slice_data")
+                        .map_err(|e| format!("Failed to cast array to slice data: {}", e))?;
+
+                    // Get array length
+                    let arr_len = arr_ty.len() as u64;
+                    let len_val = size_ty.const_int(arr_len, false);
+
+                    // Get element size (assuming i32 for now - TODO: get from element type)
+                    let elem_size_val = size_ty.const_int(4, false); // 4 bytes for i32
+
+                    // Build slice struct
+                    let undef = slice_struct_ty.get_undef();
+                    let with_data = self
+                        .builder
+                        .build_insert_value(undef, data_ptr, 0, "slice_with_data")
+                        .map_err(|e| format!("Failed to insert data: {}", e))?;
+                    let with_len = self
+                        .builder
+                        .build_insert_value(with_data, len_val, 1, "slice_with_len")
+                        .map_err(|e| format!("Failed to insert len: {}", e))?;
+                    let slice_val = self
+                        .builder
+                        .build_insert_value(with_len, elem_size_val, 2, "slice_complete")
+                        .map_err(|e| format!("Failed to insert elem_size: {}", e))?;
+
+                    // Return slice struct value directly
+                    // Convert AggregateValueEnum to StructValue to BasicValueEnum
+                    let struct_val: inkwell::values::StructValue = slice_val.into_struct_value();
+                    return Ok(struct_val.into());
+                }
+
+                // For non-arrays (identifiers), return the pointer directly (don't load)
                 let ptr = self
                     .variables
                     .get(name)

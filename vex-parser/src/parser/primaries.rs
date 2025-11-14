@@ -23,6 +23,13 @@ impl<'a> Parser<'a> {
     }
 
     pub(crate) fn parse_primary(&mut self) -> Result<Expression, ParseError> {
+        // Async block: async { stmts; expr }
+        if self.check(&Token::Async) {
+            self.advance(); // consume 'async'
+            self.consume(&Token::LBrace, "Expected '{' after 'async'")?;
+            return self.parse_async_block();
+        }
+
         // Typeof expression: typeof(expr)
         if self.check(&Token::Typeof) {
             self.advance();
@@ -453,5 +460,52 @@ impl<'a> Parser<'a> {
             // Just "Set" identifier (for type annotations)
             Ok(Expression::Ident("Set".to_string()))
         }
+    }
+
+    /// Parse async block: async { stmts; expr }
+    /// Returns AsyncBlock expression
+    pub(crate) fn parse_async_block(&mut self) -> Result<Expression, ParseError> {
+        // LBrace already consumed by caller
+        let mut statements = Vec::new();
+        let mut return_expr = None;
+
+        while !self.check(&Token::RBrace) && !self.is_at_end() {
+            // Try to parse as expression first (peek for semicolon)
+            if !self.check(&Token::Let)
+                && !self.check(&Token::Return)
+                && !self.check(&Token::If)
+                && !self.check(&Token::While)
+                && !self.check(&Token::For)
+                && !self.check(&Token::Break)
+                && !self.check(&Token::Continue)
+                && !self.check(&Token::Switch)
+                && !self.check(&Token::Defer)
+            {
+                // Try to parse expression
+                let checkpoint = self.current;
+                if let Ok(expr) = self.parse_expression() {
+                    // If no semicolon follows and we're at closing brace, this is the return expr
+                    if !self.match_token(&Token::Semicolon) && self.check(&Token::RBrace) {
+                        return_expr = Some(Box::new(expr));
+                        break;
+                    }
+                    // Otherwise it's a statement
+                    statements.push(Statement::Expression(expr));
+                    continue;
+                } else {
+                    // Reset and parse as statement
+                    self.current = checkpoint;
+                }
+            }
+
+            statements.push(self.parse_statement()?);
+        }
+
+        self.consume(&Token::RBrace, "Expected '}' at end of async block")?;
+
+        Ok(Expression::AsyncBlock {
+            statements,
+            return_expr,
+        })
     }
 }

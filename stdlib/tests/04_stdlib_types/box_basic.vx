@@ -1,0 +1,23 @@
+// Layer 1: Box<T> - Heap Allocated Type
+// Tests standard library Box<T> pointer type
+
+struct Point {
+    x: i32,
+    y: i32,
+}
+
+fn main(): i32 {
+    // Test 1: Box<i32> creation
+    let b1 = Box.new::<i32>(42);
+    let val1 = *b1;  // Dereference to get value
+    
+    // Test 2: Box<bool>
+    let b2 = Box.new::<bool>(true);
+    
+    // Test 3: Box with struct
+    let p = Point { x: 10, y: 20 };
+    let boxed_point = Box.new::<Point>(p);
+    let x_val = (*boxed_point).x;
+    
+    return val1 + x_val;  // 52
+}

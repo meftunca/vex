@@ -25,35 +25,14 @@ vex-parser/             # Syntax Analysis
 ├── src/
 │   ├── lib.rs          # Public API
 │   └── parser/         # Parser modules
-│       ├── mod.rs      # Main parser
-│       ├── expressions.rs
-│       ├── statements.rs
-│       └── types.rs
 
 vex-ast/                # Abstract Syntax Tree
 └── src/lib.rs          # AST definitions
 
 vex-compiler/           # Code Generation
-├── src/
-│   ├── lib.rs          # Public API
-│   ├── diagnostics.rs  # Error reporting
-│   ├── codegen_ast/    # LLVM codegen
-│   │   ├── mod.rs      # Core codegen
-│   │   ├── types.rs    # Type conversion
-│   │   └── expressions/ # Expression compilation
-│   └── borrow_checker/ # Memory safety
-│       ├── mod.rs      # 4-phase system
-│       ├── immutability.rs
-│       ├── moves.rs
-│       ├── borrows.rs
-│       └── lifetimes.rs
 
 vex-runtime/            # C Runtime
 ├── c/                  # C implementation
-│   ├── vex_alloc.c     # Memory allocation
-│   ├── vex_array.c     # Array operations
-│   ├── vex_channel.c   # Channel implementation
-│   └── async_runtime/  # Async runtime
 └── src/                # Rust FFI bindings
 ```
 
@@ -88,21 +67,25 @@ Source Code (.vx)
 The borrow checker implements a 4-phase analysis:
 
 #### Phase 1: Immutability Analysis
+
 - Enforces `let` vs `let!` semantics
 - Tracks variable mutability throughout scope
 - Prevents immutable variable mutations
 
 #### Phase 2: Move Semantics
+
 - Prevents use-after-move violations
 - Tracks value ownership transfers
 - Implements ownership semantics
 
 #### Phase 3: Borrow Rules
+
 - Enforces reference aliasing rules
 - Prevents mutable/immutable reference conflicts
 - Validates reference lifetimes within functions
 
 #### Phase 4: Lifetime Analysis
+
 - Tracks reference validity across scopes
 - Prevents dangling references
 - Validates complex lifetime relationships
@@ -110,16 +93,19 @@ The borrow checker implements a 4-phase analysis:
 ### Code Generation Strategy
 
 #### AST Visitor Pattern
+
 - `ASTCodeGen` trait for node traversal
 - Separate compilation for each AST node type
 - Modular codegen architecture
 
 #### Type System Integration
+
 - LLVM type mapping for Vex types
 - Generic instantiation support
 - Trait method resolution
 
 #### Memory Management
+
 - Stack allocation for locals
 - Heap allocation for collections
 - Automatic cleanup via ownership
@@ -127,16 +113,19 @@ The borrow checker implements a 4-phase analysis:
 ### Runtime Architecture
 
 #### C Runtime Design
+
 - High-performance C implementation
 - SIMD-optimized operations
 - Lock-free data structures
 
 #### Async Runtime
+
 - Event-driven architecture
 - Goroutine scheduling
 - Channel-based communication
 
 #### Memory Allocator
+
 - Custom allocator for Vex types
 - Size-class based allocation
 - Efficient deallocation
@@ -144,16 +133,19 @@ The borrow checker implements a 4-phase analysis:
 ## 📊 Performance Characteristics
 
 ### Compilation Speed
+
 - Fast incremental compilation
 - Efficient LLVM optimization
 - Minimal memory usage
 
 ### Runtime Performance
+
 - Zero-cost abstractions
 - SIMD acceleration
 - Efficient memory management
 
 ### Memory Usage
+
 - Minimal runtime overhead
 - Stack-based locals
 - Efficient heap allocation
@@ -161,20 +153,23 @@ The borrow checker implements a 4-phase analysis:
 ## 🔧 Development Workflow
 
 ### Code Organization
+
 - Modular crate structure
 - Clear separation of concerns
 - Comprehensive testing
 
 ### Quality Assurance
+
 - 100% test coverage target
 - Static analysis tools
 - Performance benchmarking
 
 ### Continuous Integration
+
 - Automated testing
 - Documentation updates
 - Release automation
 
 ---
 
-*This file is automatically updated by scripts/update_docs.sh*
+_This file is automatically updated by scripts/update_docs.sh_

@@ -21,7 +21,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 }
             }
         }
-        
+
         // Fallback to builtin indexing (arrays, strings, Vec, Map)
         // Handle complex object expressions (e.g., self.field[index])
         let (base_ptr, var_type, struct_name_opt) = match object {
@@ -114,15 +114,14 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     ptr_type.into(),
                 );
 
-                return self
+                return Ok(self
                     .builder
                     .build_call(vex_map_get, &[map_ptr.into(), key.into()], "map_get")
                     .map_err(|e| format!("Failed to call vex_map_get: {}", e))?
                     .try_as_basic_value()
-                    .left()
-                    .ok_or("map_get should return a value".to_string());
+                    .unwrap_basic());
             }
-            
+
             // Vec indexing: v[i] -> v.get(i) -> *vex_vec_get(v, i)
             if struct_name.starts_with("Vec") {
                 // Get Vec pointer (already stored directly in variables)
@@ -149,8 +148,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     .build_call(get_fn, &[vec_ptr.into(), index_i64.into()], "vec_get")
                     .map_err(|e| format!("Failed to call vex_vec_get: {}", e))?
                     .try_as_basic_value()
-                    .left()
-                    .ok_or("vex_vec_get should return pointer".to_string())?;
+                    .unwrap_basic();
 
                 // Cast void* to element type pointer and load
                 // Extract element type from Vec<T> - struct_name is like "Vec_i32"
@@ -201,12 +199,74 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }
         }
 
-        // Array indexing
-        // Get element type from array type
+        // Check if this is a slice type (reference to array: &[T])
+        // Slice layout: { i8* data, i64 len, i64 elem_size }
+        if let BasicTypeEnum::StructType(struct_ty) = var_type {
+            // Check if this looks like a slice struct (3 fields: ptr, len, elem_size)
+            if struct_ty.count_fields() == 3 {
+                // This is likely a slice - extract data pointer and index into it
+                // Load the slice struct
+                let slice_val = self
+                    .builder
+                    .build_load(var_type, base_ptr, "slice_load")
+                    .map_err(|e| format!("Failed to load slice: {}", e))?;
+
+                // Extract data pointer (field 0)
+                let data_ptr = self
+                    .builder
+                    .build_extract_value(slice_val.into_struct_value(), 0, "slice_data")
+                    .map_err(|e| format!("Failed to extract slice data: {}", e))?
+                    .into_pointer_value();
+
+                // Compile index expression
+                let index_val = self.compile_expression(index)?;
+                let index_int = if let BasicValueEnum::IntValue(iv) = index_val {
+                    iv
+                } else {
+                    return Err("Index must be integer".to_string());
+                };
+
+                // Element type (TODO: get from AST slice type)
+                let elem_type = self.context.i32_type();
+
+                // Cast data pointer (i8*) to element type pointer (i32*)
+                let typed_data_ptr = self
+                    .builder
+                    .build_pointer_cast(
+                        data_ptr,
+                        self.context.ptr_type(inkwell::AddressSpace::default()),
+                        "typed_data_ptr",
+                    )
+                    .map_err(|e| format!("Failed to cast data pointer: {}", e))?;
+
+                // GEP with element type for correct offset calculation
+                unsafe {
+                    let element_ptr = self
+                        .builder
+                        .build_in_bounds_gep(
+                            elem_type,
+                            typed_data_ptr,
+                            &[index_int],
+                            "slice_elem_ptr",
+                        )
+                        .map_err(|e| format!("Failed to build slice GEP: {}", e))?;
+
+                    // Load element
+                    return self
+                        .builder
+                        .build_load(elem_type, element_ptr, "slice_elem")
+                        .map_err(|e| format!("Failed to load slice element: {}", e));
+                }
+            }
+        } // Array indexing
+          // Get element type from array type
         let elem_type = if let BasicTypeEnum::ArrayType(arr_ty) = var_type {
             arr_ty.get_element_type()
         } else {
-            return Err("Indexing target is not an array".to_string());
+            return Err(format!(
+                "Indexing target is not an array or slice (type: {:?})",
+                var_type
+            ));
         };
 
         // Compile index expression
@@ -408,8 +468,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             )
             .map_err(|e| format!("Failed to call vex_string_index: {}", e))?
             .try_as_basic_value()
-            .left()
-            .ok_or("vex_string_index should return a value".to_string())?;
+            .unwrap_basic();
 
         Ok(result)
     }
@@ -491,12 +550,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
             )
             .map_err(|e| format!("Failed to call vex_string_substr: {}", e))?
             .try_as_basic_value()
-            .left()
-            .ok_or("vex_string_substr should return a value".to_string())?;
+            .unwrap_basic();
 
         Ok(result)
     }
-    
+
     /// Compile user-defined Index operator: obj[idx] -> obj.op[](idx)
     fn compile_index_operator(
         &mut self,
@@ -506,13 +564,20 @@ impl<'ctx> ASTCodeGen<'ctx> {
     ) -> Result<BasicValueEnum<'ctx>, String> {
         // Get associated type Output for Index
         let key = (struct_name.to_string(), "Output".to_string());
-        let _output_ast_type = self.associated_type_bindings.get(&key)
-            .ok_or_else(|| format!("Associated type 'Output' not found in Index implementation for {}", struct_name))?
+        let _output_ast_type = self
+            .associated_type_bindings
+            .get(&key)
+            .ok_or_else(|| {
+                format!(
+                    "Associated type 'Output' not found in Index implementation for {}",
+                    struct_name
+                )
+            })?
             .clone();
-        
+
         // Compile index argument
         let index_val = self.compile_expression(index)?;
-        
+
         // ⭐ NEW: Type-based method lookup for index operator
         // Get index type for type-based method name
         let index_type_suffix = if let Ok(index_type) = self.infer_expression_type(index) {
@@ -520,7 +585,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         } else {
             String::new()
         };
-        
+
         // CRITICAL: Encode op[] -> opindex for LLVM compatibility
         // Call opindex(index) method - try type-specific first, then generic
         let typed_method_name = if !index_type_suffix.is_empty() {
@@ -528,44 +593,56 @@ impl<'ctx> ASTCodeGen<'ctx> {
         } else {
             String::new()
         };
-        
+
         let generic_method_name = format!("{}_opindex", struct_name);
-        
-        let method_name = if !typed_method_name.is_empty() && self.module.get_function(&typed_method_name).is_some() {
+
+        let method_name = if !typed_method_name.is_empty()
+            && self.module.get_function(&typed_method_name).is_some()
+        {
             typed_method_name
         } else {
             generic_method_name.clone()
         };
-        
-        let function = self.module.get_function(&method_name)
-            .ok_or_else(|| format!("Index operator method '{}' not found (tried: {})", generic_method_name, method_name))?;
-        
+
+        let function = self.module.get_function(&method_name).ok_or_else(|| {
+            format!(
+                "Index operator method '{}' not found (tried: {})",
+                generic_method_name, method_name
+            )
+        })?;
+
         // Compile object (get self pointer)
         let self_ptr = if let Expression::Ident(name) = object {
-            let var_ptr = *self.variables.get(name)
+            let var_ptr = *self
+                .variables
+                .get(name)
                 .ok_or_else(|| format!("Variable {} not found", name))?;
-            let var_type = *self.variable_types.get(name)
+            let var_type = *self
+                .variable_types
+                .get(name)
                 .ok_or_else(|| format!("Type for {} not found", name))?;
-            self.builder.build_load(var_type, var_ptr, "self_load")
+            self.builder
+                .build_load(var_type, var_ptr, "self_load")
                 .map_err(|e| format!("Failed to load self: {}", e))?
         } else {
             return Err("Index operator on complex expressions not yet supported".to_string());
         };
-        
+
         // Call function: opindex(self, index)
-        let result = self.builder.build_call(
-            function,
-            &[self_ptr.into(), index_val.into()],
-            "index_result"
-        )
-        .map_err(|e| format!("Failed to call index operator: {}", e))?
-        .try_as_basic_value()
-        .left()
-        .ok_or_else(|| "Index operator should return a value".to_string())?;
-        
+        let result = self
+            .builder
+            .build_call(
+                function,
+                &[self_ptr.into(), index_val.into()],
+                "index_result",
+            )
+            .map_err(|e| format!("Failed to call index operator: {}", e))?
+            .try_as_basic_value()
+            .unwrap_basic();
+
         Ok(result)
     }
-    
+
     /// Check if a struct implements a given trait
     fn has_trait_impl(&self, struct_name: &str, trait_name: &str) -> bool {
         let impl_key = (trait_name.to_string(), struct_name.to_string());

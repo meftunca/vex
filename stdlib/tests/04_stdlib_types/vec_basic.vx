@@ -1,0 +1,25 @@
+// Layer 1: Vec<T> - Dynamic Array Type
+// Tests standard library Vec<T> generic collection
+
+fn main(): i32 {
+    // Test 1: Vec<i32> creation and push
+    let! v1 = Vec.new::<i32>();
+    v1.push(10);
+    v1.push(20);
+    v1.push(30);
+    
+    // Test 2: Vec indexing
+    let first = v1.get(0);
+    let second = v1.get(1);
+    
+    // Test 3: Vec length
+    let len = v1.len();  // 3
+    
+    // Test 4: Vec<bool>
+    let! v2 = Vec.new::<bool>();
+    v2.push(true);
+    v2.push(false);
+    let bool_len = v2.len();  // 2
+    
+    return len + bool_len;  // 5
+}

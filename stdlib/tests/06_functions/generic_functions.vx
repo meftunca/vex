@@ -1,0 +1,30 @@
+// Layer 1: Generic Functions
+// Tests functions with generic type parameters
+
+fn identity<T>(x: T): T {
+    return x;
+}
+
+fn first<T, U>(a: T, b: U): T {
+    return a;
+}
+
+fn second<T, U>(a: T, b: U): U {
+    return b;
+}
+
+fn main(): i32 {
+    // Test 1: Identity with i32
+    let val1 = identity<i32>(42);  // 42
+    
+    // Test 2: Identity with bool
+    let val2 = identity<bool>(true);
+    
+    // Test 3: First of pair
+    let val3 = first<i32, bool>(10, false);  // 10
+    
+    // Test 4: Second of pair
+    let val4 = second<bool, i32>(true, 20);  // 20
+    
+    return val1 + val3 + val4;  // 42 + 10 + 20 = 72
+}

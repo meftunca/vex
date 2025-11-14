@@ -1,6 +1,0 @@
-// cmd - Standard library scaffold (empty)
-// Entry point for std::cmd module
-
-export fn version(): string {
-    return "0.0.1";
-}

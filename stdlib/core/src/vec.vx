@@ -3,7 +3,7 @@
 // Zero-cost abstractions via compile-time monomorphization
 
 extern "C" {
-    fn alloc(size: i64): ptr;
+    fn malloc(size: i64): ptr;
     fn free(ptr: ptr);
     fn realloc(ptr: ptr, new_size: i64): ptr;
 }
@@ -30,7 +30,7 @@ export fn vec_new<T>(): Vec<T> {
 export fn vec_with_capacity<T>(capacity: i64): Vec<T> {
     let elem_size = sizeof<T>();
     let size = capacity * elem_size;
-    let ptr = alloc(size);
+    let ptr = malloc(size);
     return Vec<T> {
         data: ptr as *T,
         len: 0,
@@ -39,7 +39,7 @@ export fn vec_with_capacity<T>(capacity: i64): Vec<T> {
 }
 
 // Instance methods
-fn (self: &Vec<T>) push(value: T) {
+fn (self: &Vec<T>!) push(value: T) {
     if self.len == self.cap {
         self.grow();
     }
@@ -75,13 +75,13 @@ fn (self: &Vec<T>) is_empty(): bool {
     return self.len == 0;
 }
 
-fn (self: &Vec<T>) clear() {
+fn (self: &Vec<T>!) clear() {
     self.len = 0;
 }
 
 // Internal growth function
-fn (self: &Vec<T>) grow() {
-    let new_cap: i64 = 0;
+fn (self: &Vec<T>!) grow() {
+    let! new_cap: i64 = 0;
     if self.cap == 0 {
         new_cap = 4;
     } else {
@@ -92,7 +92,7 @@ fn (self: &Vec<T>) grow() {
     let new_size = new_cap * elem_size;
     
     if self.cap == 0 {
-        self.data = alloc(new_size) as *T;
+        self.data = malloc(new_size) as *T;
     } else {
         self.data = realloc(self.data as ptr, new_size) as *T;
     }

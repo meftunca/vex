@@ -1,0 +1,34 @@
+// Layer 1: Boolean Logic
+// Tests boolean operations and short-circuit evaluation
+
+fn main(): i32 {
+    // Test 1: Basic boolean values
+    let t = true;
+    let f = false;
+    
+    // Test 2: Logical AND
+    let and1 = t && t;   // true
+    let and2 = t && f;   // false
+    let and3 = f && t;   // false
+    let and4 = f && f;   // false
+    
+    // Test 3: Logical OR
+    let or1 = t || t;    // true
+    let or2 = t || f;    // true
+    let or3 = f || t;    // true
+    let or4 = f || f;    // false
+    
+    // Test 4: Logical NOT
+    let not1 = !t;       // false
+    let not2 = !f;       // true
+    
+    // Test 5: Compound expressions
+    let complex = (t && !f) || (f && t);  // true
+    
+    // Test 6: Comparison to boolean
+    let x = 10;
+    let is_positive = x > 0;  // true
+    let is_negative = x < 0;  // false
+    
+    return 0;  // Success
+}

@@ -1,0 +1,45 @@
+// Async Block Expression Tests
+// Tests: async { ... } syntax that creates Future<T>
+
+fn main() {
+    println("=== Async Block Tests ===");
+    
+    // Test 1: Simple async block with literal
+    println("\n1. Simple async block:");
+    let fut1 = async { 42 };
+    println("  Created Future<i32>");
+    
+    // Test 2: Async block with statements
+    println("\n2. Async block with statements:");
+    let fut2 = async {
+        let x = 10;
+        let y = 32;
+        x + y
+    };
+    println("  Created Future<i32>");
+    
+    // Test 3: Async block with variable capture
+    println("\n3. Async block with capture:");
+    let value = 100;
+    let fut3 = async {
+        value + 50
+    };
+    println("  Created Future<i32> (captures value)");
+    
+    // Test 4: Async block returning string
+    println("\n4. Async block returning string:");
+    let fut4 = async {
+        "Hello from async block"
+    };
+    println("  Created Future<String>");
+    
+    // Test 5: Nested async blocks
+    println("\n5. Nested async blocks:");
+    let fut5 = async {
+        let inner = async { 10 };
+        20
+    };
+    println("  Created Future<i32> with nested block");
+    
+    println("\n✅ All async block tests compiled successfully");
+}

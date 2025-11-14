@@ -1,0 +1,29 @@
+// Layer 1: Higher Order Functions
+// Tests functions taking/returning functions
+
+fn apply(f: fn(i32): i32, x: i32): i32 {
+    return f(x);
+}
+
+fn double(x: i32): i32 {
+    return x * 2;
+}
+
+fn square(x: i32): i32 {
+    return x * x;
+}
+
+fn compose(f: fn(i32): i32, g: fn(i32): i32, x: i32): i32 {
+    return f(g(x));
+}
+
+fn main(): i32 {
+    // Test 1: Pass function as argument
+    let result1 = apply(double, 5);  // 10
+    let result2 = apply(square, 4);  // 16
+    
+    // Test 2: Compose functions
+    let result3 = compose(double, square, 3);  // double(square(3)) = double(9) = 18
+    
+    return result1 + result2 + result3;  // 10 + 16 + 18 = 44
+}

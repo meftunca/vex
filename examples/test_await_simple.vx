@@ -1,0 +1,14 @@
+// Simple await test - single await point
+async fn get_value(): i32 {
+    return 42;
+}
+
+async fn use_await(): i32 {
+    let x = await get_value();
+    return x + 10;
+}
+
+fn main(): i32 {
+    let fut = use_await();
+    return 0;
+}

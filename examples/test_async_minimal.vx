@@ -1,0 +1,8 @@
+// Async syntax test without stdlib dependencies
+async fn simple_async(): i32 {
+    return 42;
+}
+
+fn main(): i32 {
+    return 0;
+}

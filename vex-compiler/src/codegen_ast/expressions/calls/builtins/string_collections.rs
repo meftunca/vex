@@ -43,11 +43,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     .build_call(vex_string_len_fn, &[string_ptr.into()], "string_len")
                     .map_err(|e| format!("Failed to call vex_string_len: {}", e))?;
 
-                result
-                    .try_as_basic_value()
-                    .left()
-                    .ok_or_else(|| "vex_string_len returned void".to_string())
-                    .map(Some)
+                Ok(result.try_as_basic_value().unwrap_basic().into()) //.map(Some)
             }
             "is_empty" => {
                 // String.is_empty() -> bool
@@ -83,11 +79,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     )
                     .map_err(|e| format!("Failed to call vex_string_is_empty: {}", e))?;
 
-                result
-                    .try_as_basic_value()
-                    .left()
-                    .ok_or_else(|| "vex_string_is_empty returned void".to_string())
-                    .map(Some)
+                Ok(result.try_as_basic_value().unwrap_basic().into()) //.map(Some)
             }
             "char_count" => {
                 // String.char_count() -> size_t (UTF-8 character count)
@@ -122,11 +114,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     )
                     .map_err(|e| format!("Failed to call vex_string_char_count: {}", e))?;
 
-                result
-                    .try_as_basic_value()
-                    .left()
-                    .ok_or_else(|| "vex_string_char_count returned void".to_string())
-                    .map(Some)
+                Ok(result.try_as_basic_value().unwrap_basic().into())
             }
             "push_str" => {
                 // String.push_str(s: &str) -> void
@@ -254,10 +242,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     .build_call(get_fn, &[map_ptr.into(), key.into()], "map_get")
                     .map_err(|e| format!("Failed to call vex_map_get: {}", e))?;
 
-                let value = call_site
-                    .try_as_basic_value()
-                    .left()
-                    .ok_or_else(|| "vex_map_get returned void".to_string())?;
+                let value = call_site.try_as_basic_value().unwrap_basic();
 
                 Ok(Some(value))
             }
@@ -291,10 +276,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     .build_call(len_fn, &[map_ptr.into()], "map_len")
                     .map_err(|e| format!("Failed to call vex_map_len: {}", e))?;
 
-                let len_val = call_site
-                    .try_as_basic_value()
-                    .left()
-                    .ok_or_else(|| "vex_map_len returned void".to_string())?;
+                let len_val = call_site.try_as_basic_value().unwrap_basic();
 
                 Ok(Some(len_val))
             }
@@ -394,10 +376,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     )
                     .map_err(|e| format!("Failed to call vex_set_contains: {}", e))?;
 
-                let result = call_site
-                    .try_as_basic_value()
-                    .left()
-                    .ok_or_else(|| "vex_set_contains returned void".to_string())?;
+                let result = call_site.try_as_basic_value().unwrap_basic();
 
                 Ok(Some(result))
             }
@@ -441,10 +420,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     .build_call(remove_fn, &[set_ptr.into(), value_ptr.into()], "set_remove")
                     .map_err(|e| format!("Failed to call vex_set_remove: {}", e))?;
 
-                let result = call_site
-                    .try_as_basic_value()
-                    .left()
-                    .ok_or_else(|| "vex_set_remove returned void".to_string())?;
+                let result = call_site.try_as_basic_value().unwrap_basic();
 
                 Ok(Some(result))
             }
@@ -478,10 +454,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     .build_call(len_fn, &[set_ptr.into()], "set_len")
                     .map_err(|e| format!("Failed to call vex_set_len: {}", e))?;
 
-                let len_val = call_site
-                    .try_as_basic_value()
-                    .left()
-                    .ok_or_else(|| "vex_set_len returned void".to_string())?;
+                let len_val = call_site.try_as_basic_value().unwrap_basic();
 
                 Ok(Some(len_val))
             }
@@ -519,5 +492,4 @@ impl<'ctx> ASTCodeGen<'ctx> {
             _ => Ok(None),
         }
     }
-
 }

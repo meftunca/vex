@@ -1,6 +1,0 @@
-// io demo
-
-fn main(): i32 {
-    println("io module (scaffold)");
-    return 0;
-}

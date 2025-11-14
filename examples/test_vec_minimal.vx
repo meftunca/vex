@@ -1,0 +1,10 @@
+// Simplified Vec test - no println
+fn main():i32 {
+    let null_ptr: ptr = 0 as ptr;
+    let v: Vec<i32> = Vec<i32> {
+        data: null_ptr as *i32,
+        len: 0,
+        cap: 0
+    };
+    return 0;
+}

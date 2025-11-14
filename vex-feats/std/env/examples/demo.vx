@@ -1,6 +1,0 @@
-// env demo placeholder
-
-fn main(): i32 {
-    println("env module (scaffold)");
-    return 0;
-}

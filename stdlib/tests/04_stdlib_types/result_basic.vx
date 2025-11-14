@@ -1,0 +1,23 @@
+// Layer 1: Result<T, E> - Error Handling Type
+// Tests standard library Result<T, E> enum
+
+fn main(): i32 {
+    // Test 1: Ok variant
+    let res1: Result<i32, i32> = Ok(42);
+    
+    // Test 2: Err variant  
+    let res2: Result<i32, i32> = Err(100);
+    
+    // Test 3: Pattern matching on Result
+    let value1 = match res1 {
+        Ok(v) => v,
+        Err(e) => 0,
+    };
+    
+    let value2 = match res2 {
+        Ok(v) => v,
+        Err(e) => e,
+    };
+    
+    return value1 + value2;  // 142
+}

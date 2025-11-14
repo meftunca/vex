@@ -3,11 +3,11 @@
 
 use super::super::ASTCodeGen;
 use inkwell::types::BasicTypeEnum;
-use std::collections::HashMap;
 use vex_ast::*;
 
 impl<'ctx> ASTCodeGen<'ctx> {
     /// Convert AST Type to LLVM BasicTypeEnum
+    #[allow(deprecated)]
     pub(crate) fn ast_type_to_llvm(&self, ty: &Type) -> BasicTypeEnum<'ctx> {
         match ty {
             Type::I8 => BasicTypeEnum::IntType(self.context.i8_type()),
@@ -209,7 +209,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     BasicTypeEnum::StructType(self.context.struct_type(&field_types, false))
                 } else if name == "ptr" {
                     // Special case: 'ptr' is a generic pointer type (like void* in C)
-                    BasicTypeEnum::PointerType(self.context.ptr_type(inkwell::AddressSpace::default()))
+                    BasicTypeEnum::PointerType(
+                        self.context.ptr_type(inkwell::AddressSpace::default()),
+                    )
                 } else {
                     // Unknown named type, default to i32
                     // TODO: Better error handling
@@ -324,27 +326,47 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }
 
             // ===== PHASE 0: BUILTIN TYPES =====
-            Type::Vec(_elem_ty) => {
-                // Vec<T> layout: { i8*, i64, i64, i64 }
-                // Fields: data_ptr, len, capacity, elem_size
-                // Match C runtime vex_vec_t struct
-                let ptr_ty = self
-                    .context
-                    .i8_type()
-                    .ptr_type(inkwell::AddressSpace::default());
-                let size_ty = self.context.i64_type();
-
-                let vec_struct = self.context.struct_type(
-                    &[
-                        ptr_ty.into(),  // void *data
-                        size_ty.into(), // size_t len
-                        size_ty.into(), // size_t capacity
-                        size_ty.into(), // size_t elem_size
-                    ],
-                    false,
-                );
-
-                BasicTypeEnum::StructType(vec_struct)
+            Type::Vec(elem_ty) => {
+                // Vec<T> - Use actual struct definition from stdlib/core/src/vec.vx
+                // Convert to mangled name: Vec<i32> -> Vec_i32
+                let mangled_name = format!("Vec_{}", self.type_to_string(elem_ty));
+                
+                // Check if this Vec type has been instantiated
+                if let Some(struct_def) = self.struct_defs.get(&mangled_name) {
+                    // Build struct from actual field definitions
+                    let field_types: Vec<BasicTypeEnum> = struct_def
+                        .fields
+                        .iter()
+                        .map(|(_, field_ty)| self.ast_type_to_llvm(field_ty))
+                        .collect();
+                    
+                    let vec_struct = self.context.struct_type(&field_types, false);
+                    BasicTypeEnum::StructType(vec_struct)
+                } else {
+                    // Vec not yet instantiated - use stdlib layout: { *T, i64, i64 }
+                    // This matches stdlib/core/src/vec.vx:
+                    //   struct Vec<T> { data: *T, len: i64, cap: i64 }
+                    let elem_llvm = self.ast_type_to_llvm(elem_ty);
+                    let elem_ptr_type = match elem_llvm {
+                        BasicTypeEnum::IntType(it) => it.ptr_type(inkwell::AddressSpace::default()),
+                        BasicTypeEnum::FloatType(ft) => ft.ptr_type(inkwell::AddressSpace::default()),
+                        BasicTypeEnum::ArrayType(at) => at.ptr_type(inkwell::AddressSpace::default()),
+                        BasicTypeEnum::StructType(st) => st.ptr_type(inkwell::AddressSpace::default()),
+                        BasicTypeEnum::PointerType(pt) => pt,
+                        BasicTypeEnum::VectorType(vt) => vt.ptr_type(inkwell::AddressSpace::default()),
+                        BasicTypeEnum::ScalableVectorType(svt) => svt.ptr_type(inkwell::AddressSpace::default()),
+                    };
+                    
+                    let vec_struct = self.context.struct_type(
+                        &[
+                            elem_ptr_type.into(), // data: *T
+                            self.context.i64_type().into(), // len: i64
+                            self.context.i64_type().into(), // cap: i64
+                        ],
+                        false,
+                    );
+                    BasicTypeEnum::StructType(vec_struct)
+                }
             }
 
             Type::Box(_elem_ty) => {
@@ -499,6 +521,14 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     let tuple_struct = self.context.struct_type(&elem_types, false);
                     BasicTypeEnum::StructType(tuple_struct)
                 }
+            }
+
+            Type::Future(_inner_ty) => {
+                // Future<T> - Async computation result
+                // Represented as opaque pointer (void*) to runtime FutureHandle
+                // The runtime owns the future state and result storage
+                // Layout (runtime internal): { state: i32, result: T, ... }
+                BasicTypeEnum::PointerType(self.context.ptr_type(inkwell::AddressSpace::default()))
             }
 
             _ => {

@@ -13,7 +13,7 @@ mod operators;
 mod patterns;
 mod primaries;
 mod statements;
-mod types;
+mod types; // Type parsing module (now split into submodules)
 
 // Re-export Parser as the main public
 pub struct Parser<'a> {

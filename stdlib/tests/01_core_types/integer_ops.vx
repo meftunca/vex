@@ -1,0 +1,32 @@
+// Layer 1: Type Safety - Integer Operations
+// Tests type-safe arithmetic and comparisons
+
+fn main(): i32 {
+    // Test 1: Arithmetic operators
+    let a = 100;
+    let b = 50;
+    
+    let sum = a + b;      // 150
+    let diff = a - b;     // 50
+    let prod = a * b;     // 5000
+    let quot = a / b;     // 2
+    let rem = a % b;      // 0
+    
+    // Test 2: Comparison operators
+    let eq = (a == 100);   // true
+    let ne = (a != b);     // true
+    let gt = (a > b);      // true
+    let lt = (b < a);      // true
+    let ge = (a >= 100);   // true
+    let le = (b <= 50);    // true
+    
+    // Test 3: Negative numbers
+    let neg = -42;
+    let pos = -neg;  // 42
+    
+    // Test 4: Zero handling
+    let zero = 0;
+    let is_zero = (zero == 0);
+    
+    return 0;  // Success
+}

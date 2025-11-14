@@ -22,9 +22,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     Type::Result(_, _) => "Result".to_string(),
                     _ => {
                         eprintln!("⚠️  Unsupported receiver type: {:?}", inner);
-                        return Err(
-                            format!("Receiver must be a named type or reference to named type, got {:?}", inner)
-                        );
+                        return Err(format!(
+                            "Receiver must be a named type or reference to named type, got {:?}",
+                            inner
+                        ));
                     }
                 },
                 // Direct Vec/Box without reference
@@ -34,9 +35,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 Type::Result(_, _) => "Result".to_string(),
                 _ => {
                     eprintln!("⚠️  Unsupported receiver type: {:?}", receiver.ty);
-                    return Err(
-                        format!("Receiver must be a named type or reference to named type, got {:?}", receiver.ty)
-                    );
+                    return Err(format!(
+                        "Receiver must be a named type or reference to named type, got {:?}",
+                        receiver.ty
+                    ));
                 }
             };
             // Check if name is already mangled (imported methods)
@@ -68,11 +70,20 @@ impl<'ctx> ASTCodeGen<'ctx> {
         // In LLVM, variadic functions use is_var_args=true in fn_type
         let is_variadic = func.is_variadic;
 
-        let ret_type = if let Some(ref ty) = func.return_type {
-            let llvm_ret = self.ast_type_to_llvm(ty);
+        let fn_val = if let Some(ref ty) = func.return_type {
+            // ⭐ ASYNC: For async functions, return type is Future<T> (pointer)
+            // Wrapper returns Future<T>, resume function returns CoroStatus (i32)
+            let mut llvm_ret = if func.is_async {
+                // Async wrapper returns Future<T> = void* pointer
+                BasicTypeEnum::PointerType(self.context.ptr_type(inkwell::AddressSpace::default()))
+            } else {
+                self.ast_type_to_llvm(ty)
+            };
+
             eprintln!(
-                "🟢 Function {} return type: {:?} → LLVM: {:?}",
-                fn_name, ty, llvm_ret
+                "🟢 Function {} return type: {:?} → LLVM: {:?}{}",
+                fn_name, ty, llvm_ret,
+                if func.is_async { " (async -> Future)" } else { "" }
             );
 
             // ⚠️ CRITICAL FIX: For String return type (Type::String), verify we have PointerType
@@ -82,29 +93,31 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     llvm_ret
                 );
                 eprintln!("   Forcing to pointer type for str return");
-                BasicTypeEnum::PointerType(self.context.ptr_type(inkwell::AddressSpace::default()))
-            } else {
-                llvm_ret
+                llvm_ret = BasicTypeEnum::PointerType(
+                    self.context.ptr_type(inkwell::AddressSpace::default()),
+                );
             }
+
+            let fn_type = match llvm_ret {
+                BasicTypeEnum::IntType(t) => t.fn_type(&param_types, is_variadic),
+                BasicTypeEnum::FloatType(t) => t.fn_type(&param_types, is_variadic),
+                BasicTypeEnum::ArrayType(t) => t.fn_type(&param_types, is_variadic),
+                BasicTypeEnum::StructType(t) => t.fn_type(&param_types, is_variadic),
+                BasicTypeEnum::PointerType(t) => t.fn_type(&param_types, is_variadic),
+                _ => {
+                    return Err(format!(
+                        "Unsupported return type for function {}",
+                        func.name
+                    ))
+                }
+            };
+
+            self.module.add_function(&fn_name, fn_type, None)
         } else {
-            BasicTypeEnum::IntType(self.context.i32_type())
+            eprintln!("🟢 Function {} return type: void", fn_name);
+            let fn_type = self.context.void_type().fn_type(&param_types, is_variadic);
+            self.module.add_function(&fn_name, fn_type, None)
         };
-
-        let fn_type = match ret_type {
-            BasicTypeEnum::IntType(t) => t.fn_type(&param_types, is_variadic),
-            BasicTypeEnum::FloatType(t) => t.fn_type(&param_types, is_variadic),
-            BasicTypeEnum::ArrayType(t) => t.fn_type(&param_types, is_variadic),
-            BasicTypeEnum::StructType(t) => t.fn_type(&param_types, is_variadic),
-            BasicTypeEnum::PointerType(t) => t.fn_type(&param_types, is_variadic),
-            _ => {
-                return Err(format!(
-                    "Unsupported return type for function {}",
-                    func.name
-                ))
-            }
-        };
-
-        let fn_val = self.module.add_function(&fn_name, fn_type, None);
         self.functions.insert(fn_name.clone(), fn_val);
         Ok(fn_val)
     }

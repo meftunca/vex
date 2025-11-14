@@ -32,7 +32,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                 let right_val = self.compile_expression(right)?;
 
                                 let concat_fn = self.get_vex_vec_concat();
-                                let result = self
+                                let concat_call = self
                                     .builder
                                     .build_call(
                                         concat_fn,
@@ -40,12 +40,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                         "vec_concat",
                                     )
                                     .map_err(|e| format!("Failed to call vex_vec_concat: {}", e))?;
+                                let result = concat_call.try_as_basic_value().unwrap_basic();
 
-                                return Ok(Some(
-                                    result.try_as_basic_value().left().ok_or(
-                                        "vex_vec_concat didn't return a value".to_string(),
-                                    )?,
-                                ));
+                                return Ok(Some(result));
                             }
                         }
                     }

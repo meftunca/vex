@@ -26,8 +26,13 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
             (t.clone(), target_llvm_type)
         } else {
+            // ⭐ SPECIAL CASE: Check if this is a cast expression - use target type
+            if let Expression::Cast { target_type, .. } = value {
+                let target_llvm_type = self.ast_type_to_llvm(target_type);
+                (target_type.clone(), target_llvm_type)
+            }
             // ⭐ SPECIAL CASE: Check if this is a tuple literal
-            if let Some(tuple_struct_type) = self.last_compiled_tuple_type {
+            else if let Some(tuple_struct_type) = self.last_compiled_tuple_type {
                 // For tuple literals, create a Tuple type
                 // DON'T unwrap/consume - we need it later in register_struct_or_tuple_variable
                 (Type::Named("Tuple".to_string()), tuple_struct_type.into())
@@ -189,6 +194,18 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }
             Type::Array(_, _) => {
                 // Arrays don't need special struct name tracking
+                Ok(var_type.clone())
+            }
+            Type::Slice(_, _) => {
+                // Slices don't need finalization, keep as-is
+                Ok(var_type.clone())
+            }
+            Type::RawPtr { .. } => {
+                // Raw pointers don't need finalization, keep as-is
+                Ok(var_type.clone())
+            }
+            Type::Reference(_, _) => {
+                // References don't need finalization
                 Ok(var_type.clone())
             }
             // Primitive types don't need finalization
@@ -443,6 +460,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         ) || matches!(final_var_type, Type::Named(n) if n.starts_with("Vec_") || n.starts_with("Box_") || n == "Channel");
 
         let is_array = matches!(final_var_type, Type::Array(_, _));
+        let is_slice = matches!(final_var_type, Type::Slice(_, _));
 
         // ⭐ NEW: Check if type is a primitive type (should NOT be treated as struct)
         let is_primitive = matches!(
@@ -462,6 +480,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     || type_name == "Set"
                     || type_name == "Channel"
             ) || matches!(final_var_type, Type::Option(_) | Type::Result(_, _))
+                || matches!(final_var_type, Type::Generic { .. })  // ⭐ CRITICAL: Generic types are structs!
                 || is_tuple_literal);
 
         eprintln!(
@@ -469,7 +488,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             name, is_struct_or_tuple, is_builtin_pointer, final_var_type
         );
 
-        if is_struct_or_tuple || is_builtin_pointer || is_array {
+        if is_struct_or_tuple || is_builtin_pointer || is_array || is_slice {
             self.register_struct_or_tuple_variable(
                 name,
                 val,
@@ -490,10 +509,42 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }
         }
 
-        // Register for automatic cleanup if Vec or Box
-        if let Type::Named(type_name) = final_var_type {
-            if type_name == "Vec" || type_name == "Box" {
-                self.register_for_cleanup(name.to_string(), type_name.clone());
+        // Register for automatic cleanup if type implements Drop
+        // IMPORTANT: Use variable_concrete_types if available (for generic inference)
+        let concrete_type = self
+            .variable_concrete_types
+            .get(name)
+            .unwrap_or(final_var_type);
+
+        let type_name_for_drop = match concrete_type {
+            Type::Named(name) => Some(name.clone()),
+            Type::Generic { name, type_args } => {
+                // Build mangled name for generic types: Vec<i32> → Vec_i32
+                let type_suffix = type_args
+                    .iter()
+                    .map(|t| self.type_to_string(t))
+                    .collect::<Vec<_>>()
+                    .join("_");
+                Some(format!("{}_{}", name, type_suffix))
+            }
+            Type::Vec(inner_type) => {
+                let type_suffix = self.type_to_string(inner_type);
+                Some(format!("Vec_{}", type_suffix))
+            }
+            Type::Box(inner_type) => {
+                let type_suffix = self.type_to_string(inner_type);
+                Some(format!("Box_{}", type_suffix))
+            }
+            _ => None,
+        };
+
+        if let Some(type_name) = type_name_for_drop {
+            // Check if type implements Drop trait
+            if self.type_implements_drop(&type_name)
+                || type_name.starts_with("Vec")
+                || type_name.starts_with("Box")
+            {
+                self.register_for_cleanup(name.to_string(), type_name);
             }
         }
 
@@ -568,21 +619,40 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         );
                         self.variable_struct_names.insert(name.to_string(), mangled);
                     }
+                    Type::Slice(_, _) => {
+                        // Slice doesn't need struct name tracking
+                        // Type is already tracked in variable_types as struct
+                    }
                     Type::Generic {
                         name: struct_name,
                         type_args,
                     } => {
-                        if let Ok(mangled_name) =
-                            self.instantiate_generic_struct(struct_name, type_args)
-                        {
-                            self.variable_struct_names
-                                .insert(name.to_string(), mangled_name);
+                        // Build mangled name for generic structs
+                        let type_suffix = type_args
+                            .iter()
+                            .map(|t| self.type_to_string(t))
+                            .collect::<Vec<_>>()
+                            .join("_");
+                        let mangled_name = format!("{}_{}", struct_name, type_suffix);
+
+                        eprintln!(
+                            "📝 Registering Generic variable '{}' with struct name: {}",
+                            name, mangled_name
+                        );
+
+                        // Instantiate if not already done
+                        if !self.struct_defs.contains_key(&mangled_name) {
+                            let _ = self.instantiate_generic_struct(struct_name, type_args);
                         }
+
+                        self.variable_struct_names
+                            .insert(name.to_string(), mangled_name);
                     }
                     _ => {}
                 }
             }
         } else if let BasicValueEnum::StructValue(_struct_val) = val {
+            eprintln!("📝 Struct value received for '{}', creating alloca", name);
             let alloca = self.create_entry_block_alloca(name, final_var_type, is_mutable)?;
             self.build_store_aligned(alloca, val)?;
             self.variables.insert(name.to_string(), alloca);
@@ -591,8 +661,24 @@ impl<'ctx> ASTCodeGen<'ctx> {
             // Track struct name for field access
             match final_var_type {
                 Type::Named(type_name) => {
+                    eprintln!(
+                        "📝 Registering struct variable '{}' with name: {}",
+                        name, type_name
+                    );
                     self.variable_struct_names
                         .insert(name.to_string(), type_name.clone());
+                }
+                Type::Vec(inner_ty) => {
+                    let mangled = format!("Vec_{}", self.type_to_string(inner_ty.as_ref()));
+                    eprintln!(
+                        "📝 Registering Vec variable '{}' with struct name: {}",
+                        name, mangled
+                    );
+                    self.variable_struct_names.insert(name.to_string(), mangled);
+                }
+                Type::Box(inner_ty) => {
+                    let mangled = format!("Box_{}", self.type_to_string(inner_ty.as_ref()));
+                    self.variable_struct_names.insert(name.to_string(), mangled);
                 }
                 Type::Generic {
                     name: struct_name,

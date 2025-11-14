@@ -41,7 +41,9 @@ impl VexBackend {
                             name: struct_def.name.clone(),
                             kind: SymbolKind::STRUCT,
                             location: Location {
-                                uri: Url::parse(uri).unwrap(),
+                                uri: Url::parse(uri)
+                                    .map_err(|e| format!("Invalid URI: {}", e))
+                                    .unwrap(),
                                 range: Range {
                                     start: Position {
                                         line: 0,

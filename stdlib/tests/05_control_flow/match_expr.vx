@@ -1,0 +1,35 @@
+// Layer 1: Match Expressions
+// Tests pattern matching with enums and values
+
+enum Status {
+    Ok,
+    Error,
+    Pending,
+}
+
+fn main(): i32 {
+    // Test 1: Match on enum
+    let s1 = Status.Ok;
+    let result1 = match s1 {
+        Status.Ok => 1,
+        Status.Error => 2,
+        Status.Pending => 3,
+    };
+    
+    // Test 2: Match on Option
+    let opt = Some(42);
+    let result2 = match opt {
+        Some(v) => v,
+        None => 0,
+    };
+    
+    // Test 3: Match on integer
+    let x = 2;
+    let result3 = match x {
+        1 => 10,
+        2 => 20,
+        _ => 30,
+    };
+    
+    return result1 + result2 + result3;  // 1 + 42 + 20 = 63
+}

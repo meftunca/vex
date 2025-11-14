@@ -149,51 +149,64 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     if let Some(struct_name) = self.variable_struct_names.get(var_name).cloned() {
                         // Check for IndexMut trait (key is (trait_name, struct_name))
                         let impl_key = ("IndexMut".to_string(), struct_name.clone());
-                        
+
                         if self.trait_impls.contains_key(&impl_key) {
                             // CRITICAL: Encode op[]= -> opindexset for LLVM compatibility
                             // Try type-specific method first (with type suffix and param count)
-                            let index_type_suffix = if let Ok(index_type) = self.infer_expression_type(index) {
-                                self.generate_type_suffix(&index_type)
-                            } else {
-                                String::new()
-                            };
-                            
+                            let index_type_suffix =
+                                if let Ok(index_type) = self.infer_expression_type(index) {
+                                    self.generate_type_suffix(&index_type)
+                                } else {
+                                    String::new()
+                                };
+
                             let typed_method_name = if !index_type_suffix.is_empty() {
                                 format!("{}_opindexset{}_2", struct_name, index_type_suffix)
                             } else {
                                 String::new()
                             };
-                            
+
                             let generic_method_name = format!("{}_opindexset", struct_name);
-                            
-                            let method_name = if !typed_method_name.is_empty() && self.module.get_function(&typed_method_name).is_some() {
+
+                            let method_name = if !typed_method_name.is_empty()
+                                && self.module.get_function(&typed_method_name).is_some()
+                            {
                                 typed_method_name
                             } else {
                                 generic_method_name.clone()
                             };
-                            
-                            let function = self.module.get_function(&method_name)
-                                .ok_or_else(|| format!("IndexMut operator method '{}' not found (tried: {})", generic_method_name, method_name))?;
-                            
+
+                            let function =
+                                self.module.get_function(&method_name).ok_or_else(|| {
+                                    format!(
+                                        "IndexMut operator method '{}' not found (tried: {})",
+                                        generic_method_name, method_name
+                                    )
+                                })?;
+
                             // Get self pointer (NOT loaded - pass pointer for mutation)
-                            let var_ptr = *self.variables.get(var_name)
+                            let var_ptr = *self
+                                .variables
+                                .get(var_name)
                                 .ok_or_else(|| format!("Variable {} not found", var_name))?;
-                            
+
                             // Compile index and value
                             let index_val = self.compile_expression(index)?;
-                            
+
                             // Call opindexset(self_ptr, index, value) - pass pointer for mutation
-                            self.builder.build_call(
-                                function,
-                                &[var_ptr.into(), index_val.into(), val.into()],
-                                "index_assign"
-                            )
-                            .map_err(|e| format!("Failed to call index assignment operator: {}", e))?;
-                            
+                            self.builder
+                                .build_call(
+                                    function,
+                                    &[var_ptr.into(), index_val.into(), val.into()],
+                                    "index_assign",
+                                )
+                                .map_err(|e| {
+                                    format!("Failed to call index assignment operator: {}", e)
+                                })?;
+
                             return Ok(());
                         }
-                        
+
                         // Fallback to builtin Map handling
                         if struct_name == "Map" {
                             // Map indexing: map[key] = value -> map.insert(key, value)
@@ -235,6 +248,58 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 return Err("Array index assignment not yet supported".to_string());
             }
 
+            // Pointer dereference assignment: *ptr = value
+            Expression::Deref(expr) => {
+                // For dereference assignment, we need the pointer itself, not its loaded value
+                // So compile the inner expression directly to get the pointer
+                match expr.as_ref() {
+                    Expression::Ident(name) => {
+                        // Load the pointer variable
+                        let ptr_alloca = self
+                            .variables
+                            .get(name)
+                            .ok_or_else(|| format!("Variable {} not found", name))?;
+                        let var_type = self
+                            .variable_types
+                            .get(name)
+                            .ok_or_else(|| format!("Type for variable {} not found", name))?;
+
+                        // Load the pointer value
+                        let ptr = self
+                            .builder
+                            .build_load(*var_type, *ptr_alloca, &format!("{}_ptr", name))
+                            .map_err(|e| format!("Failed to load pointer variable: {}", e))?;
+
+                        if let BasicValueEnum::PointerValue(ptr_val) = ptr {
+                            self.builder.build_store(ptr_val, val).map_err(|e| {
+                                format!("Failed to store to dereferenced pointer: {}", e)
+                            })?;
+                            return Ok(());
+                        } else {
+                            return Err(format!(
+                                "Cannot dereference non-pointer variable {}",
+                                name
+                            ));
+                        }
+                    }
+                    _ => {
+                        // For other expressions, compile and expect a pointer
+                        let ptr_val = self.compile_expression(expr)?;
+                        if let BasicValueEnum::PointerValue(ptr) = ptr_val {
+                            self.builder.build_store(ptr, val).map_err(|e| {
+                                format!("Failed to store to dereferenced pointer: {}", e)
+                            })?;
+                            return Ok(());
+                        } else {
+                            return Err(format!(
+                                "Dereference target is not a pointer: {:?}",
+                                ptr_val
+                            ));
+                        }
+                    }
+                }
+            }
+
             _ => {
                 return Err(
                     "Complex assignment targets not yet supported (array indexing, etc.)"
@@ -256,20 +321,20 @@ impl<'ctx> ASTCodeGen<'ctx> {
         // Strategy:
         // 1. For primitives: direct LLVM IR (x = x + expr)
         // 2. For structs: call trait method if available, otherwise desugar
-        
+
         // First, check if target is a struct with operator trait
         let target_type = self.infer_expression_type(target)?;
-        
+
         // Check if we should use trait dispatch
         if let Type::Named(type_name) = &target_type {
             if self.struct_defs.contains_key(type_name) {
                 // This is a struct - try trait dispatch
                 let trait_name = compound_op_to_trait(op);
-                
+
                 if let Some(_) = self.has_operator_trait(type_name, trait_name) {
                     // Use trait method call: result = x.op+(y)
                     let method_name = compound_op_to_method(op);
-                    
+
                     // Call the binary operator method
                     let result = self.compile_method_call(
                         target,
@@ -278,7 +343,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         &vec![value.clone()],
                         false,
                     )?;
-                    
+
                     // Store result back to target
                     match target {
                         Expression::Ident(name) => {
@@ -286,26 +351,28 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                 .variables
                                 .get(name)
                                 .ok_or_else(|| format!("Variable {} not found", name))?;
-                            self.builder
-                                .build_store(*ptr, result)
-                                .map_err(|e| format!("Failed to store compound assignment: {}", e))?;
+                            self.builder.build_store(*ptr, result).map_err(|e| {
+                                format!("Failed to store compound assignment: {}", e)
+                            })?;
                             return Ok(());
                         }
                         Expression::FieldAccess { object, field } => {
                             let field_ptr = self.get_field_pointer(object, field)?;
-                            self.builder
-                                .build_store(field_ptr, result)
-                                .map_err(|e| format!("Failed to store field compound assignment: {}", e))?;
+                            self.builder.build_store(field_ptr, result).map_err(|e| {
+                                format!("Failed to store field compound assignment: {}", e)
+                            })?;
                             return Ok(());
                         }
                         _ => {
-                            return Err("Unsupported compound assignment target for struct".to_string());
+                            return Err(
+                                "Unsupported compound assignment target for struct".to_string()
+                            );
                         }
                     }
                 }
             }
         }
-        
+
         // Fallback: builtin types or structs without trait
         // Desugar to: x = x + expr
         let current_val = self.compile_expression(target)?;

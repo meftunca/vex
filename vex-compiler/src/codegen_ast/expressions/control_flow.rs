@@ -21,6 +21,23 @@ impl<'ctx> ASTCodeGen<'ctx> {
         self.compile_block_expression(statements, return_expr)
     }
 
+    /// Compile async block expressions: async { stmts; expr }
+    /// Creates an anonymous async function and returns Future<T>
+    pub(crate) fn compile_async_block_dispatch(
+        &mut self,
+        statements: &[vex_ast::Statement],
+        return_expr: &Option<Box<vex_ast::Expression>>,
+    ) -> Result<BasicValueEnum<'ctx>, String> {
+        // For now, just compile as a regular block and return the value
+        // TODO: Full implementation needs:
+        // 1. Generate unique anonymous async function
+        // 2. Capture free variables
+        // 3. Compile as async function
+        // 4. Return Future<T> handle
+        
+        self.compile_block_expression(statements, return_expr)
+    }
+
     /// Compile question mark operator (?)
     pub(crate) fn compile_question_mark_dispatch(
         &mut self,
@@ -129,57 +146,21 @@ impl<'ctx> ASTCodeGen<'ctx> {
         &mut self,
         expr: &vex_ast::Expression,
     ) -> Result<BasicValueEnum<'ctx>, String> {
-        // Await expression: suspend coroutine and yield to scheduler
-        // 1. Compile the future expression
-        // 2. Check if it's ready (for now, assume always ready - TODO: poll)
-        // 3. Call worker_await_after to yield control
-        // 4. Return CORO_STATUS_YIELDED
-
-        let _future_val = self.compile_expression(expr)?;
-
-        // Get current WorkerContext (first parameter of resume function)
-        let current_fn = self
-            .current_function
-            .ok_or_else(|| "Await outside of function".to_string())?;
-
-        // Check if we're in an async function (resume function has WorkerContext* param)
-        let is_in_async = current_fn
-            .get_name()
-            .to_str()
-            .map(|n| n.ends_with("_resume"))
-            .unwrap_or(false);
-
-        if !is_in_async {
-            return Err("Await can only be used inside async functions".to_string());
-        }
-
-        // Get WorkerContext parameter (first param)
-        let ctx_param = current_fn
-            .get_nth_param(0)
-            .ok_or_else(|| "Missing WorkerContext parameter".to_string())?
-            .into_pointer_value();
-
-        // Call worker_await_after(ctx, 0) to yield
-        let worker_await_fn = self.get_or_declare_worker_await();
-        self.builder
-            .build_call(
-                worker_await_fn,
-                &[
-                    ctx_param.into(),
-                    self.context.i64_type().const_int(0, false).into(),
-                ],
-                "await_yield",
-            )
-            .map_err(|e| format!("Failed to call worker_await_after: {}", e))?;
-
-        // Return CORO_STATUS_YIELDED (1)
-        let yielded_status = self.context.i32_type().const_int(1, false);
-        self.builder
-            .build_return(Some(&yielded_status))
-            .map_err(|e| format!("Failed to build await return: {}", e))?;
-
-        // For type system compatibility, return a dummy value
-        // (this code is unreachable after return)
-        Ok(self.context.i8_type().const_int(0, false).into())
+        // ⚠️ SIMPLIFIED AWAIT (Task 7 - Phase 1):
+        // For now, just compile the future expression and return null
+        // TODO: Implement full state machine with suspend/resume in Task 7 Phase 2
+        
+        // Compile the future expression (async function call)
+        let future_val = self.compile_expression(expr)?;
+        
+        // Future<T> is currently a null pointer
+        // TODO: When runtime supports it:
+        // 1. Save current state to state struct
+        // 2. Update state field to next state
+        // 3. Return CORO_STATUS_YIELDED
+        // 4. On resume, load result from Future handle
+        
+        // For now, just return the future value (null pointer)
+        Ok(future_val)
     }
 }

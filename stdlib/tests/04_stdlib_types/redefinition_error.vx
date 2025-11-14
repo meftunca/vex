@@ -1,0 +1,14 @@
+// Layer 1: Stdlib Type Protection
+// Tests that user cannot redefine stdlib types
+
+// This should fail with compiler error:
+// "Type 'Vec' is a reserved standard library type"
+
+struct Vec<T> {
+    data: i32,
+}
+
+fn main(): i32 {
+    let v = Vec<i32> { data: 42 };
+    return v.data;
+}

@@ -488,6 +488,17 @@ pub enum Type {
 
     /// Channel<T> - MPSC channel for concurrency
     Channel(Box<Type>),
+
+    /// Future<T> - Async computation result (returned by async functions)
+    /// Represents a value that will be available in the future after async execution
+    /// Can be awaited to get the result: let x = async_fn().await;
+    Future(Box<Type>),
+    
+    /// ⭐ Phase 1: Unknown type placeholder for deferred type inference
+    /// Used during compilation when type cannot be determined immediately
+    /// Will be resolved in unification phase
+    /// Example: let v = Vec(); → Vec<Unknown> → Vec<i32> after v.push(10)
+    Unknown,
 }
 
 /// Block of statements
@@ -789,6 +800,13 @@ pub enum Expression {
 
     /// Block expression: { stmt1; stmt2; expr }
     Block {
+        statements: Vec<Statement>,
+        return_expr: Option<Box<Expression>>,
+    },
+
+    /// Async block: async { stmt1; stmt2; expr }
+    /// Creates an anonymous async function and returns Future<T>
+    AsyncBlock {
         statements: Vec<Statement>,
         return_expr: Option<Box<Expression>>,
     },

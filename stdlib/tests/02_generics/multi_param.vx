@@ -1,0 +1,30 @@
+// Layer 1: Generic Pair - Multiple Type Parameters
+// Tests struct with two generic parameters
+
+struct Pair<T, U> {
+    first: T,
+    second: U,
+}
+
+fn main(): i32 {
+    // Test 1: Pair<i32, i32>
+    let p1 = Pair<i32, i32> { first: 10, second: 20 };
+    let sum1 = p1.first + p1.second;  // 30
+    
+    // Test 2: Pair<i32, bool>
+    let p2 = Pair<i32, bool> { first: 42, second: true };
+    let val2 = p2.first;
+    
+    // Test 3: Pair<bool, i32>  
+    let p3 = Pair<bool, i32> { first: false, second: 100 };
+    let val3 = p3.second;
+    
+    // Test 4: Nested in another struct
+    let holder = Pair<Pair<i32, i32>, bool> {
+        first: Pair<i32, i32> { first: 1, second: 2 },
+        second: true
+    };
+    let nested_sum = holder.first.first + holder.first.second;  // 3
+    
+    return sum1;  // 30
+}

@@ -3,6 +3,117 @@ use inkwell::types::BasicTypeEnum;
 use vex_ast::*;
 
 impl<'ctx> ASTCodeGen<'ctx> {
+    /// ⭐ Phase 1: Enhanced type inference with context propagation
+    /// 
+    /// This enhances the existing `infer_expression_type` by using:
+    /// 1. variable_concrete_types for known variable types
+    /// 2. expected_type for bidirectional inference
+    /// 3. Type::Unknown placeholders for deferred resolution
+    pub fn infer_expression_type_with_context(
+        &mut self,
+        expr: &Expression,
+        expected_type: Option<&Type>,
+    ) -> Result<Type, String> {
+        match expr {
+            Expression::Ident(name) => {
+                // Check variable_concrete_types first (Phase 1 addition)
+                if let Some(ty) = self.variable_concrete_types.get(name) {
+                    return Ok(ty.clone());
+                }
+                
+                // Fallback to existing variable_ast_types
+                if let Some(ty) = self.variable_ast_types.get(name) {
+                    return Ok(ty.clone());
+                }
+                
+                // Fallback to basic type inference
+                self.infer_expression_type(expr)
+            }
+            
+            Expression::Call { func, type_args, args, .. } => {
+                // Check if this is a constructor call: Vec<i32>() or Vec()
+                if let Expression::Ident(name) = func.as_ref() {
+                    if self.struct_ast_defs.contains_key(name) {
+                        // This is a struct constructor
+                        if !type_args.is_empty() {
+                            // Explicit type args: Vec<i32>()
+                            return Ok(Type::Generic {
+                                name: name.clone(),
+                                type_args: type_args.clone(),
+                            });
+                        } else {
+                            // No type args: Vec()
+                            // Try to infer from expected_type
+                            if let Some(Type::Generic { name: expected_name, type_args: expected_args }) = expected_type {
+                                if expected_name == name {
+                                    return Ok(expected_type.unwrap().clone());
+                                }
+                            }
+                            
+                            // Cannot infer yet - return placeholder with Unknown
+                            // Will be resolved in unification phase
+                            if let Some(struct_def) = self.struct_ast_defs.get(name) {
+                                let unknown_args = vec![Type::Unknown; struct_def.type_params.len()];
+                                return Ok(Type::Generic {
+                                    name: name.clone(),
+                                    type_args: unknown_args,
+                                });
+                            }
+                            
+                            // Not a generic struct - just named type
+                            return Ok(Type::Named(name.clone()));
+                        }
+                    }
+                }
+                
+                // Fallback to existing logic
+                self.infer_expression_type(expr)
+            }
+            
+            Expression::MethodCall { receiver, method, args, .. } => {
+                // Infer receiver type (this may contain Unknown)
+                let receiver_type = self.infer_expression_type_with_context(receiver, None)?;
+                
+                // Try to infer more specific type from method signature
+                // This is deferred - we just return receiver_type for now
+                Ok(receiver_type)
+            }
+            
+            _ => {
+                // For all other expressions, use existing inference
+                self.infer_expression_type(expr)
+            }
+        }
+    }
+    
+    /// Check if a type contains Type::Unknown
+    pub fn contains_unknown(&self, ty: &Type) -> bool {
+        match ty {
+            Type::Unknown => true,
+            Type::Generic { type_args, .. } => {
+                type_args.iter().any(|arg| self.contains_unknown(arg))
+            }
+            Type::Function { params, return_type } => {
+                params.iter().any(|p| self.contains_unknown(p)) ||
+                self.contains_unknown(return_type)
+            }
+            Type::Tuple(types) => {
+                types.iter().any(|t| self.contains_unknown(t))
+            }
+            Type::Array(elem_ty, _) => self.contains_unknown(elem_ty),
+            Type::RawPtr { inner, .. } => self.contains_unknown(inner),
+            Type::Reference(inner, _) => self.contains_unknown(inner),
+            Type::Vec(elem_ty) => self.contains_unknown(elem_ty),
+            Type::Box(inner_ty) => self.contains_unknown(inner_ty),
+            Type::Option(inner_ty) => self.contains_unknown(inner_ty),
+            Type::Result(ok_ty, err_ty) => {
+                self.contains_unknown(ok_ty) || self.contains_unknown(err_ty)
+            }
+            Type::Channel(elem_ty) => self.contains_unknown(elem_ty),
+            _ => false,
+        }
+    }
+    
     pub(crate) fn infer_expression_type(&self, expr: &Expression) -> Result<Type, String> {
         let result = match expr {
             Expression::IntLiteral(_) => Ok(Type::I32),

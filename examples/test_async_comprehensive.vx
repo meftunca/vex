@@ -1,0 +1,42 @@
+// Comprehensive async/await test
+// Tests: async fn, await, coroutine state machine
+
+async fn fetch_data(id: i32): i32 {
+    println("Fetching data for ID:");
+    println(id);
+    
+    // Simulate async I/O
+    await async_delay(100);
+    
+    println("Data fetched!");
+    return id * 2;
+}
+
+async fn async_delay(ms: i64): void {
+    println("Delaying...");
+    // This would call worker_await_after in real implementation
+}
+
+async fn process_items(): void {
+    println("Processing item 1");
+    let! result1 = await fetch_data(10);
+    println("Got result 1:");
+    println(result1);
+    
+    println("Processing item 2");
+    let! result2 = await fetch_data(20);
+    println("Got result 2:");
+    println(result2);
+    
+    println("All done!");
+}
+
+fn main(): i32 {
+    println("=== Async/Await Test ===");
+    
+    // Spawn async task
+    process_items();
+    
+    println("Main function continues...");
+    return 0;
+}

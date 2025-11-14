@@ -28,8 +28,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             .build_call(runtime_create_fn, &[num_workers.into()], "runtime_create")
             .map_err(|e| format!("Failed to call runtime_create: {}", e))?
             .try_as_basic_value()
-            .left()
-            .ok_or("runtime_create should return a value")?;
+            .unwrap_basic();
 
         Ok(result)
     }
@@ -174,8 +173,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             )
             .map_err(|e| format!("Failed to call spawn_async: {}", e))?
             .try_as_basic_value()
-            .left()
-            .ok_or("spawn_async should return a value")?;
+            .unwrap_basic();
 
         Ok(result)
     }

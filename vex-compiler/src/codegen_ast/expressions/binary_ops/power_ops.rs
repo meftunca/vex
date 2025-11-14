@@ -23,7 +23,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
         }
 
         // result = 1
-        let result_alloca = self.builder
+        let result_alloca = self
+            .builder
             .build_alloca(base.get_type(), "pow_result")
             .map_err(|e| format!("Failed to allocate power result: {}", e))?;
         let one = base.get_type().const_int(1, false);
@@ -32,7 +33,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
             .map_err(|e| format!("Failed to store initial result: {}", e))?;
 
         // counter = exp
-        let counter_alloca = self.builder
+        let counter_alloca = self
+            .builder
             .build_alloca(exp.get_type(), "pow_counter")
             .map_err(|e| format!("Failed to allocate counter: {}", e))?;
         self.builder
@@ -40,7 +42,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
             .map_err(|e| format!("Failed to store counter: {}", e))?;
 
         // Loop: while counter > 0
-        let parent_fn = self.builder.get_insert_block().unwrap().get_parent().unwrap();
+        let parent_fn = self
+            .builder
+            .get_insert_block()
+            .unwrap()
+            .get_parent()
+            .unwrap();
         let loop_block = self.context.append_basic_block(parent_fn, "pow_loop");
         let after_block = self.context.append_basic_block(parent_fn, "pow_after");
 
@@ -50,14 +57,16 @@ impl<'ctx> ASTCodeGen<'ctx> {
         self.builder.position_at_end(loop_block);
 
         // Load counter
-        let counter = self.builder
+        let counter = self
+            .builder
             .build_load(exp.get_type(), counter_alloca, "counter")
             .map_err(|e| format!("Failed to load counter: {}", e))?
             .into_int_value();
 
         // Check if counter > 0
         let zero = exp.get_type().const_int(0, false);
-        let cond = self.builder
+        let cond = self
+            .builder
             .build_int_compare(inkwell::IntPredicate::SGT, counter, zero, "pow_cond")
             .map_err(|e| format!("Failed to compare: {}", e))?;
 
@@ -68,11 +77,13 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Loop body: result *= base
         self.builder.position_at_end(loop_body);
-        let current_result = self.builder
+        let current_result = self
+            .builder
             .build_load(base.get_type(), result_alloca, "current_result")
             .map_err(|e| format!("Failed to load result: {}", e))?
             .into_int_value();
-        let new_result = self.builder
+        let new_result = self
+            .builder
             .build_int_mul(current_result, base, "new_result")
             .map_err(|e| format!("Failed to multiply: {}", e))?;
         self.builder
@@ -80,7 +91,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
             .map_err(|e| format!("Failed to store result: {}", e))?;
 
         // counter -= 1
-        let new_counter = self.builder
+        let new_counter = self
+            .builder
             .build_int_sub(counter, one, "new_counter")
             .map_err(|e| format!("Failed to decrement: {}", e))?;
         self.builder
@@ -93,7 +105,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // After loop
         self.builder.position_at_end(after_block);
-        let final_result = self.builder
+        let final_result = self
+            .builder
             .build_load(base.get_type(), result_alloca, "final_result")
             .map_err(|e| format!("Failed to load final result: {}", e))?;
 
@@ -113,13 +126,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
             self.module.add_function("llvm.pow.f64", fn_type, None)
         });
 
-        let result = self.builder
+        let result = self
+            .builder
             .build_call(pow_intrinsic, &[base.into(), exp.into()], "pow_result")
             .map_err(|e| format!("Failed to call pow intrinsic: {}", e))?
             .try_as_basic_value()
-            .left()
-            .ok_or("pow intrinsic should return a value")?;
-
+            .unwrap_basic();
 
         Ok(result)
     }

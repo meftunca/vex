@@ -1,6 +1,0 @@
-// string demo
-
-fn main(): i32 {
-    println("string module (scaffold)");
-    return 0;
-}

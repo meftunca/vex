@@ -3,6 +3,7 @@
 // This enables monomorphization of generic methods like Vec<T>::push
 
 use super::super::*;
+use inkwell::types::BasicTypeEnum;
 use inkwell::values::FunctionValue;
 use std::collections::HashMap;
 use vex_ast::*;
@@ -173,9 +174,27 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         eprintln!("  🏗️  Compiling method body...");
 
+        // Preserve current codegen context so method compilation doesn't corrupt caller state
+        let saved_current_function = self.current_function;
+        let saved_insert_block = self.builder.get_insert_block();
+        let saved_variables = std::mem::take(&mut self.variables);
+        let saved_variable_types = std::mem::take(&mut self.variable_types);
+        let saved_variable_ast_types = std::mem::take(&mut self.variable_ast_types);
+        let saved_variable_struct_names = std::mem::take(&mut self.variable_struct_names);
+        let saved_variable_enum_names = std::mem::take(&mut self.variable_enum_names);
+        let saved_tuple_variable_types = std::mem::take(&mut self.tuple_variable_types);
+        let saved_function_params = std::mem::take(&mut self.function_params);
+        let saved_function_param_types = std::mem::take(&mut self.function_param_types);
+        let saved_scope_stack = std::mem::take(&mut self.scope_stack);
+        let saved_loop_context_stack = std::mem::take(&mut self.loop_context_stack);
+        let saved_deferred_statements = std::mem::take(&mut self.deferred_statements);
+        let saved_closure_envs = std::mem::take(&mut self.closure_envs);
+        let saved_closure_variables = std::mem::take(&mut self.closure_variables);
+        let saved_last_tuple_type = self.last_compiled_tuple_type.take();
+        let saved_method_mutability = self.current_method_is_mutable;
+
         // Compile the method (declare_function already done above)
         // We need to compile the body separately
-        let prev_func = self.current_function;
         self.current_function = Some(fn_val);
 
         // Create entry block
@@ -192,41 +211,73 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
             if let Some(llvm_param) = fn_val.get_nth_param(0) {
                 let param_type = self.ast_type_to_llvm(&receiver.ty);
-                let alloca = self
-                    .builder
-                    .build_alloca(param_type, &receiver.name)
-                    .map_err(|e| format!("Failed to allocate receiver: {}", e))?;
-                self.builder
-                    .build_store(alloca, llvm_param)
-                    .map_err(|e| format!("Failed to store receiver: {}", e))?;
-                self.variables.insert(receiver.name.clone(), alloca);
+
+                let receiver_var = match &receiver.ty {
+                    Type::Reference(_, _) => {
+                        eprintln!(
+                            "  📌 Receiver '{}' is reference type, using pointer directly",
+                            receiver.name
+                        );
+                        if let BasicValueEnum::PointerValue(ptr) = llvm_param {
+                            ptr
+                        } else {
+                            return Err(format!(
+                                "Receiver parameter '{}' expected pointer value",
+                                receiver.name
+                            ));
+                        }
+                    }
+                    _ => {
+                        eprintln!(
+                            "  📌 Receiver '{}' is value type, allocating and storing",
+                            receiver.name
+                        );
+                        let alloca =
+                            self.create_entry_block_alloca(&receiver.name, &receiver.ty, true)?;
+                        self.builder
+                            .build_store(alloca, llvm_param)
+                            .map_err(|e| format!("Failed to store receiver: {}", e))?;
+                        alloca
+                    }
+                };
+
+                self.variables.insert(receiver.name.clone(), receiver_var);
                 self.variable_types
                     .insert(receiver.name.clone(), param_type);
                 self.variable_ast_types
                     .insert(receiver.name.clone(), receiver.ty.clone());
 
-                // Register struct name for receiver parameter
-                // This is critical for field access like self._ptr
-                if receiver.name == "self" {
-                    eprintln!("  🔍 Found 'self' receiver with type: {:?}", receiver.ty);
+                let extract_struct_name = |ty: &Type| -> Option<String> {
+                    match ty {
+                        Type::Named(name) => Some(name.clone()),
+                        Type::Reference(inner, _) => match &**inner {
+                            Type::Named(name) => Some(name.clone()),
+                            Type::Vec(_) | Type::Box(_) | Type::Option(_) | Type::Result(_, _) => {
+                                Some(self.type_to_string(inner))
+                            }
+                            Type::Generic { .. } => Some(self.type_to_string(inner)),
+                            _ => None,
+                        },
+                        Type::Vec(_) | Type::Box(_) | Type::Option(_) | Type::Result(_, _) => {
+                            Some(self.type_to_string(ty))
+                        }
+                        Type::Generic { .. } => Some(self.type_to_string(ty)),
+                        _ => None,
+                    }
+                };
 
-                    // Extract struct name from receiver type
-                    // Reference(Vec(I32)) → "Vec_i32"
-                    if let Type::Reference(inner_type, _) = &receiver.ty {
-                        let struct_name = self.type_to_string(inner_type);
+                if let Some(struct_name) = extract_struct_name(&receiver.ty) {
+                    if receiver.name == "self" {
                         eprintln!("  📌 Registering 'self' as struct: {}", struct_name);
                         self.variable_struct_names
                             .insert(receiver.name.clone(), struct_name.clone());
 
-                        // Also register the actual concrete struct in struct_defs if not present
-                        // This allows field access to work correctly
                         if !self.struct_defs.contains_key(&struct_name) {
                             eprintln!(
                                 "  🔨 Struct {} not in struct_defs, creating...",
                                 struct_name
                             );
 
-                            // Get base struct name (e.g., "Vec" from "Vec_i32")
                             let parts: Vec<&str> = struct_name.split('_').collect();
                             let base_name = parts[0];
 
@@ -236,7 +287,6 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                     base_name
                                 );
 
-                                // Build concrete struct definition with substituted types
                                 let mut concrete_fields = Vec::new();
                                 for field in &ast_def.fields {
                                     let substituted_type =
@@ -248,7 +298,6 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                     concrete_fields.push((field.name.clone(), substituted_type));
                                 }
 
-                                // Register concrete struct
                                 use crate::codegen_ast::StructDef;
                                 let struct_def = StructDef {
                                     fields: concrete_fields,
@@ -264,9 +313,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         } else {
                             eprintln!("  ✓ Struct {} already in struct_defs", struct_name);
                         }
-                    } else {
-                        eprintln!("  ⚠️  'self' receiver is not a reference type!");
                     }
+                } else {
+                    eprintln!(
+                        "  ⚠️  Unable to extract struct name for receiver: {:?}",
+                        receiver.ty
+                    );
                 }
 
                 param_offset = 1; // Regular params start at index 1
@@ -297,10 +349,86 @@ impl<'ctx> ASTCodeGen<'ctx> {
         }
 
         // Compile function body
-        let _result = self.compile_block(&concrete_method.body)?;
+        self.push_scope();
+        let compile_result = self.compile_block(&concrete_method.body);
 
-        // Restore previous function
-        self.current_function = prev_func;
+        if compile_result.is_ok() {
+            if let Some(current_block) = self.builder.get_insert_block() {
+                if current_block.get_terminator().is_none() {
+                    self.pop_scope().map_err(|e| {
+                        format!("Failed to pop scope for method {}: {}", mangled_name, e)
+                    })?;
+                    self.execute_deferred_statements()?;
+                }
+            }
+
+            self.clear_deferred_statements();
+
+            if let Some(current_block) = self.builder.get_insert_block() {
+                if current_block.get_terminator().is_none() {
+                    // ✅ FIX: Void methods should always get implicit return, not unreachable
+                    if concrete_method.return_type.is_none() {
+                        // Void method - add implicit return
+                        self.builder
+                            .build_return(None)
+                            .map_err(|e| format!("Failed to build void return: {}", e))?;
+                    } else {
+                        // Non-void method - check if entry block
+                        let is_entry_block = fn_val
+                            .get_first_basic_block()
+                            .map(|entry| entry == current_block)
+                            .unwrap_or(false);
+
+                        if is_entry_block {
+                            let ret_type = self
+                                .ast_type_to_llvm(concrete_method.return_type.as_ref().unwrap());
+                            match ret_type {
+                                BasicTypeEnum::IntType(int_ty) => {
+                                    let zero = int_ty.const_int(0, false);
+                                    self.builder
+                                        .build_return(Some(&zero))
+                                        .map_err(|e| format!("Failed to build return: {}", e))?;
+                                }
+                                _ => {
+                                    return Err(
+                                        "Non-void generic method must have explicit return"
+                                            .to_string(),
+                                    );
+                                }
+                            }
+                        } else {
+                            // Non-entry block without terminator in non-void method = unreachable
+                            self.builder
+                                .build_unreachable()
+                                .map_err(|e| format!("Failed to build unreachable: {}", e))?;
+                        }
+                    }
+                }
+            }
+        }        // Restore previous context before propagating errors
+        self.current_function = saved_current_function;
+        self.variables = saved_variables;
+        self.variable_types = saved_variable_types;
+        self.variable_ast_types = saved_variable_ast_types;
+        self.variable_struct_names = saved_variable_struct_names;
+        self.variable_enum_names = saved_variable_enum_names;
+        self.tuple_variable_types = saved_tuple_variable_types;
+        self.function_params = saved_function_params;
+        self.function_param_types = saved_function_param_types;
+        self.scope_stack = saved_scope_stack;
+        self.loop_context_stack = saved_loop_context_stack;
+        self.deferred_statements = saved_deferred_statements;
+        self.closure_envs = saved_closure_envs;
+        self.closure_variables = saved_closure_variables;
+        self.last_compiled_tuple_type = saved_last_tuple_type;
+        self.current_method_is_mutable = saved_method_mutability;
+
+        if let Some(block) = saved_insert_block {
+            self.builder.position_at_end(block);
+        }
+
+        // Propagate compilation errors after restoring state
+        compile_result?;
 
         eprintln!("  ✅ Generic method instantiated successfully!");
 
@@ -450,7 +578,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
     /// - HashMap<String, i32> -> [String, i32]
     /// - &Vec<i32> -> [i32] (unwrap reference first)
     /// - Vec (non-generic usage) -> []
-    pub(crate) fn extract_type_args_from_type(&self, ty: &Type) -> Result<Vec<Type>, String> {
+    pub fn extract_type_args_from_type(&self, ty: &Type) -> Result<Vec<Type>, String> {
         match ty {
             Type::Reference(inner, _) => self.extract_type_args_from_type(inner),
             Type::Vec(elem_ty) => Ok(vec![(**elem_ty).clone()]),

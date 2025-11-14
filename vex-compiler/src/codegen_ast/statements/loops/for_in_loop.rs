@@ -132,8 +132,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             )
             .map_err(|e| format!("Failed to call {}: {}", fn_name, e))?
             .try_as_basic_value()
-            .left()
-            .ok_or_else(|| format!("{} returned void", fn_name))?;
+            .unwrap_basic();
 
         // Branch based on has_next
         self.builder

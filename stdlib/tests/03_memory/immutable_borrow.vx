@@ -1,0 +1,30 @@
+// Layer 1: Reference Borrowing - Immutable References
+// Tests that multiple immutable borrows are allowed
+
+struct Point {
+    x: i32,
+    y: i32,
+}
+
+fn read_x(p: &Point): i32 {
+    return p.x;
+}
+
+fn read_y(p: &Point): i32 {
+    return p.y;
+}
+
+fn main(): i32 {
+    // Test 1: Single immutable borrow
+    let p1 = Point { x: 10, y: 20 };
+    let x_val = read_x(&p1);
+    
+    // Test 2: Multiple immutable borrows (allowed)
+    let y_val = read_y(&p1);
+    let x_val2 = read_x(&p1);
+    
+    // Test 3: Original still usable after borrows
+    let sum = p1.x + p1.y;
+    
+    return sum;  // 30
+}

@@ -1,0 +1,36 @@
+// Layer 1: Recursion
+// Tests recursive function calls
+
+fn factorial(n: i32): i32 {
+    if n <= 1 {
+        return 1;
+    }
+    return n * factorial(n - 1);
+}
+
+fn fibonacci(n: i32): i32 {
+    if n <= 1 {
+        return n;
+    }
+    return fibonacci(n - 1) + fibonacci(n - 2);
+}
+
+fn countdown(n: i32): i32 {
+    if n <= 0 {
+        return 0;
+    }
+    return n + countdown(n - 1);
+}
+
+fn main(): i32 {
+    // Test 1: Factorial
+    let fact5 = factorial(5);  // 120
+    
+    // Test 2: Fibonacci
+    let fib6 = fibonacci(6);  // 8
+    
+    // Test 3: Countdown sum
+    let count5 = countdown(5);  // 15 (5+4+3+2+1)
+    
+    return fact5 + fib6 + count5;  // 120 + 8 + 15 = 143
+}

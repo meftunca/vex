@@ -1,0 +1,19 @@
+// Simple async syntax test (without actual runtime execution)
+// Just tests that async/await syntax parses and compiles
+
+async fn simple_async(): i32 {
+    println("Async function called");
+    return 42;
+}
+
+async fn main(): i32 {
+    println("Testing async/await syntax");
+    
+    // Call async function (treated as sync for now)
+    let! result = await simple_async();
+    
+    println("Result:");
+    println(result);
+    
+    return 0;
+}

@@ -152,7 +152,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             if let Type::Named(struct_name) = expr_type {
                 // Compile the expression to get the value
                 let expr_value = self.compile_expression(object)?;
-                
+
                 // Access field on the resulting struct value
                 return self.compile_field_access_on_value(expr_value, &struct_name, field);
             }
@@ -208,11 +208,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 .builder
                 .build_alloca(struct_value.get_type(), "temp_struct")
                 .map_err(|e| format!("Failed to allocate temp storage: {}", e))?;
-            
+
             self.builder
                 .build_store(temp_ptr, struct_value)
                 .map_err(|e| format!("Failed to store struct value: {}", e))?;
-            
+
             temp_ptr
         } else {
             return Err(format!("Expected pointer or struct value for field access"));
@@ -258,7 +258,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             Type::Generic { name, type_args: _ } => {
                 // Generic struct (e.g., Container<Point>) - use type_to_string for consistent mangling
                 let mangled_name = self.type_to_string(field_ast_type);
-              
+
                 if self.struct_defs.contains_key(&mangled_name) {
                     return Ok(field_ptr.into());
                 } else {
@@ -375,7 +375,6 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         match field_type {
                             Type::Named(field_struct_name) => {
                                 if self.struct_defs.contains_key(&field_struct_name) {
-                                 
                                     return Ok(Some(field_struct_name));
                                 }
                             }

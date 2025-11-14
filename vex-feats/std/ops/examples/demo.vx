@@ -1,6 +1,0 @@
-// ops demo
-
-fn main(): i32 {
-    println("ops module (scaffold)");
-    return 0;
-}

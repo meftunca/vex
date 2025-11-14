@@ -17,11 +17,11 @@ mod identifiers;
 mod literals;
 mod literals_expressions;
 mod operators;
+pub(crate) mod pattern_matching;
 mod references;
+mod special;
 mod special_expressions;
 mod structs_enums;
-pub(crate) mod pattern_matching;
-mod special;
 
 impl<'ctx> ASTCodeGen<'ctx> {
     /// Main expression compiler - dispatches to specialized methods
@@ -30,13 +30,15 @@ impl<'ctx> ASTCodeGen<'ctx> {
         expr: &vex_ast::Expression,
     ) -> Result<BasicValueEnum<'ctx>, String> {
         match expr {
-            Expression::IntLiteral(_) | Expression::BigIntLiteral(_) | Expression::FloatLiteral(_) | Expression::BoolLiteral(_) | Expression::StringLiteral(_) | Expression::FStringLiteral(_) | Expression::Nil => {
-                self.compile_literal(expr)
-            }
+            Expression::IntLiteral(_)
+            | Expression::BigIntLiteral(_)
+            | Expression::FloatLiteral(_)
+            | Expression::BoolLiteral(_)
+            | Expression::StringLiteral(_)
+            | Expression::FStringLiteral(_)
+            | Expression::Nil => self.compile_literal(expr),
 
-            Expression::Ident(name) => {
-                self.compile_identifier(name)
-            }
+            Expression::Ident(name) => self.compile_identifier(name),
 
             Expression::Binary {
                 span_id: _,
@@ -88,60 +90,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
             Expression::PostfixOp { expr, op } => self.compile_postfix_op_dispatch(expr, op),
 
-            Expression::Await(expr) => {
-                // Await expression: suspend coroutine and yield to scheduler
-                // 1. Compile the future expression
-                // 2. Check if it's ready (for now, assume always ready - TODO: poll)
-                // 3. Call worker_await_after to yield control
-                // 4. Return CORO_STATUS_YIELDED
-
-                let _future_val = self.compile_expression(expr)?;
-
-                // Get current WorkerContext (first parameter of resume function)
-                let current_fn = self
-                    .current_function
-                    .ok_or_else(|| "Await outside of function".to_string())?;
-
-                // Check if we're in an async function (resume function has WorkerContext* param)
-                let is_in_async = current_fn
-                    .get_name()
-                    .to_str()
-                    .map(|n| n.ends_with("_resume"))
-                    .unwrap_or(false);
-
-                if !is_in_async {
-                    return Err("Await can only be used inside async functions".to_string());
-                }
-
-                // Get WorkerContext parameter (first param)
-                let ctx_param = current_fn
-                    .get_nth_param(0)
-                    .ok_or_else(|| "Missing WorkerContext parameter".to_string())?
-                    .into_pointer_value();
-
-                // Call worker_await_after(ctx, 0) to yield
-                let worker_await_fn = self.get_or_declare_worker_await();
-                self.builder
-                    .build_call(
-                        worker_await_fn,
-                        &[
-                            ctx_param.into(),
-                            self.context.i64_type().const_int(0, false).into(),
-                        ],
-                        "await_yield",
-                    )
-                    .map_err(|e| format!("Failed to call worker_await_after: {}", e))?;
-
-                // Return CORO_STATUS_YIELDED (1)
-                let yielded_status = self.context.i32_type().const_int(1, false);
-                self.builder
-                    .build_return(Some(&yielded_status))
-                    .map_err(|e| format!("Failed to build await return: {}", e))?;
-
-                // For type system compatibility, return a dummy value
-                // (this code is unreachable after return)
-                Ok(self.context.i8_type().const_int(0, false).into())
-            }
+            Expression::Await(expr) => self.compile_await_dispatch(expr),
 
             Expression::Match { value, arms } => self.compile_match_dispatch(value, arms),
 
@@ -150,15 +99,18 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 return_expr,
             } => self.compile_block_dispatch(statements, return_expr),
 
+            Expression::AsyncBlock {
+                statements,
+                return_expr,
+            } => self.compile_async_block_dispatch(statements, return_expr),
+
             Expression::QuestionMark(expr) => self.compile_question_mark_dispatch(expr),
 
             Expression::Reference { is_mutable, expr } => {
                 self.compile_reference_dispatch(*is_mutable, expr)
             }
 
-            Expression::Deref(expr) => {
-                self.compile_dereference_dispatch(expr)
-            }
+            Expression::Deref(expr) => self.compile_dereference_dispatch(expr),
 
             Expression::ChannelReceive(channel_expr) => {
                 self.compile_channel_receive_dispatch(channel_expr)
@@ -177,13 +129,13 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 capture_mode,
             } => self.compile_closure_dispatch(params, return_type, body, capture_mode),
 
-            Expression::Cast { expr, target_type } => {
-                self.compile_cast_dispatch(expr, target_type)
-            }
+            Expression::Cast { expr, target_type } => self.compile_cast_dispatch(expr, target_type),
 
             Expression::Range { start, end } => self.compile_range_dispatch(start, end, false),
 
-            Expression::RangeInclusive { start, end } => self.compile_range_dispatch(start, end, true),
+            Expression::RangeInclusive { start, end } => {
+                self.compile_range_dispatch(start, end, true)
+            }
 
             Expression::TypeConstructor {
                 type_name,

@@ -1,6 +1,0 @@
-// db demo placeholder
-
-fn main(): i32 {
-    println("db module (scaffold)");
-    return 0;
-}

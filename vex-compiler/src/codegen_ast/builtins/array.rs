@@ -30,10 +30,7 @@ pub fn builtin_array_len<'ctx>(
         .build_call(vex_array_len, &[arr.into()], "array_len_call")
         .map_err(|e| format!("Failed to call array_len: {}", e))?;
 
-    result
-        .try_as_basic_value()
-        .left()
-        .ok_or("array_len didn't return a value".to_string())
+    Ok(result.try_as_basic_value().unwrap_basic())
 }
 
 /// array_get(arr, index, elem_size) - Get array element
@@ -90,10 +87,7 @@ pub fn builtin_array_get<'ctx>(
         )
         .map_err(|e| format!("Failed to call array_get: {}", e))?;
 
-    result
-        .try_as_basic_value()
-        .left()
-        .ok_or("array_get didn't return a value".to_string())
+    Ok(result.try_as_basic_value().unwrap_basic())
 }
 
 /// array_set(arr, index, elem, elem_size) - Set array element
@@ -213,8 +207,5 @@ pub fn builtin_array_append<'ctx>(
         )
         .map_err(|e| format!("Failed to call array_append: {}", e))?;
 
-    result
-        .try_as_basic_value()
-        .left()
-        .ok_or("array_append didn't return a value".to_string())
+    Ok(result.try_as_basic_value().unwrap_basic())
 }

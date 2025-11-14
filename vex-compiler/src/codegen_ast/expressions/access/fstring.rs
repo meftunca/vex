@@ -155,10 +155,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 .build_call(strcat_fn, &[result.into(), part_ptr.into()], "fstr_concat")
                 .map_err(|e| format!("Failed to concatenate F-string parts: {}", e))?;
 
-            result = concat_result
-                .try_as_basic_value()
-                .left()
-                .ok_or("vex_strcat_new returned void")?
+            result = concat_result.try_as_basic_value().unwrap_basic()
                 .into_pointer_value();
         }
 

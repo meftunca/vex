@@ -1,0 +1,122 @@
+// Test await syntax and Future<T> result handling
+// Shows how async/await will work in Vex (JavaScript-style prefix await)
+
+// Simple async function that returns a value
+async fn fetch_number(): i32 {
+    return 42;
+}
+
+// Async function that returns a string
+async fn fetch_message(): String {
+    return "Hello from async!";
+}
+
+// Async function that uses await
+async fn compute_sum(): i32 {
+    let a = await fetch_number();  // Wait for future, get i32
+    let b = await fetch_number();  // Another await
+    return a + b;
+}
+
+// Async function with multiple awaits and different types
+async fn process_data(): String {
+    let num = await fetch_number();       // i32
+    let msg = await fetch_message();      // String
+    
+    // Use the results
+    print("Number: ");
+    print_i32(num);
+    print("\nMessage: ");
+    print(msg);
+    
+    return "Done!";
+}
+
+// Complex async function with control flow
+async fn conditional_await(use_cache: bool): i32 {
+    if use_cache {
+        return 100;  // Fast path - no await
+    } else {
+        let result = await fetch_number();  // Slow path - await
+        return result * 2;
+    }
+}
+
+// Async function that calls other async functions
+async fn orchestrate(): i32 {
+    let sum = await compute_sum();           // await async function
+    let processed = await conditional_await(false);
+    return sum + processed;
+}
+
+fn main(): i32 {
+    // Call async function - returns Future<i32>
+    let future1 = fetch_number();
+    
+    // Await syntax (would need to be in async context)
+    // let value = await future1;  // ← This is what we're implementing
+    
+    // For now, just spawn async tasks
+    let future2 = compute_sum();
+    let future3 = process_data();
+    let future4 = orchestrate();
+    
+    return 0;
+}
+
+// ============================================================
+// Examples of different await patterns we need to support:
+// ============================================================
+
+// 1. Basic await
+async fn example_basic_await(): i32 {
+    let x = await fetch_number();
+    return x;
+}
+
+// 2. Chained await (Future<Future<T>>)
+async fn example_chained_await(): i32 {
+    // Not yet supported, but future enhancement:
+    // let x = await await get_future();
+    return 0;
+}
+
+// 3. Await in expressions
+async fn example_await_in_expr(): i32 {
+    let result = (await fetch_number() + 10) * 2;
+    return result;
+}
+
+// 4. Multiple awaits in one statement
+async fn example_multiple_awaits(): i32 {
+    let sum = await fetch_number() + await fetch_number();
+    return sum;
+}
+
+// 5. Await with error handling (future feature with Result<T,E>)
+async fn example_await_with_result(): i32 {
+    // Future syntax: let x = await fetch_number()?;
+    let x = await fetch_number();
+    return x;
+}
+
+// 6. Await in loop
+async fn example_await_in_loop(): i32 {
+    let mut sum = 0;
+    let mut i = 0;
+    while i < 5 {
+        let num = await fetch_number();
+        sum = sum + num;
+        i = i + 1;
+    }
+    return sum;
+}
+
+// 7. Conditional await
+async fn example_conditional_await(flag: bool): i32 {
+    if flag {
+        return await fetch_number();
+    } else {
+        return 0;
+    }
+}

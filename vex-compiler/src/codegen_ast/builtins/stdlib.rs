@@ -269,6 +269,43 @@ pub fn declare_testing_functions<'ctx>(codegen: &mut ASTCodeGen<'ctx>) {
 }
 
 // ============================================================================
+// MEMORY / ALLOCATOR BRIDGE (Layer 1 glue)
+// ============================================================================
+
+pub fn declare_alloc_functions<'ctx>(codegen: &mut ASTCodeGen<'ctx>) {
+    let i64_type = codegen.context.i64_type();
+    let void_type = codegen.context.void_type();
+    let raw_ptr_type = codegen.context.ptr_type(AddressSpace::default());
+
+    // malloc(size: i64) -> ptr
+    let malloc_type = raw_ptr_type.fn_type(&[i64_type.into()], false);
+    let malloc_fn = if let Some(existing) = codegen.module.get_function("malloc") {
+        existing
+    } else {
+        codegen.module.add_function("malloc", malloc_type, None)
+    };
+    codegen.functions.insert("malloc".to_string(), malloc_fn);
+
+    // free(ptr: ptr)
+    let free_type = void_type.fn_type(&[raw_ptr_type.into()], false);
+    let free_fn = if let Some(existing) = codegen.module.get_function("free") {
+        existing
+    } else {
+        codegen.module.add_function("free", free_type, None)
+    };
+    codegen.functions.insert("free".to_string(), free_fn);
+
+    // realloc(ptr: ptr, new_size: i64) -> ptr
+    let realloc_type = raw_ptr_type.fn_type(&[raw_ptr_type.into(), i64_type.into()], false);
+    let realloc_fn = if let Some(existing) = codegen.module.get_function("realloc") {
+        existing
+    } else {
+        codegen.module.add_function("realloc", realloc_type, None)
+    };
+    codegen.functions.insert("realloc".to_string(), realloc_fn);
+}
+
+// ============================================================================
 // TIME MODULE (std.time) - Additional declarations
 // ============================================================================
 
@@ -305,4 +342,5 @@ pub fn register_stdlib_runtime<'ctx>(codegen: &mut ASTCodeGen<'ctx>) {
     declare_time_functions(codegen);
     declare_additional_time_functions(codegen);
     declare_testing_functions(codegen);
+    declare_alloc_functions(codegen);
 }

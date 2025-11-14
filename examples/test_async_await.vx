@@ -1,0 +1,20 @@
+// Test async/await syntax
+fn main(): i32 {
+    test_async();
+    return 0;
+}
+
+async fn test_async(): void {
+    println("Before await");
+    
+    // Simulate async delay
+    await async_sleep(100);
+    
+    println("After await");
+}
+
+// Mock async sleep function
+async fn async_sleep(ms: i64): void {
+    // This would call runtime sleep
+    println("Sleeping...");
+}

@@ -33,7 +33,7 @@ pub fn builtin_channel_new<'ctx>(
         .build_call(create_fn, &[capacity.into()], "new_channel")
         .map_err(|e| e.to_string())?;
 
-    Ok(call_site_value.try_as_basic_value().left().unwrap())
+    Ok(call_site_value.try_as_basic_value().unwrap_basic())
 }
 
 /// Builtin: Channel.send(channel: Channel<T>, value: T)
@@ -74,8 +74,7 @@ pub(super) fn builtin_channel_send<'ctx>(
         )
         .map_err(|e| e.to_string())?
         .try_as_basic_value()
-        .left()
-        .unwrap()
+        .unwrap_basic()
         .into_int_value();
 
     Ok(status.into())
@@ -109,8 +108,7 @@ pub(super) fn builtin_channel_recv<'ctx>(
         )
         .map_err(|e| e.to_string())?
         .try_as_basic_value()
-        .left()
-        .unwrap()
+        .unwrap_basic()
         .into_int_value();
 
     let received_ptr = codegen

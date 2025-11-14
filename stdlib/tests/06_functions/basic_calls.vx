@@ -1,0 +1,30 @@
+// Layer 1: Basic Function Calls
+// Tests function definition and calling
+
+fn add(a: i32, b: i32): i32 {
+    return a + b;
+}
+
+fn multiply(x: i32, y: i32): i32 {
+    return x * y;
+}
+
+fn no_params(): i32 {
+    return 42;
+}
+
+fn main(): i32 {
+    // Test 1: Two-parameter function
+    let sum = add(10, 20);  // 30
+    
+    // Test 2: Different function
+    let product = multiply(5, 6);  // 30
+    
+    // Test 3: No parameters
+    let constant = no_params();  // 42
+    
+    // Test 4: Nested calls
+    let result = add(sum, product);  // 60
+    
+    return result + constant;  // 102
+}

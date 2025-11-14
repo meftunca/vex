@@ -1,0 +1,19 @@
+// Layer 1: Defer - Early Return Handling
+// Tests that defer executes even with early returns
+
+fn main(): i32 {
+    let! cleanup_count = 0;
+    
+    // Test 1: Defer with early return
+    if true {
+        defer cleanup_count = cleanup_count + 10;
+        
+        if 5 > 3 {
+            defer cleanup_count = cleanup_count + 5;
+            return cleanup_count;  // Returns 0, but defers execute first
+            // After defers: 0 + 5 + 10 = 15
+        }
+    }
+    
+    return cleanup_count;  // Shouldn't reach here
+}

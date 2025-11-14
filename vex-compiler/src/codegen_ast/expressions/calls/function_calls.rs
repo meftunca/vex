@@ -20,20 +20,25 @@ impl<'ctx> ASTCodeGen<'ctx> {
         // EARLY CHECK: Type constructor with explicit type args (e.g., Vec<i32>())
         if !type_args.is_empty() {
             if let Expression::Ident(func_name) = func_expr {
-                // Try builtin type constructor: Type.new
-                let builtin_name = format!("{}.new", func_name);
-                eprintln!("  🔍 Checking builtin: {}", builtin_name);
-                if let Some(builtin_fn) = self.builtins.get(&builtin_name) {
-                    eprintln!("  ✅ Using builtin constructor: {}", builtin_name);
-                    // Compile arguments first
-                    let mut arg_basic_vals: Vec<BasicValueEnum> = Vec::new();
-                    for arg in args.iter() {
-                        let val = self.compile_expression(arg)?;
-                        arg_basic_vals.push(val);
+                let has_user_ctor = self.functions.contains_key(func_name)
+                    || self.function_defs.contains_key(func_name);
+
+                if !has_user_ctor {
+                    // Try builtin type constructor: Type.new
+                    let builtin_name = format!("{}.new", func_name);
+                    eprintln!("  🔍 Checking builtin: {}", builtin_name);
+                    if let Some(builtin_fn) = self.builtins.get(&builtin_name) {
+                        eprintln!("  ✅ Using builtin constructor: {}", builtin_name);
+                        // Compile arguments first
+                        let mut arg_basic_vals: Vec<BasicValueEnum> = Vec::new();
+                        for arg in args.iter() {
+                            let val = self.compile_expression(arg)?;
+                            arg_basic_vals.push(val);
+                        }
+                        return builtin_fn(self, &arg_basic_vals);
+                    } else {
+                        eprintln!("  ⚠️  Builtin not found: {}", builtin_name);
                     }
-                    return builtin_fn(self, &arg_basic_vals);
-                } else {
-                    eprintln!("  ⚠️  Builtin not found: {}", builtin_name);
                 }
             }
         }
@@ -47,11 +52,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Build final argument list (filling in defaults if needed)
         let mut final_args = args.to_vec();
-        
+
         if let Some(func_def) = &func_def_opt {
             let provided_count = args.len();
             let expected_count = func_def.params.len();
-            
+
             // Check if function is variadic
             if func_def.is_variadic {
                 // Variadic function: allow more args than params
@@ -95,7 +100,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         // Compile arguments
         let mut arg_vals: Vec<BasicMetadataValueEnum> = Vec::new();
         let mut arg_basic_vals: Vec<BasicValueEnum> = Vec::new();
-        
+
         for (i, arg) in final_args.iter().enumerate() {
             let val = self.compile_expression(arg)?;
 
@@ -120,11 +125,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     .builder
                     .build_alloca(val_type, "any_box")
                     .map_err(|e| format!("Failed to allocate any box: {}", e))?;
-                
+
                 self.builder
                     .build_store(alloca, val)
                     .map_err(|e| format!("Failed to store to any box: {}", e))?;
-                
+
                 // Pass pointer as any
                 arg_vals.push(alloca.into());
                 arg_basic_vals.push(alloca.into());
@@ -169,10 +174,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                             .build_call(*fn_val, &arg_vals, "enum_ctor")
                             .map_err(|e| format!("Failed to build enum constructor call: {}", e))?;
 
-                        return call_site
-                            .try_as_basic_value()
-                            .left()
-                            .ok_or_else(|| "Enum constructor returned void".to_string());
+                        return Ok(call_site.try_as_basic_value().unwrap_basic());
                     } else {
                         return Err(format!("Enum constructor {} not found", constructor_name));
                     }
@@ -211,23 +213,84 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 }
             }
 
+            // Special case: sizeof<T>() - compile-time size calculation
+            if func_name == "sizeof" && !type_args.is_empty() {
+                let ty = &type_args[0];
+                let llvm_type = self.ast_type_to_llvm(ty);
+                let size = match llvm_type {
+                    inkwell::types::BasicTypeEnum::IntType(it) => it.get_bit_width() / 8,
+                    inkwell::types::BasicTypeEnum::FloatType(ft) => {
+                        if ft == self.context.f32_type() {
+                            4
+                        } else {
+                            8
+                        }
+                    }
+                    inkwell::types::BasicTypeEnum::PointerType(_) => 8,
+                    inkwell::types::BasicTypeEnum::StructType(st) => {
+                        // Sum field sizes (simplified - no padding)
+                        let mut total = 0u32;
+                        for i in 0..st.count_fields() {
+                            if let Some(field_ty) = st.get_field_type_at_index(i) {
+                                total += match field_ty {
+                                    inkwell::types::BasicTypeEnum::IntType(it) => {
+                                        it.get_bit_width() / 8
+                                    }
+                                    inkwell::types::BasicTypeEnum::FloatType(_) => 8,
+                                    inkwell::types::BasicTypeEnum::PointerType(_) => 8,
+                                    _ => 8,
+                                };
+                            }
+                        }
+                        total
+                    }
+                    inkwell::types::BasicTypeEnum::ArrayType(at) => {
+                        // Get element type and array length
+                        let elem_ty = at.get_element_type();
+                        let array_len = at.len();
+
+                        // Calculate element size
+                        let elem_size = match elem_ty.try_into() {
+                            Ok(inkwell::types::BasicTypeEnum::IntType(it)) => {
+                                it.get_bit_width() / 8
+                            }
+                            Ok(inkwell::types::BasicTypeEnum::FloatType(_)) => 8,
+                            Ok(inkwell::types::BasicTypeEnum::PointerType(_)) => 8,
+                            _ => 8,
+                        };
+                        elem_size * array_len
+                    }
+                    _ => return Err(format!("Cannot determine size of type: {:?}", ty)),
+                };
+                let size_val = self.context.i64_type().const_int(size as u64, false);
+                return Ok(size_val.into());
+            }
+
             // Special case: print() and println() with format string detection
             if func_name == "print" || func_name == "println" {
                 return self.compile_print_call(func_name, args, &arg_basic_vals);
             }
 
-            // Check if this is a builtin function
-            if let Some(builtin_fn) = self.builtins.get(func_name) {
-                return builtin_fn(self, &arg_basic_vals);
+            // Check if this is a builtin function (only if no user-defined version exists)
+            let has_user_defined = self.functions.contains_key(func_name)
+                || self.function_defs.contains_key(func_name);
+            if !has_user_defined {
+                if let Some(builtin_fn) = self.builtins.get(func_name) {
+                    return builtin_fn(self, &arg_basic_vals);
+                }
             }
 
             // Check if this is a type constructor (e.g., Vec<i32>())
             if !type_args.is_empty() {
-                // Try builtin type constructor: Type.new
-                let builtin_name = format!("{}.new", func_name);
-                if let Some(builtin_fn) = self.builtins.get(&builtin_name) {
-                    eprintln!("  ✅ Using builtin constructor: {}", builtin_name);
-                    return builtin_fn(self, &arg_basic_vals);
+                let has_user_ctor = self.functions.contains_key(func_name)
+                    || self.function_defs.contains_key(func_name);
+                if !has_user_ctor {
+                    // Try builtin type constructor: Type.new
+                    let builtin_name = format!("{}.new", func_name);
+                    if let Some(builtin_fn) = self.builtins.get(&builtin_name) {
+                        eprintln!("  ✅ Using builtin constructor: {}", builtin_name);
+                        return builtin_fn(self, &arg_basic_vals);
+                    }
                 }
             }
 
@@ -278,7 +341,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     .map_err(|e| format!("Failed to build call: {}", e))?;
 
                 // Handle both value-returning and void functions
-                if let Some(val) = call_site.try_as_basic_value().left() {
+                if let Some(val) = call_site.try_as_basic_value().basic() {
                     return Ok(val);
                 } else {
                     // Void function - return a dummy i32 zero
@@ -300,7 +363,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 if let Some((_, env_ptr)) = self.closure_variables.get(name) {
                     // Check if environment pointer is null (pure closure without captures)
                     if env_ptr.is_null() {
-                        eprintln!("🎯 Found closure variable '{}' without environment (pure function)", name);
+                        eprintln!(
+                            "🎯 Found closure variable '{}' without environment (pure function)",
+                            name
+                        );
                         (false, None)
                     } else {
                         eprintln!("🎯 Found closure variable '{}' with environment", name);
@@ -379,17 +445,18 @@ impl<'ctx> ASTCodeGen<'ctx> {
             };
 
             // Build indirect call using the function pointer
-            eprintln!("🔧 Indirect call: fn_type={:?}, args_count={}, has_env={}", 
-                fn_type, final_args.len(), has_environment);
+            eprintln!(
+                "🔧 Indirect call: fn_type={:?}, args_count={}, has_env={}",
+                fn_type,
+                final_args.len(),
+                has_environment
+            );
             let call_site = self
                 .builder
                 .build_indirect_call(fn_type, fn_ptr, &final_args, "indirect_call")
                 .map_err(|e| format!("Failed to build indirect call: {}", e))?;
 
-            return call_site
-                .try_as_basic_value()
-                .left()
-                .ok_or_else(|| "Function call returned void".to_string());
+            return Ok(call_site.try_as_basic_value().unwrap_basic());
         } else {
             return Err("Function expression did not evaluate to a function pointer".to_string());
         }

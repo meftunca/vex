@@ -1,6 +1,0 @@
-// net demo
-
-fn main(): i32 {
-    println("net module (scaffold)");
-    return 0;
-}

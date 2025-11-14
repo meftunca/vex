@@ -1,6 +1,0 @@
-// collections demo placeholder
-
-fn main(): i32 {
-    println("collections module (scaffold)");
-    return 0;
-}

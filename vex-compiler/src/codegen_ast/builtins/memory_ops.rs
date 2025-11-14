@@ -54,10 +54,7 @@ pub fn builtin_memcpy<'ctx>(
         )
         .map_err(|e| format!("Failed to call memcpy: {}", e))?;
 
-    result
-        .try_as_basic_value()
-        .left()
-        .ok_or("memcpy didn't return a value".to_string())
+    Ok(result.try_as_basic_value().unwrap_basic())
 }
 
 /// memset(s, c, n) - Fill memory
@@ -109,10 +106,7 @@ pub fn builtin_memset<'ctx>(
         )
         .map_err(|e| format!("Failed to call memset: {}", e))?;
 
-    result
-        .try_as_basic_value()
-        .left()
-        .ok_or("memset didn't return a value".to_string())
+    Ok(result.try_as_basic_value().unwrap_basic())
 }
 
 /// memcmp(s1, s2, n) - Compare memory
@@ -164,10 +158,7 @@ pub fn builtin_memcmp<'ctx>(
         )
         .map_err(|e| format!("Failed to call memcmp: {}", e))?;
 
-    result
-        .try_as_basic_value()
-        .left()
-        .ok_or("memcmp didn't return a value".to_string())
+    Ok(result.try_as_basic_value().unwrap_basic())
 }
 
 /// memmove(dest, src, n) - Move memory (handles overlap)
@@ -219,8 +210,5 @@ pub fn builtin_memmove<'ctx>(
         )
         .map_err(|e| format!("Failed to call memmove: {}", e))?;
 
-    result
-        .try_as_basic_value()
-        .left()
-        .ok_or("memmove didn't return a value".to_string())
+    Ok(result.try_as_basic_value().unwrap_basic())
 }

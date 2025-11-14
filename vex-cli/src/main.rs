@@ -342,7 +342,9 @@ fn main() -> Result<()> {
                 &context, filename, span_map, input_str,
             );
 
+            eprintln!("🔍 About to call compile_program");
             let compile_result = codegen.compile_program(&ast);
+            eprintln!("🔍 compile_program returned: {:?}", compile_result.is_ok());
 
             // Print diagnostics based on output format
             if codegen.has_diagnostics() {
@@ -367,12 +369,15 @@ fn main() -> Result<()> {
                 return Err(anyhow::anyhow!("Compilation failed with errors"));
             }
 
+            eprintln!("🔍 About to initialize LLVM target");
             // Link the final executable
             println!("   🔗 Linking executable...");
             let obj_path = PathBuf::from(format!("vex-builds/{}.o", filename));
 
+            eprintln!("🔍 Calling Target::initialize_native");
             Target::initialize_native(&inkwell::targets::InitializationConfig::default())
                 .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+            eprintln!("🔍 Target initialized");
             let target_triple = inkwell::targets::TargetMachine::get_default_triple();
             let target =
                 Target::from_triple(&target_triple).map_err(|e| anyhow::anyhow!(e.to_string()))?;
@@ -905,7 +910,7 @@ fn main() -> Result<()> {
                             println!("{}", diag);
                         }
                     }
-                    
+
                     println!("✅ Syntax OK");
                     Ok(())
                 }
@@ -961,7 +966,7 @@ fn main() -> Result<()> {
         } => {
             // Load vex.json to get test configuration
             let manifest_path = std::env::current_dir()?.join("vex.json");
-            
+
             let (_test_dir, test_pattern, test_timeout, test_parallel) = if manifest_path.exists() {
                 let manifest = vex_pm::Manifest::from_file(&manifest_path)?;
                 let testing_config = manifest.get_testing();
@@ -998,16 +1003,19 @@ fn main() -> Result<()> {
 
             // Discover test files
             println!("🔍 Discovering tests with pattern: {}", search_pattern);
-            
+
             // Debug: print current directory
             if verbose {
                 println!("   Current directory: {:?}", std::env::current_dir()?);
             }
-            
+
             let test_files = discover_test_files(&search_pattern)?;
 
             if test_files.is_empty() {
-                println!("⚠️  No test files found matching pattern: {}", search_pattern);
+                println!(
+                    "⚠️  No test files found matching pattern: {}",
+                    search_pattern
+                );
                 return Ok(());
             }
 
@@ -1028,9 +1036,7 @@ fn main() -> Result<()> {
             for test_file in &test_files {
                 // Apply --run filter if specified
                 if let Some(ref filter) = run {
-                    let file_name = test_file.file_stem()
-                        .and_then(|n| n.to_str())
-                        .unwrap_or("");
+                    let file_name = test_file.file_stem().and_then(|n| n.to_str()).unwrap_or("");
                     if !file_name.contains(filter) {
                         continue;
                     }
@@ -1040,7 +1046,10 @@ fn main() -> Result<()> {
                 if short && test_file.to_str().unwrap_or("").contains("slow") {
                     skipped += 1;
                     if verbose {
-                        println!("⏭️  {} ... skipped (slow test in short mode)", test_file.display());
+                        println!(
+                            "⏭️  {} ... skipped (slow test in short mode)",
+                            test_file.display()
+                        );
                     }
                     continue;
                 }
@@ -1063,7 +1072,10 @@ fn main() -> Result<()> {
 
             // Print summary
             println!("\n{}", "=".repeat(60));
-            println!("Test result: {}", if failed == 0 { "✅ OK" } else { "❌ FAILED" });
+            println!(
+                "Test result: {}",
+                if failed == 0 { "✅ OK" } else { "❌ FAILED" }
+            );
             println!("  {} passed", passed);
             println!("  {} failed", failed);
             if skipped > 0 {
@@ -1082,10 +1094,8 @@ fn main() -> Result<()> {
 
 // Helper function to discover test files using glob pattern
 fn discover_test_files(pattern: &str) -> Result<Vec<PathBuf>> {
-    use std::fs;
-    
     let mut test_files = Vec::new();
-    
+
     // Simple glob implementation for **/*.test.vx pattern
     if pattern.starts_with("**/") {
         let suffix = pattern.trim_start_matches("**/");
@@ -1103,28 +1113,32 @@ fn discover_test_files(pattern: &str) -> Result<Vec<PathBuf>> {
             walk_dir(&path, "*.test.vx", &mut test_files)?;
         }
     }
-    
+
     Ok(test_files)
 }
 
 fn walk_dir(dir: &PathBuf, suffix: &str, results: &mut Vec<PathBuf>) -> Result<()> {
     use std::fs;
-    
+
     if !dir.exists() || !dir.is_dir() {
         return Ok(());
     }
-    
+
     for entry in fs::read_dir(dir)? {
         let entry = entry?;
         let path = entry.path();
-        
+
         // Skip hidden directories and common ignore patterns
         if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-            if name.starts_with('.') || name == "target" || name == "node_modules" || name == "vex-builds" {
+            if name.starts_with('.')
+                || name == "target"
+                || name == "node_modules"
+                || name == "vex-builds"
+            {
                 continue;
             }
         }
-        
+
         if path.is_dir() {
             walk_dir(&path, suffix, results)?;
         } else if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
@@ -1138,7 +1152,7 @@ fn walk_dir(dir: &PathBuf, suffix: &str, results: &mut Vec<PathBuf>) -> Result<(
             }
         }
     }
-    
+
     Ok(())
 }
 
@@ -1146,67 +1160,69 @@ fn walk_dir(dir: &PathBuf, suffix: &str, results: &mut Vec<PathBuf>) -> Result<(
 fn run_single_test(test_file: &PathBuf, timeout: Option<u64>, _verbose: bool) -> Result<()> {
     use std::process::Command;
     use std::time::Duration;
-    
+
     // Compile and run test file (similar to vex run)
     let source = std::fs::read_to_string(test_file)?;
     let filename = test_file
         .file_stem()
         .and_then(|n| n.to_str())
         .ok_or_else(|| anyhow::anyhow!("Invalid test filename"))?;
-    
+
     // Create temporary executable
     let temp_output = std::env::temp_dir().join(format!("vex_test_{}", filename));
-    
+
     // Parse
     let test_file_str = test_file.to_str().unwrap_or("unknown.vx");
     let mut parser = vex_parser::Parser::new_with_file(test_file_str, &source)?;
-    let ast = parser.parse_file()
+    let ast = parser
+        .parse_file()
         .map_err(|e| anyhow::anyhow!("Parse error: {}", e))?;
-    
+
     let span_map = parser.take_span_map();
-    
+
     // Compile
     let context = inkwell::context::Context::create();
-    let mut codegen = vex_compiler::ASTCodeGen::new_with_source_file(
-        &context,
-        filename,
-        span_map,
-        test_file_str,
-    );
-    
-    codegen.compile_program(&ast)
+    let mut codegen =
+        vex_compiler::ASTCodeGen::new_with_source_file(&context, filename, span_map, test_file_str);
+
+    codegen
+        .compile_program(&ast)
         .map_err(|e| anyhow::anyhow!("Compilation error: {}", e))?;
-    
+
     // Generate object file
     let obj_path = temp_output.with_extension("o");
-    codegen.compile_to_object(&obj_path)
+    codegen
+        .compile_to_object(&obj_path)
         .map_err(|e| anyhow::anyhow!("Object generation error: {}", e))?;
-    
+
     // Link
     let mut command = Command::new("clang");
     command.arg(&obj_path).arg("-o").arg(&temp_output);
-    
+
     let linker_args = vex_runtime::get_linker_args();
     for arg in linker_args.split_whitespace() {
         command.arg(arg);
     }
-    
+
     let link_result = command.output()?;
     if !link_result.status.success() {
         std::fs::remove_file(&obj_path).ok();
-        anyhow::bail!("Linking failed: {}", String::from_utf8_lossy(&link_result.stderr));
+        anyhow::bail!(
+            "Linking failed: {}",
+            String::from_utf8_lossy(&link_result.stderr)
+        );
     }
-    
+
     // Execute with timeout
     let mut child = Command::new(&temp_output).spawn()?;
-    
+
     let status = if let Some(timeout_secs) = timeout {
         use std::thread;
         use std::time::Instant;
-        
+
         let start = Instant::now();
         let duration = Duration::from_secs(timeout_secs);
-        
+
         loop {
             match child.try_wait()? {
                 Some(status) => break status,
@@ -1222,14 +1238,14 @@ fn run_single_test(test_file: &PathBuf, timeout: Option<u64>, _verbose: bool) ->
     } else {
         child.wait()?
     };
-    
+
     // Cleanup
     std::fs::remove_file(&obj_path).ok();
     std::fs::remove_file(&temp_output).ok();
-    
+
     if !status.success() {
         anyhow::bail!("Test exited with code: {:?}", status.code());
     }
-    
+
     Ok(())
 }

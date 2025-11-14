@@ -290,10 +290,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             .build_call(vec_new_fn, &[elem_size_val.into()], "vec_new")
             .map_err(|e| format!("Failed to call vex_vec_new: {}", e))?;
 
-        let vec_ptr = vec_result
-            .try_as_basic_value()
-            .left()
-            .ok_or("vex_vec_new didn't return a value")?;
+        let vec_ptr = vec_result.try_as_basic_value().unwrap_basic();
 
         // Push each element: vex_vec_push(vec, &elem)
         let vec_push_fn = self.get_vex_vec_push();

@@ -46,23 +46,35 @@ impl<'ctx> ASTCodeGen<'ctx> {
         // receiver_val is already a PointerValue, so we need to load it for struct types
         if let Some(func_def) = self.function_defs.get(method_name) {
             if let Some(receiver_param) = &func_def.receiver {
-                // Check if receiver type is a struct (not a reference)
-                let is_struct_receiver = match &receiver_param.ty {
-                    Type::Named(type_name) => self.struct_defs.contains_key(type_name),
-                    _ => false,
-                };
+                // Check if receiver is a reference type (&Vec<T>, &Vec<T>!)
+                // References are passed as pointers; non-references are loaded and passed by value
+                let is_reference = matches!(receiver_param.ty, Type::Reference(_, _));
 
-                if is_struct_receiver {
-                    // Load the struct value from pointer
-                    eprintln!("   ⚠️ Loading receiver struct value from pointer");
-                    let struct_llvm_type = self.ast_type_to_llvm(&receiver_param.ty);
-                    let loaded_val = self
-                        .builder
-                        .build_load(struct_llvm_type, receiver_val, "receiver_load")
-                        .map_err(|e| format!("Failed to load receiver: {}", e))?;
-                    Ok(loaded_val.into())
-                } else {
+                if is_reference {
+                    // Reference receiver: pass pointer directly
+                    eprintln!("   → Reference receiver: passing pointer directly");
                     Ok(receiver_val.into())
+                } else {
+                    // Non-reference receiver: check if it's a struct that needs loading
+                    let is_struct_receiver = match &receiver_param.ty {
+                        Type::Named(type_name) => self.struct_defs.contains_key(type_name),
+                        Type::Vec(_) | Type::Box(_) | Type::Option(_) | Type::Result(_, _) => true,
+                        Type::Generic { .. } => true,
+                        _ => false,
+                    };
+
+                    if is_struct_receiver {
+                        // Load the struct value from pointer
+                        eprintln!("   ⚠️ Loading receiver struct value from pointer");
+                        let struct_llvm_type = self.ast_type_to_llvm(&receiver_param.ty);
+                        let loaded_val = self
+                            .builder
+                            .build_load(struct_llvm_type, receiver_val, "receiver_load")
+                            .map_err(|e| format!("Failed to load receiver: {}", e))?;
+                        Ok(loaded_val.into())
+                    } else {
+                        Ok(receiver_val.into())
+                    }
                 }
             } else {
                 Ok(receiver_val.into())

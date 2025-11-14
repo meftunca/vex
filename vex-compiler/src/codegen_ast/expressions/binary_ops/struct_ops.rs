@@ -68,10 +68,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                 .build_call(strcmp_fn, &[lp.into(), rp.into()], "strcmp_result")
                                 .map_err(|e| format!("Failed to call vex_strcmp: {}", e))?;
 
-                            let cmp_value = cmp_result
-                                .try_as_basic_value()
-                                .left()
-                                .ok_or("vex_strcmp didn't return a value")?
+                            let cmp_value = cmp_result.try_as_basic_value().unwrap_basic()
                                 .into_int_value();
 
                             let zero = self.context.i32_type().const_int(0, false);

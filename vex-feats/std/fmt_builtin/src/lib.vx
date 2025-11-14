@@ -1,3 +1,0 @@
-// fmt_builtin - built-in formatting helpers (scaffold)
-
-export fn version(): string { return "0.0.1"; }

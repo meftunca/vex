@@ -121,6 +121,14 @@ impl<'ctx> ASTCodeGen<'ctx> {
             })
             .collect();
 
+        eprintln!(
+            "🔧 Specialized struct {} -> {} with {} fields:",
+            struct_name, mangled_name, specialized_fields.len()
+        );
+        for (fname, fty) in &specialized_fields {
+            eprintln!("   Field: {} : {:?}", fname, fty);
+        }
+
         // StructDef type lives in super (as in the original file's usage)
         use super::super::StructDef;
         self.struct_defs.insert(

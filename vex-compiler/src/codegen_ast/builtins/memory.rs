@@ -32,10 +32,7 @@ pub fn builtin_alloc<'ctx>(
         .build_call(vex_malloc, &[size_i64.into()], "alloc_call")
         .map_err(|e| format!("Failed to call vex_malloc: {}", e))?;
 
-    let ptr = result
-        .try_as_basic_value()
-        .left()
-        .ok_or("vex_malloc didn't return a value")?;
+    let ptr = result.try_as_basic_value().unwrap_basic();
 
     Ok(ptr)
 }
@@ -104,10 +101,7 @@ pub fn builtin_realloc<'ctx>(
         )
         .map_err(|e| format!("Failed to call vex_realloc: {}", e))?;
 
-    let new_ptr = result
-        .try_as_basic_value()
-        .left()
-        .ok_or("vex_realloc didn't return a value")?;
+    let new_ptr = result.try_as_basic_value().unwrap_basic();
 
     Ok(new_ptr)
 }

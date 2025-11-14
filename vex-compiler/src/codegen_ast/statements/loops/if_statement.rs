@@ -102,6 +102,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             .unwrap()
             .get_terminator()
             .is_some();
+        eprintln!("🔍 then_terminated = {}", then_terminated);
         if !then_terminated {
             self.builder
                 .build_unconditional_branch(merge_bb)
@@ -166,6 +167,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             .unwrap()
             .get_terminator()
             .is_some();
+        eprintln!("🔍 else_terminated = {}", else_terminated);
         if !else_terminated {
             self.builder
                 .build_unconditional_branch(merge_bb)
@@ -174,10 +176,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
         }
 
         // Continue at merge block if at least one branch didn't terminate
+        eprintln!("🔍 any_unterminated = {}", any_unterminated);
         if any_unterminated {
             self.builder.position_at_end(merge_bb);
         } else {
             // All branches terminated - merge block is unreachable
+            eprintln!("⚠️  All branches terminated - adding unreachable to merge_bb!");
             self.builder.position_at_end(merge_bb);
             self.builder
                 .build_unreachable()

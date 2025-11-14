@@ -115,11 +115,16 @@ impl<'ctx> ASTCodeGen<'ctx> {
         // Compile function body
         self.compile_block(&func.body)?;
 
-        // Return CORO_STATUS_DONE (2)
+        // ⚠️ CRITICAL: Only add return if block doesn't already have terminator
+        // (compile_return_statement already adds one)
         let done_status = self.context.i32_type().const_int(2, false);
-        self.builder
-            .build_return(Some(&done_status))
-            .map_err(|e| format!("Failed to build return: {}", e))?;
+        let current_block = self.builder.get_insert_block().unwrap();
+        if current_block.get_terminator().is_none() {
+            // Return CORO_STATUS_DONE (2)
+            self.builder
+                .build_return(Some(&done_status))
+                .map_err(|e| format!("Failed to build return: {}", e))?;
+        }
 
         // Done block: already finished
         self.builder.position_at_end(done_block);
@@ -148,8 +153,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         let state_alloc_ptr = state_alloc
             .try_as_basic_value()
-            .left()
-            .unwrap()
+            .unwrap_basic()
             .into_pointer_value();
 
         let state_alloc_typed = self
@@ -190,12 +194,64 @@ impl<'ctx> ASTCodeGen<'ctx> {
         }
 
         // Spawn coroutine: runtime_spawn_global(runtime, resume_fn, state)
-        // For now, just return void (we need global runtime handle)
-        // TODO: Add runtime handle as thread-local or parameter
+        let spawn_fn = self.get_or_declare_runtime_spawn();
 
+        // Load global runtime handle: Runtime* rt = __vex_global_runtime;
+        let global_runtime_var = self
+            .global_runtime
+            .ok_or("No global runtime for async function - async functions require runtime initialization in main")?;
+
+        let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+        let runtime_handle = self
+            .builder
+            .build_load(ptr_type, global_runtime_var, "runtime_load")
+            .map_err(|e| format!("Failed to load runtime: {}", e))?
+            .into_pointer_value();
+
+        // Cast resume_fn to void*
+        let resume_fn_ptr = resume_fn.as_global_value().as_pointer_value();
+        let resume_void_ptr = self
+            .builder
+            .build_pointer_cast(
+                resume_fn_ptr,
+                self.context
+                    .i8_type()
+                    .ptr_type(inkwell::AddressSpace::default()),
+                "resume_cast",
+            )
+            .map_err(|e| format!("Failed to cast resume fn: {}", e))?;
+
+        // Call runtime_spawn_global(runtime, resume_fn, state)
         self.builder
-            .build_return(None)
-            .map_err(|e| format!("Failed to build wrapper return: {}", e))?;
+            .build_call(
+                spawn_fn,
+                &[
+                    runtime_handle.into(),
+                    resume_void_ptr.into(),
+                    state_alloc_ptr.into(),
+                ],
+                "spawn",
+            )
+            .map_err(|e| format!("Failed to call runtime_spawn_global: {}", e))?;
+
+        // Return appropriate value based on function return type
+        // Async functions should return Future<T> (opaque pointer to runtime future handle)
+        // For now, return null pointer as placeholder - runtime will manage the actual future
+        if let Some(_ret_type) = &func.return_type {
+            // TODO: Allocate and return actual Future<T> handle from runtime
+            // For now, return null pointer (void*)
+            let null_ptr = self
+                .context
+                .ptr_type(inkwell::AddressSpace::default())
+                .const_null();
+            self.builder
+                .build_return(Some(&null_ptr))
+                .map_err(|e| format!("Failed to build wrapper return: {}", e))?;
+        } else {
+            self.builder
+                .build_return(None)
+                .map_err(|e| format!("Failed to build wrapper return: {}", e))?;
+        }
 
         Ok(())
     }
@@ -230,5 +286,81 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let worker_await_type = void_type.fn_type(&[worker_ctx_ptr.into(), i64_type.into()], false);
         self.module
             .add_function("worker_await_after", worker_await_type, None)
+    }
+
+    pub(crate) fn get_or_declare_runtime_spawn(&mut self) -> FunctionValue<'ctx> {
+        if let Some(spawn) = self.module.get_function("runtime_spawn_global") {
+            return spawn;
+        }
+
+        // void runtime_spawn_global(Runtime* runtime, coro_resume_func resume_fn, void* coro_data);
+        let runtime_ptr = self
+            .context
+            .i8_type()
+            .ptr_type(inkwell::AddressSpace::default());
+        let fn_ptr = self
+            .context
+            .i8_type()
+            .ptr_type(inkwell::AddressSpace::default());
+        let void_ptr = self
+            .context
+            .i8_type()
+            .ptr_type(inkwell::AddressSpace::default());
+        let void_type = self.context.void_type();
+
+        let spawn_type =
+            void_type.fn_type(&[runtime_ptr.into(), fn_ptr.into(), void_ptr.into()], false);
+        self.module
+            .add_function("runtime_spawn_global", spawn_type, None)
+    }
+
+    pub(crate) fn get_or_declare_runtime_create(&mut self) -> FunctionValue<'ctx> {
+        if let Some(create) = self.module.get_function("runtime_create") {
+            return create;
+        }
+
+        // Runtime* runtime_create(int num_workers);
+        let runtime_ptr = self
+            .context
+            .i8_type()
+            .ptr_type(inkwell::AddressSpace::default());
+        let i32_type = self.context.i32_type();
+
+        let create_type = runtime_ptr.fn_type(&[i32_type.into()], false);
+        self.module
+            .add_function("runtime_create", create_type, None)
+    }
+
+    pub(crate) fn get_or_declare_runtime_run(&mut self) -> FunctionValue<'ctx> {
+        if let Some(run) = self.module.get_function("runtime_run") {
+            return run;
+        }
+
+        // void runtime_run(Runtime* runtime);
+        let runtime_ptr = self
+            .context
+            .i8_type()
+            .ptr_type(inkwell::AddressSpace::default());
+        let void_type = self.context.void_type();
+
+        let run_type = void_type.fn_type(&[runtime_ptr.into()], false);
+        self.module.add_function("runtime_run", run_type, None)
+    }
+
+    pub(crate) fn get_or_declare_runtime_destroy(&mut self) -> FunctionValue<'ctx> {
+        if let Some(destroy) = self.module.get_function("runtime_destroy") {
+            return destroy;
+        }
+
+        // void runtime_destroy(Runtime* runtime);
+        let runtime_ptr = self
+            .context
+            .i8_type()
+            .ptr_type(inkwell::AddressSpace::default());
+        let void_type = self.context.void_type();
+
+        let destroy_type = void_type.fn_type(&[runtime_ptr.into()], false);
+        self.module
+            .add_function("runtime_destroy", destroy_type, None)
     }
 }

@@ -190,6 +190,24 @@ impl super::LifetimeChecker {
                 Ok(())
             }
 
+            Expression::AsyncBlock {
+                statements,
+                return_expr,
+            } => {
+                self.enter_scope();
+
+                for stmt in statements {
+                    self.check_statement(stmt)?;
+                }
+
+                if let Some(expr) = return_expr {
+                    self.check_expression(expr)?;
+                }
+
+                self.exit_scope();
+                Ok(())
+            }
+
             // Literals have no lifetime concerns
             Expression::IntLiteral(_)
             | Expression::FloatLiteral(_)

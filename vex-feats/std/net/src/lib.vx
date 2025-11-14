@@ -1,3 +1,0 @@
-// net module scaffold
-
-export fn version(): string { return "0.0.1"; }

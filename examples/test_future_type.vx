@@ -1,0 +1,20 @@
+// Test Future<T> type system
+// Async functions should return Future<T>
+
+async fn get_number(): i32 {
+    return 42;
+}
+
+async fn get_string(): String {
+    return "Hello from async!";
+}
+
+fn main(): i32 {
+    // Future<i32> handle (for now, just null pointer)
+    let future_num = get_number();
+    
+    // Future<String> handle
+    let future_str = get_string();
+    
+    return 0;
+}

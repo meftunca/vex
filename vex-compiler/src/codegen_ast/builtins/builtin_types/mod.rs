@@ -56,10 +56,7 @@ pub fn builtin_vec_new<'ctx>(
         .build_call(vec_new_fn, &[elem_size.into()], "vec_new")
         .map_err(|e| format!("Failed to call vex_vec_new: {}", e))?;
 
-    call_site
-        .try_as_basic_value()
-        .left()
-        .ok_or_else(|| "vex_vec_new returned void".to_string())
+    Ok(call_site.try_as_basic_value().unwrap_basic())
 }
 
 /// Builtin: vec_with_capacity(capacity: u64) - Create Vec<T> with pre-allocated capacity
@@ -80,10 +77,7 @@ pub fn builtin_vec_with_capacity<'ctx>(
         .build_call(vec_new_fn, &[elem_size.into()], "vec_with_capacity")
         .map_err(|e| format!("Failed to call vex_vec_new: {}", e))?;
 
-    call_site
-        .try_as_basic_value()
-        .left()
-        .ok_or_else(|| "vex_vec_new returned void".to_string())
+    Ok(call_site.try_as_basic_value().unwrap_basic())
 }
 
 /// Builtin: vec_free() - Free Vec<T>
@@ -158,10 +152,7 @@ pub fn builtin_box_new<'ctx>(
         .build_call(box_new_fn, &[void_ptr.into(), size_val.into()], "box_new")
         .map_err(|e| format!("Failed to call vex_box_new: {}", e))?;
 
-    call_site
-        .try_as_basic_value()
-        .left()
-        .ok_or_else(|| "vex_box_new returned void".to_string())
+    Ok(call_site.try_as_basic_value().unwrap_basic())
 }
 
 /// Builtin: box_free() - Free Box<T>
@@ -218,10 +209,7 @@ pub fn builtin_string_new<'ctx>(
         .build_call(string_new_fn, &[], "string_new")
         .map_err(|e| format!("Failed to call vex_string_new: {}", e))?;
 
-    result
-        .try_as_basic_value()
-        .left()
-        .ok_or("vex_string_new didn't return a value".to_string())
+    Ok(result.try_as_basic_value().unwrap_basic())
 }
 
 /// Builtin: string_from(literal) - Create String from string literal
@@ -251,10 +239,7 @@ pub fn builtin_string_from<'ctx>(
         .build_call(string_from_fn, &[str_ptr.into()], "string_from")
         .map_err(|e| format!("Failed to call vex_string_from_cstr: {}", e))?;
 
-    result
-        .try_as_basic_value()
-        .left()
-        .ok_or("vex_string_from_cstr didn't return a value".to_string())
+    Ok(result.try_as_basic_value().unwrap_basic())
 }
 
 /// Builtin: string_free() - Free String memory

@@ -1,0 +1,20 @@
+// Layer 1: For Loop - Range Iteration
+// Tests for-in loop with range syntax
+
+fn main(): i32 {
+    // Test 1: Exclusive range (0..5)
+    let! sum1 = 0;
+    for i in 0..5 {
+        sum1 = sum1 + i;
+    }
+    // sum1 = 0+1+2+3+4 = 10
+    
+    // Test 2: Inclusive range (1..=5)
+    let! sum2 = 0;
+    for i in 1..=5 {
+        sum2 = sum2 + i;
+    }
+    // sum2 = 1+2+3+4+5 = 15
+    
+    return sum1 + sum2;  // 10 + 15 = 25
+}

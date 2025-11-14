@@ -121,14 +121,11 @@ pub fn compile_typesafe_format<'ctx>(
 
     // Create buffer
     let initial_capacity = codegen.context.i64_type().const_int(256, false);
-    let buffer = codegen
+    let buffer_call = codegen
         .builder
         .build_call(vex_fmt_buffer_new, &[initial_capacity.into()], "fmt_buffer")
-        .map_err(|e| format!("Failed to create buffer: {}", e))?
-        .try_as_basic_value()
-        .left()
-        .ok_or("vex_fmt_buffer_new didn't return a value")?;
-
+        .map_err(|e| format!("Failed to create buffer: {}", e))?;
+    let buffer = buffer_call.try_as_basic_value().unwrap_basic();
     // Build formatted string piece by piece
     for (i, (literal, spec)) in literals.iter().zip(specs.iter()).enumerate() {
         // Append literal part
@@ -167,8 +164,7 @@ pub fn compile_typesafe_format<'ctx>(
                 .build_call(strlen_fn, &[formatted_str.into()], "str_len")
                 .map_err(|e| format!("Failed to call strlen: {}", e))?
                 .try_as_basic_value()
-                .left()
-                .ok_or("strlen didn't return a value")?;
+                .unwrap_basic();
 
             codegen
                 .builder
@@ -215,8 +211,7 @@ pub fn compile_typesafe_format<'ctx>(
         .build_call(vex_fmt_buffer_to_string, &[buffer.into()], "to_string")
         .map_err(|e| format!("Failed to convert buffer to string: {}", e))?
         .try_as_basic_value()
-        .left()
-        .ok_or("vex_fmt_buffer_to_string didn't return a value")?;
+        .unwrap_basic();
 
     // Free buffer
     codegen
@@ -257,13 +252,13 @@ fn compile_format_arg<'ctx>(
                 return Err(format!("Expected IntValue for i32, got {:?}", arg));
             };
 
-            codegen
+            let is_ok = codegen
                 .builder
                 .build_call(vex_fmt_i32, &[arg_i32.into(), fmt_spec.into()], "fmt_i32")
                 .map_err(|e| format!("Failed to call vex_fmt_i32: {}", e))?
                 .try_as_basic_value()
-                .left()
-                .ok_or_else(|| "vex_fmt_i32 didn't return a value".to_string())
+                .unwrap_basic();
+            Ok(is_ok)
         }
         Type::I64 | Type::U64 => {
             let vex_fmt_i64 = codegen.declare_vex_fmt_i64();
@@ -280,13 +275,13 @@ fn compile_format_arg<'ctx>(
                 return Err(format!("Expected IntValue for i64, got {:?}", arg));
             };
 
-            codegen
+            let is_ok = codegen
                 .builder
                 .build_call(vex_fmt_i64, &[arg_i64.into(), fmt_spec.into()], "fmt_i64")
                 .map_err(|e| format!("Failed to call vex_fmt_i64: {}", e))?
                 .try_as_basic_value()
-                .left()
-                .ok_or_else(|| "vex_fmt_i64 didn't return a value".to_string())
+                .unwrap_basic();
+            Ok(is_ok)
         }
         Type::U8 | Type::U16 | Type::U32 => {
             let vex_fmt_u32 = codegen.declare_vex_fmt_u32();
@@ -303,43 +298,43 @@ fn compile_format_arg<'ctx>(
                 return Err(format!("Expected IntValue for u32, got {:?}", arg));
             };
 
-            codegen
+            let is_ok = codegen
                 .builder
                 .build_call(vex_fmt_u32, &[arg_u32.into(), fmt_spec.into()], "fmt_u32")
                 .map_err(|e| format!("Failed to call vex_fmt_u32: {}", e))?
                 .try_as_basic_value()
-                .left()
-                .ok_or_else(|| "vex_fmt_u32 didn't return a value".to_string())
+                .unwrap_basic();
+            Ok(is_ok)
         }
         Type::F32 => {
             let vex_fmt_f32 = codegen.declare_vex_fmt_f32();
-            codegen
+            let formatted = codegen
                 .builder
                 .build_call(vex_fmt_f32, &[arg.into(), fmt_spec.into()], "fmt_f32")
                 .map_err(|e| format!("Failed to call vex_fmt_f32: {}", e))?
                 .try_as_basic_value()
-                .left()
-                .ok_or_else(|| "vex_fmt_f32 didn't return a value".to_string())
+                .unwrap_basic();
+            Ok(formatted)
         }
         Type::F64 => {
             let vex_fmt_f64 = codegen.declare_vex_fmt_f64();
-            codegen
+            let formatted = codegen
                 .builder
                 .build_call(vex_fmt_f64, &[arg.into(), fmt_spec.into()], "fmt_f64")
                 .map_err(|e| format!("Failed to call vex_fmt_f64: {}", e))?
                 .try_as_basic_value()
-                .left()
-                .ok_or_else(|| "vex_fmt_f64 didn't return a value".to_string())
+                .unwrap_basic();
+            Ok(formatted)
         }
         Type::Bool => {
             let vex_fmt_bool = codegen.declare_vex_fmt_bool();
-            codegen
+            let formatted = codegen
                 .builder
                 .build_call(vex_fmt_bool, &[arg.into(), fmt_spec.into()], "fmt_bool")
                 .map_err(|e| format!("Failed to call vex_fmt_bool: {}", e))?
                 .try_as_basic_value()
-                .left()
-                .ok_or_else(|| "vex_fmt_bool didn't return a value".to_string())
+                .unwrap_basic();
+            Ok(formatted)
         }
         Type::String => {
             let vex_fmt_string = codegen.declare_vex_fmt_string();
@@ -349,10 +344,9 @@ fn compile_format_arg<'ctx>(
                 .build_call(strlen_fn, &[arg.into()], "str_len")
                 .map_err(|e| format!("Failed to call strlen: {}", e))?
                 .try_as_basic_value()
-                .left()
-                .ok_or("strlen didn't return a value")?;
+                .unwrap_basic();
 
-            codegen
+            let formatted = codegen
                 .builder
                 .build_call(
                     vex_fmt_string,
@@ -361,8 +355,8 @@ fn compile_format_arg<'ctx>(
                 )
                 .map_err(|e| format!("Failed to call vex_fmt_string: {}", e))?
                 .try_as_basic_value()
-                .left()
-                .ok_or_else(|| "vex_fmt_string didn't return a value".to_string())
+                .unwrap_basic();
+            Ok(formatted)
         }
         Type::Named(name) => {
             // Check if type implements Display trait
@@ -376,4 +370,3 @@ fn compile_format_arg<'ctx>(
         _ => Err(format!("Unsupported type for formatting: {:?}", arg_type)),
     }
 }
-

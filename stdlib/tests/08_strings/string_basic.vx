@@ -1,0 +1,26 @@
+// Layer 1: String Type - Basic Operations
+// Tests String creation and basic methods
+
+fn main(): i32 {
+    // Test 1: String from literal
+    let s1 = "Hello";
+    
+    // Test 2: String concatenation
+    let s2 = "World";
+    
+    // Test 3: String comparison
+    let same = s1 == "Hello";  // true
+    let diff = s1 == s2;       // false
+    
+    // Test 4: Return length as exit code (if len() available)
+    // For now, return boolean results as i32
+    let result: i32 = 0;
+    if same {
+        result = result + 10;
+    }
+    if !diff {
+        result = result + 5;
+    }
+    
+    return result;  // 15
+}

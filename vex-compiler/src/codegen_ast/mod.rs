@@ -75,6 +75,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
             variables: HashMap::new(),
             variable_types: HashMap::new(),
             variable_ast_types: HashMap::new(),
+            variable_concrete_types: HashMap::new(),
+            type_constraints: Vec::new(),
             variable_struct_names: HashMap::new(),
             variable_enum_names: HashMap::new(),
             tuple_variable_types: HashMap::new(),
@@ -110,6 +112,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
             span_map,                         // ⭐ NEW: Store span map from parser
             trait_bounds_checker: None,       // ⭐ NEW: Initialized in compile_program
             source_file: source_file.to_string(), // ⭐ NEW: Store source file path
+            global_runtime: None,             // ⭐ ASYNC: Initialize runtime handle as None
+            async_block_counter: 0,           // ⭐ ASYNC BLOCKS: Counter for unique names
         };
 
         // Register Phase 0 builtin types (Vec, Option, Result, Box)
@@ -205,6 +209,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
     /// Returns a mangled suffix that uniquely identifies the type for method dispatch
     pub(crate) fn generate_type_suffix(&self, ty: &Type) -> String {
         match ty {
+            Type::Unknown => "_unknown".to_string(),
+
             // Primitive integer types
             Type::I8 => "_i8".to_string(),
             Type::I16 => "_i16".to_string(),
@@ -336,6 +342,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             Type::Vec(elem) => format!("_Vec{}", self.generate_type_suffix(elem)),
             Type::Box(inner) => format!("_Box{}", self.generate_type_suffix(inner)),
             Type::Channel(inner) => format!("_Channel{}", self.generate_type_suffix(inner)),
+            Type::Future(inner) => format!("_Future{}", self.generate_type_suffix(inner)),
 
             // Special types - use simple names
             Type::Unit => "_unit".to_string(),

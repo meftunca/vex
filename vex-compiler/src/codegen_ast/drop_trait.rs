@@ -43,6 +43,56 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         .map_err(|e| format!("Failed to call drop: {:?}", e))?;
 
                 } else {
+                    // Try to instantiate drop method for generic types
+                    if type_name.contains('_') {
+                        // Parse mangled name: Vec_i32 → (Vec, [i32])
+                        let parts: Vec<&str> = type_name.split('_').collect();
+                        if parts.len() >= 2 {
+                            let base_struct = parts[0];
+                            let type_arg_str = parts[1];
+                            
+                            // Simple type parsing for common types
+                            use vex_ast::Type;
+                            let type_arg = match type_arg_str {
+                                "i32" => Type::I32,
+                                "i64" => Type::I64,
+                                "f32" => Type::F32,
+                                "f64" => Type::F64,
+                                "bool" => Type::Bool,
+                                "String" => Type::String,
+                                s => Type::Named(s.to_string()),
+                            };
+                            
+                            let type_args = vec![type_arg];
+                            
+                            eprintln!("  🔧 Attempting to instantiate drop method: {}", drop_method);
+                            
+                            // Try to find and instantiate drop method
+                            if let Ok(drop_fn_def) = self.find_generic_method(base_struct, "drop") {
+                                if let Ok(_) = self.instantiate_generic_method(
+                                    base_struct,
+                                    &type_args,
+                                    "drop",
+                                    &drop_fn_def,
+                                    &[],
+                                ) {
+                                    // Method instantiated, try calling again
+                                    if let Some(drop_fn) = self.functions.get(&drop_method) {
+                                        self.builder
+                                            .build_call(
+                                                *drop_fn,
+                                                &[inkwell::values::BasicMetadataValueEnum::from(var_ptr)],
+                                                "drop_call",
+                                            )
+                                            .map_err(|e| format!("Failed to call drop: {:?}", e))?;
+                                        eprintln!("  ✅ Drop method instantiated and called: {}", drop_method);
+                                        continue; // Skip the warning below
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
                     eprintln!("  ⚠️  Drop method {} not found", drop_method);
                 }
             }

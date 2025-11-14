@@ -9,7 +9,7 @@ extern "C" {
 }
 
 export struct Box<T> impl Drop {
-    _ptr: ptr
+    _ptr: *T
 }
 
 // Methods will be implemented in Vex (TODO: need method syntax support)

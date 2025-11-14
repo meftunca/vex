@@ -69,10 +69,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     .build_call(len_fn, &[vec_ptr.into()], "vec_len")
                     .map_err(|e| format!("Failed to call vex_vec_len: {}", e))?;
 
-                let len_val = call_site
-                    .try_as_basic_value()
-                    .left()
-                    .ok_or_else(|| "vex_vec_len returned void".to_string())?;
+                let len_val = call_site.try_as_basic_value().unwrap_basic();
 
                 Ok(Some(len_val))
             }
@@ -115,8 +112,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 // vex_vec_get returns void* - cast back to i32*
                 let elem_ptr = call_site
                     .try_as_basic_value()
-                    .left()
-                    .ok_or_else(|| "vex_vec_get returned void".to_string())?
+                    .unwrap_basic()
                     .into_pointer_value();
 
                 // Cast void* to i32* and load
@@ -248,10 +244,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     .build_call(get_fn, &[box_ptr.into()], "box_get")
                     .map_err(|e| format!("Failed to call vex_box_get: {}", e))?;
 
-                let ptr_value = call_site
-                    .try_as_basic_value()
-                    .left()
-                    .ok_or_else(|| "vex_box_get returned void".to_string())?;
+                let ptr_value = call_site.try_as_basic_value().unwrap_basic();
 
                 Ok(Some(ptr_value))
             }

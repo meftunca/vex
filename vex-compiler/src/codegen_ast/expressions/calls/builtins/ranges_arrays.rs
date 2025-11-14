@@ -50,10 +50,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     .build_call(next_fn, &[range_ptr.into(), out_ptr.into()], "range_next")
                     .map_err(|e| format!("Failed to call {}: {}", fn_name, e))?;
 
-                let result = call_site
-                    .try_as_basic_value()
-                    .left()
-                    .ok_or_else(|| format!("{} returned void", fn_name))?;
+                let result = call_site.try_as_basic_value().unwrap_basic();
 
                 Ok(Some(result))
             }
@@ -89,10 +86,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     .build_call(len_fn, &[range_ptr.into()], "range_len")
                     .map_err(|e| format!("Failed to call {}: {}", fn_name, e))?;
 
-                let result = call_site
-                    .try_as_basic_value()
-                    .left()
-                    .ok_or_else(|| format!("{} returned void", fn_name))?;
+                let result = call_site.try_as_basic_value().unwrap_basic();
 
                 Ok(Some(result))
             }
@@ -126,10 +120,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     .build_call(len_fn, &[slice_ptr.into()], "slice_len")
                     .map_err(|e| format!("Failed to call vex_slice_len: {}", e))?;
 
-                let len_val = call_site
-                    .try_as_basic_value()
-                    .left()
-                    .ok_or_else(|| "vex_slice_len returned void".to_string())?;
+                let len_val = call_site.try_as_basic_value().unwrap_basic();
 
                 Ok(Some(len_val))
             }
@@ -155,10 +146,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     .build_call(get_fn, &[slice_ptr.into(), index.into()], "slice_get")
                     .map_err(|e| format!("Failed to call vex_slice_get: {}", e))?;
 
-                let elem_ptr = call_site
-                    .try_as_basic_value()
-                    .left()
-                    .ok_or_else(|| "vex_slice_get returned void".to_string())?;
+                let elem_ptr = call_site.try_as_basic_value().unwrap_basic();
 
                 // Load the element value (vex_slice_get returns void*)
                 // For now, assume i32 elements (TODO: type-specific loading)
@@ -192,10 +180,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     .build_call(is_empty_fn, &[slice_ptr.into()], "slice_is_empty")
                     .map_err(|e| format!("Failed to call vex_slice_is_empty: {}", e))?;
 
-                let result = call_site
-                    .try_as_basic_value()
-                    .left()
-                    .ok_or_else(|| "vex_slice_is_empty returned void".to_string())?;
+                let result = call_site.try_as_basic_value().unwrap_basic();
 
                 Ok(Some(result))
             }
@@ -372,9 +357,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 let value = self.compile_expression(&args[0])?;
 
                 // Delegate to static builtin: Channel.send(ch, value)
-                let builtin_fn = self.builtins.get("Channel.send")
+                let builtin_fn = self
+                    .builtins
+                    .get("Channel.send")
                     .ok_or_else(|| "Channel.send builtin not registered".to_string())?;
-                
+
                 let result = builtin_fn(self, &[channel_ptr.into(), value])?;
                 return Ok(Some(result));
             }
@@ -398,9 +385,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     .into_pointer_value();
 
                 // Delegate to static builtin: Channel.recv(ch)
-                let builtin_fn = self.builtins.get("Channel.recv")
+                let builtin_fn = self
+                    .builtins
+                    .get("Channel.recv")
                     .ok_or_else(|| "Channel.recv builtin not registered".to_string())?;
-                
+
                 let result = builtin_fn(self, &[channel_ptr.into()])?;
                 return Ok(Some(result));
             }

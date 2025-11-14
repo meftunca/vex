@@ -268,6 +268,18 @@ impl super::BorrowChecker {
                 }
                 Ok(())
             }
+            Expression::AsyncBlock {
+                statements,
+                return_expr,
+            } => {
+                for stmt in statements {
+                    self.analyze_statement_closures(stmt)?;
+                }
+                if let Some(expr) = return_expr {
+                    self.analyze_expression_closures(expr)?;
+                }
+                Ok(())
+            }
             Expression::Match { value, arms } => {
                 self.analyze_expression_closures(value)?;
                 for arm in arms {

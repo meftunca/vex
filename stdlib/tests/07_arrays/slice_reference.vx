@@ -1,0 +1,21 @@
+// Layer 1: Slice Type - Array References
+// Tests slice type support (currently limited)
+
+fn main(): i32 {
+    // Test 1: Direct array indexing (works)
+    let arr = [10, 20, 30, 40, 50];
+    let first = arr[0];
+    let third = arr[2];
+    
+    // Test 2: Array iteration
+    let numbers = [1, 2, 3];
+    let! sum = 0;
+    for n in numbers {
+        sum = sum + n;
+    }
+    
+    // Note: Slice references (&[T]) parse but indexing not yet implemented
+    // Future: let slice: &[i32] = &arr; let x = slice[0];
+    
+    return first + third + sum;  // 10 + 30 + 6 = 46
+}
