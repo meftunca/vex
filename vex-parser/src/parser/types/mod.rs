@@ -117,7 +117,7 @@ impl<'a> Parser<'a> {
         let true_type = Box::new(self.parse_type()?);
         self.consume(&Token::Colon, "Expected ':' in conditional type")?;
         let false_type = Box::new(self.parse_type()?);
-        
+
         Ok(Type::Conditional {
             check_type: Box::new(check_type),
             extends_type,

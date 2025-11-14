@@ -3,11 +3,11 @@
 struct Nocontract {
     value: i32,
     
-    fn test(): Self {  // ✅ Should work - Self = Nocontract
+
+}
+    fn (self:&Nocontract!)test(): Self {  // ✅ Should work - Self = Nocontract
         return Nocontract { value: 42 };
     }
-}
-
 fn main(): i32 {
     let obj = Nocontract.test();
     return obj.value;

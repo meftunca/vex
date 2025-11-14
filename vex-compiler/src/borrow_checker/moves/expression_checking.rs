@@ -8,9 +8,7 @@ impl MoveChecker {
     /// Check an expression for use of moved variables
     pub(super) fn check_expression(&mut self, expr: &Expression) -> BorrowResult<()> {
         match expr {
-            Expression::Ident(name) => {
-                self.check_identifier(name)
-            }
+            Expression::Ident(name) => self.check_identifier(name),
 
             Expression::Binary {
                 span_id: _,
@@ -30,13 +28,14 @@ impl MoveChecker {
                 Ok(())
             }
 
-            Expression::Call { func, args, .. } => {
-                self.check_call_expression(func, args)
-            }
+            Expression::Call { func, args, .. } => self.check_call_expression(func, args),
 
-            Expression::MethodCall { receiver, args, is_mutable_call, .. } => {
-                self.check_method_call_expression(receiver, args, *is_mutable_call)
-            }
+            Expression::MethodCall {
+                receiver,
+                args,
+                is_mutable_call,
+                ..
+            } => self.check_method_call_expression(receiver, args, *is_mutable_call),
 
             Expression::FieldAccess { object, .. } => {
                 self.check_expression(object)?;
@@ -98,18 +97,14 @@ impl MoveChecker {
                 Ok(())
             }
 
-            Expression::Match { value, arms } => {
-                self.check_match_expression(value, arms)
-            }
+            Expression::Match { value, arms } => self.check_match_expression(value, arms),
 
             Expression::New(expr) => {
                 self.check_expression(expr)?;
                 Ok(())
             }
 
-            Expression::Closure { params, body, .. } => {
-                self.check_closure_expression(params, body)
-            }
+            Expression::Closure { params, body, .. } => self.check_closure_expression(params, body),
 
             // Literals don't reference variables
             Expression::IntLiteral(_)

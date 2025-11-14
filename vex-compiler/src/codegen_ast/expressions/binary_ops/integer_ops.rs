@@ -16,26 +16,25 @@ impl<'ctx> ASTCodeGen<'ctx> {
         op: &BinaryOp,
     ) -> Result<BasicValueEnum<'ctx>, String> {
         // If operands have different bit widths, extend the smaller one
-        let (l_final, r_final) =
-            if l.get_type().get_bit_width() != r.get_type().get_bit_width() {
-                if l.get_type().get_bit_width() < r.get_type().get_bit_width() {
-                    // Extend left to match right
-                    let l_ext = self
-                        .builder
-                        .build_int_s_extend(l, r.get_type(), "sext_l")
-                        .map_err(|e| format!("Failed to extend operand: {}", e))?;
-                    (l_ext, r)
-                } else {
-                    // Extend right to match left
-                    let r_ext = self
-                        .builder
-                        .build_int_s_extend(r, l.get_type(), "sext_r")
-                        .map_err(|e| format!("Failed to extend operand: {}", e))?;
-                    (l, r_ext)
-                }
+        let (l_final, r_final) = if l.get_type().get_bit_width() != r.get_type().get_bit_width() {
+            if l.get_type().get_bit_width() < r.get_type().get_bit_width() {
+                // Extend left to match right
+                let l_ext = self
+                    .builder
+                    .build_int_s_extend(l, r.get_type(), "sext_l")
+                    .map_err(|e| format!("Failed to extend operand: {}", e))?;
+                (l_ext, r)
             } else {
-                (l, r)
-            };
+                // Extend right to match left
+                let r_ext = self
+                    .builder
+                    .build_int_s_extend(r, l.get_type(), "sext_r")
+                    .map_err(|e| format!("Failed to extend operand: {}", e))?;
+                (l, r_ext)
+            }
+        } else {
+            (l, r)
+        };
 
         let l = l_final;
         let r = r_final;

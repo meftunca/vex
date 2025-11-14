@@ -31,9 +31,7 @@ impl BorrowRulesChecker {
                 Ok(())
             }
 
-            Expression::Call { func, args, .. } => {
-                self.check_call_expression(func, args)
-            }
+            Expression::Call { func, args, .. } => self.check_call_expression(func, args),
 
             Expression::MethodCall { receiver, args, .. } => {
                 self.check_method_call_expression(receiver, args)
@@ -81,9 +79,7 @@ impl BorrowRulesChecker {
                 Ok(())
             }
 
-            Expression::Deref(expr) => {
-                self.check_deref_expression(expr)
-            }
+            Expression::Deref(expr) => self.check_deref_expression(expr),
 
             Expression::Await(expr)
             | Expression::QuestionMark(expr)
@@ -92,9 +88,7 @@ impl BorrowRulesChecker {
                 Ok(())
             }
 
-            Expression::Match { value, arms } => {
-                self.check_match_expression(value, arms)
-            }
+            Expression::Match { value, arms } => self.check_match_expression(value, arms),
 
             Expression::New(expr) => {
                 self.check_expression_for_borrows(expr)?;

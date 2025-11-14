@@ -1,6 +1,7 @@
 // Expression compilation - references and dereferencing
 use super::ASTCodeGen;
 use inkwell::values::BasicValueEnum;
+use vex_ast::Type;
 
 impl<'ctx> ASTCodeGen<'ctx> {
     /// Compile reference expressions (& and &!)
@@ -49,8 +50,25 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     let arr_len = arr_ty.len() as u64;
                     let len_val = size_ty.const_int(arr_len, false);
 
-                    // Get element size (assuming i32 for now - TODO: get from element type)
-                    let elem_size_val = size_ty.const_int(4, false); // 4 bytes for i32
+                    // Get element size from actual element type
+                    let elem_ty = arr_ty.get_element_type();
+                    // Calculate element size in bytes
+                    let elem_size = match elem_ty {
+                        inkwell::types::BasicTypeEnum::IntType(it) => {
+                            (it.get_bit_width() / 8) as u64
+                        }
+                        inkwell::types::BasicTypeEnum::FloatType(ft) => {
+                            if ft == self.context.f32_type() {
+                                4
+                            } else {
+                                8
+                            }
+                        }
+                        inkwell::types::BasicTypeEnum::PointerType(_) => 8, // 64-bit pointers
+                        inkwell::types::BasicTypeEnum::StructType(_) => 8,  // Default struct size
+                        _ => 4,                                             // Default
+                    };
+                    let elem_size_val = size_ty.const_int(elem_size, false);
 
                     // Build slice struct
                     let undef = slice_struct_ty.get_undef();
@@ -137,13 +155,54 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 // TODO: Add proper AST type tracking for variables
                 let deref_ptr = ptr_loaded.into_pointer_value();
 
-                // Try to determine the pointee type
-                // For now, default to i32 (most common case)
-                let inner_type = self.context.i32_type();
-                let loaded = self
-                    .builder
-                    .build_load(inner_type, deref_ptr, "deref")
-                    .map_err(|e| format!("Failed to dereference pointer: {}", e))?;
+                // Try to determine the pointee type from AST type tracking
+                let inner_type = if let Some(ast_type) = self.variable_ast_types.get(name) {
+                    // Check if it's a reference type
+                    match ast_type {
+                        Type::Reference(inner, _) => self.ast_type_to_llvm(inner),
+                        Type::RawPtr { inner, .. } => self.ast_type_to_llvm(inner),
+                        _ => {
+                            // Variable is not a reference in AST, try to infer
+                            self.context.i32_type().into()
+                        }
+                    }
+                } else {
+                    // No AST type info - default to i32
+                    self.context.i32_type().into()
+                };
+
+                // build_load expects AnyTypeEnum, but inner_type is BasicTypeEnum
+                // We need to use match to extract the correct type
+                let loaded = match inner_type {
+                    inkwell::types::BasicTypeEnum::IntType(it) => self
+                        .builder
+                        .build_load(it, deref_ptr, "deref")
+                        .map_err(|e| format!("Failed to dereference pointer: {}", e))?,
+                    inkwell::types::BasicTypeEnum::FloatType(ft) => self
+                        .builder
+                        .build_load(ft, deref_ptr, "deref")
+                        .map_err(|e| format!("Failed to dereference pointer: {}", e))?,
+                    inkwell::types::BasicTypeEnum::PointerType(pt) => self
+                        .builder
+                        .build_load(pt, deref_ptr, "deref")
+                        .map_err(|e| format!("Failed to dereference pointer: {}", e))?,
+                    inkwell::types::BasicTypeEnum::StructType(st) => self
+                        .builder
+                        .build_load(st, deref_ptr, "deref")
+                        .map_err(|e| format!("Failed to dereference pointer: {}", e))?,
+                    inkwell::types::BasicTypeEnum::ArrayType(at) => self
+                        .builder
+                        .build_load(at, deref_ptr, "deref")
+                        .map_err(|e| format!("Failed to dereference pointer: {}", e))?,
+                    inkwell::types::BasicTypeEnum::VectorType(vt) => self
+                        .builder
+                        .build_load(vt, deref_ptr, "deref")
+                        .map_err(|e| format!("Failed to dereference pointer: {}", e))?,
+                    inkwell::types::BasicTypeEnum::ScalableVectorType(svt) => self
+                        .builder
+                        .build_load(svt, deref_ptr, "deref")
+                        .map_err(|e| format!("Failed to dereference pointer: {}", e))?,
+                };
                 Ok(loaded)
             }
             _ => {
@@ -154,12 +213,48 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 }
                 let ptr = ptr_value.into_pointer_value();
 
-                // Default to i32 for now
-                let inner_type = self.context.i32_type();
-                let loaded = self
-                    .builder
-                    .build_load(inner_type, ptr, "deref")
-                    .map_err(|e| format!("Failed to dereference pointer: {}", e))?;
+                // Try to infer type from expression
+                let inner_type = if let Ok(expr_type) = self.infer_expression_type(expr) {
+                    match &expr_type {
+                        Type::Reference(inner, _) => self.ast_type_to_llvm(inner),
+                        Type::RawPtr { inner, .. } => self.ast_type_to_llvm(inner),
+                        _ => self.context.i32_type().into(),
+                    }
+                } else {
+                    self.context.i32_type().into()
+                };
+
+                // Use match to handle different BasicTypeEnum variants
+                let loaded = match inner_type {
+                    inkwell::types::BasicTypeEnum::IntType(it) => self
+                        .builder
+                        .build_load(it, ptr, "deref")
+                        .map_err(|e| format!("Failed to dereference pointer: {}", e))?,
+                    inkwell::types::BasicTypeEnum::FloatType(ft) => self
+                        .builder
+                        .build_load(ft, ptr, "deref")
+                        .map_err(|e| format!("Failed to dereference pointer: {}", e))?,
+                    inkwell::types::BasicTypeEnum::PointerType(pt) => self
+                        .builder
+                        .build_load(pt, ptr, "deref")
+                        .map_err(|e| format!("Failed to dereference pointer: {}", e))?,
+                    inkwell::types::BasicTypeEnum::StructType(st) => self
+                        .builder
+                        .build_load(st, ptr, "deref")
+                        .map_err(|e| format!("Failed to dereference pointer: {}", e))?,
+                    inkwell::types::BasicTypeEnum::ArrayType(at) => self
+                        .builder
+                        .build_load(at, ptr, "deref")
+                        .map_err(|e| format!("Failed to dereference pointer: {}", e))?,
+                    inkwell::types::BasicTypeEnum::VectorType(vt) => self
+                        .builder
+                        .build_load(vt, ptr, "deref")
+                        .map_err(|e| format!("Failed to dereference pointer: {}", e))?,
+                    inkwell::types::BasicTypeEnum::ScalableVectorType(svt) => self
+                        .builder
+                        .build_load(svt, ptr, "deref")
+                        .map_err(|e| format!("Failed to dereference pointer: {}", e))?,
+                };
                 Ok(loaded)
             }
         }

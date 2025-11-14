@@ -100,8 +100,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     .expect("type_subst should have all params")
             })
             .collect();
-        let all_type_arg_strings: Vec<String> =
-            all_type_args.iter().map(|t| self.type_to_string(t)).collect();
+        let all_type_arg_strings: Vec<String> = all_type_args
+            .iter()
+            .map(|t| self.type_to_string(t))
+            .collect();
 
         // Include const params in mangled name if present
         let mangled_name = if struct_ast.const_params.is_empty() {
@@ -123,7 +125,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         eprintln!(
             "🔧 Specialized struct {} -> {} with {} fields:",
-            struct_name, mangled_name, specialized_fields.len()
+            struct_name,
+            mangled_name,
+            specialized_fields.len()
         );
         for (fname, fty) in &specialized_fields {
             eprintln!("   Field: {} : {:?}", fname, fty);

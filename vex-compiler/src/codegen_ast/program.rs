@@ -28,23 +28,18 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         let mut resolver = ModuleResolver::new("stdlib");
 
-
         // Collect all items from imported modules
         let mut imported_items = Vec::new();
 
         for import in &program.imports {
-
             // Load the module - pass source file for relative path resolution
             let imported_module = resolver.load_module(&import.module, Some(&self.source_file))?;
-
 
             // Add all items from imported module
             // (In a real implementation, we'd respect the import { ... } selectors)
             for item in &imported_module.items {
                 match item {
                     Item::Function(func) => {
-                      
-
                         // If this is a method (has receiver), mangle its name NOW
                         // This prevents double-mangling in compile_program
                         if let Some(receiver) = &func.receiver {
@@ -78,7 +73,6 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }
         }
 
-
         // Merge imported items into program (before original items to avoid shadowing)
         let original_items = program.items.clone();
         program.items = imported_items;
@@ -88,16 +82,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
     }
 
     pub fn compile_program(&mut self, program: &Program) -> Result<(), String> {
-      
-
         // ⭐ NEW: Inject core prelude (auto-import stdlib/core)
         let mut merged_program = program.clone();
         merged_program.inject_core_prelude();
-        
+
         // ⭐ NEW: Resolve and merge imported modules
         self.resolve_and_merge_imports(&mut merged_program)?;
-
-
 
         // Check if any async functions exist in the program
         let has_async = merged_program
@@ -212,21 +202,22 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                 base_name
                             };
 
-                            
                             name
                         };
 
                         // Store with mangled name (but keep original func structure)
                         let mut method_func = func.clone();
                         method_func.name = mangled_name.clone();
-                        
+
                         // ⭐ CRITICAL FIX: Store BOTH the fully mangled name AND the base name
                         // Fully mangled: Vec_push_i32_1 (for direct lookups)
                         // Base name: Vec_push (for generic instantiation)
-                        self.function_defs.insert(mangled_name.clone(), method_func.clone());
-                        
+                        self.function_defs
+                            .insert(mangled_name.clone(), method_func.clone());
+
                         // Also store with base name (no type suffix) for generic lookup
-                        let base_lookup_name = format!("{}_{}", sn, Self::encode_operator_name(&func.name));
+                        let base_lookup_name =
+                            format!("{}_{}", sn, Self::encode_operator_name(&func.name));
                         if base_lookup_name != mangled_name {
                             self.function_defs.insert(base_lookup_name, method_func);
                         }
@@ -266,7 +257,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         Type::Result(_, _) => Some("Result"),
                         _ => None,
                     };
-                    
+
                     // Check if the struct is generic
                     struct_name
                         .and_then(|name| self.struct_ast_defs.get(name))
@@ -275,7 +266,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 } else {
                     false
                 };
-                
+
                 if func.type_params.is_empty() && !is_on_generic_struct {
                     // For methods with receivers, we already mangled the name
                     if is_method {
@@ -287,7 +278,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         self.declare_function(func)?;
                     }
                 } else if is_on_generic_struct {
-                    eprintln!("⏭️  Skipping method {} on generic struct (will be instantiated on-demand)", func_name);
+                    eprintln!(
+                        "⏭️  Skipping method {} on generic struct (will be instantiated on-demand)",
+                        func_name
+                    );
                 }
             }
         }
@@ -333,7 +327,6 @@ impl<'ctx> ASTCodeGen<'ctx> {
         // MUST come before function bodies, as generic instantiation may need these methods
         for item in &merged_program.items {
             if let Item::Struct(struct_def) = item {
-          
                 if struct_def.type_params.is_empty() {
                     for method in &struct_def.methods {
                         self.compile_struct_method(&struct_def.name, method)?;
@@ -344,21 +337,25 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Fifth pass: compile non-generic function bodies
         // Comes AFTER struct methods, so generic instantiation can use them
-        
+
         // ⭐ ASYNC: Declare global runtime variable if needed
         if needs_runtime_init {
             eprintln!("🔄 Declaring global async runtime variable");
-            
+
             // Create global runtime variable: Runtime* __vex_global_runtime = NULL;
             let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
-            let global_runtime = self.module.add_global(ptr_type, Some(inkwell::AddressSpace::default()), "__vex_global_runtime");
+            let global_runtime = self.module.add_global(
+                ptr_type,
+                Some(inkwell::AddressSpace::default()),
+                "__vex_global_runtime",
+            );
             global_runtime.set_initializer(&ptr_type.const_null());
-            
+
             // Store the global variable for later use
             self.global_runtime = Some(global_runtime.as_pointer_value());
             eprintln!("✅ Global runtime variable declared");
         }
-        
+
         for item in &merged_program.items {
             if let Item::Function(func) = item {
                 // Skip generic functions - they'll be compiled when instantiated
@@ -383,7 +380,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         Type::Result(_, _) => Some("Result"),
                         _ => None,
                     };
-                    
+
                     // Check if the struct is generic
                     struct_name
                         .and_then(|name| self.struct_ast_defs.get(name))
@@ -403,13 +400,16 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         }
                     }
                 } else if is_on_generic_struct_compile {
-                    eprintln!("⏭️  Skipping compilation of method {} on generic struct", func.name);
+                    eprintln!(
+                        "⏭️  Skipping compilation of method {} on generic struct",
+                        func.name
+                    );
                 }
             }
         }
 
         eprintln!("✅ All functions compiled successfully");
-        
+
         // ⭐ ASYNC: Verify LLVM module for correctness
         eprintln!("🔍 Verifying LLVM module...");
         if let Err(e) = self.module.verify() {
@@ -418,7 +418,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             return Err(format!("Invalid LLVM IR generated: {}", e));
         }
         eprintln!("✅ LLVM module verification passed");
-        
+
         Ok(())
     }
 
@@ -432,12 +432,15 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         for item in &program.items {
             match item {
-                Item::Struct(struct_def) if struct_def.impl_traits.iter().any(|t| t.name == "Eq") => {
+                Item::Struct(struct_def)
+                    if struct_def.impl_traits.iter().any(|t| t.name == "Eq") =>
+                {
                     let has_eq = struct_def.methods.iter().any(|m| m.name == "op==");
                     let has_ne = struct_def.methods.iter().any(|m| m.name == "op!=");
-                    
+
                     if has_eq && !has_ne {
-                        types_needing_ne.push((struct_def.name.clone(), false)); // false = inline method
+                        types_needing_ne.push((struct_def.name.clone(), false));
+                        // false = inline method
                     }
                 }
                 Item::Function(func) if func.receiver.is_some() && func.name == "op==" => {
@@ -454,7 +457,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                             }
                             _ => None,
                         };
-                        
+
                         if let Some(type_name) = type_name {
                             // Check if op!= exists for this type
                             let has_ne = program.items.iter().any(|i| {
@@ -482,7 +485,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                     false
                                 }
                             });
-                            
+
                             if !has_ne && !types_needing_ne.iter().any(|(t, _)| t == &type_name) {
                                 types_needing_ne.push((type_name, true)); // true = external method
                             }
@@ -492,7 +495,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 Item::TraitImpl(trait_impl) if trait_impl.trait_name == "Eq" => {
                     let has_eq = trait_impl.methods.iter().any(|m| m.name == "op==");
                     let has_ne = trait_impl.methods.iter().any(|m| m.name == "op!=");
-                    
+
                     if has_eq && !has_ne {
                         if let Type::Named(type_name) = &trait_impl.for_type {
                             types_needing_ne.push((type_name.clone(), false));
@@ -505,14 +508,17 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Generate op!= for each type
         for (type_name, is_external) in types_needing_ne {
-            eprintln!("🔧 Auto-generating op!= from op== for type: {} (external: {})", type_name, is_external);
-            
+            eprintln!(
+                "🔧 Auto-generating op!= from op== for type: {} (external: {})",
+                type_name, is_external
+            );
+
             // For inline methods, use param_count=2, for external use param_count=1
             let eq_method_name = if is_external {
                 // External: Point_opeq_Point_1 (has type suffix)
                 // Try to find the actual method name
                 let base_name = format!("{}_opeq", type_name);
-                
+
                 // Search for method with type suffix
                 let mut found_name = None;
                 for (name, _) in &self.functions {
@@ -521,58 +527,65 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         break;
                     }
                 }
-                
+
                 found_name.unwrap_or(base_name)
             } else {
                 // Inline: Point_opeq_2
                 format!("{}_opeq_2", type_name)
             };
-            
-            let eq_fn = self.module.get_function(&eq_method_name)
-                .ok_or_else(|| format!("op== method '{}' not found for auto-generation", eq_method_name))?;
-            
+
+            let eq_fn = self.module.get_function(&eq_method_name).ok_or_else(|| {
+                format!(
+                    "op== method '{}' not found for auto-generation",
+                    eq_method_name
+                )
+            })?;
+
             // Create op!= function with same signature
             let ne_method_name = if is_external {
                 eq_method_name.replace("_opeq", "_opne")
             } else {
                 format!("{}_opne_2", type_name)
             };
-            
+
             let fn_type = eq_fn.get_type();
             let ne_fn = self.module.add_function(&ne_method_name, fn_type, None);
-            
+
             // Build function body: return !op==(rhs)
             let entry = self.context.append_basic_block(ne_fn, "entry");
             let builder = self.context.create_builder();
             builder.position_at_end(entry);
-            
+
             // Get parameters (same as op==)
-            let params: Vec<BasicMetadataValueEnum> = ne_fn.get_params()
-                .iter()
-                .map(|p| (*p).into())
-                .collect();
-            
+            let params: Vec<BasicMetadataValueEnum> =
+                ne_fn.get_params().iter().map(|p| (*p).into()).collect();
+
             // Call op==(self, rhs)
-            let eq_result = builder.build_call(eq_fn, &params, "eq_result")
+            let eq_result = builder
+                .build_call(eq_fn, &params, "eq_result")
                 .map_err(|e| format!("Failed to call op== in auto-generated op!=: {}", e))?;
-            
+
             let eq_val = eq_result.try_as_basic_value().unwrap_basic();
-            
+
             // Negate the result: !eq_val
-            let ne_val = builder.build_not(eq_val.into_int_value(), "ne_result")
+            let ne_val = builder
+                .build_not(eq_val.into_int_value(), "ne_result")
                 .map_err(|e| format!("Failed to negate op== result: {}", e))?;
-            
+
             // Return !op==(rhs)
-            builder.build_return(Some(&ne_val))
+            builder
+                .build_return(Some(&ne_val))
                 .map_err(|e| format!("Failed to build return in auto-generated op!=: {}", e))?;
-            
+
             // Register in functions map
             self.functions.insert(ne_method_name.clone(), ne_fn);
-            
-            eprintln!("✅ Auto-generated: {} (from {})", ne_method_name, eq_method_name);
+
+            eprintln!(
+                "✅ Auto-generated: {} (from {})",
+                ne_method_name, eq_method_name
+            );
         }
 
         Ok(())
     }
 }
-

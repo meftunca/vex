@@ -330,7 +330,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 // Vec<T> - Use actual struct definition from stdlib/core/src/vec.vx
                 // Convert to mangled name: Vec<i32> -> Vec_i32
                 let mangled_name = format!("Vec_{}", self.type_to_string(elem_ty));
-                
+
                 // Check if this Vec type has been instantiated
                 if let Some(struct_def) = self.struct_defs.get(&mangled_name) {
                     // Build struct from actual field definitions
@@ -339,7 +339,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         .iter()
                         .map(|(_, field_ty)| self.ast_type_to_llvm(field_ty))
                         .collect();
-                    
+
                     let vec_struct = self.context.struct_type(&field_types, false);
                     BasicTypeEnum::StructType(vec_struct)
                 } else {
@@ -349,17 +349,27 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     let elem_llvm = self.ast_type_to_llvm(elem_ty);
                     let elem_ptr_type = match elem_llvm {
                         BasicTypeEnum::IntType(it) => it.ptr_type(inkwell::AddressSpace::default()),
-                        BasicTypeEnum::FloatType(ft) => ft.ptr_type(inkwell::AddressSpace::default()),
-                        BasicTypeEnum::ArrayType(at) => at.ptr_type(inkwell::AddressSpace::default()),
-                        BasicTypeEnum::StructType(st) => st.ptr_type(inkwell::AddressSpace::default()),
+                        BasicTypeEnum::FloatType(ft) => {
+                            ft.ptr_type(inkwell::AddressSpace::default())
+                        }
+                        BasicTypeEnum::ArrayType(at) => {
+                            at.ptr_type(inkwell::AddressSpace::default())
+                        }
+                        BasicTypeEnum::StructType(st) => {
+                            st.ptr_type(inkwell::AddressSpace::default())
+                        }
                         BasicTypeEnum::PointerType(pt) => pt,
-                        BasicTypeEnum::VectorType(vt) => vt.ptr_type(inkwell::AddressSpace::default()),
-                        BasicTypeEnum::ScalableVectorType(svt) => svt.ptr_type(inkwell::AddressSpace::default()),
+                        BasicTypeEnum::VectorType(vt) => {
+                            vt.ptr_type(inkwell::AddressSpace::default())
+                        }
+                        BasicTypeEnum::ScalableVectorType(svt) => {
+                            svt.ptr_type(inkwell::AddressSpace::default())
+                        }
                     };
-                    
+
                     let vec_struct = self.context.struct_type(
                         &[
-                            elem_ptr_type.into(), // data: *T
+                            elem_ptr_type.into(),           // data: *T
                             self.context.i64_type().into(), // len: i64
                             self.context.i64_type().into(), // cap: i64
                         ],

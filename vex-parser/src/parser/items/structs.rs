@@ -32,7 +32,7 @@ impl<'a> Parser<'a> {
             let mut traits = Vec::new();
             loop {
                 let trait_name = self.consume_identifier()?;
-                
+
                 // Check for generic type arguments: Add<i32>
                 let type_args = if self.match_token(&Token::Lt) {
                     let mut args = Vec::new();
@@ -47,12 +47,12 @@ impl<'a> Parser<'a> {
                 } else {
                     Vec::new()
                 };
-                
+
                 traits.push(TraitImpl {
                     name: trait_name,
                     type_args,
                 });
-                
+
                 if !self.match_token(&Token::Comma) {
                     break;
                 }
@@ -81,11 +81,14 @@ impl<'a> Parser<'a> {
             if self.check(&Token::Fn) {
                 // ⚠️ DEPRECATED: Inline struct methods are deprecated!
                 // Emit warning but still parse for now
-                eprintln!("⚠️  WARNING: Inline struct methods are deprecated in struct '{}'", name);
+                eprintln!(
+                    "⚠️  WARNING: Inline struct methods are deprecated in struct '{}'",
+                    name
+                );
                 eprintln!("   → Use Go-style external methods instead:");
                 eprintln!("   → fn (self: &{}) method_name() {{ }}", name);
                 eprintln!("   → See VEX_IDENTITY.md for migration guide");
-                
+
                 methods.push(self.parse_struct_method()?);
             } else if self.check(&Token::Type) {
                 // ⭐ NEW: Parse associated type binding: type Item = i32;
@@ -114,7 +117,7 @@ impl<'a> Parser<'a> {
                     name
                 ))
                 .with_note("See docs/REFERENCE.md (Method Definitions & Calls) for migration guide".to_string());
-                
+
                 self.diagnostics.push(warning);
                 methods.push(self.parse_struct_method()?);
             } else if matches!(self.peek(), Token::OperatorMethod(_)) {
@@ -122,17 +125,18 @@ impl<'a> Parser<'a> {
                 let span = self.token_to_diag_span(&self.peek_span().span);
                 let warning = vex_diagnostics::Diagnostic::warning(
                     "W0001",
-                    format!(
-                        "Inline struct methods are deprecated",
-                    ),
+                    format!("Inline struct methods are deprecated",),
                     span,
                 )
                 .with_help(format!(
                     "Define operator methods outside the struct: fn (self: &{}) op+(...) {{ }}",
                     name
                 ))
-                .with_note("See docs/REFERENCE.md (Method Definitions & Calls) for migration guide".to_string());
-                
+                .with_note(
+                    "See docs/REFERENCE.md (Method Definitions & Calls) for migration guide"
+                        .to_string(),
+                );
+
                 self.diagnostics.push(warning);
                 methods.push(self.parse_struct_method()?);
             } else if matches!(self.peek(), Token::Ident(_)) {
@@ -140,24 +144,25 @@ impl<'a> Parser<'a> {
                 // Look ahead: if next token is '(' it's a method, if ':' it's a field
                 let checkpoint = self.current;
                 let field_or_method_name = self.consume_identifier()?;
-                
+
                 if self.check(&Token::LParen) {
                     // ⚠️ Emit deprecation warning for inline methods
                     self.current = checkpoint; // Backtrack first to get correct span
                     let span = self.token_to_diag_span(&self.peek_span().span);
                     let warning = vex_diagnostics::Diagnostic::warning(
                         "W0001",
-                        format!(
-                            "Inline struct methods are deprecated",
-                        ),
+                        format!("Inline struct methods are deprecated",),
                         span,
                     )
                     .with_help(format!(
                         "Define '{}' outside the struct: fn (self: &{}) {}(...) {{ }}",
                         field_or_method_name, name, field_or_method_name
                     ))
-                    .with_note("See docs/REFERENCE.md (Method Definitions & Calls) for migration guide".to_string());
-                    
+                    .with_note(
+                        "See docs/REFERENCE.md (Method Definitions & Calls) for migration guide"
+                            .to_string(),
+                    );
+
                     self.diagnostics.push(warning);
                     methods.push(self.parse_struct_method()?);
                 } else if self.check(&Token::Colon) {
@@ -304,12 +309,12 @@ impl<'a> Parser<'a> {
         Ok(Function {
             is_async: false,
             is_gpu: false,
-            is_mutable, // ⭐ NEW: Store mutability flag
+            is_mutable,  // ⭐ NEW: Store mutability flag
             is_operator, // ⭐ NEW: Store operator flag
             receiver,
             name,
             type_params: Vec::new(),
-            const_params: vec![], // ⭐ TODO: Parse const params
+            const_params: vec![],     // ⭐ TODO: Parse const params
             where_clause: Vec::new(), // Struct inline methods don't support where clauses yet
             params,
             return_type,

@@ -84,7 +84,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             // Check BOTH struct_defs (non-generic) AND struct_ast_defs (all structs including generics)
             let is_user_defined_struct = self.struct_defs.contains_key(base_type)
                 || self.struct_ast_defs.contains_key(base_type);
-            
+
             // Handle builtin type methods ONLY if not shadowed by user struct
             // AND stdlib method resolution fails
             if !is_user_defined_struct {

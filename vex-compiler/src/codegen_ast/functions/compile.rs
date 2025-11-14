@@ -20,8 +20,15 @@ impl<'ctx> ASTCodeGen<'ctx> {
         }
 
         if func.is_async {
-            return self.compile_async_function(func);
+            let previous_return_type = self.current_function_return_type.clone();
+            self.current_function_return_type = func.return_type.clone();
+            let result = self.compile_async_function(func);
+            self.current_function_return_type = previous_return_type;
+            return result;
         }
+
+        let previous_return_type = self.current_function_return_type.clone();
+        self.current_function_return_type = func.return_type.clone();
 
         let fn_name = if let Some(ref receiver) = func.receiver {
             let type_name = match &receiver.ty {
@@ -168,9 +175,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
             self.variables.insert(receiver.name.clone(), receiver_var);
             self.variable_types
                 .insert(receiver.name.clone(), param_type);
-            
+
             // ⭐ CRITICAL: Store AST type for type inference
-            self.variable_ast_types.insert(receiver.name.clone(), receiver.ty.clone());
+            self.variable_ast_types
+                .insert(receiver.name.clone(), receiver.ty.clone());
 
             // Extract struct type name from receiver type
             // Handle: Type::Named, Type::Reference(Type::Named | Type::Vec | Type::Box | ...)
@@ -253,8 +261,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     param_val.is_pointer_value()
                 );
 
-                // ALWAYS allocate and store - regardless of struct or not
-                // This ensures consistent behavior between external and inline methods
+                // ⭐ CRITICAL: Struct parameters are passed BY VALUE in function signature
+                // But we still allocate+store for consistent variable access
+                // This mirrors the behavior of non-struct parameters
                 eprintln!("   → Allocating and storing");
                 let alloca = self.create_entry_block_alloca(&param.name, &param.ty, true)?;
                 self.builder
@@ -262,9 +271,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     .map_err(|e| format!("Failed to store parameter: {}", e))?;
                 self.variables.insert(param.name.clone(), alloca);
                 self.variable_types.insert(param.name.clone(), param_type);
-                
+
                 // ⭐ CRITICAL: Store AST type for type inference (print, format, etc.)
-                self.variable_ast_types.insert(param.name.clone(), param.ty.clone());
+                self.variable_ast_types
+                    .insert(param.name.clone(), param.ty.clone());
 
                 let extract_struct_name = |ty: &Type| -> Option<String> {
                     match ty {
@@ -376,6 +386,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }
         }
 
-        Ok(())
+        let result = Ok(());
+        self.current_function_return_type = previous_return_type;
+        result
     }
 }

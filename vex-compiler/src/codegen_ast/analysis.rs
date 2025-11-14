@@ -3,7 +3,10 @@ use super::*;
 use std::collections::{HashMap, HashSet};
 
 impl<'ctx> ASTCodeGen<'ctx> {
-    pub(crate) fn check_circular_struct_dependencies(&self, program: &Program) -> Result<(), String> {
+    pub(crate) fn check_circular_struct_dependencies(
+        &self,
+        program: &Program,
+    ) -> Result<(), String> {
         let mut dependencies: HashMap<String, Vec<String>> = HashMap::new();
 
         for item in &program.items {
@@ -34,10 +37,18 @@ impl<'ctx> ASTCodeGen<'ctx> {
     fn extract_struct_dependency(&self, ty: &Type) -> Option<String> {
         match ty {
             Type::Named(name) => {
-                if self.struct_ast_defs.contains_key(name) { Some(name.clone()) } else { None }
+                if self.struct_ast_defs.contains_key(name) {
+                    Some(name.clone())
+                } else {
+                    None
+                }
             }
             Type::Generic { name, .. } => {
-                if self.struct_ast_defs.contains_key(name) { Some(name.clone()) } else { None }
+                if self.struct_ast_defs.contains_key(name) {
+                    Some(name.clone())
+                } else {
+                    None
+                }
             }
             Type::Array(inner, _) => self.extract_struct_dependency(inner),
             Type::Reference(inner, _) => self.extract_struct_dependency(inner),

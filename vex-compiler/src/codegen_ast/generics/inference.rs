@@ -220,7 +220,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Substitute return type
         if let Some(ret_ty) = &new_func.return_type {
-            new_func.return_type = Some(self.substitute_type(ret_ty, type_subst));
+            let substituted_ret = self.substitute_type(ret_ty, type_subst);
+            eprintln!(
+                "      🔄 Return type substitution: {:?} -> {:?}",
+                ret_ty, substituted_ret
+            );
+            new_func.return_type = Some(substituted_ret);
         }
 
         // Build mangled method name: HashMap_insert -> HashMap_str_i32_insert
@@ -234,6 +239,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         };
 
         new_func.name = format!("{}_{}", mangled_struct_name, method_suffix);
+        eprintln!("      📛 Specialized method name: {}", new_func.name);
 
         Ok(new_func)
     }
@@ -245,17 +251,17 @@ impl<'ctx> ASTCodeGen<'ctx> {
     ) -> Result<Function, String> {
         let mut new_func = func.clone();
         new_func.type_params.clear();
-        
+
         // Substitute receiver type
         if let Some(ref mut receiver) = new_func.receiver {
             receiver.ty = self.substitute_type(&receiver.ty, type_subst);
         }
-        
+
         // Substitute parameter types
         for param in &mut new_func.params {
             param.ty = self.substitute_type(&param.ty, type_subst);
         }
-        
+
         // Substitute return type
         if let Some(ret_ty) = &new_func.return_type {
             new_func.return_type = Some(self.substitute_type(ret_ty, type_subst));

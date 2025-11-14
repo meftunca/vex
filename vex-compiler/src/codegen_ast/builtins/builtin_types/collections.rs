@@ -101,6 +101,37 @@ impl<'ctx> ASTCodeGen<'ctx> {
         self.module.add_function(fn_name, fn_type, None)
     }
 
+    /// Get or declare vex_map_new from runtime
+    pub fn get_vex_map_new(&mut self) -> FunctionValue<'ctx> {
+        let fn_name = "vex_map_new";
+
+        if let Some(func) = self.module.get_function(fn_name) {
+            return func;
+        }
+
+        // Declare: void* vex_map_new()
+        let ptr_type = self.context.ptr_type(AddressSpace::default());
+        let fn_type = ptr_type.fn_type(&[], false);
+        self.module.add_function(fn_name, fn_type, None)
+    }
+
+    /// Get or declare vex_map_insert from runtime
+    pub fn get_vex_map_insert(&mut self) -> FunctionValue<'ctx> {
+        let fn_name = "vex_map_insert";
+
+        if let Some(func) = self.module.get_function(fn_name) {
+            return func;
+        }
+
+        // Declare: void vex_map_insert(void* map, const char* key, void* value)
+        let void_type = self.context.void_type();
+        let ptr_type = self.context.ptr_type(AddressSpace::default());
+
+        let fn_type =
+            void_type.fn_type(&[ptr_type.into(), ptr_type.into(), ptr_type.into()], false);
+        self.module.add_function(fn_name, fn_type, None)
+    }
+
     /// Get or declare vex_box_new from runtime
     pub fn get_vex_box_new(&mut self) -> FunctionValue<'ctx> {
         let fn_name = "vex_box_new";

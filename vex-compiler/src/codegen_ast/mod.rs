@@ -100,11 +100,13 @@ impl<'ctx> ASTCodeGen<'ctx> {
             module_namespaces: HashMap::new(),
             builtins: BuiltinRegistry::new(),
             current_function: None,
+            current_function_return_type: None,
             printf_fn: None,
             deferred_statements: Vec::new(),
             loop_context_stack: Vec::new(),
             closure_envs: HashMap::new(),
             closure_variables: HashMap::new(),
+            closure_types: HashMap::new(),
             scope_stack: Vec::new(),
             last_compiled_tuple_type: None,
             current_method_is_mutable: false, // ⭐ NEW: Default to immutable

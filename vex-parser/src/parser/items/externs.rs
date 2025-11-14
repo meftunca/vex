@@ -36,7 +36,6 @@ impl<'a> Parser<'a> {
 
         self.consume(&Token::RBrace, "Expected '}' after extern block")?;
 
-     
         Ok(Item::ExternBlock(ExternBlock {
             abi,
             types,

@@ -5,7 +5,6 @@ impl<'ctx> ASTCodeGen<'ctx> {
     /// Compile a constant declaration
     /// Constants are global immutable values
     pub fn compile_const(&mut self, const_decl: &Const) -> Result<(), String> {
-
         // Evaluate the constant expression at compile time
         let value = self.compile_expression(&const_decl.value)?;
 
@@ -16,7 +15,6 @@ impl<'ctx> ASTCodeGen<'ctx> {
             // Infer type from value
             value.get_type()
         };
-
 
         // Create a global constant
         let global = self.module.add_global(llvm_type, None, &const_decl.name);
@@ -29,7 +27,6 @@ impl<'ctx> ASTCodeGen<'ctx> {
             .insert(const_decl.name.clone(), global.as_pointer_value());
         self.global_constant_types
             .insert(const_decl.name.clone(), llvm_type);
-
 
         Ok(())
     }

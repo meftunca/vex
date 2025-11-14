@@ -61,8 +61,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
         // Desugar to static method call: Type<T>.new(args)
 
         // ⭐ Phase 3: Handle Vec() without type args - will be inferred from usage
-        eprintln!("🔧 Type constructor: {}() with {} type args", type_name, type_args.len());
-        
+        eprintln!(
+            "🔧 Type constructor: {}() with {} type args",
+            type_name,
+            type_args.len()
+        );
+
         // ⭐ CRITICAL: Preserve generic type arguments!
         // Vec<i32>() should become Vec<i32>.new(), not Vec.new()
         let method_call = vex_ast::Expression::MethodCall {

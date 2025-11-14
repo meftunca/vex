@@ -2,7 +2,9 @@
 // return / break / continue / defer
 
 use super::ASTCodeGen;
-use inkwell::types::BasicTypeEnum;
+use inkwell::types::{BasicTypeEnum, PointerType};
+use inkwell::values::BasicValueEnum;
+use inkwell::AddressSpace;
 use vex_ast::*;
 
 impl<'ctx> ASTCodeGen<'ctx> {
@@ -117,6 +119,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Build return instruction
         if let Some(mut val) = return_val {
+            if self.current_function_returns_any() {
+                val = self.box_value_for_any_return(val)?;
+            }
+
             // Check if we need to extend/truncate the value to match function return type
             if let Some(func) = self.current_function {
                 if let Some(ret_ty) = func.get_type().get_return_type() {
@@ -242,5 +248,79 @@ impl<'ctx> ASTCodeGen<'ctx> {
         // For now, just compile the expression directly
         self.compile_expression(expr)?;
         Ok(())
+    }
+
+    fn current_function_returns_any(&self) -> bool {
+        matches!(self.current_function_return_type.as_ref(), Some(Type::Any))
+    }
+
+    fn box_value_for_any_return(
+        &mut self,
+        value: BasicValueEnum<'ctx>,
+    ) -> Result<BasicValueEnum<'ctx>, String> {
+        let any_ptr_type = self.context.ptr_type(AddressSpace::default());
+
+        if value.is_pointer_value() {
+            let ptr_val = value.into_pointer_value();
+            if ptr_val.get_type() == any_ptr_type {
+                return Ok(ptr_val.into());
+            }
+
+            let casted = self
+                .builder
+                .build_pointer_cast(ptr_val, any_ptr_type, "any_ret_cast")
+                .map_err(|e| format!("Failed to cast pointer return value to any: {}", e))?;
+            return Ok(casted.into());
+        }
+
+        let value_type = value.get_type();
+        let size_bits = Self::approximate_type_size(&value_type) as u64;
+        let size_bytes = std::cmp::max(1u64, (size_bits + 7) / 8);
+
+        let malloc_fn = self.get_or_declare_malloc();
+        let size_const = self.context.i64_type().const_int(size_bytes, false);
+        let raw_ptr_call = self
+            .builder
+            .build_call(malloc_fn, &[size_const.into()], "any_ret_alloc")
+            .map_err(|e| format!("Failed to allocate storage for any return: {}", e))?;
+
+        let raw_ptr = raw_ptr_call
+            .try_as_basic_value()
+            .expect_basic("malloc should return a pointer")
+            .into_pointer_value();
+
+        let typed_ptr_type = self.pointer_type_for_basic(&value_type)?;
+        let typed_ptr = self
+            .builder
+            .build_pointer_cast(raw_ptr, typed_ptr_type, "any_ret_typed_ptr")
+            .map_err(|e| format!("Failed to cast any return buffer: {}", e))?;
+
+        self.builder
+            .build_store(typed_ptr, value)
+            .map_err(|e| format!("Failed to store any return value: {}", e))?;
+
+        let any_ptr = self
+            .builder
+            .build_pointer_cast(typed_ptr, any_ptr_type, "any_ret_box")
+            .map_err(|e| format!("Failed to cast boxed any return value: {}", e))?;
+
+        Ok(any_ptr.into())
+    }
+
+    #[allow(deprecated)]
+    fn pointer_type_for_basic(
+        &self,
+        ty: &BasicTypeEnum<'ctx>,
+    ) -> Result<PointerType<'ctx>, String> {
+        let addr_space = AddressSpace::default();
+        Ok(match ty {
+            BasicTypeEnum::IntType(inner) => inner.ptr_type(addr_space),
+            BasicTypeEnum::FloatType(inner) => inner.ptr_type(addr_space),
+            BasicTypeEnum::StructType(inner) => inner.ptr_type(addr_space),
+            BasicTypeEnum::ArrayType(inner) => inner.ptr_type(addr_space),
+            BasicTypeEnum::VectorType(inner) => inner.ptr_type(addr_space),
+            BasicTypeEnum::PointerType(inner) => *inner,
+            BasicTypeEnum::ScalableVectorType(inner) => inner.ptr_type(addr_space),
+        })
     }
 }

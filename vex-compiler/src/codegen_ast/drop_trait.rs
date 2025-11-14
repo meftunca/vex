@@ -19,7 +19,6 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
             // Drop in LIFO order (reverse)
             for (var_name, type_name) in drop_vars.iter().rev() {
-
                 // Get variable pointer
                 let var_ptr = if let Some(ptr) = self.variables.get(var_name) {
                     *ptr
@@ -41,7 +40,6 @@ impl<'ctx> ASTCodeGen<'ctx> {
                             "drop_call",
                         )
                         .map_err(|e| format!("Failed to call drop: {:?}", e))?;
-
                 } else {
                     // Try to instantiate drop method for generic types
                     if type_name.contains('_') {
@@ -50,7 +48,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         if parts.len() >= 2 {
                             let base_struct = parts[0];
                             let type_arg_str = parts[1];
-                            
+
                             // Simple type parsing for common types
                             use vex_ast::Type;
                             let type_arg = match type_arg_str {
@@ -62,11 +60,14 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                 "String" => Type::String,
                                 s => Type::Named(s.to_string()),
                             };
-                            
+
                             let type_args = vec![type_arg];
-                            
-                            eprintln!("  🔧 Attempting to instantiate drop method: {}", drop_method);
-                            
+
+                            eprintln!(
+                                "  🔧 Attempting to instantiate drop method: {}",
+                                drop_method
+                            );
+
                             // Try to find and instantiate drop method
                             if let Ok(drop_fn_def) = self.find_generic_method(base_struct, "drop") {
                                 if let Ok(_) = self.instantiate_generic_method(
@@ -81,18 +82,23 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                         self.builder
                                             .build_call(
                                                 *drop_fn,
-                                                &[inkwell::values::BasicMetadataValueEnum::from(var_ptr)],
+                                                &[inkwell::values::BasicMetadataValueEnum::from(
+                                                    var_ptr,
+                                                )],
                                                 "drop_call",
                                             )
                                             .map_err(|e| format!("Failed to call drop: {:?}", e))?;
-                                        eprintln!("  ✅ Drop method instantiated and called: {}", drop_method);
+                                        eprintln!(
+                                            "  ✅ Drop method instantiated and called: {}",
+                                            drop_method
+                                        );
                                         continue; // Skip the warning below
                                     }
                                 }
                             }
                         }
                     }
-                    
+
                     eprintln!("  ⚠️  Drop method {} not found", drop_method);
                 }
             }
@@ -108,7 +114,6 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
     /// Pop a scope and call drop() on all variables (LIFO order)
     pub(crate) fn pop_drop_scope(&mut self) -> Result<(), String> {
-
         // Call drops on current scope
         self.call_scope_drops()?;
 

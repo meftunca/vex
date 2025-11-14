@@ -48,11 +48,12 @@ impl TraitBoundsChecker {
         for item in &program.items {
             if let vex_ast::Item::Struct(struct_def) = item {
                 if !struct_def.impl_traits.is_empty() {
-                    let trait_names: Vec<String> = struct_def.impl_traits.iter()
+                    let trait_names: Vec<String> = struct_def
+                        .impl_traits
+                        .iter()
                         .map(|t| t.name.clone())
                         .collect();
-                    self.type_impls
-                        .insert(struct_def.name.clone(), trait_names);
+                    self.type_impls.insert(struct_def.name.clone(), trait_names);
                 }
             }
         }
@@ -271,8 +272,16 @@ impl TraitBoundsChecker {
     /// Only integer types are allowed (no floats, strings, etc.)
     fn is_valid_const_type(&self, ty: &Type) -> bool {
         match ty {
-            Type::I8 | Type::I16 | Type::I32 | Type::I64 | Type::I128 |
-            Type::U8 | Type::U16 | Type::U32 | Type::U64 | Type::U128 => true,
+            Type::I8
+            | Type::I16
+            | Type::I32
+            | Type::I64
+            | Type::I128
+            | Type::U8
+            | Type::U16
+            | Type::U32
+            | Type::U64
+            | Type::U128 => true,
             Type::Named(name) if name == "usize" || name == "isize" => true,
             _ => false,
         }
@@ -292,11 +301,9 @@ impl TraitBoundsChecker {
             match predicate {
                 WhereClausePredicate::TypeBound { type_param, bounds } => {
                     // Get the concrete type for this type parameter
-                    let concrete_type = type_substitutions
-                        .get(type_param)
-                        .ok_or_else(|| {
-                            format!("Type parameter '{}' not found in substitutions", type_param)
-                        })?;
+                    let concrete_type = type_substitutions.get(type_param).ok_or_else(|| {
+                        format!("Type parameter '{}' not found in substitutions", type_param)
+                    })?;
 
                     let type_name = self.extract_type_name(concrete_type);
 
@@ -338,11 +345,9 @@ impl TraitBoundsChecker {
                     // 2. Find what T.Item resolves to
                     // 3. Check if that type implements the required traits
 
-                    let concrete_type = type_substitutions
-                        .get(type_param)
-                        .ok_or_else(|| {
-                            format!("Type parameter '{}' not found in substitutions", type_param)
-                        })?;
+                    let concrete_type = type_substitutions.get(type_param).ok_or_else(|| {
+                        format!("Type parameter '{}' not found in substitutions", type_param)
+                    })?;
 
                     // For now, we'll do basic validation
                     // Full implementation would require resolving associated types

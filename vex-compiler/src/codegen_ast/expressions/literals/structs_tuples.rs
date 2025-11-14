@@ -1,6 +1,6 @@
 use super::super::super::ASTCodeGen;
-use inkwell::values::BasicValueEnum;
 use inkwell::types::BasicTypeEnum;
+use inkwell::values::BasicValueEnum;
 use vex_ast::*;
 
 impl<'ctx> ASTCodeGen<'ctx> {
@@ -42,8 +42,14 @@ impl<'ctx> ASTCodeGen<'ctx> {
             .cloned()
             .ok_or_else(|| format!("Struct '{}' not found in registry", actual_struct_name))?;
 
-        eprintln!("🏗️  Compiling struct literal: {}, fields in definition: {:?}", actual_struct_name, struct_def.fields);
-        eprintln!("   Literal fields provided: {:?}", fields.iter().map(|(n, _)| n).collect::<Vec<_>>());
+        eprintln!(
+            "🏗️  Compiling struct literal: {}, fields in definition: {:?}",
+            actual_struct_name, struct_def.fields
+        );
+        eprintln!(
+            "   Literal fields provided: {:?}",
+            fields.iter().map(|(n, _)| n).collect::<Vec<_>>()
+        );
 
         // Build field types and values in the order defined in the struct
         let mut field_types = Vec::new();
@@ -95,9 +101,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
             let field_val = self.compile_expression(&adjusted_field_expr)?;
             let field_llvm_ty = self.ast_type_to_llvm(field_ty);
-            
-            eprintln!("   Field '{}': expr={:?}, compiled_val={:?}", field_name, adjusted_field_expr, field_val);
-            
+
+            eprintln!(
+                "   Field '{}': expr={:?}, compiled_val={:?}",
+                field_name, adjusted_field_expr, field_val
+            );
+
             field_types.push(field_llvm_ty);
 
             // ⭐ CRITICAL: Cast integer literals to match field type width
@@ -148,7 +157,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         // Load the struct value from pointer
                         let field_type = self.ast_type_to_llvm(field_ty);
                         self.builder
-                            .build_load(field_type, casted_field_val.into_pointer_value(), "struct_val")
+                            .build_load(
+                                field_type,
+                                casted_field_val.into_pointer_value(),
+                                "struct_val",
+                            )
                             .map_err(|e| format!("Failed to load struct field value: {}", e))?
                     } else {
                         casted_field_val
@@ -157,7 +170,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 Type::Generic { .. } => {
                     // Generic struct - use mangled name
                     let mangled_name = self.type_to_string(field_ty);
-                    if self.struct_defs.contains_key(&mangled_name) && casted_field_val.is_pointer_value()
+                    if self.struct_defs.contains_key(&mangled_name)
+                        && casted_field_val.is_pointer_value()
                     {
                         let field_type = self.ast_type_to_llvm(field_ty);
                         self.builder
@@ -200,10 +214,14 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 .map_err(|e| format!("Failed to store field: {}", e))?;
         }
 
-        // 5. Return the struct POINTER (zero-copy semantics!)
-        // We return the pointer, not the value - no copy!
-        // The caller can use this pointer directly
-        Ok(struct_ptr.into())
+        // 5. Load and return struct VALUE (not pointer)
+        // Functions expect struct parameters BY VALUE
+        let struct_val = self
+            .builder
+            .build_load(struct_type, struct_ptr, "struct_literal_value")
+            .map_err(|e| format!("Failed to load struct value: {}", e))?;
+
+        Ok(struct_val)
     }
 
     /// Compile tuple literal: (val1, val2, val3, ...)

@@ -147,7 +147,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         expr: &vex_ast::Expression,
     ) -> Result<BasicValueEnum<'ctx>, String> {
         eprintln!("⏸️ compile_await_dispatch: expr={:?}", expr);
-        
+
         // Check if we're inside an async function
         if self.async_state_stack.is_empty() {
             // Not in async context - just compile expression and return it
@@ -163,16 +163,19 @@ impl<'ctx> ASTCodeGen<'ctx> {
             .ok_or("Await outside async context")?;
 
         eprintln!("  Current state ID: {}", current_state_id);
-        eprintln!("  Resume blocks available: {}", self.async_resume_blocks.len());
-        
+        eprintln!(
+            "  Resume blocks available: {}",
+            self.async_resume_blocks.len()
+        );
+
         // Compile the future expression
         let _future_val = self.compile_expression(expr)?;
 
         // Generate next state ID
         let next_state_id = current_state_id + 1;
-        
+
         eprintln!("  Next state ID: {}", next_state_id);
-        
+
         // Get the resume block for this await point (pre-allocated in async function compilation)
         let resume_block = self
             .async_resume_blocks
@@ -186,7 +189,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
         self.builder
             .build_store(
                 state_field_ptr,
-                self.context.i32_type().const_int(next_state_id as u64, false),
+                self.context
+                    .i32_type()
+                    .const_int(next_state_id as u64, false),
             )
             .map_err(|e| format!("Failed to save state: {}", e))?;
 
@@ -201,21 +206,24 @@ impl<'ctx> ASTCodeGen<'ctx> {
         // ⭐ Position builder at resume block - this is where execution continues after yield
         // No need for separate continuation block - resume block IS the continuation
         self.builder.position_at_end(resume_block);
-        
+
         // Verify builder position
-        let current_block_after = self.builder.get_insert_block()
+        let current_block_after = self
+            .builder
+            .get_insert_block()
             .and_then(|bb| bb.get_name().to_str().ok().map(|s| s.to_string()));
         eprintln!("  🔍 Builder positioned at: {:?}", current_block_after);
-        
+
         // Update state machine context with new state ID
         self.async_state_stack.pop();
-        self.async_state_stack.push((state_ptr, state_field_ptr, next_state_id));
+        self.async_state_stack
+            .push((state_ptr, state_field_ptr, next_state_id));
 
         // Ensure resume block gets terminated - if we're here, it means there are more statements
         // coming after this await that will compile into this block and add the terminator
-        
+
         eprintln!("  Returning placeholder value");
-        
+
         // TODO: Load future result from runtime when available
         // For now, return placeholder (0)
         Ok(self.context.i32_type().const_int(0, false).into())

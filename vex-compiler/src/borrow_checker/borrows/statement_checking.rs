@@ -9,19 +9,17 @@ impl BorrowRulesChecker {
     /// Check a statement for borrow rule violations
     pub(super) fn check_statement(&mut self, stmt: &Statement) -> BorrowResult<()> {
         match stmt {
-            Statement::Let { name, value, .. } => {
-                self.check_let_statement(name, value)
-            }
+            Statement::Let { name, value, .. } => self.check_let_statement(name, value),
 
-            Statement::LetPattern { pattern: _, value, .. } => {
+            Statement::LetPattern {
+                pattern: _, value, ..
+            } => {
                 // Check value for borrows
                 self.check_expression_for_borrows(value)?;
                 Ok(())
             }
 
-            Statement::Assign { target, value } => {
-                self.check_assign_statement(target, value)
-            }
+            Statement::Assign { target, value } => self.check_assign_statement(target, value),
 
             Statement::Return(expr_opt) => {
                 if let Some(expr) = expr_opt {
@@ -41,17 +39,13 @@ impl BorrowRulesChecker {
                 then_block,
                 elif_branches,
                 else_block,
-            } => {
-                self.check_if_statement(condition, then_block, elif_branches, else_block)
-            }
+            } => self.check_if_statement(condition, then_block, elif_branches, else_block),
 
             Statement::While {
                 span_id: _,
                 condition,
                 body,
-            } => {
-                self.check_while_statement(condition, body)
-            }
+            } => self.check_while_statement(condition, body),
 
             Statement::For {
                 span_id: _,
@@ -59,25 +53,17 @@ impl BorrowRulesChecker {
                 condition,
                 post,
                 body,
-            } => {
-                self.check_for_statement(init, condition, post, body)
-            }
+            } => self.check_for_statement(init, condition, post, body),
 
-            Statement::ForIn { iterable, body, .. } => {
-                self.check_for_in_statement(iterable, body)
-            }
+            Statement::ForIn { iterable, body, .. } => self.check_for_in_statement(iterable, body),
 
             Statement::Switch {
                 value,
                 cases,
                 default_case,
-            } => {
-                self.check_switch_statement(value, cases, default_case)
-            }
+            } => self.check_switch_statement(value, cases, default_case),
 
-            Statement::Unsafe(block) => {
-                self.check_unsafe_block(block)
-            }
+            Statement::Unsafe(block) => self.check_unsafe_block(block),
 
             _ => Ok(()),
         }
@@ -105,7 +91,11 @@ impl BorrowRulesChecker {
         Ok(())
     }
 
-    fn check_assign_statement(&mut self, target: &Expression, value: &Expression) -> BorrowResult<()> {
+    fn check_assign_statement(
+        &mut self,
+        target: &Expression,
+        value: &Expression,
+    ) -> BorrowResult<()> {
         // Check if we're trying to mutate a borrowed variable
         if let Expression::Ident(var) = target {
             if let Some(borrows) = self.borrowed_vars.get(var) {

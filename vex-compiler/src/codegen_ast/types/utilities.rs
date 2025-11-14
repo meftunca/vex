@@ -148,7 +148,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
     }
 
     /// Approximate size of LLVM type in bits (for Result<T,E> union layout)
-    pub(super) fn approximate_type_size(llvm_ty: &BasicTypeEnum) -> u32 {
+    pub(crate) fn approximate_type_size(llvm_ty: &BasicTypeEnum) -> u32 {
         match llvm_ty {
             BasicTypeEnum::IntType(i) => i.get_bit_width(),
             BasicTypeEnum::FloatType(f) => {

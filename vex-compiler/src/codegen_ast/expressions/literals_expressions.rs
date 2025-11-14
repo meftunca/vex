@@ -73,7 +73,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 }
             }
 
-            vex_ast::Expression::FloatLiteral(f) => Ok(self.context.f64_type().const_float(*f).into()),
+            vex_ast::Expression::FloatLiteral(f) => {
+                Ok(self.context.f64_type().const_float(*f).into())
+            }
 
             vex_ast::Expression::BoolLiteral(b) => {
                 Ok(self.context.bool_type().const_int(*b as u64, false).into())

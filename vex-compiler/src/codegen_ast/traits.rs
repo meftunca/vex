@@ -32,7 +32,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let mut param_offset = 0;
 
         if let Some(ref receiver) = method.receiver {
-            let param_val = fn_val.get_nth_param(0).ok_or("Missing receiver parameter")?;
+            let param_val = fn_val
+                .get_nth_param(0)
+                .ok_or("Missing receiver parameter")?;
             let receiver_ty = self.ast_type_to_llvm(&receiver.ty);
 
             let alloca = self
@@ -50,7 +52,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
             let struct_name_opt = match &receiver.ty {
                 Type::Named(name) => Some(name.clone()),
                 Type::Reference(inner, _) => {
-                    if let Type::Named(name) = &**inner { Some(name.clone()) } else { None }
+                    if let Type::Named(name) = &**inner {
+                        Some(name.clone())
+                    } else {
+                        None
+                    }
                 }
                 _ => None,
             };
@@ -85,10 +91,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Compile method body
         let mut last_expr_value: Option<BasicValueEnum> = None;
-        
+
         for (i, stmt) in method.body.statements.iter().enumerate() {
             let is_last = i == method.body.statements.len() - 1;
-            
+
             // If last statement is expression, save its value for potential implicit return
             if is_last && matches!(stmt, Statement::Expression(_)) && method.return_type.is_some() {
                 if let Statement::Expression(expr) = stmt {
@@ -97,10 +103,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     continue; // Don't compile as statement
                 }
             }
-            
+
             self.compile_statement(stmt)?;
         }
-        
+
         // If we have a last expression value and block is not terminated, use implicit return
         if let Some(return_val) = last_expr_value {
             let is_terminated = if let Some(bb) = self.builder.get_insert_block() {
@@ -108,7 +114,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             } else {
                 false
             };
-            
+
             if !is_terminated {
                 eprintln!("🔄 Implicit return from last expression in function body");
                 self.builder

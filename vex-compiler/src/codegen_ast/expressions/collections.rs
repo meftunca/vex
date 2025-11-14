@@ -111,20 +111,151 @@ impl<'ctx> ASTCodeGen<'ctx> {
     /// Compile array repeat literal
     fn compile_array_repeat_literal(
         &mut self,
-        _value: &vex_ast::Expression,
-        _count: &vex_ast::Expression,
+        value: &vex_ast::Expression,
+        count: &vex_ast::Expression,
     ) -> Result<BasicValueEnum<'ctx>, String> {
-        // TODO: Implement array repeat literal compilation
-        Err("Array repeat literals not yet implemented".to_string())
+        // Compile the value to repeat
+        let elem_value = self.compile_expression(value)?;
+        let elem_type = elem_value.get_type();
+
+        // Evaluate count - must be a constant integer
+        let count_val = self.compile_expression(count)?;
+        
+        // Extract constant count value
+        let repeat_count = if let BasicValueEnum::IntValue(int_val) = count_val {
+            if let Some(const_val) = int_val.get_zero_extended_constant() {
+                const_val
+            } else {
+                return Err("Array repeat count must be a compile-time constant".to_string());
+            }
+        } else {
+            return Err("Array repeat count must be an integer".to_string());
+        };
+
+        if repeat_count == 0 {
+            return Err("Array repeat count must be greater than 0".to_string());
+        }
+
+        if repeat_count > 10000 {
+            return Err("Array repeat count too large (max 10000)".to_string());
+        }
+
+        // Create Vec<T> and fill with repeated values
+        let vec_new_fn = self.get_vex_vec_new();
+        let vec_push_fn = self.get_vex_vec_push();
+
+        // Create new Vec
+        let elem_size = match elem_type {
+            inkwell::types::BasicTypeEnum::IntType(it) => (it.get_bit_width() / 8) as u64,
+            inkwell::types::BasicTypeEnum::FloatType(ft) => {
+                if ft == self.context.f32_type() { 4 } else { 8 }
+            },
+            inkwell::types::BasicTypeEnum::PointerType(_) => 8,
+            inkwell::types::BasicTypeEnum::StructType(_) => 8,
+            _ => 4,
+        };
+
+        let elem_size_val = self.context.i64_type().const_int(elem_size, false);
+        let capacity_val = self.context.i64_type().const_int(repeat_count, false);
+
+        let call_site = self
+            .builder
+            .build_call(vec_new_fn, &[elem_size_val.into(), capacity_val.into()], "vec_repeat")
+            .map_err(|e| format!("Failed to call vex_vec_new: {}", e))?;
+
+        let vec_ptr = call_site.try_as_basic_value().unwrap_basic();
+
+        // Push element repeat_count times
+        for _ in 0..repeat_count {
+            // Cast element to void pointer
+            let elem_ptr = if elem_value.is_pointer_value() {
+                elem_value.into_pointer_value()
+            } else {
+                // Allocate temporary for non-pointer values
+                let temp = self.builder.build_alloca(elem_type.try_into().unwrap(), "temp_elem")
+                    .map_err(|e| format!("Failed to allocate temp: {}", e))?;
+                self.builder.build_store(temp, elem_value)
+                    .map_err(|e| format!("Failed to store temp: {}", e))?;
+                temp
+            };
+
+            let void_ptr = self.builder.build_pointer_cast(
+                elem_ptr,
+                self.context.ptr_type(inkwell::AddressSpace::default()),
+                "elem_void_ptr"
+            ).map_err(|e| format!("Failed to cast element: {}", e))?;
+
+            self.builder
+                .build_call(vec_push_fn, &[vec_ptr.into(), void_ptr.into()], "vec_push_repeat")
+                .map_err(|e| format!("Failed to call vex_vec_push: {}", e))?;
+        }
+
+        Ok(vec_ptr)
     }
 
     /// Compile map literal
     fn compile_map_literal(
         &mut self,
-        _entries: &[(vex_ast::Expression, vex_ast::Expression)],
+        entries: &[(vex_ast::Expression, vex_ast::Expression)],
     ) -> Result<BasicValueEnum<'ctx>, String> {
-        // TODO: Implement map literal compilation
-        Err("Map literals not yet implemented".to_string())
+        // Create new Map using vex_map_new()
+        let map_new_fn = self.get_vex_map_new();
+        let map_insert_fn = self.get_vex_map_insert();
+
+        let call_site = self
+            .builder
+            .build_call(map_new_fn, &[], "map_literal")
+            .map_err(|e| format!("Failed to call vex_map_new: {}", e))?;
+
+        let map_ptr = call_site.try_as_basic_value().unwrap_basic();
+
+        // Insert each key-value pair
+        for (key_expr, value_expr) in entries {
+            // Compile key (must be String)
+            let key_val = self.compile_expression(key_expr)?;
+            
+            // Ensure key is a string pointer
+            let key_ptr = if key_val.is_pointer_value() {
+                key_val.into_pointer_value()
+            } else {
+                return Err("Map literal keys must be strings".to_string());
+            };
+
+            // Compile value
+            let value_val = self.compile_expression(value_expr)?;
+            
+            // Cast value to void pointer
+            let value_ptr = if value_val.is_pointer_value() {
+                value_val.into_pointer_value()
+            } else {
+                // Allocate temporary for non-pointer values (i64, f64, etc.)
+                let temp = self.builder.build_alloca(
+                    value_val.get_type().try_into().unwrap(),
+                    "temp_value"
+                ).map_err(|e| format!("Failed to allocate temp value: {}", e))?;
+                
+                self.builder.build_store(temp, value_val)
+                    .map_err(|e| format!("Failed to store temp value: {}", e))?;
+                temp
+            };
+
+            let void_ptr = self.builder.build_pointer_cast(
+                value_ptr,
+                self.context.ptr_type(inkwell::AddressSpace::default()),
+                "value_void_ptr"
+            ).map_err(|e| format!("Failed to cast value: {}", e))?;
+
+            // Call vex_map_insert(map, key, value)
+            self.builder
+                .build_call(
+                    map_insert_fn,
+                    &[map_ptr.into(), key_ptr.into(), void_ptr.into()],
+                    "map_insert_literal"
+                )
+                .map_err(|e| format!("Failed to call vex_map_insert: {}", e))?;
+        }
+
+        Ok(map_ptr)
     }
 
     /// Compile tuple literal

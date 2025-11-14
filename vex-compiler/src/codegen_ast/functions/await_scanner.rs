@@ -6,11 +6,11 @@ use vex_ast::{Block, Expression, Statement};
 /// Count total number of await expressions in a block (recursive)
 pub(crate) fn count_await_points(block: &Block) -> usize {
     let mut count = 0;
-    
+
     for statement in &block.statements {
         count += count_await_in_statement(statement);
     }
-    
+
     count
 }
 
@@ -28,7 +28,13 @@ fn count_await_in_statement(stmt: &Statement) -> usize {
         Statement::Return(Some(expr)) => count_await_in_expression(expr),
         Statement::Return(None) | Statement::Break | Statement::Continue => 0,
         Statement::Expression(expr) => count_await_in_expression(expr),
-        Statement::If { condition, then_block, elif_branches, else_block, .. } => {
+        Statement::If {
+            condition,
+            then_block,
+            elif_branches,
+            else_block,
+            ..
+        } => {
             let mut count = count_await_in_expression(condition);
             count += count_await_points(then_block);
             for (elif_cond, elif_block) in elif_branches {
@@ -40,10 +46,16 @@ fn count_await_in_statement(stmt: &Statement) -> usize {
             }
             count
         }
-        Statement::While { condition, body, .. } => {
-            count_await_in_expression(condition) + count_await_points(body)
-        }
-        Statement::For { init, condition, post, body, .. } => {
+        Statement::While {
+            condition, body, ..
+        } => count_await_in_expression(condition) + count_await_points(body),
+        Statement::For {
+            init,
+            condition,
+            post,
+            body,
+            ..
+        } => {
             let mut count = 0;
             if let Some(init_stmt) = init {
                 count += count_await_in_statement(init_stmt);
@@ -62,7 +74,11 @@ fn count_await_in_statement(stmt: &Statement) -> usize {
         }
         Statement::Defer(stmt) => count_await_in_statement(stmt),
         Statement::Loop { body } => count_await_points(body),
-        Statement::Switch { value, cases, default_case } => {
+        Statement::Switch {
+            value,
+            cases,
+            default_case,
+        } => {
             let mut count = 0;
             if let Some(v) = value {
                 count += count_await_in_expression(v);
@@ -78,9 +94,7 @@ fn count_await_in_statement(stmt: &Statement) -> usize {
             }
             count
         }
-        Statement::Select { cases } => {
-            cases.iter().map(|c| count_await_points(&c.body)).sum()
-        }
+        Statement::Select { cases } => cases.iter().map(|c| count_await_points(&c.body)).sum(),
         Statement::Go(expr) => count_await_in_expression(expr),
         Statement::Unsafe(block) => count_await_points(block),
     }
@@ -91,7 +105,7 @@ fn count_await_in_expression(expr: &Expression) -> usize {
     match expr {
         // ⭐ KEY: Await expression found!
         Expression::Await(inner) => 1 + count_await_in_expression(inner),
-        
+
         // Literals - no await
         Expression::IntLiteral(_)
         | Expression::BigIntLiteral(_)
@@ -101,17 +115,17 @@ fn count_await_in_expression(expr: &Expression) -> usize {
         | Expression::BoolLiteral(_)
         | Expression::Nil
         | Expression::Ident(_) => 0,
-        
+
         // Binary operations
         Expression::Binary { left, right, .. } => {
             count_await_in_expression(left) + count_await_in_expression(right)
         }
-        
+
         // Unary operations
         Expression::Unary { expr, .. } => count_await_in_expression(expr),
         Expression::Deref(expr) => count_await_in_expression(expr),
         Expression::Reference { expr, .. } => count_await_in_expression(expr),
-        
+
         // Function/method calls
         Expression::Call { func, args, .. } => {
             let mut count = count_await_in_expression(func);
@@ -127,35 +141,33 @@ fn count_await_in_expression(expr: &Expression) -> usize {
             }
             count
         }
-        
+
         // Field/index access
         Expression::FieldAccess { object, .. } => count_await_in_expression(object),
         Expression::Index { object, index } => {
             count_await_in_expression(object) + count_await_in_expression(index)
         }
-        
+
         // Collections
-        Expression::Array(elements) => {
-            elements.iter().map(|e| count_await_in_expression(e)).sum()
-        }
+        Expression::Array(elements) => elements.iter().map(|e| count_await_in_expression(e)).sum(),
         Expression::ArrayRepeat(value, count_expr) => {
             count_await_in_expression(value) + count_await_in_expression(count_expr)
         }
-        Expression::MapLiteral(pairs) => {
-            pairs.iter().map(|(k, v)| {
-                count_await_in_expression(k) + count_await_in_expression(v)
-            }).sum()
-        }
+        Expression::MapLiteral(pairs) => pairs
+            .iter()
+            .map(|(k, v)| count_await_in_expression(k) + count_await_in_expression(v))
+            .sum(),
         Expression::TupleLiteral(elements) => {
             elements.iter().map(|e| count_await_in_expression(e)).sum()
         }
-        Expression::StructLiteral { fields, .. } => {
-            fields.iter().map(|(_, expr)| count_await_in_expression(expr)).sum()
-        }
+        Expression::StructLiteral { fields, .. } => fields
+            .iter()
+            .map(|(_, expr)| count_await_in_expression(expr))
+            .sum(),
         Expression::EnumLiteral { data, .. } => {
             data.iter().map(|e| count_await_in_expression(e)).sum()
         }
-        
+
         // Ranges
         Expression::Range { start, end } | Expression::RangeInclusive { start, end } => {
             let mut count = 0;
@@ -167,7 +179,7 @@ fn count_await_in_expression(expr: &Expression) -> usize {
             }
             count
         }
-        
+
         // Control flow
         Expression::Match { value, arms } => {
             let mut count = count_await_in_expression(value);
@@ -179,7 +191,10 @@ fn count_await_in_expression(expr: &Expression) -> usize {
             }
             count
         }
-        Expression::Block { statements, return_expr } => {
+        Expression::Block {
+            statements,
+            return_expr,
+        } => {
             let mut count = 0;
             for stmt in statements {
                 count += count_await_in_statement(stmt);
@@ -189,7 +204,10 @@ fn count_await_in_expression(expr: &Expression) -> usize {
             }
             count
         }
-        Expression::AsyncBlock { statements, return_expr } => {
+        Expression::AsyncBlock {
+            statements,
+            return_expr,
+        } => {
             // Nested async block - count its await points too
             let mut count = 0;
             for stmt in statements {
@@ -200,7 +218,7 @@ fn count_await_in_expression(expr: &Expression) -> usize {
             }
             count
         }
-        
+
         // Other expressions
         Expression::Cast { expr, .. } => count_await_in_expression(expr),
         Expression::QuestionMark(expr) => count_await_in_expression(expr),
@@ -209,7 +227,7 @@ fn count_await_in_expression(expr: &Expression) -> usize {
         Expression::ErrorNew(expr) => count_await_in_expression(expr),
         Expression::New(expr) => count_await_in_expression(expr),
         Expression::Make { size, .. } => count_await_in_expression(size),
-        
+
         // HPC - launch
         Expression::Launch { grid, args, .. } => {
             let mut count = 0;
@@ -221,13 +239,13 @@ fn count_await_in_expression(expr: &Expression) -> usize {
             }
             count
         }
-        
+
         // Closures
         Expression::Closure { body, .. } => count_await_in_expression(body),
-        
+
         // Channel operations
         Expression::ChannelReceive(expr) => count_await_in_expression(expr),
-        
+
         // Type constructors
         Expression::TypeConstructor { args, .. } => {
             args.iter().map(|e| count_await_in_expression(e)).sum()
@@ -238,20 +256,20 @@ fn count_await_in_expression(expr: &Expression) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_count_simple_await() {
         let expr = Expression::Await(Box::new(Expression::Ident("future".to_string())));
         assert_eq!(count_await_in_expression(&expr), 1);
     }
-    
+
     #[test]
     fn test_count_nested_await() {
         let inner = Expression::Await(Box::new(Expression::Ident("f1".to_string())));
         let outer = Expression::Await(Box::new(inner));
         assert_eq!(count_await_in_expression(&outer), 2);
     }
-    
+
     #[test]
     fn test_count_binary_with_await() {
         let left = Expression::Await(Box::new(Expression::Ident("f1".to_string())));

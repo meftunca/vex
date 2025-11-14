@@ -236,7 +236,6 @@ pub fn apply_policy_hierarchy_to_fields(
     let mut visited = HashSet::new();
     let hierarchy = resolve_policy_hierarchy(policy, all_policies, &mut visited)?;
 
-  
     // Apply policies in order (parent first, child overrides)
     let mut field_metadata: HashMap<String, HashMap<String, String>> = HashMap::new();
     let mut all_warnings: HashMap<String, Vec<String>> = HashMap::new();

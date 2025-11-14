@@ -5,7 +5,10 @@ use tower_lsp::lsp_types::*;
 use super::VexBackend;
 
 impl VexBackend {
-    pub async fn formatting(&self, params: DocumentFormattingParams) -> tower_lsp::jsonrpc::Result<Option<Vec<TextEdit>>> {
+    pub async fn formatting(
+        &self,
+        params: DocumentFormattingParams,
+    ) -> tower_lsp::jsonrpc::Result<Option<Vec<TextEdit>>> {
         let uri = params.text_document.uri.to_string();
 
         // Get document text

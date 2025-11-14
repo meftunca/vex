@@ -55,25 +55,19 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     .build_call(strcmp_fn, &[l.into(), r.into()], "strcmp_result")
                     .map_err(|e| format!("Failed to call vex_strcmp: {}", e))?;
 
-                let cmp_value = cmp_result.try_as_basic_value().unwrap_basic()
+                let cmp_value = cmp_result
+                    .try_as_basic_value()
+                    .unwrap_basic()
                     .into_int_value();
 
                 // vex_strcmp returns 0 if equal
                 let zero = self.context.i32_type().const_int(0, false);
                 let result = if matches!(op, BinaryOp::Eq) {
-                    self.builder.build_int_compare(
-                        IntPredicate::EQ,
-                        cmp_value,
-                        zero,
-                        "streq",
-                    )
+                    self.builder
+                        .build_int_compare(IntPredicate::EQ, cmp_value, zero, "streq")
                 } else {
-                    self.builder.build_int_compare(
-                        IntPredicate::NE,
-                        cmp_value,
-                        zero,
-                        "strne",
-                    )
+                    self.builder
+                        .build_int_compare(IntPredicate::NE, cmp_value, zero, "strne")
                 }
                 .map_err(|e| format!("Failed to compare strcmp result: {}", e))?;
 

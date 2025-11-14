@@ -1,6 +1,7 @@
 // Method argument compilation and loading
 
 use crate::codegen_ast::ASTCodeGen;
+use inkwell::types::BasicTypeEnum;
 use inkwell::values::{BasicMetadataValueEnum, BasicValueEnum};
 use vex_ast::*;
 
@@ -9,7 +10,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
     pub(crate) fn compile_method_arguments(
         &mut self,
         method_name: &str,
-        receiver: &Expression,
+        _receiver: &Expression,
         receiver_val: inkwell::values::PointerValue<'ctx>,
         args: &[Expression],
     ) -> Result<Vec<BasicMetadataValueEnum<'ctx>>, String> {
@@ -25,8 +26,18 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         for (arg_idx, arg) in args.iter().enumerate() {
             eprintln!("📝 Compiling arg {}: {:?}", arg_idx, arg);
-            let val = self.compile_expression(arg)?;
+            let mut val = self.compile_expression(arg)?;
             eprintln!("📝 Arg {} compiled: {:?}", arg_idx, val);
+
+            if let Some(expected_ty) = self
+                .function_defs
+                .get(method_name)
+                .and_then(|func_def| func_def.params.get(arg_idx))
+                .map(|param| param.ty.clone())
+            {
+                let source_ty = self.infer_expression_type(arg)?;
+                val = self.align_method_arg_numeric_type(val, &source_ty, &expected_ty)?;
+            }
 
             // Handle struct arguments (pass by value)
             let processed_val = self.process_method_argument(method_name, arg_idx, val)?;
@@ -34,6 +45,76 @@ impl<'ctx> ASTCodeGen<'ctx> {
         }
 
         Ok(arg_vals)
+    }
+
+    fn align_method_arg_numeric_type(
+        &mut self,
+        value: BasicValueEnum<'ctx>,
+        source_type: &Type,
+        expected_type: &Type,
+    ) -> Result<BasicValueEnum<'ctx>, String> {
+        if !(self.is_integer_type(source_type) && self.is_integer_type(expected_type)) {
+            return Ok(value);
+        }
+
+        let BasicValueEnum::IntValue(int_val) = value else {
+            return Ok(value);
+        };
+
+        let target_llvm = self.ast_type_to_llvm(expected_type);
+        let BasicTypeEnum::IntType(target_int_type) = target_llvm else {
+            return Ok(int_val.into());
+        };
+
+        let src_bits = int_val.get_type().get_bit_width();
+        let dst_bits = target_int_type.get_bit_width();
+        if src_bits == dst_bits {
+            return Ok(int_val.into());
+        }
+
+        let source_is_unsigned = self.is_unsigned_integer_type(source_type);
+        if src_bits < dst_bits {
+            let casted = if source_is_unsigned {
+                self.builder
+                    .build_int_z_extend(int_val, target_int_type, "method_arg_zext")
+                    .map_err(|e| format!("Failed to zero-extend method arg: {}", e))?
+            } else {
+                self.builder
+                    .build_int_s_extend(int_val, target_int_type, "method_arg_sext")
+                    .map_err(|e| format!("Failed to sign-extend method arg: {}", e))?
+            };
+            Ok(casted.into())
+        } else {
+            let truncated = self
+                .builder
+                .build_int_truncate(int_val, target_int_type, "method_arg_trunc")
+                .map_err(|e| format!("Failed to truncate method arg: {}", e))?;
+            Ok(truncated.into())
+        }
+    }
+
+    fn is_integer_type(&self, ty: &Type) -> bool {
+        matches!(
+            ty,
+            Type::I8
+                | Type::I16
+                | Type::I32
+                | Type::I64
+                | Type::I128
+                | Type::U8
+                | Type::U16
+                | Type::U32
+                | Type::U64
+                | Type::U128
+                | Type::Bool
+        )
+    }
+
+    fn is_unsigned_integer_type(&self, ty: &Type) -> bool {
+        matches!(
+            ty,
+            Type::U8 | Type::U16 | Type::U32 | Type::U64 | Type::U128 | Type::Bool
+        )
     }
 
     /// Compile receiver argument with proper loading for external methods

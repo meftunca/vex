@@ -68,13 +68,23 @@ pub fn builtin_option_some<'ctx>(
 /// Memory layout: { u8 tag, T padding }
 pub fn builtin_option_none<'ctx>(
     codegen: &mut ASTCodeGen<'ctx>,
-    _args: &[BasicValueEnum<'ctx>],
+    args: &[BasicValueEnum<'ctx>],
 ) -> Result<BasicValueEnum<'ctx>, String> {
-    // None has no arguments, but we need to infer T from context
-    // For now, create Option<i32> with tag=0
-    // TODO: Type inference from context
+    // None can have explicit type arg: None<i32>()
+    // If args provided, it's a type parameter representation (LLVM type as value)
+    // Otherwise we create a generic None with pointer-sized padding
 
-    let value_type = codegen.context.i32_type(); // Default to i32
+    let value_type = if args.len() == 1 {
+        // Explicit type provided as type parameter
+        args[0].get_type()
+    } else {
+        // No type provided - use pointer size as generic placeholder
+        // This allows None to work in any context without type info
+        codegen
+            .context
+            .ptr_type(inkwell::AddressSpace::default())
+            .into()
+    };
 
     // Allocate Option<T> on stack
     let option_type = codegen.context.struct_type(
@@ -126,15 +136,25 @@ pub fn builtin_result_ok<'ctx>(
     let ok_value = args[0];
     let ok_type = ok_value.get_type();
 
-    // For now, assume error type is also same as ok type (simplification)
-    // TODO: Infer error type from context
-    let _err_type = ok_type;
+    // Error type can be provided as second type arg, or default to pointer-sized
+    let _err_type = if args.len() >= 2 {
+        args[1].get_type()
+    } else {
+        // Default to pointer type for generic compatibility
+        codegen
+            .context
+            .ptr_type(inkwell::AddressSpace::default())
+            .into()
+    };
 
-    // Result<T,E> layout: { i32 tag, T ok_or_err }
+    // Result<T,E> layout: { i32 tag, union { T, E } }
+    // Use ok_type as union (simplified - proper union would need size calculation)
+    let union_type = ok_type;
+
     let result_type = codegen.context.struct_type(
         &[
             codegen.context.i32_type().into(), // tag
-            ok_type,                           // ok value (union with err)
+            union_type,                        // union field (max of T and E)
         ],
         false,
     );
@@ -188,15 +208,25 @@ pub fn builtin_result_err<'ctx>(
     let err_value = args[0];
     let err_type = err_value.get_type();
 
-    // For now, assume ok type is also same as err type (simplification)
-    // TODO: Infer ok type from context
-    let value_type = err_type;
+    // Ok type can be provided as second type arg, or default to pointer-sized
+    let _ok_type = if args.len() >= 2 {
+        args[1].get_type()
+    } else {
+        // Default to pointer type for generic compatibility
+        codegen
+            .context
+            .ptr_type(inkwell::AddressSpace::default())
+            .into()
+    };
 
-    // Result<T,E> layout: { i32 tag, T ok_or_err }
+    // Result<T,E> layout: { i32 tag, union { T, E } }
+    // Use err_type as union (simplified - proper union would need size calculation)
+    let union_type = err_type;
+
     let result_type = codegen.context.struct_type(
         &[
             codegen.context.i32_type().into(), // tag
-            value_type,                        // err value (union with ok)
+            union_type,                        // union field (max of T and E)
         ],
         false,
     );

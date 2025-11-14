@@ -141,6 +141,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
             "  📋 Concrete method receiver: {:?}",
             concrete_method.receiver
         );
+        eprintln!(
+            "  ⭐ Concrete method return type: {:?}",
+            concrete_method.return_type
+        );
         for (i, param) in concrete_method.params.iter().enumerate() {
             eprintln!("    Param {}: {} : {:?}", i, param.name, param.ty);
         }
@@ -405,7 +409,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     }
                 }
             }
-        }        // Restore previous context before propagating errors
+        } // Restore previous context before propagating errors
         self.current_function = saved_current_function;
         self.variables = saved_variables;
         self.variable_types = saved_variable_types;

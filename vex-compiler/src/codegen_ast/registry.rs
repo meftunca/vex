@@ -9,10 +9,13 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let resolved_type = self.resolve_type(&type_alias.ty);
         self.type_aliases
             .insert(type_alias.name.clone(), resolved_type);
-        
+
         if !type_alias.type_params.is_empty() {
-            eprintln!("📋 Registered generic type alias: {} with {} params", 
-                      type_alias.name, type_alias.type_params.len());
+            eprintln!(
+                "📋 Registered generic type alias: {} with {} params",
+                type_alias.name,
+                type_alias.type_params.len()
+            );
         }
         Ok(())
     }
@@ -22,22 +25,21 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // ⭐ LAYER 1 PROTECTION: Prevent redefinition of core stdlib types
         // These are fundamental types that must not be shadowed by user code
-        const RESERVED_STDLIB_TYPES: &[&str] = &["Vec", "Box", "Option", "Result", "String", "Channel"];
-        
+        const RESERVED_STDLIB_TYPES: &[&str] =
+            &["Vec", "Box", "Option", "Result", "String", "Channel"];
+
         if RESERVED_STDLIB_TYPES.contains(&struct_def.name.as_str()) {
             // Check if already registered (from stdlib prelude)
             if self.struct_ast_defs.contains_key(&struct_def.name) {
                 // Get the existing definition to check if it's from stdlib or user
                 let existing = self.struct_ast_defs.get(&struct_def.name).unwrap();
-                
+
                 // Compare field signatures - if different, it's a user redefinition
-                let existing_fields: Vec<String> = existing.fields.iter()
-                    .map(|f| f.name.clone())
-                    .collect();
-                let new_fields: Vec<String> = struct_def.fields.iter()
-                    .map(|f| f.name.clone())
-                    .collect();
-                
+                let existing_fields: Vec<String> =
+                    existing.fields.iter().map(|f| f.name.clone()).collect();
+                let new_fields: Vec<String> =
+                    struct_def.fields.iter().map(|f| f.name.clone()).collect();
+
                 if existing_fields != new_fields {
                     return Err(format!(
                         "Cannot redefine stdlib type '{}'. This is a reserved Layer 1 type.\n\
@@ -50,7 +52,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         new_fields
                     ));
                 }
-                
+
                 // Same signature - allow (duplicate import from stdlib, harmless)
                 return Ok(());
             }
@@ -104,7 +106,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
         Ok(())
     }
 
-    pub(crate) fn register_trait_impl(&mut self, trait_impl: &ExternalTraitImpl) -> Result<(), String> {
+    pub(crate) fn register_trait_impl(
+        &mut self,
+        trait_impl: &ExternalTraitImpl,
+    ) -> Result<(), String> {
         let type_name = match &trait_impl.for_type {
             Type::Named(name) => name.clone(),
             _ => {
@@ -287,7 +292,6 @@ impl<'ctx> ASTCodeGen<'ctx> {
             return Ok(()); // No policies and no inline metadata
         }
 
-
         // Get struct field names
         let field_names: Vec<String> = struct_def.fields.iter().map(|f| f.name.clone()).collect();
 
@@ -299,9 +303,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Step 1: Apply policies (if any)
         if !struct_def.policies.is_empty() {
-
             for policy_name in &struct_def.policies {
-
                 // Apply policy with full hierarchy (parents + current)
                 let field_results =
                     apply_policy_hierarchy_to_fields(policy_name, &self.policy_defs, &field_names)?;
@@ -341,10 +343,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
         // Step 2: Apply inline metadata (overrides policy metadata)
         let has_inline = struct_def.fields.iter().any(|f| f.metadata.is_some());
         if has_inline {
-
             for field in &struct_def.fields {
                 if let Some(inline_metadata_str) = &field.metadata {
-
                     // Parse inline metadata
                     match parse_metadata(inline_metadata_str) {
                         Ok(inline_meta) => {
@@ -376,13 +376,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }
         }
 
-
         // Store merged_metadata in struct registry for runtime access
         if !merged_metadata.is_empty() {
             self.struct_metadata
                 .insert(struct_def.name.clone(), merged_metadata.clone());
 
- 
             for (field_name, field_meta) in &merged_metadata {
                 let meta_str: Vec<String> = field_meta
                     .iter()

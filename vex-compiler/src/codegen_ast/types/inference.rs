@@ -4,7 +4,7 @@ use vex_ast::*;
 
 impl<'ctx> ASTCodeGen<'ctx> {
     /// ⭐ Phase 1: Enhanced type inference with context propagation
-    /// 
+    ///
     /// This enhances the existing `infer_expression_type` by using:
     /// 1. variable_concrete_types for known variable types
     /// 2. expected_type for bidirectional inference
@@ -20,17 +20,22 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 if let Some(ty) = self.variable_concrete_types.get(name) {
                     return Ok(ty.clone());
                 }
-                
+
                 // Fallback to existing variable_ast_types
                 if let Some(ty) = self.variable_ast_types.get(name) {
                     return Ok(ty.clone());
                 }
-                
+
                 // Fallback to basic type inference
                 self.infer_expression_type(expr)
             }
-            
-            Expression::Call { func, type_args, args, .. } => {
+
+            Expression::Call {
+                func,
+                type_args,
+                args,
+                ..
+            } => {
                 // Check if this is a constructor call: Vec<i32>() or Vec()
                 if let Expression::Ident(name) = func.as_ref() {
                     if self.struct_ast_defs.contains_key(name) {
@@ -44,48 +49,58 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         } else {
                             // No type args: Vec()
                             // Try to infer from expected_type
-                            if let Some(Type::Generic { name: expected_name, type_args: expected_args }) = expected_type {
+                            if let Some(Type::Generic {
+                                name: expected_name,
+                                type_args: expected_args,
+                            }) = expected_type
+                            {
                                 if expected_name == name {
                                     return Ok(expected_type.unwrap().clone());
                                 }
                             }
-                            
+
                             // Cannot infer yet - return placeholder with Unknown
                             // Will be resolved in unification phase
                             if let Some(struct_def) = self.struct_ast_defs.get(name) {
-                                let unknown_args = vec![Type::Unknown; struct_def.type_params.len()];
+                                let unknown_args =
+                                    vec![Type::Unknown; struct_def.type_params.len()];
                                 return Ok(Type::Generic {
                                     name: name.clone(),
                                     type_args: unknown_args,
                                 });
                             }
-                            
+
                             // Not a generic struct - just named type
                             return Ok(Type::Named(name.clone()));
                         }
                     }
                 }
-                
+
                 // Fallback to existing logic
                 self.infer_expression_type(expr)
             }
-            
-            Expression::MethodCall { receiver, method, args, .. } => {
+
+            Expression::MethodCall {
+                receiver,
+                method,
+                args,
+                ..
+            } => {
                 // Infer receiver type (this may contain Unknown)
                 let receiver_type = self.infer_expression_type_with_context(receiver, None)?;
-                
+
                 // Try to infer more specific type from method signature
                 // This is deferred - we just return receiver_type for now
                 Ok(receiver_type)
             }
-            
+
             _ => {
                 // For all other expressions, use existing inference
                 self.infer_expression_type(expr)
             }
         }
     }
-    
+
     /// Check if a type contains Type::Unknown
     pub fn contains_unknown(&self, ty: &Type) -> bool {
         match ty {
@@ -93,13 +108,14 @@ impl<'ctx> ASTCodeGen<'ctx> {
             Type::Generic { type_args, .. } => {
                 type_args.iter().any(|arg| self.contains_unknown(arg))
             }
-            Type::Function { params, return_type } => {
-                params.iter().any(|p| self.contains_unknown(p)) ||
-                self.contains_unknown(return_type)
+            Type::Function {
+                params,
+                return_type,
+            } => {
+                params.iter().any(|p| self.contains_unknown(p))
+                    || self.contains_unknown(return_type)
             }
-            Type::Tuple(types) => {
-                types.iter().any(|t| self.contains_unknown(t))
-            }
+            Type::Tuple(types) => types.iter().any(|t| self.contains_unknown(t)),
             Type::Array(elem_ty, _) => self.contains_unknown(elem_ty),
             Type::RawPtr { inner, .. } => self.contains_unknown(inner),
             Type::Reference(inner, _) => self.contains_unknown(inner),
@@ -113,7 +129,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             _ => false,
         }
     }
-    
+
     pub(crate) fn infer_expression_type(&self, expr: &Expression) -> Result<Type, String> {
         let result = match expr {
             Expression::IntLiteral(_) => Ok(Type::I32),
@@ -197,7 +213,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             Expression::FieldAccess { object, field } => {
                 // Infer type of field access (self.x, obj.field)
                 let base_type = self.infer_expression_type(object)?;
-                
+
                 // Get struct definition to find field type
                 // Handle both Named and Reference(Named)
                 let struct_name = match &base_type {
@@ -210,7 +226,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     }
                     _ => return Ok(Type::I32), // Fallback
                 };
-                
+
                 if let Some(struct_def) = self.struct_ast_defs.get(&struct_name) {
                     // Find field in struct definition
                     for field_def in &struct_def.fields {
@@ -219,34 +235,31 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         }
                     }
                 }
-                
+
                 Ok(Type::I32) // Fallback if field not found
             }
             Expression::Binary { left, op, .. } => {
                 // For binary operators, infer based on left operand and operator
                 let left_type = self.infer_expression_type(left)?;
-                
+
                 match op {
                     // Comparison operators always return bool
-                    BinaryOp::Eq | BinaryOp::NotEq | 
-                    BinaryOp::Lt | BinaryOp::LtEq |
-                    BinaryOp::Gt | BinaryOp::GtEq => {
-                        Ok(Type::Bool)
-                    }
+                    BinaryOp::Eq
+                    | BinaryOp::NotEq
+                    | BinaryOp::Lt
+                    | BinaryOp::LtEq
+                    | BinaryOp::Gt
+                    | BinaryOp::GtEq => Ok(Type::Bool),
                     // Logical operators return bool
-                    BinaryOp::And | BinaryOp::Or => {
-                        Ok(Type::Bool)
-                    }
+                    BinaryOp::And | BinaryOp::Or => Ok(Type::Bool),
                     // Range operators need special handling (TODO: return Range<T>)
                     BinaryOp::Range | BinaryOp::RangeInclusive => {
                         Ok(left_type) // Placeholder
                     }
                     // Null coalesce returns left type
-                    BinaryOp::NullCoalesce => {
-                        Ok(left_type)
-                    }
+                    BinaryOp::NullCoalesce => Ok(left_type),
                     // Arithmetic/bitwise operators preserve operand type
-                    _ => Ok(left_type)
+                    _ => Ok(left_type),
                 }
             }
             Expression::Unary { expr, .. } => {
@@ -254,40 +267,114 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 // (Neg returns same type, Not returns bool, BitNot returns same type)
                 self.infer_expression_type(expr)
             }
-            Expression::MethodCall { receiver, method, .. } => {
+            Expression::MethodCall {
+                receiver, method, ..
+            } => {
                 // Infer return type of method call
                 // First get receiver type
                 let receiver_type = self.infer_expression_type(receiver)?;
-                
-                // Get struct name
-                let struct_name = match &receiver_type {
-                    Type::Named(name) => name.clone(),
-                    Type::Generic { name, .. } => name.clone(),
+
+                // Get struct name and extract type arguments
+                let (struct_name, type_args) = match &receiver_type {
+                    Type::Named(name) => (name.clone(), vec![]),
+                    Type::Generic { name, type_args } => (name.clone(), type_args.clone()),
                     _ => return Ok(Type::I32), // Fallback for primitives
                 };
-                
-                // Look up method signature in struct definition
-                if let Some(struct_def) = self.struct_ast_defs.get(&struct_name) {
-                    for method_def in &struct_def.methods {
-                        if method_def.name == *method {
-                            return Ok(method_def.return_type.clone().unwrap_or(Type::I32));
+
+                eprintln!(
+                    "🔍 TYPE INFERENCE for {}.{}: receiver_type={:?}, type_args={:?}",
+                    struct_name, method, receiver_type, type_args
+                );
+
+                // ⭐ CRITICAL: For generic types like Vec<i32>, construct the instantiated method name
+                // E.g., Vec<i32>.get() -> look up Vec_i32_get, NOT Vec_get!
+                let instantiated_method_name = if !type_args.is_empty() {
+                    // Mangle struct name with type args: Vec<i32> -> Vec_i32
+                    let type_arg_strs: Vec<String> = type_args
+                        .iter()
+                        .map(|ty| match ty {
+                            Type::I32 => "i32".to_string(),
+                            Type::I64 => "i64".to_string(),
+                            Type::F32 => "f32".to_string(),
+                            Type::F64 => "f64".to_string(),
+                            Type::Bool => "bool".to_string(),
+                            Type::String => "String".to_string(),
+                            Type::Named(n) => n.clone(),
+                            _ => "unknown".to_string(),
+                        })
+                        .collect();
+                    let mangled_struct = format!("{}_{}", struct_name, type_arg_strs.join("_"));
+                    format!("{}_{}", mangled_struct, method)
+                } else {
+                    format!("{}_{}", struct_name, method)
+                };
+
+                eprintln!(
+                    "🔍 Looking for instantiated method: {}",
+                    instantiated_method_name
+                );
+
+                // ⭐ Try all overload patterns for the instantiated method name
+                let method_name_patterns = vec![
+                    instantiated_method_name.clone(),
+                    format!("{}.4", instantiated_method_name),
+                    format!("{}.7", instantiated_method_name),
+                    format!("{}.10", instantiated_method_name),
+                ];
+
+                for pattern in &method_name_patterns {
+                    if let Some(func_def) = self.function_defs.get(pattern) {
+                        if let Some(ret_ty) = &func_def.return_type {
+                            eprintln!(
+                                "✅ Found instantiated method {} with return type {:?}",
+                                pattern, ret_ty
+                            );
+
+                            // ⭐ Substitute generic type parameters: T -> i32 for Vec<i32>
+                            let concrete_ret_ty =
+                                self.substitute_type_params(ret_ty, &type_args, &struct_name)?;
+                            eprintln!("   → After substitution: {:?}", concrete_ret_ty);
+                            return Ok(concrete_ret_ty);
                         }
                     }
                 }
-                
+
+                // Look up method signature in struct definition (old-style inline methods)
+                if let Some(struct_def) = self.struct_ast_defs.get(&struct_name) {
+                    for method_def in &struct_def.methods {
+                        if method_def.name == *method {
+                            let ret_ty = method_def.return_type.clone().unwrap_or(Type::I32);
+                            let concrete_ret_ty =
+                                self.substitute_type_params(&ret_ty, &type_args, &struct_name)?;
+                            return Ok(concrete_ret_ty);
+                        }
+                    }
+                }
+
                 // Check trait implementations
                 for (impl_type, impl_trait) in self.trait_impls.keys() {
                     if impl_type == &struct_name {
                         if let Some(trait_def) = self.trait_defs.get(impl_trait) {
                             for method_sig in &trait_def.methods {
                                 if method_sig.name == *method {
-                                    return Ok(method_sig.return_type.clone().unwrap_or(Type::I32));
+                                    let ret_ty =
+                                        method_sig.return_type.clone().unwrap_or(Type::I32);
+                                    let concrete_ret_ty = self.substitute_type_params(
+                                        &ret_ty,
+                                        &type_args,
+                                        &struct_name,
+                                    )?;
+                                    return Ok(concrete_ret_ty);
                                 }
                             }
                         }
                     }
                 }
-                
+
+                eprintln!(
+                    "⚠️  Method {} not found for struct {}, falling back to i32",
+                    method, struct_name
+                );
                 Ok(Type::I32) // Fallback
             }
             Expression::Typeof(_) => {
@@ -299,16 +386,19 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 match func.as_ref() {
                     Expression::Ident(func_name) => {
                         // Builtin string conversion functions return String
-                        if func_name == "i32_to_string" || func_name == "f64_to_string" || 
-                           func_name == "bool_to_string" || func_name.ends_with("_to_string") {
+                        if func_name == "i32_to_string"
+                            || func_name == "f64_to_string"
+                            || func_name == "bool_to_string"
+                            || func_name.ends_with("_to_string")
+                        {
                             return Ok(Type::String);
                         }
-                        
+
                         // Check function definitions we've compiled
                         if let Some(func_def) = self.function_defs.get(func_name.as_str()) {
                             return Ok(func_def.return_type.clone().unwrap_or(Type::I32));
                         }
-                        
+
                         Ok(Type::I32) // Fallback
                     }
                     _ => Ok(Type::I32),
@@ -319,4 +409,38 @@ impl<'ctx> ASTCodeGen<'ctx> {
         result
     }
 
+    /// Substitute generic type parameters (e.g., T) with concrete types (e.g., i32)
+    /// For Vec<i32>.get() returning T → returns i32
+    fn substitute_type_params(
+        &self,
+        ty: &Type,
+        type_args: &[Type],
+        _struct_name: &str,
+    ) -> Result<Type, String> {
+        match ty {
+            Type::Named(name) if name == "T" => {
+                // Single type parameter case (Vec<i32> has T=i32)
+                if let Some(first_arg) = type_args.first() {
+                    Ok(first_arg.clone())
+                } else {
+                    Ok(ty.clone()) // No type args, return as-is
+                }
+            }
+            Type::Generic {
+                name,
+                type_args: inner_args,
+            } => {
+                // Recursively substitute in generic types
+                let new_args: Vec<Type> = inner_args
+                    .iter()
+                    .map(|arg| self.substitute_type_params(arg, type_args, _struct_name))
+                    .collect::<Result<Vec<_>, String>>()?;
+                Ok(Type::Generic {
+                    name: name.clone(),
+                    type_args: new_args,
+                })
+            }
+            _ => Ok(ty.clone()), // No substitution needed (i64, String, etc.)
+        }
+    }
 }

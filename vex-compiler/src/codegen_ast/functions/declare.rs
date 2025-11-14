@@ -81,9 +81,17 @@ impl<'ctx> ASTCodeGen<'ctx> {
             };
 
             eprintln!(
-                "🟢 Function {} return type: {:?} → LLVM: {:?}{}",
-                fn_name, ty, llvm_ret,
-                if func.is_async { " (async -> Future)" } else { "" }
+                "🟢 Declaring function {} with return AST type: {:?}",
+                fn_name, ty
+            );
+            eprintln!(
+                "🟢 Converted to LLVM type: {:?}{}",
+                llvm_ret,
+                if func.is_async {
+                    " (async -> Future)"
+                } else {
+                    ""
+                }
             );
 
             // ⚠️ CRITICAL FIX: For String return type (Type::String), verify we have PointerType

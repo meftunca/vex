@@ -77,12 +77,19 @@ impl<'a> CaptureAnalyzer<'a> {
             }
 
             // Note: Assignment is handled as Statement, not Binary expression in Vex
-            Expression::Binary { span_id: _,  left, right, .. } => {
+            Expression::Binary {
+                span_id: _,
+                left,
+                right,
+                ..
+            } => {
                 self.visit_expression(left);
                 self.visit_expression(right);
             }
 
-            Expression::Unary { span_id: _,  expr, .. } => {
+            Expression::Unary {
+                span_id: _, expr, ..
+            } => {
                 self.visit_expression(expr);
             }
 
@@ -271,7 +278,8 @@ impl<'a> CaptureAnalyzer<'a> {
                 }
             }
 
-            Statement::If { span_id: _, 
+            Statement::If {
+                span_id: _,
                 condition,
                 then_block,
                 elif_branches,
@@ -288,12 +296,17 @@ impl<'a> CaptureAnalyzer<'a> {
                 }
             }
 
-            Statement::While { span_id: _,  condition, body } => {
+            Statement::While {
+                span_id: _,
+                condition,
+                body,
+            } => {
                 self.visit_expression(condition);
                 self.visit_block(body);
             }
 
-            Statement::For { span_id: _, 
+            Statement::For {
+                span_id: _,
                 init,
                 condition,
                 post,

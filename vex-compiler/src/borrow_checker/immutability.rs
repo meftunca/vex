@@ -145,7 +145,7 @@ impl ImmutabilityChecker {
                 }
                 Ok(())
             }
-            | Item::Enum(_)
+            Item::Enum(_)
             | Item::Contract(_)
             | Item::TraitImpl(_)
             | Item::BuiltinExtension(_)
@@ -182,7 +182,12 @@ impl ImmutabilityChecker {
                 Ok(())
             }
 
-            Statement::LetPattern { pattern, is_mutable, value, .. } => {
+            Statement::LetPattern {
+                pattern,
+                is_mutable,
+                value,
+                ..
+            } => {
                 // Check value expression
                 self.check_expression(value)?;
                 // Mark pattern variables as mutable/immutable

@@ -14,14 +14,14 @@ fn test_inline_method_generates_warning() {
             }
         }
     "#;
-    
+
     let mut parser = Parser::new(code).expect("Parser::new failed");
     let _program = parser.parse().expect("Parse failed");
-    
+
     // Check that we got a warning
     let diagnostics = parser.diagnostics();
     assert_eq!(diagnostics.len(), 1, "Expected 1 warning");
-    
+
     let warning = &diagnostics[0];
     assert_eq!(warning.level, vex_diagnostics::ErrorLevel::Warning);
     assert_eq!(warning.code, "W0001");
@@ -41,14 +41,14 @@ fn test_operator_method_generates_warning() {
             }
         }
     "#;
-    
+
     let mut parser = Parser::new(code).expect("Parser::new failed");
     let _program = parser.parse().expect("Parse failed");
-    
+
     // Check that we got a warning
     let diagnostics = parser.diagnostics();
     assert_eq!(diagnostics.len(), 1, "Expected 1 warning");
-    
+
     let warning = &diagnostics[0];
     assert_eq!(warning.level, vex_diagnostics::ErrorLevel::Warning);
     assert_eq!(warning.code, "W0001");
@@ -67,14 +67,14 @@ fn test_receiver_method_generates_warning() {
             }
         }
     "#;
-    
+
     let mut parser = Parser::new(code).expect("Parser::new failed");
     let _program = parser.parse().expect("Parse failed");
-    
+
     // Check that we got a warning
     let diagnostics = parser.diagnostics();
     assert_eq!(diagnostics.len(), 1, "Expected 1 warning");
-    
+
     let warning = &diagnostics[0];
     assert_eq!(warning.level, vex_diagnostics::ErrorLevel::Warning);
     assert_eq!(warning.code, "W0001");
@@ -92,11 +92,15 @@ fn test_external_method_no_warning() {
             return Vec2 { x: self.x + other.x, y: self.y + other.y };
         }
     "#;
-    
+
     let mut parser = Parser::new(code).expect("Parser::new failed");
     let _program = parser.parse().expect("Parse failed");
-    
+
     // External methods should NOT generate warnings
     let diagnostics = parser.diagnostics();
-    assert_eq!(diagnostics.len(), 0, "Expected no warnings for external methods");
+    assert_eq!(
+        diagnostics.len(),
+        0,
+        "Expected no warnings for external methods"
+    );
 }

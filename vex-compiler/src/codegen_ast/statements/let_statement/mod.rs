@@ -37,7 +37,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         value: &Expression,
     ) -> Result<(), String> {
         eprintln!("🔵 compile_let_statement: name='{}', ty={:?}", name, ty);
-        
+
         // Step 1: Infer struct name from expression if no type annotation
         let struct_name_from_expr = self.infer_struct_name_from_expression(ty, value)?;
 
@@ -55,18 +55,45 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let val = self.compile_value_expression(ty, &adjusted_value, name, is_mutable)?;
 
         // Step 4.5: Check if this is a closure and register it with its environment
-        if let Expression::Closure { .. } = adjusted_value {
+        if let Expression::Closure {
+            params,
+            return_type,
+            ..
+        } = adjusted_value
+        {
             if let BasicValueEnum::PointerValue(fn_ptr) = val {
                 // Check if this closure has an environment in closure_envs
                 if let Some(env_ptr) = self.closure_envs.get(&fn_ptr).copied() {
-                    eprintln!("📝 Registering closure variable '{}' with environment", name);
-                    self.closure_variables.insert(name.clone(), (fn_ptr, env_ptr));
+                    eprintln!(
+                        "📝 Registering closure variable '{}' with environment",
+                        name
+                    );
+                    self.closure_variables
+                        .insert(name.clone(), (fn_ptr, env_ptr));
                 } else {
-                    eprintln!("📝 Registering closure variable '{}' without environment (pure function)", name);
+                    eprintln!(
+                        "📝 Registering closure variable '{}' without environment (pure function)",
+                        name
+                    );
                     // For closures without environment, still register but with null environment
-                    let null_env = self.context.ptr_type(inkwell::AddressSpace::default()).const_null();
-                    self.closure_variables.insert(name.clone(), (fn_ptr, null_env));
+                    let null_env = self
+                        .context
+                        .ptr_type(inkwell::AddressSpace::default())
+                        .const_null();
+                    self.closure_variables
+                        .insert(name.clone(), (fn_ptr, null_env));
                 }
+
+                // ⭐ Store closure type signature
+                let param_types: Vec<Type> = params.iter().map(|p| p.ty.clone()).collect();
+                let ret_type = return_type.clone().unwrap_or(Type::I32);
+                eprintln!(
+                    "  ✨ Stored closure type: {} params, return {:?}",
+                    params.len(),
+                    &ret_type
+                );
+                self.closure_types
+                    .insert(name.clone(), (param_types, ret_type));
             }
         }
 
@@ -87,7 +114,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
             // Store full AST type (including Generic with type_args) for receiver type resolution
             if let Some(type_annotation) = ty {
                 // Explicit type annotation - use it directly
-                self.variable_concrete_types.insert(name.clone(), type_annotation.clone());
+                self.variable_concrete_types
+                    .insert(name.clone(), type_annotation.clone());
             } else if let Some(ref struct_name_str) = struct_name_from_expr {
                 // Inferred struct type - determine if generic
                 if let Some(struct_def) = self.struct_ast_defs.get(struct_name_str) {
@@ -98,13 +126,15 @@ impl<'ctx> ASTCodeGen<'ctx> {
                             Expression::TypeConstructor { type_args, .. } => type_args,
                             _ => &[] as &[Type],
                         };
-                        
+
                         if type_args_from_value.is_empty() {
                             // ⭐ Phase 3.5: Try to infer from constructor args
                             let inferred_from_args = match value {
                                 Expression::TypeConstructor { args, .. } if !args.is_empty() => {
                                     // Box(42) - infer T from first arg
-                                    if let Ok(arg_type) = self.infer_expression_type_with_context(&args[0], None) {
+                                    if let Ok(arg_type) =
+                                        self.infer_expression_type_with_context(&args[0], None)
+                                    {
                                         Some(Type::Generic {
                                             name: struct_name_str.clone(),
                                             type_args: vec![arg_type],
@@ -115,22 +145,27 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                 }
                                 _ => None,
                             };
-                            
+
                             if let Some(concrete_type) = inferred_from_args {
                                 // Successfully inferred from constructor args
-                                self.variable_concrete_types.insert(name.clone(), concrete_type);
+                                self.variable_concrete_types
+                                    .insert(name.clone(), concrete_type);
                             } else {
                                 // Vec() or Box() without args - create Unknown placeholder
                                 let unknown_type = Type::Generic {
                                     name: struct_name_str.clone(),
                                     type_args: vec![Type::Unknown],
                                 };
-                                self.variable_concrete_types.insert(name.clone(), unknown_type);
+                                self.variable_concrete_types
+                                    .insert(name.clone(), unknown_type);
                             }
                         } else {
                             // Explicit type args - use them
-                            if let Ok(inferred_type) = self.infer_expression_type_with_context(value, None) {
-                                self.variable_concrete_types.insert(name.clone(), inferred_type);
+                            if let Ok(inferred_type) =
+                                self.infer_expression_type_with_context(value, None)
+                            {
+                                self.variable_concrete_types
+                                    .insert(name.clone(), inferred_type);
                             }
                         }
                     }

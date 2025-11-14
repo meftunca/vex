@@ -26,7 +26,9 @@ impl<'a> Parser<'a> {
                     }
                     WhereClausePredicate::AssociatedTypeBound { .. } => {
                         // Type aliases don't support associated type bounds
-                        return Err(self.error("Associated type bounds not supported in type aliases"));
+                        return Err(
+                            self.error("Associated type bounds not supported in type aliases")
+                        );
                     }
                 }
             }

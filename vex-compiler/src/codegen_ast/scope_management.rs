@@ -42,7 +42,11 @@ impl<'ctx> super::ASTCodeGen<'ctx> {
             .insert("Map".to_string(), "vex_map_free".to_string());
         self.destructor_impls
             .insert("Set".to_string(), "vex_map_free".to_string()); // Set uses Map backend
-
+        self.destructor_impls
+            .insert("Channel".to_string(), "vex_channel_close".to_string());
+        self.destructor_impls
+            .insert("File".to_string(), "vex_file_close".to_string());
+        // Note: Custom structs with Drop trait are registered during compilation
     }
 
     /// Pop scope and emit cleanup calls for types implementing Destructor trait
@@ -54,9 +58,7 @@ impl<'ctx> super::ASTCodeGen<'ctx> {
             // Emit cleanup calls in reverse order (LIFO - last allocated, first freed)
             for (var_name, type_name) in scope_vars.iter().rev() {
                 // Check if this type implements Destructor trait (has a registered cleanup function)
-                if let Some(cleanup_func_name) = self.destructor_impls.get(type_name) {
-                   
-
+                if let Some(_cleanup_func_name) = self.destructor_impls.get(type_name) {
                     // Get variable pointer
                     let var_ptr = match self.variables.get(var_name) {
                         Some(ptr) => *ptr,
@@ -147,8 +149,78 @@ impl<'ctx> super::ASTCodeGen<'ctx> {
                                 .build_call(map_free_fn, &[map_value.into()], "map_auto_free")
                                 .map_err(|e| format!("Failed to call vex_map_free: {}", e))?;
                         }
+                        "Channel" => {
+                            let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                            let channel_value = self
+                                .builder
+                                .build_load(ptr_type, var_ptr, "channel_cleanup_load")
+                                .map_err(|e| {
+                                    format!("Failed to load channel for cleanup: {}", e)
+                                })?;
+
+                            let void_fn_type =
+                                self.context.void_type().fn_type(&[ptr_type.into()], false);
+                            let channel_close_fn =
+                                self.module
+                                    .add_function("vex_channel_close", void_fn_type, None);
+
+                            self.builder
+                                .build_call(
+                                    channel_close_fn,
+                                    &[channel_value.into()],
+                                    "channel_auto_close",
+                                )
+                                .map_err(|e| format!("Failed to call vex_channel_close: {}", e))?;
+                        }
+                        "File" => {
+                            let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                            let file_value = self
+                                .builder
+                                .build_load(ptr_type, var_ptr, "file_cleanup_load")
+                                .map_err(|e| format!("Failed to load file for cleanup: {}", e))?;
+
+                            let void_fn_type =
+                                self.context.void_type().fn_type(&[ptr_type.into()], false);
+                            let file_close_fn =
+                                self.module
+                                    .add_function("vex_file_close", void_fn_type, None);
+
+                            self.builder
+                                .build_call(file_close_fn, &[file_value.into()], "file_auto_close")
+                                .map_err(|e| format!("Failed to call vex_file_close: {}", e))?;
+                        }
                         _ => {
-                            eprintln!("⚠️  Cleanup for type {} not yet implemented", type_name);
+                            // Check if it's a custom struct with Drop trait implementation
+                            if let Some(cleanup_fn_name) = self.destructor_impls.get(type_name) {
+                                let ptr_type =
+                                    self.context.ptr_type(inkwell::AddressSpace::default());
+                                let struct_value = self
+                                    .builder
+                                    .build_load(ptr_type, var_ptr, "struct_cleanup_load")
+                                    .map_err(|e| {
+                                        format!("Failed to load struct for cleanup: {}", e)
+                                    })?;
+
+                                // Check if the drop function exists
+                                if let Some(drop_fn) = self.module.get_function(cleanup_fn_name) {
+                                    self.builder
+                                        .build_call(
+                                            drop_fn,
+                                            &[struct_value.into()],
+                                            "struct_auto_drop",
+                                        )
+                                        .map_err(|e| {
+                                            format!("Failed to call drop function: {}", e)
+                                        })?;
+                                } else {
+                                    eprintln!(
+                                        "⚠️  Drop function {} not found for type {}",
+                                        cleanup_fn_name, type_name
+                                    );
+                                }
+                            } else {
+                                eprintln!("⚠️  Cleanup for type {} not yet implemented", type_name);
+                            }
                         }
                     }
                 } else {
@@ -165,7 +237,6 @@ impl<'ctx> super::ASTCodeGen<'ctx> {
         // Check if this type implements Destructor trait
         if self.destructor_impls.contains_key(&type_name) {
             if let Some(current_scope) = self.scope_stack.last_mut() {
-           
                 current_scope.push((var_name, type_name));
             }
         } else {

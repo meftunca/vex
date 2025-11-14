@@ -98,6 +98,7 @@ pub struct ASTCodeGen<'ctx> {
     pub(crate) builtins: BuiltinRegistry<'ctx>,
 
     pub(crate) current_function: Option<FunctionValue<'ctx>>,
+    pub(crate) current_function_return_type: Option<Type>,
     pub(crate) printf_fn: Option<FunctionValue<'ctx>>,
 
     // Defer statement stack (LIFO order)
@@ -117,6 +118,11 @@ pub struct ASTCodeGen<'ctx> {
 
     // Track which variables hold closures (variable name -> (fn_ptr, env_ptr))
     pub(crate) closure_variables: HashMap<String, (PointerValue<'ctx>, PointerValue<'ctx>)>,
+
+    // ⭐ NEW: Track closure types for proper type inference
+    // Maps variable name -> (param_types, return_type)
+    // Used when calling closures to know the correct signature
+    pub(crate) closure_types: HashMap<String, (Vec<Type>, Type)>,
 
     // Scope tracking for automatic cleanup (Drop trait)
     // Stack of scopes, each scope contains variable names that need cleanup

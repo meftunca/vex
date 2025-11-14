@@ -29,14 +29,16 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 block.statements.len(),
                 std::mem::discriminant(stmt)
             );
-            
+
             // Check builder position before compiling
             if let Some(block) = self.builder.get_insert_block() {
-                eprintln!("      Builder at block: {:?}, has_terminator={}", 
-                    block.get_name().to_str(), 
-                    block.get_terminator().is_some());
+                eprintln!(
+                    "      Builder at block: {:?}, has_terminator={}",
+                    block.get_name().to_str(),
+                    block.get_terminator().is_some()
+                );
             }
-            
+
             self.compile_statement(stmt)?;
 
             // Stop compiling statements after a terminator (return/break/continue/branch)
@@ -47,17 +49,19 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 }
             }
         }
-        
+
         eprintln!("📋 Block compilation complete, checking for implicit terminator");
-        
+
         // ⭐ CRITICAL FIX: If we're in an async resume block and block has no terminator,
         // the block MUST end somewhere. Add a DONE return if needed.
         if let Some(current_block) = self.builder.get_insert_block() {
-            eprintln!("   Builder at: {:?}, has_terminator={}, async_stack_depth={}", 
+            eprintln!(
+                "   Builder at: {:?}, has_terminator={}, async_stack_depth={}",
                 current_block.get_name().to_str(),
                 current_block.get_terminator().is_some(),
-                self.async_state_stack.len());
-                
+                self.async_state_stack.len()
+            );
+
             if current_block.get_terminator().is_none() && !self.async_state_stack.is_empty() {
                 eprintln!("   ⭐ Adding implicit DONE return");
                 // We're in async context and block has no explicit return/terminator
@@ -68,7 +72,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     .map_err(|e| format!("Failed to add implicit async done return: {}", e))?;
             }
         }
-        
+
         Ok(())
     }
 

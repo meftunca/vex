@@ -67,8 +67,6 @@ impl<'ctx> ASTCodeGen<'ctx> {
             // Use alignment-aware load to fix memory corruption
             let loaded = self.build_load_aligned(*ty, *ptr, name)?;
 
-          
-
             return Ok(loaded);
         }
 
@@ -85,8 +83,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         use crate::diagnostics::fuzzy;
         let suggestions = fuzzy::find_similar_names(name, &candidates, 0.7, 3);
 
-        let mut help_msg =
-            "Check that the name is spelled correctly and is in scope".to_string();
+        let mut help_msg = "Check that the name is spelled correctly and is in scope".to_string();
         if !suggestions.is_empty() {
             help_msg = format!("did you mean `{}`?", suggestions.join("`, `"));
         }

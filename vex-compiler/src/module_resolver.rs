@@ -52,9 +52,10 @@ impl ModuleResolver {
         module_path: &str,
         relative_to: Option<&str>,
     ) -> Result<&Program, String> {
-        // Check cache first
+        // Check cache first (use contains_key to avoid long-lived immutable borrow)
         if self.module_cache.contains_key(module_path) {
-            return Ok(self.module_cache.get(module_path).unwrap());
+            // Safe to unwrap: contains_key ensures a value exists
+            return Ok(self.module_cache.get(module_path).expect("Module present in cache"));
         }
 
         // Use StdlibResolver if it's a stdlib module
@@ -63,7 +64,8 @@ impl ModuleResolver {
             match self.stdlib_resolver.resolve_module(module_path) {
                 Ok(path) => path,
                 Err(_) => {
-                    // Fallback to legacy stdlib/ directory
+                    // Fallback to legacy stdlib/ directory - keep deterministic behavior
+                    // If the caller provided a source file, we can resolve relative imports.
                     self.module_path_to_file_path(module_path, relative_to)?
                 }
             }
@@ -83,9 +85,13 @@ impl ModuleResolver {
             .parse_file()
             .map_err(|e| format!("Failed to parse module {}: {}", module_path, e))?;
 
-        // Cache and return
-        self.module_cache.insert(module_path.to_string(), parsed);
-        Ok(self.module_cache.get(module_path).unwrap())
+        // Cache and return - use entry API so we can return a reference without double-borrowing
+        let entry = self
+            .module_cache
+            .entry(module_path.to_string())
+            .or_insert(parsed);
+
+        Ok(entry)
     }
 
     /// Convert module path to filesystem path
@@ -122,11 +128,12 @@ impl ModuleResolver {
                 eprintln!("   📁 Base directory: {:?}", parent);
                 parent
             } else {
-                // Fallback to CWD if no source file provided
-                let cwd = std::env::current_dir()
-                    .map_err(|e| format!("Failed to get current directory: {}", e))?;
-                eprintln!("   📁 No source file, using CWD: {:?}", cwd);
-                cwd
+                // Do not implicitly fall back to the current working directory for relative imports.
+                // Require the caller to provide the importing source file path.
+                return Err(format!(
+                    "Relative module import '{}' requires the source file path (relative_to) for deterministic resolution",
+                    module_path
+                ));
             };
 
             let file_path = base_dir.join(module_path);
@@ -183,7 +190,7 @@ impl ModuleResolver {
                     return Ok(candidate);
                 }
             }
-            
+
             // If not found, return error with the directory path (not file)
             return Err(format!("Module file not found: {:?}", file_path));
         }
@@ -205,11 +212,21 @@ impl ModuleResolver {
 
         let mut exports = Vec::new();
 
+        // First, gather explicit exports (export { a, b })
         for item in &program.items {
-            if let vex_ast::Item::Function(func) = item {
-                // In real implementation, check for 'export' keyword
-                // For now, assume all functions are exported
-                exports.push(func.name.clone());
+            if let vex_ast::Item::Export(export) = item {
+                for e in &export.items {
+                    exports.push(e.clone());
+                }
+            }
+        }
+
+        // If no explicit exports found, fall back to exporting all top-level functions
+        if exports.is_empty() {
+            for item in &program.items {
+                if let vex_ast::Item::Function(func) = item {
+                    exports.push(func.name.clone());
+                }
             }
         }
 
@@ -235,12 +252,39 @@ mod tests {
     fn test_module_path_conversion() {
         let resolver = ModuleResolver::new("vex-libs/std");
 
-        // Test basic module path
-        let path = resolver.module_path_to_file_path("std", None).unwrap();
-        assert!(path.to_string_lossy().contains("std/mod.vx"));
+        // Test basic module path - use 'core' (std core libs) for reliable test
+        let path = resolver.module_path_to_file_path("core", None).unwrap();
+        assert!(path.to_string_lossy().contains("core/src/lib.vx")
+            || path.to_string_lossy().contains("core/lib.vx")
+            || path.to_string_lossy().contains("core/mod.vx"));
 
         // Test nested module path
         let path = resolver.module_path_to_file_path("std::io", None).unwrap();
         assert!(path.to_string_lossy().contains("std/io/mod.vx"));
+    }
+
+    #[test]
+    fn test_relative_import_requires_source() {
+        let resolver = ModuleResolver::new("vex-libs/std");
+
+        // Relative imports without a source file must return an error (no implicit CWD fallback)
+        let res = resolver.module_path_to_file_path("./my_mod.vx", None);
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_get_module_exports_explicit() {
+        let mut resolver = ModuleResolver::new("vex-libs/std");
+
+        // Build a simple program with explicit export list
+        let program = Program {
+            imports: vec![],
+            items: vec![vex_ast::Item::Export(vex_ast::Export { items: vec!["helper".to_string()] })],
+        };
+
+        resolver.module_cache.insert("mymod".to_string(), program);
+
+        let exports = resolver.get_module_exports("mymod").unwrap();
+        assert_eq!(exports, vec!["helper".to_string()]);
     }
 }

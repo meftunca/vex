@@ -247,18 +247,11 @@ impl fmt::Display for BorrowError {
                 operation,
                 location,
             } => {
-                write!(
-                    f,
-                    "unsafe operation `{}` requires unsafe block",
-                    operation
-                )?;
+                write!(f, "unsafe operation `{}` requires unsafe block", operation)?;
                 if let Some(loc) = location {
                     write!(f, " at {}", loc)?;
                 }
-                write!(
-                    f,
-                    "\nhelp: wrap this operation in an `unsafe {{ }}` block"
-                )
+                write!(f, "\nhelp: wrap this operation in an `unsafe {{ }}` block")
             }
         }
     }

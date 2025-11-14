@@ -129,7 +129,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         for param in &method.params {
             let param_llvm_ty = self.ast_type_to_llvm(&param.ty);
-            
+
             param_types.push(param_llvm_ty.into());
         }
 
@@ -138,8 +138,6 @@ impl<'ctx> ASTCodeGen<'ctx> {
         } else {
             inkwell::types::BasicTypeEnum::IntType(self.context.i32_type())
         };
-
-      
 
         let fn_type = match ret_type {
             BasicTypeEnum::IntType(t) => t.fn_type(&param_types, false),
@@ -232,8 +230,6 @@ impl<'ctx> ASTCodeGen<'ctx> {
             base_name
         };
 
-    
-
         let fn_val = *self
             .functions
             .get(&mangled_name)
@@ -281,9 +277,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
             self.variables.insert("self".to_string(), self_ptr);
             self.variable_types
                 .insert("self".to_string(), receiver_llvm_ty);
-            
+
             // ⭐ CRITICAL: Store AST type for type inference
-            self.variable_ast_types.insert("self".to_string(), receiver.ty.clone());
+            self.variable_ast_types
+                .insert("self".to_string(), receiver.ty.clone());
 
             let struct_name_opt = match &receiver.ty {
                 Type::Named(name) => Some(name.clone()),
@@ -297,8 +294,6 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 _ => None,
             };
 
-          
-
             if let Some(name) = struct_name_opt {
                 self.variable_struct_names.insert("self".to_string(), name);
             } else {
@@ -308,7 +303,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             param_offset = 1;
         } else {
             // Implicit receiver: fn method() - auto-create immutable reference receiver
-           
+
             let param_val = fn_val
                 .get_nth_param(0)
                 .ok_or("Missing implicit receiver parameter")?;
@@ -323,24 +318,20 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 .insert("self".to_string(), receiver_ty.into());
             self.variable_struct_names
                 .insert("self".to_string(), struct_name.to_string());
-            
-            // ⭐ CRITICAL: Store AST type for type inference (implicit receiver)
-            let receiver_ast_type = Type::Reference(
-                Box::new(Type::Named(struct_name.to_string())),
-                false
-            );
-            self.variable_ast_types.insert("self".to_string(), receiver_ast_type);
 
+            // ⭐ CRITICAL: Store AST type for type inference (implicit receiver)
+            let receiver_ast_type =
+                Type::Reference(Box::new(Type::Named(struct_name.to_string())), false);
+            self.variable_ast_types
+                .insert("self".to_string(), receiver_ast_type);
 
             param_offset = 1;
         }
 
         for (i, param) in method.params.iter().enumerate() {
-            
             let param_val = fn_val
                 .get_nth_param((i + param_offset) as u32)
                 .ok_or_else(|| format!("Missing parameter {}", param.name))?;
-
 
             // ⚠️ CRITICAL: Struct parameters are now passed BY VALUE (as StructValue)
             // We need to allocate storage and store the value
@@ -348,7 +339,6 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 Type::Named(type_name) => self.struct_defs.contains_key(type_name),
                 _ => false,
             };
-
 
             if is_struct_param && param_val.is_struct_value() {
                 // Struct parameter passed by value - allocate storage and store it
@@ -365,9 +355,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 self.variables.insert(param.name.clone(), alloca);
                 self.variable_types
                     .insert(param.name.clone(), struct_val.get_type().into());
-                
+
                 // ⭐ CRITICAL: Store AST type for type inference
-                self.variable_ast_types.insert(param.name.clone(), param.ty.clone());
+                self.variable_ast_types
+                    .insert(param.name.clone(), param.ty.clone());
             } else {
                 // Non-struct parameter - allocate and store as usual
                 let param_ty = self.ast_type_to_llvm(&param.ty);
@@ -382,9 +373,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
                 self.variables.insert(param.name.clone(), alloca);
                 self.variable_types.insert(param.name.clone(), param_ty);
-                
+
                 // ⭐ CRITICAL: Store AST type for type inference
-                self.variable_ast_types.insert(param.name.clone(), param.ty.clone());
+                self.variable_ast_types
+                    .insert(param.name.clone(), param.ty.clone());
             }
 
             self.track_param_struct_name(&param.name, &param.ty);

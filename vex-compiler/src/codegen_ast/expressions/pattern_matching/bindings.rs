@@ -77,7 +77,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         let enum_struct = value.into_struct_value();
                         self.builder
                             .build_extract_value(enum_struct, 1, "enum_data_bind")
-                            .map_err(|e| format!("Failed to extract enum data for binding: {}", e))?
+                            .map_err(|e| {
+                                format!("Failed to extract enum data for binding: {}", e)
+                            })?
                     } else {
                         // For pointers or other types, treat as the data value directly
                         value
@@ -88,7 +90,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     } else {
                         // Multi-value tuple data
                         if !data_val.is_struct_value() {
-                            return Err(format!("Expected struct for multi-value enum data in variant '{}'", variant));
+                            return Err(format!(
+                                "Expected struct for multi-value enum data in variant '{}'",
+                                variant
+                            ));
                         }
                         let data_struct = data_val.into_struct_value();
                         for (i, pattern) in data.iter().enumerate() {

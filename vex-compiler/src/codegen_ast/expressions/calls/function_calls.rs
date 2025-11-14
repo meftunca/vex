@@ -102,7 +102,63 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let mut arg_basic_vals: Vec<BasicValueEnum> = Vec::new();
 
         for (i, arg) in final_args.iter().enumerate() {
-            let val = self.compile_expression(arg)?;
+            // ⭐ CRITICAL: Check parameter type BEFORE compiling expression
+            let param_type_opt = if let Some(func_def) = &func_def_opt {
+                if i < func_def.params.len() {
+                    Some(&func_def.params[i].ty)
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+
+            // ⭐ CRITICAL: Struct parameters expect BY VALUE, not pointer
+            // Check if we need to load struct value before compiling
+            let param_expects_struct_by_value = if let Some(param_ty) = param_type_opt {
+                match param_ty {
+                    Type::Named(type_name) => self.struct_defs.contains_key(type_name),
+                    Type::Generic { name, .. } => {
+                        self.struct_defs.contains_key(name) || name.contains('_')
+                    }
+                    _ => false,
+                }
+            } else {
+                false
+            };
+
+            let is_struct_variable = if let Expression::Ident(name) = arg {
+                self.variable_struct_names.contains_key(name)
+            } else {
+                false
+            };
+
+            // ⭐ For struct variables, load struct value for BY VALUE parameter
+            let val = if is_struct_variable && param_expects_struct_by_value {
+                if let Expression::Ident(name) = arg {
+                    if let Some(struct_ptr) = self.variables.get(name) {
+                        // Load struct value for BY VALUE parameter
+                        let param_llvm_ty = if let Some(param_ty) = param_type_opt {
+                            self.ast_type_to_llvm(param_ty)
+                        } else {
+                            return Err("Cannot determine struct type".to_string());
+                        };
+
+                        eprintln!("🔄 Loading struct {} by value for parameter", name);
+                        self.builder
+                            .build_load(param_llvm_ty, *struct_ptr, "struct_by_value_load")
+                            .map_err(|e| {
+                                format!("Failed to load struct for by-value param: {}", e)
+                            })?
+                    } else {
+                        return Err(format!("Struct variable {} not found", name));
+                    }
+                } else {
+                    self.compile_expression(arg)?
+                }
+            } else {
+                self.compile_expression(arg)?
+            };
 
             // Check if parameter expects 'any' type
             let expects_any = if let Some(func_def) = &func_def_opt {
@@ -136,26 +192,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 continue;
             }
 
-            // If argument is a struct, we need to pass it by pointer (alloca)
-            // Check if this is a struct variable
-            let is_struct = if let Expression::Ident(name) = arg {
-                self.variable_struct_names.contains_key(name)
-            } else {
-                false
-            };
-
-            if is_struct {
-                // Argument is a struct stored in a variable
-                // Pass the pointer (alloca) instead of loading the value
-                if let Expression::Ident(name) = arg {
-                    if let Some(struct_ptr) = self.variables.get(name) {
-                        arg_vals.push((*struct_ptr).into());
-                        arg_basic_vals.push((*struct_ptr).into());
-                        continue;
-                    }
-                }
-            }
-
+            // ⭐ REMOVED: Duplicate struct loading logic - already handled above
+            // The early check at lines 116-161 already loads struct values when needed
+            // Just pass the value as-is
             arg_vals.push(val.into());
             arg_basic_vals.push(val);
         }
@@ -294,21 +333,21 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 }
             }
 
-            // Check if this is a local variable (could be a closure stored in a variable)
-            if self.variables.contains_key(func_name) {
-                // This is a variable - fall through to complex expression handling
-                // It will be loaded and might be a closure with environment
+            // ⭐ Get or instantiate function
+            // After instantiation, update func_def_opt to point to instantiated version
+            let fn_val_opt = if self.variables.contains_key(func_name) {
+                // This is a variable - will be handled in complex expression path
+                None
             } else if self.function_params.contains_key(func_name) {
-                // This is a function pointer parameter - fall through to complex expression handling
-                // (it will be looked up via compile_expression -> Expression::Ident)
+                // Function pointer parameter - will be handled in complex expression path
+                None
             } else {
                 // Check if this is a global function that needs instantiation
-                let fn_val = if let Some(fn_val) = self.functions.get(func_name) {
-                    *fn_val
+                if let Some(fn_val) = self.functions.get(func_name) {
+                    Some(*fn_val)
                 } else if let Some(func_def) = self.function_defs.get(func_name).cloned() {
-                    // Check if it's a generic function
+                    // Generic function - instantiate it
                     if !func_def.type_params.is_empty() {
-                        // Use explicit type arguments if provided, otherwise infer from call arguments
                         let final_type_args = if !type_args.is_empty() {
                             eprintln!(
                                 "  ✅ Using explicit type args for {}: {:?}",
@@ -325,15 +364,91 @@ impl<'ctx> ASTCodeGen<'ctx> {
                             func_name, final_type_args
                         );
 
-                        // Instantiate generic function
-                        self.instantiate_generic_function(&func_def, &final_type_args)?
+                        // Instantiate
+                        let fn_val =
+                            self.instantiate_generic_function(&func_def, &final_type_args)?;
+
+                        // ⭐ CRITICAL: Now RE-COMPILE ARGUMENTS with instantiated function's parameter types
+                        // Clear previously compiled arguments
+                        arg_vals.clear();
+                        arg_basic_vals.clear();
+
+                        // Get instantiated function definition
+                        let type_names: Vec<String> = final_type_args
+                            .iter()
+                            .map(|t| self.type_to_string(t))
+                            .collect();
+                        let mangled_name = format!("{}_{}", func_name, type_names.join("_"));
+                        let inst_func_def = self.function_defs.get(&mangled_name).cloned();
+
+                        // Recompile arguments with correct types
+                        if let Some(inst_def) = &inst_func_def {
+                            for (i, arg) in final_args.iter().enumerate() {
+                                let param_type_opt = if i < inst_def.params.len() {
+                                    Some(&inst_def.params[i].ty)
+                                } else {
+                                    None
+                                };
+
+                                let param_expects_struct_by_value =
+                                    if let Some(param_ty) = param_type_opt {
+                                        match param_ty {
+                                            Type::Named(type_name) => {
+                                                self.struct_defs.contains_key(type_name)
+                                            }
+                                            Type::Generic { name, .. } => {
+                                                self.struct_defs.contains_key(name)
+                                                    || name.contains('_')
+                                            }
+                                            _ => false,
+                                        }
+                                    } else {
+                                        false
+                                    };
+
+                                let is_struct_variable = if let Expression::Ident(name) = arg {
+                                    self.variable_struct_names.contains_key(name)
+                                } else {
+                                    false
+                                };
+
+                                let val = if is_struct_variable && param_expects_struct_by_value {
+                                    if let Expression::Ident(name) = arg {
+                                        if let Some(struct_ptr) = self.variables.get(name) {
+                                            let param_llvm_ty =
+                                                self.ast_type_to_llvm(param_type_opt.unwrap());
+                                            self.builder
+                                                .build_load(param_llvm_ty, *struct_ptr, "struct_by_value_load")
+                                                .map_err(|e| format!("Failed to load struct for by-value param: {}", e))?
+                                        } else {
+                                            return Err(format!(
+                                                "Struct variable {} not found",
+                                                name
+                                            ));
+                                        }
+                                    } else {
+                                        self.compile_expression(arg)?
+                                    }
+                                } else {
+                                    self.compile_expression(arg)?
+                                };
+
+                                arg_vals.push(val.into());
+                                arg_basic_vals.push(val);
+                            }
+                        }
+
+                        Some(fn_val)
                     } else {
-                        return Err(format!("Function {} not declared", func_name));
+                        None
                     }
                 } else {
                     return Err(format!("Function {} not found", func_name));
-                };
+                }
+            };
 
+            // If we have a function value, we can proceed with the call now
+            if let Some(fn_val) = fn_val_opt {
                 // Build call
                 let call_site = self
                     .builder
@@ -402,27 +517,72 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     }
                 } else {
                     // This might be a closure stored in a variable
-                    // For now, assume it takes the same args as provided and returns i32
-                    // TODO: Store closure types when creating them
-                    eprintln!("⚠️  Inferring closure type from call arguments");
+                    // Try to retrieve stored closure type first
+                    if let Some((param_types, return_type)) = self.closure_types.get(name) {
+                        eprintln!("✨ Using stored closure type for {}", name);
 
-                    // Build function type from arguments
-                    let mut param_types: Vec<inkwell::types::BasicMetadataTypeEnum> = vec![];
-                    if has_environment {
-                        // Add environment pointer as first parameter
-                        param_types.push(
-                            self.context
-                                .ptr_type(inkwell::AddressSpace::default())
-                                .into(),
+                        // Build function type from stored signature
+                        let mut llvm_param_types: Vec<inkwell::types::BasicMetadataTypeEnum> =
+                            vec![];
+                        if has_environment {
+                            llvm_param_types.push(
+                                self.context
+                                    .ptr_type(inkwell::AddressSpace::default())
+                                    .into(),
+                            );
+                        }
+                        for param_ty in param_types {
+                            llvm_param_types.push(self.ast_type_to_llvm(param_ty).into());
+                        }
+
+                        let ret_basic_type = self.ast_type_to_llvm(return_type);
+                        // Match on the BasicTypeEnum to extract the concrete type
+                        match ret_basic_type {
+                            inkwell::types::BasicTypeEnum::IntType(it) => {
+                                it.fn_type(&llvm_param_types, false)
+                            }
+                            inkwell::types::BasicTypeEnum::FloatType(ft) => {
+                                ft.fn_type(&llvm_param_types, false)
+                            }
+                            inkwell::types::BasicTypeEnum::PointerType(pt) => {
+                                pt.fn_type(&llvm_param_types, false)
+                            }
+                            inkwell::types::BasicTypeEnum::StructType(st) => {
+                                st.fn_type(&llvm_param_types, false)
+                            }
+                            inkwell::types::BasicTypeEnum::ArrayType(at) => {
+                                at.fn_type(&llvm_param_types, false)
+                            }
+                            inkwell::types::BasicTypeEnum::VectorType(vt) => {
+                                vt.fn_type(&llvm_param_types, false)
+                            }
+                            inkwell::types::BasicTypeEnum::ScalableVectorType(svt) => {
+                                svt.fn_type(&llvm_param_types, false)
+                            }
+                        }
+                    } else {
+                        // Fallback: infer from call arguments
+                        eprintln!(
+                            "⚠️  Inferring closure type from call arguments for {}",
+                            name
                         );
-                    }
-                    for arg_val in &arg_basic_vals {
-                        param_types.push(arg_val.get_type().into());
-                    }
 
-                    // Assume i32 return type for now (should be stored with closure)
-                    let ret_type = self.context.i32_type();
-                    ret_type.fn_type(&param_types, false)
+                        let mut param_types: Vec<inkwell::types::BasicMetadataTypeEnum> = vec![];
+                        if has_environment {
+                            param_types.push(
+                                self.context
+                                    .ptr_type(inkwell::AddressSpace::default())
+                                    .into(),
+                            );
+                        }
+                        for arg_val in &arg_basic_vals {
+                            param_types.push(arg_val.get_type().into());
+                        }
+
+                        // Assume i32 return type as last resort
+                        let ret_type = self.context.i32_type();
+                        ret_type.fn_type(&param_types, false)
+                    }
                 }
             } else {
                 return Err("Complex function expressions not yet supported".to_string());

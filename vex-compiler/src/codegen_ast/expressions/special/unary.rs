@@ -213,7 +213,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         // Compile all statements
         for stmt in statements {
             self.compile_statement(stmt)?;
-            
+
             // If this statement terminated the block (e.g., return), stop processing
             if let Some(current_bb) = self.builder.get_insert_block() {
                 if current_bb.get_terminator().is_some() {

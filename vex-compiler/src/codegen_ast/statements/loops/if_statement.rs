@@ -94,7 +94,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Compile then block
         self.builder.position_at_end(then_bb);
-        eprintln!("📋 Compiling if then_block with {} statements", then_block.statements.len());
+        eprintln!(
+            "📋 Compiling if then_block with {} statements",
+            then_block.statements.len()
+        );
         self.compile_block(then_block)?;
         let then_terminated = self
             .builder

@@ -241,7 +241,7 @@ impl<'a> Parser<'a> {
 
     pub(crate) fn parse_unary(&mut self) -> Result<Expression, ParseError> {
         eprintln!("🔍 parse_unary: current token = {:?}", self.peek());
-        
+
         // Await expression: await expr
         if self.match_token(&Token::Await) {
             eprintln!("⏸️ Matched AWAIT token, parsing inner expression");
@@ -364,7 +364,6 @@ impl<'a> Parser<'a> {
                     looks_like_type
                 };
 
-               
                 self.current = checkpoint; // backtrack
 
                 if looks_like_generic {

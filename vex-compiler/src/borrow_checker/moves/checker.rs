@@ -48,7 +48,8 @@ impl MoveChecker {
                 // ⭐ CRITICAL FIX: Register receiver (p, self, this, etc.)
                 if let Some(ref receiver) = func.receiver {
                     self.valid_vars.insert(receiver.name.clone());
-                    self.var_types.insert(receiver.name.clone(), receiver.ty.clone());
+                    self.var_types
+                        .insert(receiver.name.clone(), receiver.ty.clone());
                 }
 
                 // Function parameters are valid at start

@@ -10,17 +10,13 @@ impl MoveChecker {
         match stmt {
             Statement::Let {
                 name, ty, value, ..
-            } => {
-                self.check_let_statement(name, ty, value)
-            }
+            } => self.check_let_statement(name, ty, value),
 
             Statement::LetPattern { pattern, value, .. } => {
                 self.check_let_pattern_statement(pattern, value)
             }
 
-            Statement::Assign { target, value } => {
-                self.check_assign_statement(target, value)
-            }
+            Statement::Assign { target, value } => self.check_assign_statement(target, value),
 
             Statement::Return(expr_opt) => {
                 if let Some(expr) = expr_opt {
@@ -40,17 +36,13 @@ impl MoveChecker {
                 then_block,
                 elif_branches,
                 else_block,
-            } => {
-                self.check_if_statement(condition, then_block, elif_branches, else_block)
-            }
+            } => self.check_if_statement(condition, then_block, elif_branches, else_block),
 
             Statement::While {
                 span_id: _,
                 condition,
                 body,
-            } => {
-                self.check_while_statement(condition, body)
-            }
+            } => self.check_while_statement(condition, body),
 
             Statement::For {
                 span_id: _,
@@ -58,25 +50,19 @@ impl MoveChecker {
                 condition,
                 post,
                 body,
-            } => {
-                self.check_for_statement(init, condition, post, body)
-            }
+            } => self.check_for_statement(init, condition, post, body),
 
             Statement::ForIn {
                 variable,
                 iterable,
                 body,
-            } => {
-                self.check_for_in_statement(variable, iterable, body)
-            }
+            } => self.check_for_in_statement(variable, iterable, body),
 
             Statement::Switch {
                 value,
                 cases,
                 default_case,
-            } => {
-                self.check_switch_statement(value, cases, default_case)
-            }
+            } => self.check_switch_statement(value, cases, default_case),
 
             _ => Ok(()), // Other statement types don't affect moves
         }
@@ -111,9 +97,7 @@ impl MoveChecker {
         } else {
             // Infer type from the initializer expression
             let inferred_ty = match value {
-                Expression::StringLiteral(_) | Expression::FStringLiteral(_) => {
-                    Some(Type::String)
-                }
+                Expression::StringLiteral(_) | Expression::FStringLiteral(_) => Some(Type::String),
                 Expression::IntLiteral(_) => Some(Type::I32),
                 Expression::FloatLiteral(_) => Some(Type::F64),
                 Expression::BoolLiteral(_) => Some(Type::Bool),

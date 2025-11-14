@@ -10,22 +10,22 @@ impl<'a> Parser<'a> {
         // Let statement: let x = expr; or let! x = expr; or let (a, b) = expr;
         if self.match_token(&Token::Let) {
             let is_mutable = self.match_token(&Token::Not); // let! → mutable
-            
+
             // Check for tuple destructuring pattern: let (a, b) = ...
             if self.check(&Token::LParen) {
                 // Parse tuple pattern
                 let pattern = self.parse_pattern()?;
-                
+
                 let ty = if self.match_token(&Token::Colon) {
                     Some(self.parse_type()?)
                 } else {
                     None
                 };
-                
+
                 self.consume(&Token::Eq, "Expected '=' in let statement")?;
                 let value = self.parse_expression()?;
                 self.consume(&Token::Semicolon, "Expected ';' after let statement")?;
-                
+
                 return Ok(Statement::LetPattern {
                     is_mutable,
                     pattern,
@@ -33,7 +33,7 @@ impl<'a> Parser<'a> {
                     value,
                 });
             }
-            
+
             // Regular let binding: let name = expr
             let name = self.consume_identifier()?;
 
@@ -290,9 +290,8 @@ impl<'a> Parser<'a> {
 
             // Condition
             let condition = if !self.check(&Token::Semicolon) {
-              
                 let expr = self.parse_expression()?;
-              
+
                 Some(expr)
             } else {
                 None
@@ -301,7 +300,6 @@ impl<'a> Parser<'a> {
 
             // Post (can be assignment or expression, no semicolon before brace)
             let post = if !self.check(&Token::LBrace) {
-          
                 // Try to parse as assignment first (i = i + 1)
                 let checkpoint = self.current;
                 if let Ok(expr) = self.parse_expression() {
@@ -311,10 +309,9 @@ impl<'a> Parser<'a> {
                         let target = self.parse_expression()?;
                         self.consume(&Token::Eq, "Expected '='")?;
                         let value = self.parse_expression()?;
-                       
+
                         Some(Box::new(Statement::Assign { target, value }))
                     } else {
-                        
                         Some(Box::new(Statement::Expression(expr)))
                     }
                 } else {
@@ -324,7 +321,6 @@ impl<'a> Parser<'a> {
                 None
             };
 
-        
             let body = self.parse_block()?;
 
             let span_id = self.span_map.generate_id();

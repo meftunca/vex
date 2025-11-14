@@ -76,7 +76,6 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Store in symbol table so Vex code can call it
         self.functions.insert(func.name.clone(), fn_val);
-       
 
         Ok(fn_val)
     }
