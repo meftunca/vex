@@ -8,6 +8,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
         &mut self,
         func: &Function,
     ) -> Result<FunctionValue<'ctx>, String> {
+        println!("🔍 DECLARE_FUNCTION: entering for {}", func.name);
+        println!("🔍 DECLARE_FUNCTION: is_async = {}", func.is_async);
         // If receiver exists, ensure that `Self` in the function signature is
         // substituted for the actual concrete type. This prevents `SelfType`
         // from leaking into LLVM function declarations.
@@ -74,10 +76,19 @@ impl<'ctx> ASTCodeGen<'ctx> {
             func.name.clone()
         };
 
-        // ⭐ SPECIAL: main() gets argc/argv parameters injected
-        let mut param_types: Vec<BasicMetadataTypeEnum> = Vec::new();
-        if fn_name == "main" {
-            // int main(int argc, char **argv)
+        eprintln!("🔍 DEBUG: func.name='{}', fn_name='{}', func.is_async={}", func.name, fn_name, func.is_async);
+
+        // ⭐ SPECIAL HANDLING: async main() should be declared as regular main
+        let is_async_main = func.name == "main" && func.is_async;
+        let effective_is_async = func.is_async; // Keep async for main too
+        eprintln!("🔍 DEBUG: func.name='{}', fn_name='{}', func.is_async={}, is_async_main={}, effective_is_async={}", 
+            func.name, fn_name, func.is_async, is_async_main, effective_is_async);
+        eprintln!("🔍 Function {}: is_async={}, is_async_main={}, effective_is_async={}", 
+            func.name, func.is_async, is_async_main, effective_is_async);
+        
+        let mut param_types = vec![];
+        if fn_name == "main" && !func.is_async {
+            // int main(int argc, char **argv) - only for sync main (NOT async main)
             let i32_type = self.context.i32_type();
             let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
             
@@ -104,6 +115,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let is_variadic = func.is_variadic;
 
         let fn_val = if let Some(ref ty) = func_for_decl.return_type {
+            println!("🔍 ABOUT TO CHECK RETURN TYPE for {}", fn_name);
             eprintln!("🔍 Function {} return type check: {:?}", fn_name, ty);
             
             // ⭐ SPECIAL: Type::Nil should be treated as void (no return value)
@@ -131,7 +143,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             };
             // ⭐ ASYNC: For async functions, return type is Future<T> (pointer)
             // Wrapper returns Future<T>, resume function returns CoroStatus (i32)
-                let mut llvm_ret = if func.is_async {
+                let mut llvm_ret = if effective_is_async {
                 // Async wrapper returns Future<T> = void* pointer
                 BasicTypeEnum::PointerType(self.context.ptr_type(inkwell::AddressSpace::default()))
             } else {
@@ -145,7 +157,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             eprintln!(
                 "🟢 Converted to LLVM type: {:?}{}",
                 llvm_ret,
-                if func.is_async {
+                if effective_is_async {
                     " (async -> Future)"
                 } else {
                     ""

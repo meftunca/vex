@@ -16,5 +16,6 @@ rspirv.workspace = true
 spirv.workspace = true
 thiserror.workspace = true
 anyhow.workspace = true
+dashmap.workspace = true
 colored = "2.1"
 vex-diagnostics = { version = "0.2.0", path = "../vex-diagnostics" }

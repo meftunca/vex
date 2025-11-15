@@ -92,7 +92,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
         }
 
         // Merge imported items into program (before original items to avoid shadowing)
-        let original_items = program.items.clone();
+        let mut original_items = Vec::new();
+        std::mem::swap(&mut program.items, &mut original_items);
         program.items = imported_items;
         program.items.extend(original_items);
 

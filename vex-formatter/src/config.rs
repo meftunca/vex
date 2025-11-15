@@ -165,7 +165,7 @@ impl Config {
 
     /// Create example configuration file
     pub fn example() -> String {
-        serde_json::to_string_pretty(&Self::default()).unwrap()
+        serde_json::to_string_pretty(&Self::default()).expect("Failed to serialize default config")
     }
 }
 

@@ -5,9 +5,10 @@ use inkwell::values::BasicValueEnum;
 impl<'ctx> ASTCodeGen<'ctx> {
     pub(crate) fn compile_function(&mut self, func: &Function) -> Result<(), String> {
         eprintln!(
-            "🔨 compile_function: {} (receiver: {})",
+            "🔨 compile_function: {} (receiver: {}, is_async: {})",
             func.name,
-            func.receiver.is_some()
+            func.receiver.is_some(),
+            func.is_async
         );
         eprintln!("   Body has {} statements", func.body.statements.len());
         if !func.body.statements.is_empty() {
@@ -17,6 +18,23 @@ impl<'ctx> ASTCodeGen<'ctx> {
         // Initialize async runtime if this is main() and we have a runtime handle
         if func.name == "main" && self.global_runtime.is_some() {
             eprintln!("🔄 main() function with async runtime - runtime already initialized");
+        }
+
+        // ⭐ SPECIAL HANDLING: async main() needs a synchronous wrapper
+        if func.name == "main" && func.is_async {
+            // 🔄 Detected async main() - creating synchronous wrapper
+            eprintln!("🔄 Detected async main() - compiling as regular async function first");
+
+            // First compile as regular async function to generate async_main_resume
+            let previous_return_type = self.current_function_return_type.clone();
+            self.current_function_return_type = func.return_type.clone();
+            self.compile_async_function(func)?;
+            self.current_function_return_type = previous_return_type;
+
+            // Now create the synchronous wrapper main
+            eprintln!("🔄 Creating synchronous wrapper for async main");
+            self.create_sync_main_wrapper()?;
+            return Ok(());
         }
 
         if func.is_async {
@@ -33,31 +51,30 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let fn_name = if let Some(ref receiver) = func.receiver {
             let type_name = match &receiver.ty {
                 Type::Named(name) => name.clone(),
-                Type::Generic { name, .. } => name.clone(),
+                Type::Generic { name, .. } => name.clone(), // Generic types like Container<T>
                 Type::Reference(inner, _) => match &**inner {
                     Type::Named(name) => name.clone(),
                     Type::Generic { name, .. } => name.clone(),
+                    // Handle Vec<T>, Box<T>, etc.
                     Type::Vec(_) => "Vec".to_string(),
                     Type::Box(_) => "Box".to_string(),
                     Type::Option(_) => "Option".to_string(),
                     Type::Result(_, _) => "Result".to_string(),
                     _ => {
-                        eprintln!("⚠️  Unsupported receiver type in compile: {:?}", inner);
+                        eprintln!("⚠️  Unsupported receiver type: {:?}", inner);
                         return Err(format!(
                             "Receiver must be a named type or reference to named type, got {:?}",
                             inner
                         ));
                     }
                 },
+                // Direct Vec/Box without reference
                 Type::Vec(_) => "Vec".to_string(),
                 Type::Box(_) => "Box".to_string(),
                 Type::Option(_) => "Option".to_string(),
                 Type::Result(_, _) => "Result".to_string(),
                 _ => {
-                    eprintln!(
-                        "⚠️  Unsupported receiver type in compile: {:?}",
-                        receiver.ty
-                    );
+                    eprintln!("⚠️  Unsupported receiver type: {:?}", receiver.ty);
                     return Err(format!(
                         "Receiver must be a named type or reference to named type, got {:?}",
                         receiver.ty
@@ -104,7 +121,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let entry = self.context.append_basic_block(fn_val, "entry");
         self.builder.position_at_end(entry);
 
-        // ⭐ SPECIAL: main() runtime initialization
+        // ⭐ SPECIAL: main() runtime initialization (only for sync main)
         if func.name == "main" {
             // Call __vex_runtime_init(argc, argv) first
             let argc_param = fn_val
@@ -115,31 +132,33 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 .get_nth_param(1)
                 .ok_or("main() missing argv parameter")?
                 .into_pointer_value();
-            
+
             // Declare __vex_runtime_init
             let void_type = self.context.void_type();
             let i32_type = self.context.i32_type();
             let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
             let init_type = void_type.fn_type(&[i32_type.into(), ptr_type.into()], false);
             let init_fn = self.module.add_function("__vex_runtime_init", init_type, None);
-            
+
             // Call it
             self.builder
                 .build_call(init_fn, &[argc_param.into(), argv_param.into()], "")
                 .map_err(|e| format!("Failed to call __vex_runtime_init: {}", e))?;
         }
 
-        // ⭐ ASYNC: Initialize runtime at the start of main if needed
+        // ⭐ ASYNC: Initialize runtime at the start of main if needed (only for sync main)
         if func.name == "main" && self.global_runtime.is_some() {
             eprintln!("🔄 Initializing runtime at start of main()");
 
             // Runtime* rt = runtime_create(4);
             let runtime_create = self.get_or_declare_runtime_create();
+            eprintln!("🔍 runtime_create function declared");
             let num_workers = self.context.i32_type().const_int(4, false);
             let runtime_call = self
                 .builder
                 .build_call(runtime_create, &[num_workers.into()], "runtime")
                 .map_err(|e| format!("Failed to call runtime_create: {}", e))?;
+            eprintln!("🔍 runtime_call built successfully");
 
             let runtime_ptr = runtime_call
                 .try_as_basic_value()
@@ -361,78 +380,181 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         if let Some(current_block) = self.builder.get_insert_block() {
             if current_block.get_terminator().is_none() {
-                // ⭐ ASYNC: If this is main() with runtime, add runtime_run() and runtime_destroy()
-                if func.name == "main" && self.global_runtime.is_some() {
-                    eprintln!("🔄 Adding runtime_run() and runtime_destroy() to main()");
-
-                    let runtime_ptr = self
-                        .global_runtime
-                        .ok_or("global_runtime not initialized")?;
-
-                    // void runtime_run(Runtime* runtime);
-                    let runtime_run = self.get_or_declare_runtime_run();
-                    self.builder
-                        .build_call(runtime_run, &[runtime_ptr.into()], "run_runtime")
-                        .map_err(|e| format!("Failed to call runtime_run: {}", e))?;
-
-                    // void runtime_destroy(Runtime* runtime);
-                    let runtime_destroy = self.get_or_declare_runtime_destroy();
-                    self.builder
-                        .build_call(runtime_destroy, &[runtime_ptr.into()], "destroy_runtime")
-                        .map_err(|e| format!("Failed to call runtime_destroy: {}", e))?;
-                }
-
-                // ✅ FIX: Void functions should always get implicit return, not unreachable
-                let is_void_function = func.return_type.is_none()
-                    || matches!(func.return_type.as_ref(), Some(Type::Nil));
-
-                eprintln!("📍 Function {} implicit terminator: is_void={}, current_block={:?}", func.name, is_void_function, current_block.get_name().to_str());
-
-                if is_void_function {
-                    // Void/nil function - add implicit return
-                    eprintln!("   → Adding void return");
-                    self.builder
-                        .build_return(None)
-                        .map_err(|e| format!("Failed to build void return: {}", e))?;
+                // ⭐ ASYNC: Skip implicit terminator for async functions - handled in compile_async_function
+                if self.async_context.is_some() {
+                    eprintln!("📍 Skipping implicit terminator for async function {}", func.name);
                 } else {
-                    // Non-void function - check if entry block
-                    let is_entry_block = current_block
-                        == fn_val
-                            .get_first_basic_block()
-                            .ok_or("Function missing entry block")?;
+                    // ⭐ ASYNC: If this is main() with runtime, add runtime_run() and runtime_destroy()
+                    if func.name == "main" && self.global_runtime.is_some() {
+                        eprintln!("🔄 Adding runtime_run() and runtime_destroy() to main()");
 
-                    if is_entry_block {
-                        // Get the actual return type to generate correct default value
-                        let ret_type = self.ast_type_to_llvm(
-                            func.return_type
-                                .as_ref()
-                                .ok_or("Function missing return type")?,
-                        );
-                        match ret_type {
-                            BasicTypeEnum::IntType(int_ty) => {
-                                let zero = int_ty.const_int(0, false);
-                                self.builder
-                                    .build_return(Some(&zero))
-                                    .map_err(|e| format!("Failed to build return: {}", e))?;
-                            }
-                            _ => {
-                                return Err(
-                                    "Non-void function must have explicit return".to_string()
-                                );
-                            }
-                        }
-                    } else {
-                        // Non-entry block without terminator in non-void function = unreachable
+                        let runtime_ptr = self
+                            .global_runtime
+                            .ok_or("global_runtime not initialized")?;
+
+                        // void runtime_run(Runtime* runtime);
+                        let runtime_run = self.get_or_declare_runtime_run();
                         self.builder
-                            .build_unreachable()
-                            .map_err(|e| format!("Failed to build unreachable: {}", e))?;
+                            .build_call(runtime_run, &[runtime_ptr.into()], "run_runtime")
+                            .map_err(|e| format!("Failed to call runtime_run: {}", e))?;
+
+                        // void runtime_destroy(Runtime* runtime);
+                        let runtime_destroy = self.get_or_declare_runtime_destroy();
+                        self.builder
+                            .build_call(runtime_destroy, &[runtime_ptr.into()], "destroy_runtime")
+                            .map_err(|e| format!("Failed to call runtime_destroy: {}", e))?;
+                    }
+
+                    // ✅ FIX: Void functions should always get implicit return, not unreachable
+                    let is_void_function = func.return_type.is_none()
+                        || matches!(func.return_type.as_ref(), Some(Type::Nil));
+
+                    eprintln!("📍 Function {} implicit terminator: is_void={}, current_block={:?}", func.name, is_void_function, current_block.get_name().to_str());
+
+                    if is_void_function {
+                        // Void/nil function - add implicit return
+                        eprintln!("   → Adding void return");
+                        self.builder.build_return(None)
+                            .map_err(|e| format!("Failed to build void return: {}", e))?;
+                    } else {
+                        // Non-void function - check if entry block
+                        let is_entry_block = current_block
+                            == fn_val
+                                .get_first_basic_block()
+                                .ok_or("Function missing entry block")?;
+
+                        if is_entry_block {
+                            // Get the actual return type to generate correct default value
+                            let ret_type = self.ast_type_to_llvm(
+                                func.return_type
+                                    .as_ref()
+                                    .ok_or("Function missing return type")?,
+                            );
+                            match ret_type {
+                                BasicTypeEnum::IntType(int_ty) => {
+                                    let zero = int_ty.const_int(0, false);
+                                    self.builder.build_return(Some(&zero))
+                                        .map_err(|e| format!("Failed to build return: {}", e))?;
+                                }
+                                _ => {
+                                    return Err(
+                                        "Non-void function must have explicit return".to_string()
+                                    );
+                                }
+                            }
+                        } else {
+                            // Non-entry block without terminator in non-void function = unreachable
+                            self.builder.build_unreachable()
+                                .map_err(|e| format!("Failed to build unreachable: {}", e))?;
+                        }
                     }
                 }
             }
         }
 
-        let result = Ok(());
-        self.current_function_return_type = previous_return_type;
-        result
+        Ok(())
+    }
+
+    pub(crate) fn create_sync_main_wrapper(&mut self) -> Result<(), String> {
+        eprintln!("🔧 Creating synchronous wrapper for async main");
+        
+        // The async main wrapper function (that returns Future*) is already named "main"
+        // We'll call it by retrieving it from functions map, then create a new "main"
+        
+        // Get the async main wrapper (currently named "main")
+        let async_main_fn = *self.functions.get("main").ok_or("async main function not found")?;
+        
+        // Create NEW synchronous main that will be the program entry point
+        let sync_main_fn_type = self.context.i32_type().fn_type(
+            &[
+                self.context.i32_type().into(), // argc
+                self.context.ptr_type(inkwell::AddressSpace::default()).into(), // argv
+            ],
+            false,
+        );
+        let sync_main_fn = self.module.add_function("__vex_sync_main", sync_main_fn_type, None);
+        
+        // Update functions map: keep async main as "main" but track sync wrapper
+        self.functions.insert("__vex_sync_main".to_string(), sync_main_fn);
+
+        // Build synchronous wrapper
+        let sync_entry = self.context.append_basic_block(sync_main_fn, "entry");
+        self.builder.position_at_end(sync_entry);
+
+        // Call __vex_runtime_init(argc, argv)
+        let argc_param = sync_main_fn.get_nth_param(0).unwrap().into_int_value();
+        let argv_param = sync_main_fn.get_nth_param(1).unwrap().into_pointer_value();
+
+        let void_type = self.context.void_type();
+        let i32_type = self.context.i32_type();
+        let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+        let init_type = void_type.fn_type(&[i32_type.into(), ptr_type.into()], false);
+        let init_fn = self.module.add_function("__vex_runtime_init", init_type, None);
+
+        self.builder
+            .build_call(init_fn, &[argc_param.into(), argv_param.into()], "")
+            .map_err(|e| format!("Failed to call __vex_runtime_init: {}", e))?;
+
+        // Initialize runtime
+        let runtime_create = self.get_or_declare_runtime_create();
+        let num_workers = self.context.i32_type().const_int(4, false);
+        let runtime_call = self
+            .builder
+            .build_call(runtime_create, &[num_workers.into()], "runtime")
+            .map_err(|e| format!("Failed to call runtime_create: {}", e))?;
+
+        let runtime_ptr = runtime_call
+            .try_as_basic_value()
+            .unwrap_basic()
+            .into_pointer_value();
+
+        // Store in global: __vex_global_runtime = rt;
+        let global_runtime = self
+            .global_runtime
+            .ok_or("global_runtime not initialized")?;
+        self.builder
+            .build_store(global_runtime, runtime_ptr)
+            .map_err(|e| format!("Failed to store runtime: {}", e))?;
+
+        // Call the async main function wrapper to get future
+        let future_ptr = self.builder
+            .build_call(async_main_fn, &[], "future")
+            .map_err(|e| format!("Failed to call async main: {}", e))?
+            .try_as_basic_value()
+            .unwrap_basic()
+            .into_pointer_value();
+
+        // Spawn the async main coroutine
+        let spawn_fn = self.get_or_declare_runtime_spawn();
+        
+        let main_resume_fn = self.functions.get("async_main_resume").ok_or("async_main_resume function not found")?;
+        let main_resume_ptr = main_resume_fn.as_global_value().as_pointer_value();
+
+        self.builder
+            .build_call(
+                spawn_fn,
+                &[runtime_ptr.into(), main_resume_ptr.into(), future_ptr.into()],
+                "spawn_main",
+            )
+            .map_err(|e| format!("Failed to spawn async main: {}", e))?;
+
+        // Run runtime
+        let runtime_run = self.get_or_declare_runtime_run();
+        self.builder
+            .build_call(runtime_run, &[runtime_ptr.into()], "run_runtime")
+            .map_err(|e| format!("Failed to call runtime_run: {}", e))?;
+
+        // Destroy runtime
+        let runtime_destroy = self.get_or_declare_runtime_destroy();
+        self.builder
+            .build_call(runtime_destroy, &[runtime_ptr.into()], "destroy_runtime")
+            .map_err(|e| format!("Failed to call runtime_destroy: {}", e))?;
+
+        // Return 0
+        self.builder
+            .build_return(Some(&self.context.i32_type().const_int(0, false)))
+            .map_err(|e| format!("Failed to build wrapper return: {}", e))?;
+
+        Ok(())
     }
 }

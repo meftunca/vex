@@ -5,6 +5,7 @@
 // Separated from mod.rs for better organization
 
 use super::*;
+use super::functions::asynchronous::AsyncContext;
 
 /// Struct definition metadata
 #[derive(Debug, Clone)]
@@ -155,6 +156,10 @@ pub struct ASTCodeGen<'ctx> {
     // ⭐ NEW: Source file path for resolving relative imports
     pub(crate) source_file: String,
 
+    // ⭐ NEW: Type interning for performance optimization
+    // Reduces memory usage and clone overhead for common types
+    pub(crate) type_interner: crate::types::interner::TypeInterner,
+
     // ⭐ ASYNC/AWAIT: Global runtime handle for spawning async tasks
     // Initialized in main() when async functions exist
     pub(crate) global_runtime: Option<PointerValue<'ctx>>,
@@ -175,4 +180,7 @@ pub struct ASTCodeGen<'ctx> {
     // ⭐ ASYNC STATE MACHINE: Pre-allocated resume blocks for await points
     // Maps state_id -> BasicBlock for resume continuation
     pub(crate) async_resume_blocks: Vec<inkwell::basic_block::BasicBlock<'ctx>>,
+
+    // ⭐ ASYNC: Current async context for await compilation
+    pub(crate) async_context: Option<AsyncContext>,
 }

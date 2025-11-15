@@ -3,6 +3,12 @@ use super::super::*;
 use super::await_scanner::count_await_points;
 use inkwell::values::FunctionValue;
 
+/// Async context for tracking await compilation state
+#[derive(Debug)]
+pub(crate) struct AsyncContext {
+    // Empty for now - used as marker for async function compilation
+}
+
 impl<'ctx> ASTCodeGen<'ctx> {
     pub(crate) fn compile_async_function(&mut self, func: &Function) -> Result<(), String> {
         // Async functions are transformed into state machines:
@@ -32,22 +38,17 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Step 2: Generate resume function
         // CoroStatus (*coro_resume_func)(WorkerContext* context, void* coro_data);
-        let worker_ctx_ptr = self
-            .context
-            .i8_type()
-            .ptr_type(inkwell::AddressSpace::default());
-        let void_ptr = self
-            .context
-            .i8_type()
-            .ptr_type(inkwell::AddressSpace::default());
+        let worker_ctx_ptr = self.context.ptr_type(inkwell::AddressSpace::default());
+        let void_ptr = self.context.ptr_type(inkwell::AddressSpace::default());
         let coro_status_type = self.context.i32_type(); // enum CoroStatus
 
         let resume_fn_type =
             coro_status_type.fn_type(&[worker_ctx_ptr.into(), void_ptr.into()], false);
-        let resume_fn_name = format!("{}_resume", fn_name);
+        let resume_fn_name = if fn_name == "main" { "async_main_resume".to_string() } else { format!("{}_resume", fn_name) };
         let resume_fn = self
             .module
             .add_function(&resume_fn_name, resume_fn_type, None);
+        self.functions.insert(resume_fn_name.clone(), resume_fn);
 
         // Build resume function body
         let entry = self.context.append_basic_block(resume_fn, "entry");
@@ -77,7 +78,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             .builder
             .build_pointer_cast(
                 state_param,
-                state_struct_type.ptr_type(inkwell::AddressSpace::default()),
+                self.context.ptr_type(inkwell::AddressSpace::default()),
                 "state_cast",
             )
             .map_err(|e| format!("Failed to cast state: {}", e))?;
@@ -133,6 +134,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         // Store resume blocks in codegen state for await compilation
         self.async_resume_blocks = resume_blocks.clone();
         self.async_state_stack.push((state_ptr, state_field_ptr, 0));
+        self.async_context = Some(AsyncContext {}); // Set async context for implicit terminator check
         eprintln!(
             "🔧 Pushed state context: state_id=0, resume_blocks_count={}",
             resume_blocks.len()
@@ -164,6 +166,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         // Pop state machine context and clear resume blocks
         self.async_state_stack.pop();
         self.current_async_resume_fn = None;
+        self.async_context = None; // Clear async context
 
         // ⭐ Resume blocks already have terminators (added during await compilation)
         // Just verify and add fallback if needed
@@ -211,7 +214,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
             .map_err(|e| format!("Failed to build return: {}", e))?;
 
         // Step 3: Generate wrapper function (original name)
-        // This allocates state and spawns the coroutine
+        // This allocates state and spawns the coroutine (for regular async functions)
+        // For async main, just returns the state pointer
         let fn_val = *self
             .functions
             .get(fn_name)
@@ -243,7 +247,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             .builder
             .build_pointer_cast(
                 state_alloc_ptr,
-                state_struct_type.ptr_type(inkwell::AddressSpace::default()),
+                self.context.ptr_type(inkwell::AddressSpace::default()),
                 "state_typed",
             )
             .map_err(|e| format!("Failed to cast: {}", e))?;
@@ -259,7 +263,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             .map_err(|e| format!("Failed to store state: {}", e))?;
 
         // Copy parameters into state struct
-        for (i, param) in func.params.iter().enumerate() {
+        for i in 0..func.params.len() {
             let param_idx = crate::safe_field_index(i)
                 .map_err(|e| format!("Async function parameter index overflow: {}", e))?;
             let param_val = fn_val.get_nth_param(param_idx).ok_or_else(|| {
@@ -281,69 +285,71 @@ impl<'ctx> ASTCodeGen<'ctx> {
             self.builder
                 .build_store(param_dest, param_val)
                 .map_err(|e| format!("Failed to store param: {}", e))?;
-        }
-
-        // Spawn coroutine: runtime_spawn_global(runtime, resume_fn, state)
-        let spawn_fn = self.get_or_declare_runtime_spawn();
-
-        // Load global runtime handle: Runtime* rt = __vex_global_runtime;
-        let global_runtime_var = self
-            .global_runtime
-            .ok_or("No global runtime for async function - async functions require runtime initialization in main")?;
-
-        let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
-        let runtime_handle = self
-            .builder
-            .build_load(ptr_type, global_runtime_var, "runtime_load")
-            .map_err(|e| format!("Failed to load runtime: {}", e))?
-            .into_pointer_value();
-
-        // Cast resume_fn to void*
-        let resume_fn_ptr = resume_fn.as_global_value().as_pointer_value();
-        let resume_void_ptr = self
-            .builder
-            .build_pointer_cast(
-                resume_fn_ptr,
-                self.context
-                    .i8_type()
-                    .ptr_type(inkwell::AddressSpace::default()),
-                "resume_cast",
-            )
-            .map_err(|e| format!("Failed to cast resume fn: {}", e))?;
-
-        // Call runtime_spawn_global(runtime, resume_fn, state)
-        self.builder
-            .build_call(
-                spawn_fn,
-                &[
-                    runtime_handle.into(),
-                    resume_void_ptr.into(),
-                    state_alloc_ptr.into(),
-                ],
-                "spawn",
-            )
-            .map_err(|e| format!("Failed to call runtime_spawn_global: {}", e))?;
-
-        // Return appropriate value based on function return type
-        // Async functions should return Future<T> (opaque pointer to runtime future handle)
-        // For now, return null pointer as placeholder - runtime will manage the actual future
-        if let Some(_ret_type) = &func.return_type {
-            // TODO: Allocate and return actual Future<T> handle from runtime
-            // For now, return null pointer (void*)
-            let null_ptr = self
-                .context
-                .ptr_type(inkwell::AddressSpace::default())
-                .const_null();
+        }        if fn_name == "main" {
+            // For async main, just return the state pointer as the future
             self.builder
-                .build_return(Some(&null_ptr))
-                .map_err(|e| format!("Failed to build wrapper return: {}", e))?;
+                .build_return(Some(&state_alloc_ptr))
+                .map_err(|e| format!("Failed to build main return: {}", e))?;
         } else {
-            self.builder
-                .build_return(None)
-                .map_err(|e| format!("Failed to build wrapper return: {}", e))?;
-        }
+            // For regular async functions, spawn the coroutine and return future handle
+            // Spawn coroutine: runtime_spawn_global(runtime, resume_fn, state)
+            let spawn_fn = self.get_or_declare_runtime_spawn();
 
-        Ok(())
+            // Load global runtime handle: Runtime* rt = __vex_global_runtime;
+            let global_runtime_var = self
+                .global_runtime
+                .ok_or("No global runtime for async function - async functions require runtime initialization in main")?;
+
+            let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+            let runtime_handle = self
+                .builder
+                .build_load(ptr_type, global_runtime_var, "runtime_load")
+                .map_err(|e| format!("Failed to load runtime: {}", e))?
+                .into_pointer_value();
+
+            // Cast resume_fn to void*
+            let resume_fn_ptr = resume_fn.as_global_value().as_pointer_value();
+            let resume_void_ptr = self
+                .builder
+                .build_pointer_cast(
+                    resume_fn_ptr,
+                    self.context.ptr_type(inkwell::AddressSpace::default()),
+                    "resume_cast",
+                )
+                .map_err(|e| format!("Failed to cast resume fn: {}", e))?;
+
+            // Call runtime_spawn_global(runtime, resume_fn, state)
+            self.builder
+                .build_call(
+                    spawn_fn,
+                    &[
+                        runtime_handle.into(),
+                        resume_void_ptr.into(),
+                        state_alloc_ptr.into(),
+                    ],
+                    "spawn",
+                )
+                .map_err(|e| format!("Failed to call runtime_spawn_global: {}", e))?;
+
+            // Return appropriate value based on function return type
+            // Async functions should return Future<T> (opaque pointer to runtime future handle)
+            // For now, return null pointer as placeholder - runtime will manage the actual future
+            if let Some(_ret_type) = &func.return_type {
+                // TODO: Allocate and return actual Future<T> handle from runtime
+                // For now, return null pointer (void*)
+                let null_ptr = self
+                    .context
+                    .ptr_type(inkwell::AddressSpace::default())
+                    .const_null();
+                self.builder
+                    .build_return(Some(&null_ptr))
+                    .map_err(|e| format!("Failed to build wrapper return: {}", e))?;
+            } else {
+                self.builder
+                    .build_return(None)
+                    .map_err(|e| format!("Failed to build wrapper return: {}", e))?;
+            }
+        }        Ok(())
     }
 
     pub(crate) fn get_or_declare_malloc(&mut self) -> FunctionValue<'ctx> {
@@ -352,10 +358,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         }
 
         let i64_type = self.context.i64_type();
-        let i8_ptr = self
-            .context
-            .i8_type()
-            .ptr_type(inkwell::AddressSpace::default());
+        let i8_ptr = self.context.ptr_type(inkwell::AddressSpace::default());
         let malloc_type = i8_ptr.fn_type(&[i64_type.into()], false);
         self.module.add_function("malloc", malloc_type, None)
     }
@@ -366,10 +369,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         }
 
         // void worker_await_after(WorkerContext* context, uint64_t millis);
-        let worker_ctx_ptr = self
-            .context
-            .i8_type()
-            .ptr_type(inkwell::AddressSpace::default());
+        let worker_ctx_ptr = self.context.ptr_type(inkwell::AddressSpace::default());
         let i64_type = self.context.i64_type();
         let void_type = self.context.void_type();
 
@@ -384,18 +384,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
         }
 
         // void runtime_spawn_global(Runtime* runtime, coro_resume_func resume_fn, void* coro_data);
-        let runtime_ptr = self
-            .context
-            .i8_type()
-            .ptr_type(inkwell::AddressSpace::default());
-        let fn_ptr = self
-            .context
-            .i8_type()
-            .ptr_type(inkwell::AddressSpace::default());
-        let void_ptr = self
-            .context
-            .i8_type()
-            .ptr_type(inkwell::AddressSpace::default());
+        let runtime_ptr = self.context.ptr_type(inkwell::AddressSpace::default());
+        let fn_ptr = self.context.ptr_type(inkwell::AddressSpace::default());
+        let void_ptr = self.context.ptr_type(inkwell::AddressSpace::default());
         let void_type = self.context.void_type();
 
         let spawn_type =
@@ -410,10 +401,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         }
 
         // Runtime* runtime_create(int num_workers);
-        let runtime_ptr = self
-            .context
-            .i8_type()
-            .ptr_type(inkwell::AddressSpace::default());
+        let runtime_ptr = self.context.ptr_type(inkwell::AddressSpace::default());
         let i32_type = self.context.i32_type();
 
         let create_type = runtime_ptr.fn_type(&[i32_type.into()], false);
@@ -427,10 +415,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         }
 
         // void runtime_run(Runtime* runtime);
-        let runtime_ptr = self
-            .context
-            .i8_type()
-            .ptr_type(inkwell::AddressSpace::default());
+        let runtime_ptr = self.context.ptr_type(inkwell::AddressSpace::default());
         let void_type = self.context.void_type();
 
         let run_type = void_type.fn_type(&[runtime_ptr.into()], false);
@@ -443,10 +428,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         }
 
         // void runtime_destroy(Runtime* runtime);
-        let runtime_ptr = self
-            .context
-            .i8_type()
-            .ptr_type(inkwell::AddressSpace::default());
+        let runtime_ptr = self.context.ptr_type(inkwell::AddressSpace::default());
         let void_type = self.context.void_type();
 
         let destroy_type = void_type.fn_type(&[runtime_ptr.into()], false);

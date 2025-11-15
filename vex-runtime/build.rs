@@ -109,7 +109,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // NOTE: Add other libs like -ldl, -lrt for Linux if needed later.
 
     println!("cargo:warning=Linker args content: {}", linker_args);
-    std::fs::write(&linker_args_path, &linker_args).expect("Failed to write linker args for CLI");
+    std::fs::write(&linker_args_path, &linker_args)
+        .unwrap_or_else(|e| panic!("Failed to write linker args to {}: {}", linker_args_path.display(), e));
     println!("cargo:warning=Successfully wrote linker args file.");
 
     // 3. Expose the output directory to the `vex-runtime` crate so it can find the args file.

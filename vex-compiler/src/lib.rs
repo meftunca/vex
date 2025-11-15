@@ -5,6 +5,7 @@ pub mod module_resolver;
 pub mod resolver; // Platform detection & stdlib resolution
 pub mod trait_bounds_checker; // Trait bounds verification
 pub mod type_registry; // Builtin type name registry for O(1) lookup
+pub mod types; // Type interning and utilities
 pub mod utils; // Utility modules (safe arithmetic, etc.)
 
 // Re-export diagnostics from vex-diagnostics crate
