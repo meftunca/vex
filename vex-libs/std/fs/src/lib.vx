@@ -34,7 +34,7 @@ extern "C" {
 export fn read_to_string(path: str): str {
     let cpath: *u8 = vex_str_to_cstr(path);
     let! size: u64 = 0;
-    let size_ptr: *u64! = &!size;
+    let! size_ptr: *u64 = &size;
     
     let data: *u8 = vex_file_read_all_str(cpath, size_ptr);
     

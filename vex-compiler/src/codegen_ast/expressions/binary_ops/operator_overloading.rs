@@ -49,8 +49,14 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 }
             }
 
+            // ⭐ Strip references to get the actual type for operator lookup
+            let actual_type = match left_type {
+                Type::Reference(ref inner, _) => inner.as_ref().clone(),
+                _ => left_type.clone(),
+            };
+
             // ⭐ Phase 1 Day 3-4: Builtin contract operator dispatch
-            if let Type::Named(ref type_name) = left_type {
+            if let Type::Named(ref type_name) = actual_type {
                 let (contract_name, method_name) = self.binary_op_to_trait(op);
                 if !contract_name.is_empty() {
                     // Check if builtin contract exists (e.g., i32 extends Add)
@@ -95,7 +101,24 @@ impl<'ctx> ASTCodeGen<'ctx> {
                             String::new()
                         };
 
-                    // Try external method with type suffix first (for overloading support)
+                    // ⚠️ CRITICAL FIX: For inline methods, param_count INCLUDES receiver
+                    // Binary operator: receiver + rhs = 2 total params
+                    let inline_param_count = 2;
+
+                    // Try inline method with type suffix first (for overloaded inline methods)
+                    let inline_method_typed = if !first_arg_type_suffix.is_empty() {
+                        format!(
+                            "{}{}_{}",
+                            base_method_name, first_arg_type_suffix, inline_param_count
+                        )
+                    } else {
+                        String::new()
+                    };
+
+                    // Fallback: inline method without type suffix
+                    let inline_method_name = format!("{}_{}", base_method_name, inline_param_count);
+
+                    // Try external method with type suffix (for overloading support)
                     let external_method_typed =
                         if !first_arg_type_suffix.is_empty() && method_name.starts_with("op") {
                             format!(
@@ -113,23 +136,23 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         base_method_name.clone()
                     };
 
-                    // For inline methods: receiver + rhs (param_count = 2)
-                    let encoded_param_count = 2;
-                    let inline_method_name =
-                        format!("{}_{}", base_method_name, encoded_param_count);
-
-                    // Check all naming schemes
-                    let method_func_name = if !external_method_typed.is_empty()
+                    // Check all naming schemes: inline typed > inline untyped > external typed > external untyped
+                    // Prioritize inline methods (most specific)
+                    let method_func_name = if !inline_method_typed.is_empty()
+                        && self.functions.contains_key(&inline_method_typed)
+                    {
+                        inline_method_typed
+                    } else if self.functions.contains_key(&inline_method_name) {
+                        inline_method_name
+                    } else if !external_method_typed.is_empty()
                         && self.functions.contains_key(&external_method_typed)
                     {
                         external_method_typed
                     } else if self.functions.contains_key(&external_method_name) {
                         external_method_name
-                    } else if self.functions.contains_key(&inline_method_name) {
-                        inline_method_name
                     } else {
-                        // Default to external for error reporting
-                        external_method_name
+                        // Default to inline for error reporting (most common case)
+                        inline_method_name
                     };
 
                     eprintln!(
@@ -162,6 +185,24 @@ impl<'ctx> ASTCodeGen<'ctx> {
                             &vec![right.clone()],
                             false,
                         )?));
+                    } else if !contract_name.is_empty() {
+                        // ⚠️ Debug: Operator method not found despite contract name existing
+                        eprintln!(
+                            "⚠️  Operator method '{}' not found for type '{}' (contract: '{}')",
+                            method_name, type_name, contract_name
+                        );
+                        eprintln!("   Expected function name: {}", method_func_name);
+                        eprintln!(
+                            "   Trait implementation exists: {}",
+                            self.has_operator_trait(type_name, contract_name).is_some()
+                        );
+                        eprintln!(
+                            "   Function registered: {}",
+                            self.functions.contains_key(&method_func_name)
+                        );
+                        eprintln!(
+                            "   Hint: Check if contract is implemented and method signature matches"
+                        );
                     }
                 }
             }

@@ -6,21 +6,21 @@ extern "C" {
     fn unsetenv(name: *u8): i32;
 }
 
-export fn get(name: String): String {
-    let name_ptr: *u8 = &name;
-    let value_ptr: *u8 = getenv(name_ptr);
-    return value_ptr;
+export fn get(name: str): str {
+    let name_ptr = name as *u8;
+    let value_ptr = getenv(name_ptr);
+    return value_ptr as str;
 }
 
-export fn set(name: String, value: String): bool {
-    let name_ptr: *u8 = &name;
-    let value_ptr: *u8 = &value;
-    let result: i32 = setenv(name_ptr, value_ptr, 1);
+export fn set(name: str, value: str): bool {
+    let name_ptr = name as *u8;
+    let value_ptr = value as *u8;
+    let result = setenv(name_ptr, value_ptr, 1);
     return result == 0;
 }
 
-export fn unset(name: String): bool {
-    let name_ptr: *u8 = &name;
-    let result: i32 = unsetenv(name_ptr);
+export fn unset(name: str): bool {
+    let name_ptr = name as *u8;
+    let result = unsetenv(name_ptr);
     return result == 0;
 }

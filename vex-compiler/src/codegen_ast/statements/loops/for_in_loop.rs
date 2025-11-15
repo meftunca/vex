@@ -147,7 +147,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         if self
             .builder
             .get_insert_block()
-            .unwrap()
+            .ok_or("No active basic block")?
             .get_terminator()
             .is_none()
         {
@@ -331,7 +331,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         if self
             .builder
             .get_insert_block()
-            .unwrap()
+            .ok_or("No active basic block")?
             .get_terminator()
             .is_none()
         {

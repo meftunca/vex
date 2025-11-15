@@ -199,9 +199,9 @@ pub(super) fn compile_print_variadic<'ctx>(
 
     let vex_value_type = codegen.context.struct_type(
         &[
-            codegen.context.i32_type().into(),
-            codegen.context.i32_type().into(),
-            codegen.context.i64_type().into(),
+            codegen.context.i32_type().into(),                 // type (4 bytes)
+            codegen.context.i8_type().array_type(12).into(),   // padding (12 bytes)
+            codegen.context.custom_width_int_type(128).into(), // union (16 bytes)
         ],
         false,
     );
@@ -259,13 +259,41 @@ pub(super) fn compile_print_variadic<'ctx>(
         )
         .map_err(|e| format!("Failed to call {}: {}", fn_name, e))?;
 
+    // Flush stdout to ensure immediate output
+    let fflush = codegen.module.get_function("fflush").unwrap_or_else(|| {
+        let fflush_type = codegen.context.i32_type().fn_type(
+            &[codegen
+                .context
+                .ptr_type(inkwell::AddressSpace::default())
+                .into()],
+            false,
+        );
+        codegen.module.add_function(
+            "fflush",
+            fflush_type,
+            Some(inkwell::module::Linkage::External),
+        )
+    });
+    codegen
+        .builder
+        .build_call(
+            fflush,
+            &[codegen
+                .context
+                .ptr_type(inkwell::AddressSpace::default())
+                .const_null()
+                .into()],
+            "flush_stdout",
+        )
+        .map_err(|e| format!("Failed to call fflush: {}", e))?;
+
     // Add newline for println
     if func_name == "println" {
         let newline_str = codegen
             .builder
             .build_global_string_ptr("\n", "newline")
             .map_err(|e| format!("Failed to create newline: {}", e))?;
-        
+
         let newline_value_array = vex_value_type.array_type(1);
         let newline_value_ptr = codegen
             .builder
@@ -376,7 +404,9 @@ fn convert_to_vex_value_typed<'ctx>(
         // Auto-cast value to match helper function signature (e.g., i64 → i32 for vex_value_i32)
         let casted_val = if let BasicValueEnum::IntValue(int_val) = val {
             let helper_param_types = helper_fn.get_type().get_param_types();
-            if let Some(inkwell::types::BasicMetadataTypeEnum::IntType(target_int_ty)) = helper_param_types.first() {
+            if let Some(inkwell::types::BasicMetadataTypeEnum::IntType(target_int_ty)) =
+                helper_param_types.first()
+            {
                 if int_val.get_type().get_bit_width() != target_int_ty.get_bit_width() {
                     if int_val.get_type().get_bit_width() > target_int_ty.get_bit_width() {
                         // Truncate: i64 → i32
@@ -402,10 +432,14 @@ fn convert_to_vex_value_typed<'ctx>(
         } else {
             val
         };
-        
+
         codegen
             .builder
-            .build_call(helper_fn, &[casted_val.into()], &format!("{}_call", helper_name))
+            .build_call(
+                helper_fn,
+                &[casted_val.into()],
+                &format!("{}_call", helper_name),
+            )
             .map_err(|e| format!("Failed to call {}: {}", helper_name, e))?
     };
 

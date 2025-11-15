@@ -1,0 +1,15 @@
+// Minimal cmd module test
+// Just verify module loads and functions are callable
+
+import { argc } from "cmd";
+
+fn main(): i32 {
+    // Test that argc is callable and returns positive
+    let count = argc();
+    
+    if count < 1 {
+        return 1; // Fail
+    }
+    
+    return 0; // Success
+}

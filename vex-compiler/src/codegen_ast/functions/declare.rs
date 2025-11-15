@@ -74,7 +74,17 @@ impl<'ctx> ASTCodeGen<'ctx> {
             func.name.clone()
         };
 
+        // ⭐ SPECIAL: main() gets argc/argv parameters injected
         let mut param_types: Vec<BasicMetadataTypeEnum> = Vec::new();
+        if fn_name == "main" {
+            // int main(int argc, char **argv)
+            let i32_type = self.context.i32_type();
+            let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+            
+            param_types.push(i32_type.into()); // argc
+            param_types.push(ptr_type.into()); // argv (char**)
+        }
+        
         if let Some(ref receiver) = func_for_decl.receiver {
             // ⭐ NEW: External methods (fn (p: Point)) pass receiver BY VALUE
             // Only reference receivers (fn (p: &Point!) are pointers

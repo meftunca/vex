@@ -44,15 +44,23 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }
             Type::Array(elem_ty, size) => {
                 let elem_llvm = self.ast_type_to_llvm(elem_ty);
+                // Safe conversion with fallback to i32 array on overflow
+                let size_u32 = match crate::safe_array_size(*size) {
+                    Ok(s) => s,
+                    Err(_) => {
+                        eprintln!("⚠️ Array size {} exceeds u32::MAX, using fallback", size);
+                        return BasicTypeEnum::IntType(self.context.i32_type());
+                    }
+                };
                 match elem_llvm {
                     BasicTypeEnum::IntType(it) => {
-                        BasicTypeEnum::ArrayType(it.array_type(*size as u32))
+                        BasicTypeEnum::ArrayType(it.array_type(size_u32))
                     }
                     BasicTypeEnum::FloatType(ft) => {
-                        BasicTypeEnum::ArrayType(ft.array_type(*size as u32))
+                        BasicTypeEnum::ArrayType(ft.array_type(size_u32))
                     }
                     BasicTypeEnum::ArrayType(at) => {
-                        BasicTypeEnum::ArrayType(at.array_type(*size as u32))
+                        BasicTypeEnum::ArrayType(at.array_type(size_u32))
                     }
                     _ => BasicTypeEnum::IntType(self.context.i32_type()), // fallback
                 }
@@ -60,6 +68,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
             Type::Reference(inner_ty, _is_mutable) => {
                 // Reference type: &T or &mut T
                 // In LLVM, references are just pointers
+                // ⚠️ CRITICAL FIX: Check if inner type is already a pointer (builtins)
+                // to prevent double-pointer creation (ptr to ptr)
                 let inner_llvm = self.ast_type_to_llvm(inner_ty);
                 match inner_llvm {
                     BasicTypeEnum::IntType(it) => {
@@ -74,9 +84,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     BasicTypeEnum::StructType(st) => {
                         BasicTypeEnum::PointerType(st.ptr_type(inkwell::AddressSpace::default()))
                     }
-                    BasicTypeEnum::PointerType(pt) => {
-                        // Already a pointer, just return it
-                        BasicTypeEnum::PointerType(pt)
+                    BasicTypeEnum::PointerType(_pt) => {
+                        // ⚠️ CRITICAL: Already a pointer (e.g., Vec, Box, String builtins)
+                        // Don't wrap in another pointer - just return as-is
+                        // This prevents &Vec becoming ptr-to-ptr instead of just ptr
+                        inner_llvm
                     }
                     _ => BasicTypeEnum::PointerType(
                         self.context

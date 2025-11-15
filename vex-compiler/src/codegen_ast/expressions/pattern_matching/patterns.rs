@@ -74,9 +74,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         let mut combined_result = self.context.bool_type().const_int(1, false);
         for (i, sub_pattern) in patterns.iter().enumerate() {
+            let elem_idx = crate::safe_field_index(i)
+                .map_err(|e| format!("Tuple element index overflow: {}", e))?;
             let element = self
                 .builder
-                .build_extract_value(struct_val, i as u32, &format!("tuple_check_{}", i))
+                .build_extract_value(struct_val, elem_idx, &format!("tuple_check_{}", i))
                 .map_err(|e| format!("Failed to extract tuple element for check: {}", e))?;
             let sub_matches = self.compile_pattern_check(sub_pattern, element)?;
             combined_result = self
@@ -241,11 +243,13 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         let mut all_match = self.context.bool_type().const_int(1, false);
         for (i, elem_pattern) in elements.iter().enumerate() {
-            let elem_val = self
+            let elem_idx = crate::safe_field_index(i)
+                .map_err(|e| format!("Array element index overflow: {}", e))?;
+            let elem = self
                 .builder
-                .build_extract_value(array_val, i as u32, &format!("array_elem_{}", i))
-                .map_err(|e| format!("Failed to extract array element {}: {}", i, e))?;
-            let elem_matches = self.compile_pattern_check(elem_pattern, elem_val)?;
+                .build_extract_value(array_val, elem_idx, &format!("array_elem_{}", i))
+                .map_err(|e| format!("Failed to extract array element: {}", e))?;
+            let elem_matches = self.compile_pattern_check(elem_pattern, elem)?;
             all_match = self
                 .builder
                 .build_and(all_match, elem_matches, &format!("array_and_{}", i))

@@ -69,8 +69,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
         }
 
         for (i, param) in method.params.iter().enumerate() {
+            let param_idx = crate::safe_param_index(i, param_offset)
+                .map_err(|e| format!("Parameter index overflow for {}: {}", param.name, e))?;
             let param_val = fn_val
-                .get_nth_param((i + param_offset) as u32)
+                .get_nth_param(param_idx)
                 .ok_or_else(|| format!("Missing parameter {}", param.name))?;
 
             let param_ty = self.ast_type_to_llvm(&param.ty);

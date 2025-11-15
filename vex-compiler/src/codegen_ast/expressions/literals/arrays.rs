@@ -20,10 +20,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let elem_type = first_val.get_type();
 
         // Create array type
+        let array_size = crate::safe_array_size(elements.len())
+            .map_err(|e| format!("Array literal too large: {}", e))?;
         let array_type = match elem_type {
-            BasicTypeEnum::IntType(it) => it.array_type(elements.len() as u32),
-            BasicTypeEnum::FloatType(ft) => ft.array_type(elements.len() as u32),
-            BasicTypeEnum::ArrayType(at) => at.array_type(elements.len() as u32),
+            BasicTypeEnum::IntType(it) => it.array_type(array_size),
+            BasicTypeEnum::FloatType(ft) => ft.array_type(array_size),
+            BasicTypeEnum::ArrayType(at) => at.array_type(array_size),
             _ => return Err(format!("Unsupported array element type: {:?}", elem_type)),
         };
 
@@ -57,10 +59,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let elem_type_llvm = self.ast_type_to_llvm(elem_type_ast);
 
         // Create array type
+        let array_size = crate::safe_array_size(elements.len())
+            .map_err(|e| format!("Array literal too large: {}", e))?;
         let array_type = match elem_type_llvm {
-            BasicTypeEnum::IntType(it) => it.array_type(elements.len() as u32),
-            BasicTypeEnum::FloatType(ft) => ft.array_type(elements.len() as u32),
-            BasicTypeEnum::ArrayType(at) => at.array_type(elements.len() as u32),
+            BasicTypeEnum::IntType(it) => it.array_type(array_size),
+            BasicTypeEnum::FloatType(ft) => ft.array_type(array_size),
+            BasicTypeEnum::ArrayType(at) => at.array_type(array_size),
             _ => {
                 return Err(format!(
                     "Unsupported array element type: {:?}",
@@ -211,7 +215,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
         };
 
         let count_u32 = if let Some(count_const) = count_int.get_zero_extended_constant() {
-            count_const as u32
+            crate::safe_array_size(count_const as usize)
+                .map_err(|e| format!("Array repeat count overflow (line 218): {}", e))?
         } else {
             return Err("Array repeat count must be a compile-time constant".to_string());
         };
@@ -312,7 +317,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Get the count as a constant if possible, otherwise use dynamic size
         let count_u32 = if let Some(count_const) = count_int.get_zero_extended_constant() {
-            count_const as u32
+            crate::safe_array_size(count_const as usize)
+                .map_err(|e| format!("Array repeat count overflow (line 319): {}", e))?
         } else {
             return Err("Array repeat count must be a compile-time constant".to_string());
         };

@@ -18,6 +18,18 @@ impl<'ctx> ASTCodeGen<'ctx> {
         // Infer source type from expression for semantic validation
         let source_type = self.infer_expression_type(expr).ok();
         
+        // ⭐ Special case: Array variable cast - use pointer directly without loading
+        if let Some(Type::Array(_, _)) = &source_type {
+            if let Expression::Ident(var_name) = expr {
+                if matches!(target_type, Type::RawPtr { .. }) {
+                    // Get pointer to array variable (don't load)
+                    let array_ptr = self.variables.get(var_name)
+                        .ok_or_else(|| format!("Variable {} not found", var_name))?;
+                    return Ok((*array_ptr).into());
+                }
+            }
+        }
+        
         let value = self.compile_expression(expr)?;
         let target_llvm = self.ast_type_to_llvm(target_type);
 

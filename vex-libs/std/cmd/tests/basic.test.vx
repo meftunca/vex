@@ -1,0 +1,35 @@
+// Command-line module tests
+// Tests for command-line argument access
+
+import { argc, argv, program_name, arg_count } from "cmd";
+
+fn main(): i32 {
+    println("=== Command-line Module Tests ===");
+    
+    // Test 1: argc should be at least 1 (program name)
+    let arg_count = argc();
+    if arg_count < 1 {
+        println("FAIL: argc() returned less than 1");
+        return 1;
+    }
+    println("✓ argc() = ", arg_count);
+    
+    // Test 2: Program name should not be empty
+    let prog = program_name();
+    if prog == "" {
+        println("FAIL: program_name() returned empty string");
+        return 2;
+    }
+    println("✓ program_name() = ", prog);
+    
+    // Test 3: argv(0) should equal program_name()
+    let arg0 = argv(0);
+    if arg0 != prog {
+        println("FAIL: argv(0) != program_name()");
+        return 3;
+    }
+    println("✓ argv(0) matches program_name()");
+    
+    println("=== All cmd tests passed ===");
+    return 0;
+}

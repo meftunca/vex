@@ -104,6 +104,31 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let entry = self.context.append_basic_block(fn_val, "entry");
         self.builder.position_at_end(entry);
 
+        // ⭐ SPECIAL: main() runtime initialization
+        if func.name == "main" {
+            // Call __vex_runtime_init(argc, argv) first
+            let argc_param = fn_val
+                .get_nth_param(0)
+                .ok_or("main() missing argc parameter")?
+                .into_int_value();
+            let argv_param = fn_val
+                .get_nth_param(1)
+                .ok_or("main() missing argv parameter")?
+                .into_pointer_value();
+            
+            // Declare __vex_runtime_init
+            let void_type = self.context.void_type();
+            let i32_type = self.context.i32_type();
+            let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+            let init_type = void_type.fn_type(&[i32_type.into(), ptr_type.into()], false);
+            let init_fn = self.module.add_function("__vex_runtime_init", init_type, None);
+            
+            // Call it
+            self.builder
+                .build_call(init_fn, &[argc_param.into(), argv_param.into()], "")
+                .map_err(|e| format!("Failed to call __vex_runtime_init: {}", e))?;
+        }
+
         // ⭐ ASYNC: Initialize runtime at the start of main if needed
         if func.name == "main" && self.global_runtime.is_some() {
             eprintln!("🔄 Initializing runtime at start of main()");
@@ -122,7 +147,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 .into_pointer_value();
 
             // Store in global: __vex_global_runtime = rt;
-            let global_runtime = self.global_runtime.unwrap();
+            let global_runtime = self
+                .global_runtime
+                .ok_or("global_runtime not initialized")?;
             self.builder
                 .build_store(global_runtime, runtime_ptr)
                 .map_err(|e| format!("Failed to store runtime: {}", e))?;
@@ -136,7 +163,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
         self.function_params.clear();
         self.function_param_types.clear();
 
-        let mut param_offset = 0;
+        // ⭐ SPECIAL: Skip argc/argv parameters in main()
+        let mut param_offset = if func.name == "main" { 2 } else { 0 };
 
         if let Some(ref receiver) = func.receiver {
             let param_val = fn_val
@@ -229,8 +257,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
         }
 
         for (i, param) in func.params.iter().enumerate() {
+            let param_idx = crate::safe_param_index(i, param_offset)
+                .map_err(|e| format!("Parameter index overflow for {}: {}", param.name, e))?;
             let param_val = fn_val
-                .get_nth_param((i + param_offset) as u32)
+                .get_nth_param(param_idx)
                 .ok_or_else(|| format!("Parameter {} not found", param.name))?;
             let param_type = self.ast_type_to_llvm(&param.ty);
 
@@ -335,7 +365,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 if func.name == "main" && self.global_runtime.is_some() {
                     eprintln!("🔄 Adding runtime_run() and runtime_destroy() to main()");
 
-                    let runtime_ptr = self.global_runtime.unwrap();
+                    let runtime_ptr = self
+                        .global_runtime
+                        .ok_or("global_runtime not initialized")?;
 
                     // void runtime_run(Runtime* runtime);
                     let runtime_run = self.get_or_declare_runtime_run();
@@ -364,11 +396,18 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         .map_err(|e| format!("Failed to build void return: {}", e))?;
                 } else {
                     // Non-void function - check if entry block
-                    let is_entry_block = current_block == fn_val.get_first_basic_block().unwrap();
+                    let is_entry_block = current_block
+                        == fn_val
+                            .get_first_basic_block()
+                            .ok_or("Function missing entry block")?;
 
                     if is_entry_block {
                         // Get the actual return type to generate correct default value
-                        let ret_type = self.ast_type_to_llvm(func.return_type.as_ref().unwrap());
+                        let ret_type = self.ast_type_to_llvm(
+                            func.return_type
+                                .as_ref()
+                                .ok_or("Function missing return type")?,
+                        );
                         match ret_type {
                             BasicTypeEnum::IntType(int_ty) => {
                                 let zero = int_ty.const_int(0, false);

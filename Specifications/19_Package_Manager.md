@@ -46,6 +46,7 @@ Vex projects follow a conventional directory structure:
 my-project/
 ├── vex.json          # Project manifest
 ├── vex.lock          # Lock file (generated)
+├── native/           # Native C Codes
 ├── src/
 │   ├── lib.vx        # Library entry point
 │   ├── main.vx       # Executable entry point (optional)

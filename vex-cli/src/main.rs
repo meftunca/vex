@@ -1191,11 +1191,61 @@ fn run_single_test(test_file: &PathBuf, timeout: Option<u64>, _verbose: bool) ->
     // Parse
     let test_file_str = test_file.to_str().unwrap_or("unknown.vx");
     let mut parser = vex_parser::Parser::new_with_file(test_file_str, &source)?;
-    let ast = parser
+    let mut ast = parser
         .parse_file()
         .map_err(|e| anyhow::anyhow!("Parse error: {}", e))?;
 
     let span_map = parser.take_span_map();
+
+    // Import resolution (same as vex run)
+    if !ast.imports.is_empty() {
+        let mut std_resolver = vex_compiler::ModuleResolver::new(PathBuf::from("vex-libs/std"));
+        let mut prelude_resolver = vex_compiler::ModuleResolver::new(PathBuf::from("stdlib"));
+
+        for import in &ast.imports {
+            let module_path = &import.module;
+            
+            let module_ast = match std_resolver.load_module(module_path, Some(test_file_str)) {
+                Ok(module) => module,
+                Err(_) => match prelude_resolver.load_module(module_path, Some(test_file_str)) {
+                    Ok(module) => module,
+                    Err(e) => {
+                        return Err(anyhow::anyhow!("Module resolution failed: {}", e));
+                    }
+                }
+            };
+
+            // Merge module items into AST
+            match &import.kind {
+                vex_ast::ImportKind::Module | vex_ast::ImportKind::Namespace(_) => {
+                    for item in &module_ast.items {
+                        match item {
+                            vex_ast::Item::Function(_) | vex_ast::Item::Struct(_) | 
+                            vex_ast::Item::ExternBlock(_) => {
+                                ast.items.push(item.clone());
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                vex_ast::ImportKind::Named => {
+                    for requested in &import.items {
+                        for item in &module_ast.items {
+                            match item {
+                                vex_ast::Item::Function(f) if f.name == *requested => {
+                                    ast.items.push(item.clone());
+                                }
+                                vex_ast::Item::Struct(s) if s.name == *requested => {
+                                    ast.items.push(item.clone());
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     // Compile
     let context = inkwell::context::Context::create();

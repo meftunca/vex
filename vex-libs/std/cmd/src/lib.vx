@@ -1,0 +1,27 @@
+// Command-line argument parsing module
+// Provides access to program arguments (argc/argv)
+
+extern "C" {
+    fn vex_argc(): i32;
+    fn vex_argv(index: i32): str;
+}
+
+// Get total number of command-line arguments (including program name)
+export fn argc(): i32 {
+    return vex_argc();
+}
+
+// Get command-line argument at index (0 = program name)
+export fn argv(index: i32): str {
+    return vex_argv(index);
+}
+
+// Get argument count (excluding program name)
+export fn arg_count(): i32 {
+    return argc() - 1;
+}
+
+// Get program name (argv[0])
+export fn program_name(): str {
+    return argv(0);
+}

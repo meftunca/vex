@@ -16,6 +16,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         async_io_dir.join("src/worker_context.c"),
         async_io_dir.join("src/lockfree_queue.c"),
         async_io_dir.join("src/common.c"),
+        c_dir.join("vex_args.c"),   // Command-line arguments
         c_dir.join("vex_channel.c"),
         c_dir.join("vex_io.c"),     // I/O functions (print, println, etc.)
         c_dir.join("vex_alloc.c"),  // Memory allocation

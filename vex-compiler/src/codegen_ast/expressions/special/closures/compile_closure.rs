@@ -196,8 +196,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
             param_offset
         );
         for (i, param) in inferred_params.iter().enumerate() {
+            let param_idx = crate::safe_param_index(i, param_offset)
+                .map_err(|e| format!("Parameter index overflow in closure param {}: {}", i, e))?;
             let llvm_param = closure_fn
-                .get_nth_param((i + param_offset) as u32)
+                .get_nth_param(param_idx)
                 .ok_or_else(|| format!("Failed to get parameter {} for closure", i))?;
 
             eprintln!("  Param {}: name={}, type={:?}", i, param.name, param.ty);

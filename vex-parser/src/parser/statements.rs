@@ -8,8 +8,8 @@ use vex_lexer::Token;
 impl<'a> Parser<'a> {
     pub(crate) fn parse_statement(&mut self) -> Result<Statement, ParseError> {
         // Let statement: let x = expr; or let! x = expr; or let (a, b) = expr;
-        if self.match_token(&Token::Let) {
-            let is_mutable = self.match_token(&Token::Not); // let! → mutable
+        if self.match_token(&Token::Let) || self.match_token(&Token::LetMut) {
+            let is_mutable = *self.previous() == Token::LetMut;
 
             // Check for tuple destructuring pattern: let (a, b) = ...
             if self.check(&Token::LParen) {

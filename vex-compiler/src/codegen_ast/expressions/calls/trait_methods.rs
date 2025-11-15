@@ -114,8 +114,14 @@ impl<'ctx> ASTCodeGen<'ctx> {
             base_method_name.clone()
         };
 
-        // Check all naming schemes: typed external, untyped external, inline
+        // Check all naming schemes: inline typed > inline untyped > external typed > external untyped
+        // ⚠️ CRITICAL: Prioritize inline methods to avoid collision with external methods
         eprintln!("🔍 Checking method names:");
+        eprintln!(
+            "   inline_method_name: {} (exists: {})",
+            inline_method_name,
+            self.functions.contains_key(&inline_method_name)
+        );
         eprintln!(
             "   external_method_typed: {} (exists: {})",
             external_method_typed,
@@ -126,31 +132,28 @@ impl<'ctx> ASTCodeGen<'ctx> {
             external_method_name,
             self.functions.contains_key(&external_method_name)
         );
-        eprintln!(
-            "   inline_method_name: {} (exists: {})",
-            inline_method_name,
-            self.functions.contains_key(&inline_method_name)
-        );
 
         // DEBUG: List all functions starting with the struct name
         let debug_funcs: Vec<_> = self
             .functions
             .keys()
-            .filter(|k| k.starts_with(&format!("{}_{}", struct_name, method)))
+            .filter(|k| k.starts_with(&format!("{}_{}", struct_name, method_encoded)))
             .collect();
         eprintln!(
             "   🔍 Available functions for {}.{}: {:?}",
             struct_name, method, debug_funcs
         );
 
-        let method_func_name = if !external_method_typed.is_empty()
+        // Priority order: inline typed > inline untyped > external typed > external untyped
+        // This ensures binary operators don't collide with unary operators
+        let method_func_name = if self.functions.contains_key(&inline_method_name) {
+            inline_method_name
+        } else if !external_method_typed.is_empty()
             && self.functions.contains_key(&external_method_typed)
         {
             external_method_typed
         } else if self.functions.contains_key(&external_method_name) {
             external_method_name
-        } else if self.functions.contains_key(&inline_method_name) {
-            inline_method_name
         } else {
             // Final fallback: try to find ANY function that starts with struct_method pattern
             // This handles cases where type suffix doesn't match exactly
@@ -159,8 +162,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 eprintln!("   ✅ Found via pattern match: {}", found);
                 found.clone()
             } else {
-                // Default to external naming for error messages
-                external_method_name
+                // Default to inline naming for error messages (most common case)
+                inline_method_name
             }
         };
 

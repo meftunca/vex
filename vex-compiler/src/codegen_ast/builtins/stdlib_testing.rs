@@ -24,10 +24,16 @@ pub fn stdlib_testing_assert<'ctx>(
     // If condition is false, panic
     let then_block = codegen
         .context
-        .append_basic_block(codegen.current_function.unwrap(), "assert_pass");
+        .append_basic_block(
+            codegen.current_function.ok_or("No current function context")?,
+            "assert_pass",
+        );
     let else_block = codegen
         .context
-        .append_basic_block(codegen.current_function.unwrap(), "assert_fail");
+        .append_basic_block(
+            codegen.current_function.ok_or("No current function context")?,
+            "assert_fail",
+        );
 
     codegen
         .builder
@@ -100,10 +106,16 @@ pub fn stdlib_testing_assert_eq<'ctx>(
 
     let then_block = codegen
         .context
-        .append_basic_block(codegen.current_function.unwrap(), "assert_eq_pass");
+        .append_basic_block(
+            codegen.current_function.ok_or("No current function context")?,
+            "assert_eq_pass",
+        );
     let else_block = codegen
         .context
-        .append_basic_block(codegen.current_function.unwrap(), "assert_eq_fail");
+        .append_basic_block(
+            codegen.current_function.ok_or("No current function context")?,
+            "assert_eq_fail",
+        );
 
     codegen
         .builder
@@ -174,10 +186,16 @@ pub fn stdlib_testing_assert_ne<'ctx>(
 
     let then_block = codegen
         .context
-        .append_basic_block(codegen.current_function.unwrap(), "assert_ne_pass");
+        .append_basic_block(
+            codegen.current_function.ok_or("No current function context")?,
+            "assert_ne_pass",
+        );
     let else_block = codegen
         .context
-        .append_basic_block(codegen.current_function.unwrap(), "assert_ne_fail");
+        .append_basic_block(
+            codegen.current_function.ok_or("No current function context")?,
+            "assert_ne_fail",
+        );
 
     codegen
         .builder

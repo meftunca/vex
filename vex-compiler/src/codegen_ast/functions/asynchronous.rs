@@ -260,7 +260,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Copy parameters into state struct
         for (i, param) in func.params.iter().enumerate() {
-            let param_val = fn_val.get_nth_param(i as u32).ok_or_else(|| {
+            let param_idx = crate::safe_field_index(i)
+                .map_err(|e| format!("Async function parameter index overflow: {}", e))?;
+            let param_val = fn_val.get_nth_param(param_idx).ok_or_else(|| {
                 format!(
                     "Failed to get parameter {} for async function {}",
                     i, fn_name

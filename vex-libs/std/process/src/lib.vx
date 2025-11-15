@@ -12,9 +12,6 @@ extern "C" {
     fn system(command: *u8): i32;
     fn getpid(): i32;
     fn getppid(): i32;
-    
-    // String helpers
-    fn vex_string_as_cstr(s: *String): *u8;
 }
 
 // ============================================================================
@@ -42,10 +39,9 @@ export fn abort() {
 }
 
 /// Execute system command
-export fn command(cmd: String): i32 {
-    let cmd_ptr: *String = &cmd;
-    let ccmd: *u8 = vex_string_as_cstr(cmd_ptr);
-    return system(ccmd);
+export fn command(cmd: str): i32 {
+    let cmd_ptr = cmd as *u8;
+    return system(cmd_ptr);
 }
 
 /// Get current process ID

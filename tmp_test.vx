@@ -1,0 +1,10 @@
+import {T, run_test} from "testing";
+
+fn test_addition(t: *T) {
+    t.log("hello");
+}
+
+fn main(): i32 {
+    run_test("Add", test_addition);
+    return 0;
+}

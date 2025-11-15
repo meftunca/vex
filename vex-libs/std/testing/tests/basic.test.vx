@@ -1,0 +1,28 @@
+// Basic Test for std/testing
+// Uses the testing module's run_test helper
+
+import {TestContext, run_test} from "testing";
+
+fn test_addition(t: *TestContext) {
+    let result: i64 = 2 + 2;
+    if result != 4 {
+        t.error("2 + 2 should equal 4");
+    }
+}
+
+fn test_logging(t: *TestContext) {
+    t.log("This is a log message from test_logging");
+    for i in 0..3 {
+        t.log("Logging iteration {}", i);
+    }
+}
+
+fn main(): i32 {
+    print("=== Running testing module unit tests ===\n");
+
+    run_test("Addition", test_addition);
+    run_test("Logging", test_logging);
+
+    print("All tests executed\n");
+    return 0;
+}

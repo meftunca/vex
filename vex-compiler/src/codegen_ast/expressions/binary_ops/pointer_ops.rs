@@ -73,7 +73,45 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
                 Ok(result.into())
             }
-            _ => Err("Only == and != are supported for string comparison".to_string()),
+            BinaryOp::Lt | BinaryOp::Gt | BinaryOp::LtEq | BinaryOp::GtEq => {
+                // String comparison using vex_strcmp
+                let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                let strcmp_fn = self.declare_runtime_fn(
+                    "vex_strcmp",
+                    &[ptr_type.into(), ptr_type.into()],
+                    self.context.i32_type().into(),
+                );
+
+                let cmp_result = self
+                    .builder
+                    .build_call(strcmp_fn, &[l.into(), r.into()], "strcmp_result")
+                    .map_err(|e| format!("Failed to call vex_strcmp: {}", e))?;
+
+                let cmp_value = cmp_result
+                    .try_as_basic_value()
+                    .unwrap_basic()
+                    .into_int_value();
+                let zero = self.context.i32_type().const_int(0, false);
+
+                let predicate = match op {
+                    BinaryOp::Lt => IntPredicate::SLT,
+                    BinaryOp::Gt => IntPredicate::SGT,
+                    BinaryOp::LtEq => IntPredicate::SLE,
+                    BinaryOp::GtEq => IntPredicate::SGE,
+                    _ => unreachable!(),
+                };
+
+                let result = self
+                    .builder
+                    .build_int_compare(predicate, cmp_value, zero, "strcmp_cmp")
+                    .map_err(|e| format!("Failed to compare strcmp result: {}", e))?;
+
+                Ok(result.into())
+            }
+            _ => Err(format!(
+                "Operator '{:?}' is not supported for string comparison",
+                op
+            )),
         }
     }
 }

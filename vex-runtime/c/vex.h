@@ -414,16 +414,22 @@ extern "C"
   } VexValueType;
 
   // Universal value container
+  // ⚠️ CRITICAL: Must match LLVM layout exactly - 32 bytes total
+  // LLVM: struct { i32 type (4 bytes), i8[12] padding, i128 union (16 bytes) }
+  // Offset 0-3: type
+  // Offset 4-15: padding (12 bytes to align union to 16-byte boundary)
+  // Offset 16-31: union data (16 bytes, __int128 aligned)
   typedef struct
   {
-    VexValueType type;
+    VexValueType type;    // 4 bytes at offset 0
+    uint8_t _padding[12]; // 12 bytes padding to offset 16
     union
     {
       int8_t as_i8;
       int16_t as_i16;
       int32_t as_i32;
       int64_t as_i64;
-      __int128 as_i128;
+      __int128 as_i128; // Forces 16-byte alignment
       uint8_t as_u8;
       uint16_t as_u16;
       uint32_t as_u32;
@@ -1710,6 +1716,48 @@ extern "C"
    * @return Number of elements (end - start + 1, clamped to 0)
    */
   int64_t vex_range_inclusive_len(const VexRangeInclusive *range);
+
+  // ============================================================================
+  // COMMAND-LINE ARGUMENTS
+  // ============================================================================
+
+  /**
+   * Initialize argument storage (called by runtime)
+   * @param argc Argument count from main
+   * @param argv Argument vector from main
+   */
+  void vex_args_init(int argc, char **argv);
+
+  /**
+   * Get argument count (argc)
+   * @return Number of command-line arguments
+   */
+  int vex_argc(void);
+
+  /**
+   * Get argument at index (argv[index])
+   * @param index Argument index
+   * @return Pointer to argument string, or NULL if out of bounds
+   */
+  const char *vex_argv(int index);
+
+  /**
+   * Get program name (argv[0])
+   * @return Program name
+   */
+  const char *vex_program_name(void);
+
+  /**
+   * Get argument count excluding program name
+   * @return argc - 1
+   */
+  int vex_arg_count(void);
+
+  /**
+   * Runtime initialization (called from generated main)
+   * Initializes argc/argv before user code runs
+   */
+  void __vex_runtime_init(int argc, char **argv);
 
 #ifdef __cplusplus
 }

@@ -84,6 +84,49 @@ impl<'ctx> ASTCodeGen<'ctx> {
         }
     }
 
+    /// ⚠️ CRITICAL: Centralized method name generation
+    /// Ensures consistent naming between declaration (program.rs, functions/compile.rs) and lookup (trait_methods.rs)
+    /// 
+    /// # Parameter Counting Rules (STANDARDIZED):
+    /// - **External methods** (declared in program.rs): param_count = params.len() (EXCLUDES receiver)
+    /// - **Inline methods** (declared in methods.rs): param_count = params.len() + 1 (INCLUDES receiver)
+    /// 
+    /// # Naming Patterns:
+    /// - Non-operator: `StructName_methodname` or `StructName_methodname_paramcount`
+    /// - Operator: `StructName_opXXX_paramcount` (always includes count)
+    /// - With type suffix: `StructName_opXXX_typename_paramcount`
+    #[allow(dead_code)]
+    pub(crate) fn generate_method_name(
+        &self,
+        struct_name: &str,
+        method_name: &str,
+        first_param_type: Option<&Type>,
+        param_count: usize,
+        _is_external: bool, // true = external (program.rs), false = inline (methods.rs)
+    ) -> String {
+        let method_encoded = Self::encode_operator_name(method_name);
+        let base_name = format!("{}_{}", struct_name, method_encoded);
+        
+        // For operators, always include param count
+        let is_operator = method_name.starts_with("op");
+        
+        if is_operator {
+            // Try to add type suffix for overloading if first param type is known
+            if let Some(first_ty) = first_param_type {
+                let type_suffix = self.generate_type_suffix(first_ty);
+                if !type_suffix.is_empty() {
+                    return format!("{}{}_{}", base_name, type_suffix, param_count);
+                }
+            }
+            // Fallback: operator without type suffix
+            format!("{}_{}", base_name, param_count)
+        } else {
+            // Non-operator methods: may or may not have param count
+            // For now, just return base name (backward compatibility)
+            base_name
+        }
+    }
+
     pub(crate) fn declare_struct_method(
         &mut self,
         struct_name: &str,
@@ -202,12 +245,6 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     BasicTypeEnum::PointerType(t) => t.fn_type(&param_types, false),
                     BasicTypeEnum::VectorType(t) => t.fn_type(&param_types, false),
                     BasicTypeEnum::ScalableVectorType(t) => t.fn_type(&param_types, false),
-                    _ => {
-                        return Err(format!(
-                            "Unsupported return type for method {}",
-                            method.name
-                        ))
-                    }
                 }
             }
         } else {
@@ -407,8 +444,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
         }
 
         for (i, param) in method.params.iter().enumerate() {
+            let param_idx = crate::safe_param_index(i, param_offset)
+                .map_err(|e| format!("Parameter index overflow for {}: {}", param.name, e))?;
             let param_val = fn_val
-                .get_nth_param((i + param_offset) as u32)
+                .get_nth_param(param_idx)
                 .ok_or_else(|| format!("Missing parameter {}", param.name))?;
 
             // ⚠️ CRITICAL: Struct parameters are now passed BY VALUE (as StructValue)

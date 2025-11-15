@@ -102,7 +102,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let then_terminated = self
             .builder
             .get_insert_block()
-            .unwrap()
+            .ok_or("No active basic block")?
             .get_terminator()
             .is_some();
         eprintln!("🔍 then_terminated = {}", then_terminated);
@@ -148,7 +148,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             let elif_terminated = self
                 .builder
                 .get_insert_block()
-                .unwrap()
+                .ok_or("No active basic block")?
                 .get_terminator()
                 .is_some();
             if !elif_terminated {
@@ -167,7 +167,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let else_terminated = self
             .builder
             .get_insert_block()
-            .unwrap()
+            .ok_or("No active basic block")?
             .get_terminator()
             .is_some();
         eprintln!("🔍 else_terminated = {}", else_terminated);

@@ -130,9 +130,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 }
                 let array_val = value.into_array_value();
                 for (i, elem_pattern) in elements.iter().enumerate() {
+                    let elem_idx = crate::safe_field_index(i)
+                        .map_err(|e| format!("Array binding index overflow: {}", e))?;
                     let elem_val = self
                         .builder
-                        .build_extract_value(array_val, i as u32, &format!("array_bind_{}", i))
+                        .build_extract_value(array_val, elem_idx, &format!("array_bind_{}", i))
                         .map_err(|e| {
                             format!("Failed to extract array element for binding: {}", e)
                         })?;
@@ -206,21 +208,23 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         if remaining_count > 0 {
             let elem_type = array_val.get_type().get_element_type();
+            let rest_count_u32 = crate::safe_array_size(remaining_count)
+                .map_err(|e| format!("Rest array size overflow: {}", e))?;
             let rest_array_type: BasicTypeEnum = match elem_type {
                 BasicTypeEnum::IntType(t) => {
-                    t.array_type(remaining_count as u32).as_basic_type_enum()
+                    t.array_type(rest_count_u32).as_basic_type_enum()
                 }
                 BasicTypeEnum::FloatType(t) => {
-                    t.array_type(remaining_count as u32).as_basic_type_enum()
+                    t.array_type(rest_count_u32).as_basic_type_enum()
                 }
                 BasicTypeEnum::PointerType(t) => {
-                    t.array_type(remaining_count as u32).as_basic_type_enum()
+                    t.array_type(rest_count_u32).as_basic_type_enum()
                 }
                 BasicTypeEnum::StructType(t) => {
-                    t.array_type(remaining_count as u32).as_basic_type_enum()
+                    t.array_type(rest_count_u32).as_basic_type_enum()
                 }
                 BasicTypeEnum::ArrayType(t) => {
-                    t.array_type(remaining_count as u32).as_basic_type_enum()
+                    t.array_type(rest_count_u32).as_basic_type_enum()
                 }
                 _ => return Err("Unsupported element type for rest pattern".to_string()),
             };
@@ -232,9 +236,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
             for i in 0..remaining_count {
                 let src_idx = start_index + i;
-                let elem_val = self
+                let src_idx_u32 = crate::safe_field_index(src_idx)
+                    .map_err(|e| format!("Rest array index overflow: {}", e))?;
+                let src_val = self
                     .builder
-                    .build_extract_value(array_val, src_idx as u32, &format!("rest_elem_{}", i))
+                    .build_extract_value(array_val, src_idx_u32, &format!("rest_elem_{}", i))
                     .map_err(|e| format!("Failed to extract rest element: {}", e))?;
                 let dest_ptr = unsafe {
                     self.builder
@@ -250,7 +256,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         .map_err(|e| format!("Failed to GEP rest array: {}", e))?
                 };
                 self.builder
-                    .build_store(dest_ptr, elem_val)
+                    .build_store(dest_ptr, src_val)
                     .map_err(|e| format!("Failed to store rest element: {}", e))?;
             }
 

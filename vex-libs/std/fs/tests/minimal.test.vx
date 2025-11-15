@@ -1,0 +1,14 @@
+// Minimal FS test - just verify module loads and basic operation works
+import { exists } from "fs";
+
+fn main(): i32 {
+    // Test that exists() is callable (should return false for non-existent path)
+    let result = exists("/nonexistent_vex_test_file_12345.txt");
+    
+    // Should return false, which is success for this minimal test
+    if result {
+        return 1; // Unexpected - file shouldn't exist
+    }
+    
+    return 0; // Success
+}

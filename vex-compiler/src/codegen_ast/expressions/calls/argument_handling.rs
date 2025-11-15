@@ -26,30 +26,50 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         for (arg_idx, arg) in args.iter().enumerate() {
             eprintln!("📝 Compiling arg {}: {:?}", arg_idx, arg);
-            eprintln!("  🔍 Looking for func_def with method_name: {}", method_name);
-            
+            eprintln!(
+                "  🔍 Looking for func_def with method_name: {}",
+                method_name
+            );
+
             // ⭐ NEW: For integer/float literals, compile with expected type if available
             // Try multiple method name patterns (overloads and different mangling patterns)
-            let func_def_opt = self.function_defs.get(method_name)
+            let func_def_opt = self
+                .function_defs
+                .get(method_name)
                 .or_else(|| self.function_defs.get(&format!("{}.4", method_name)))
                 .or_else(|| self.function_defs.get(&format!("{}.7", method_name)))
                 .or_else(|| self.function_defs.get(&format!("{}.10", method_name)));
-                
+
             let mut val = if let Some(func_def) = func_def_opt {
-                eprintln!("  🔍 Found func_def for {}, params.len()={}", method_name, func_def.params.len());
+                eprintln!(
+                    "  🔍 Found func_def for {}, params.len()={}",
+                    method_name,
+                    func_def.params.len()
+                );
                 if arg_idx < func_def.params.len() {
                     let expected_ty = &func_def.params[arg_idx].ty;
                     eprintln!("  🔍 Arg {} expected_ty: {:?}", arg_idx, expected_ty);
-                    
+
                     // For integer literals, compile directly to expected type
                     if matches!(arg, Expression::IntLiteral(_)) {
                         match expected_ty {
-                            Type::I8 | Type::I16 | Type::I32 | Type::I64 | Type::I128 |
-                            Type::U8 | Type::U16 | Type::U32 | Type::U64 | Type::U128 => {
+                            Type::I8
+                            | Type::I16
+                            | Type::I32
+                            | Type::I64
+                            | Type::I128
+                            | Type::U8
+                            | Type::U16
+                            | Type::U32
+                            | Type::U64
+                            | Type::U128 => {
                                 let target_llvm = self.ast_type_to_llvm(expected_ty);
                                 if let BasicTypeEnum::IntType(target_int_type) = target_llvm {
                                     if let Expression::IntLiteral(value) = arg {
-                                        eprintln!("  ✅ Compiling IntLiteral({}) as {:?}", value, expected_ty);
+                                        eprintln!(
+                                            "  ✅ Compiling IntLiteral({}) as {:?}",
+                                            value, expected_ty
+                                        );
                                         target_int_type.const_int(*value as u64, false).into()
                                     } else {
                                         self.compile_expression(arg)?
@@ -58,7 +78,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                     self.compile_expression(arg)?
                                 }
                             }
-                            _ => self.compile_expression(arg)?
+                            _ => self.compile_expression(arg)?,
                         }
                     }
                     // For float literals, compile directly to expected type
@@ -68,7 +88,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                 let target_llvm = self.ast_type_to_llvm(expected_ty);
                                 if let BasicTypeEnum::FloatType(target_float_type) = target_llvm {
                                     if let Expression::FloatLiteral(value) = arg {
-                                        eprintln!("  ✅ Compiling FloatLiteral({}) as {:?}", value, expected_ty);
+                                        eprintln!(
+                                            "  ✅ Compiling FloatLiteral({}) as {:?}",
+                                            value, expected_ty
+                                        );
                                         target_float_type.const_float(*value).into()
                                     } else {
                                         self.compile_expression(arg)?
@@ -77,7 +100,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                     self.compile_expression(arg)?
                                 }
                             }
-                            _ => self.compile_expression(arg)?
+                            _ => self.compile_expression(arg)?,
                         }
                     } else {
                         self.compile_expression(arg)?
@@ -88,7 +111,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             } else {
                 self.compile_expression(arg)?
             };
-            
+
             eprintln!("📝 Arg {} compiled: {:?}", arg_idx, val);
 
             if let Some(expected_ty) = self
@@ -183,46 +206,61 @@ impl<'ctx> ASTCodeGen<'ctx> {
     }
 
     /// Compile receiver argument with proper loading for external methods
+    /// ⚠️ CRITICAL FIX: Handle both explicit and implicit receiver parameters
     fn compile_receiver_argument(
         &mut self,
         method_name: &str,
         receiver_val: inkwell::values::PointerValue<'ctx>,
     ) -> Result<BasicMetadataValueEnum<'ctx>, String> {
-        // ⚠️ CRITICAL: For external methods, the receiver is also passed BY VALUE
-        // receiver_val is already a PointerValue, so we need to load it for struct types
-        if let Some(func_def) = self.function_defs.get(method_name) {
-            if let Some(receiver_param) = &func_def.receiver {
-                // Check if receiver is a reference type (&Vec<T>, &Vec<T>!)
-                // References are passed as pointers; non-references are loaded and passed by value
-                let is_reference = matches!(receiver_param.ty, Type::Reference(_, _));
+        // Check if we have the function definition to determine receiver type
+        let func_def = self.function_defs.get(method_name).ok_or_else(|| {
+            format!(
+                "Function definition for '{}' not found - cannot determine receiver type",
+                method_name
+            )
+        })?;
 
-                if is_reference {
-                    // Reference receiver: pass pointer directly
-                    eprintln!("   → Reference receiver: passing pointer directly");
-                    return Ok(receiver_val.into());
-                }
-                
-                // Non-reference receiver: check if it's a struct that needs loading
-                let is_struct_receiver = match &receiver_param.ty {
-                    Type::Named(type_name) => self.struct_defs.contains_key(type_name),
-                    Type::Vec(_) | Type::Box(_) | Type::Option(_) | Type::Result(_, _) => true,
-                    Type::Generic { .. } => true,
-                    _ => false,
-                };
+        // Get receiver parameter (may be None for implicit self)
+        let receiver_param = func_def.receiver.as_ref();
 
-                if is_struct_receiver {
-                    // Load the struct value from pointer
-                    eprintln!("   ⚠️ Loading receiver struct value from pointer");
-                    let struct_llvm_type = self.ast_type_to_llvm(&receiver_param.ty);
-                    let loaded_val = self
-                        .builder
-                        .build_load(struct_llvm_type, receiver_val, "receiver_load")
-                        .map_err(|e| format!("Failed to load receiver: {}", e))?;
-                    return Ok(loaded_val.into());
-                }
-            }
+        // If no explicit receiver, this is an implicit self method - pass pointer directly
+        if receiver_param.is_none() {
+            eprintln!("   → Implicit self receiver: passing pointer directly");
+            return Ok(receiver_val.into());
         }
-        
+
+        let receiver_param = receiver_param.unwrap();
+
+        // Check if receiver is a reference type (&T, &!T)
+        // References are passed as pointers; non-references are loaded and passed by value
+        let is_reference = matches!(receiver_param.ty, Type::Reference(_, _));
+
+        if is_reference {
+            // Reference receiver: pass pointer directly
+            eprintln!("   → Reference receiver: passing pointer directly");
+            return Ok(receiver_val.into());
+        }
+
+        // Non-reference receiver: check if it's a struct that needs loading
+        let is_struct_receiver = match &receiver_param.ty {
+            Type::Named(type_name) => self.struct_defs.contains_key(type_name),
+            Type::Vec(_) | Type::Box(_) | Type::Option(_) | Type::Result(_, _) => true,
+            Type::Generic { .. } => true,
+            _ => false,
+        };
+
+        if is_struct_receiver {
+            // Load the struct value from pointer for non-reference receivers
+            eprintln!("   ⚠️ Loading receiver struct value from pointer");
+            let struct_llvm_type = self.ast_type_to_llvm(&receiver_param.ty);
+            let loaded_val = self
+                .builder
+                .build_load(struct_llvm_type, receiver_val, "receiver_load")
+                .map_err(|e| format!("Failed to load receiver: {}", e))?;
+            return Ok(loaded_val.into());
+        }
+
+        // Primitive type receiver: pass pointer (will be handled by LLVM)
         Ok(receiver_val.into())
     }
 

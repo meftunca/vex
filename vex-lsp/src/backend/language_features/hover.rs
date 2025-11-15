@@ -46,7 +46,10 @@ impl VexBackend {
             // Try workspace ASTs for imported symbols
             if let Some(hover_info) = self.find_symbol_hover_info_workspace(&word) {
                 return Ok(Some(Hover {
-                    contents: HoverContents::Markup(MarkupContent { kind: MarkupKind::Markdown, value: hover_info }),
+                    contents: HoverContents::Markup(MarkupContent {
+                        kind: MarkupKind::Markdown,
+                        value: hover_info,
+                    }),
                     range: None,
                 }));
             }
@@ -75,8 +78,16 @@ impl VexBackend {
                                         Err(_) => format!("file://{}", lib_vx.to_string_lossy()),
                                     };
                                     self.ast_cache.insert(uri.clone(), parsed.clone());
-                                    if let Some(hover_info) = self.find_symbol_hover_info(&parsed, &word) {
-                                        return Ok(Some(Hover { contents: HoverContents::Markup(MarkupContent { kind: MarkupKind::Markdown, value: hover_info }), range: None }));
+                                    if let Some(hover_info) =
+                                        self.find_symbol_hover_info(&parsed, &word)
+                                    {
+                                        return Ok(Some(Hover {
+                                            contents: HoverContents::Markup(MarkupContent {
+                                                kind: MarkupKind::Markdown,
+                                                value: hover_info,
+                                            }),
+                                            range: None,
+                                        }));
                                     }
                                 }
                             }

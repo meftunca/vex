@@ -51,10 +51,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let elem_type = first_val.get_type();
 
         // Create array type
+        let array_size = crate::safe_array_size(elements.len())
+            .map_err(|e| format!("Array literal too large: {}", e))?;
         let array_type = match elem_type {
-            BasicTypeEnum::IntType(it) => it.array_type(elements.len() as u32),
-            BasicTypeEnum::FloatType(ft) => ft.array_type(elements.len() as u32),
-            BasicTypeEnum::ArrayType(at) => at.array_type(elements.len() as u32),
+            BasicTypeEnum::IntType(it) => it.array_type(array_size),
+            BasicTypeEnum::FloatType(ft) => ft.array_type(array_size),
+            BasicTypeEnum::ArrayType(at) => at.array_type(array_size),
             _ => return Err(format!("Unsupported array element type: {:?}", elem_type)),
         };
 
@@ -318,15 +320,17 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Store each element
         for (i, element_value) in compiled_elements.into_iter().enumerate() {
+            let field_idx = crate::safe_field_index(i)
+                .map_err(|e| format!("Tuple field index overflow: {}", e))?;
             let field_ptr = self
                 .builder
                 .build_struct_gep(
                     tuple_struct_type,
                     tuple_ptr,
-                    i as u32,
+                    field_idx,
                     &format!("tuple_field_{}", i),
                 )
-                .map_err(|e| format!("Failed to get tuple field pointer: {}", e))?;
+                .map_err(|e| format!("Failed to get tuple field pointer: {}", e))?
 
             self.builder
                 .build_store(field_ptr, element_value)

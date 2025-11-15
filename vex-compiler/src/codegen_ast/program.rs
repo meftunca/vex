@@ -79,6 +79,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     Item::Contract(c) => {
                         imported_items.push(item.clone());
                     }
+                    Item::ExternBlock(_) => {
+                        // ✅ FIX: Include extern blocks from imported modules
+                        // This ensures extern "C" functions are available in importing module
+                        imported_items.push(item.clone());
+                    }
                     _ => {
                         // Skip other items for now
                     }
@@ -585,8 +590,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
             // ⚠️ Copy parameter attributes from op== to ensure signature compatibility
             for i in 0..eq_fn.count_params() {
-                let eq_param = eq_fn.get_nth_param(i).unwrap();
-                let ne_param = ne_fn.get_nth_param(i).unwrap();
+                let eq_param = eq_fn
+                    .get_nth_param(i)
+                    .ok_or_else(|| format!("Missing parameter {} in op== function", i))?;
+                let ne_param = ne_fn
+                    .get_nth_param(i)
+                    .ok_or_else(|| format!("Missing parameter {} in op!= function", i))?;
                 
                 // Copy struct return attribute if present
                 for attr_idx in [inkwell::attributes::AttributeLoc::Param(i), 
@@ -597,7 +606,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 }
                 
                 // Preserve parameter types exactly
-                ne_param.set_name(eq_param.get_name().to_str().unwrap());
+                ne_param.set_name(
+                    eq_param
+                        .get_name()
+                        .to_str()
+                        .unwrap_or("param"),
+                );
             }
 
             // Build function body: return !op==(rhs)

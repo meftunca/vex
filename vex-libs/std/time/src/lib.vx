@@ -34,7 +34,7 @@ extern "C" {
 	fn vt_tz_load(name: *u8): VexTz;
 	fn vt_tz_load_from_memory(name: *u8, tzif: *u8, len: u64): VexTz;
 	fn vt_tz_release(tz: VexTz);
-	fn vt_tz_offset_at(tz: VexTz, utc: VexInstant, offset_sec: *i32, abbr: **u8): i32;
+	fn vt_tz_offset_at(tz: VexTz, utc: VexInstant, offset_sec: *i32, abbr: *u8): i32;
 	fn vt_utc_to_tz(tz: VexTz, utc: VexInstant): VexInstant;
 
 	fn vt_instant_date(t: VexInstant, year: *i32, month: *i32, day: *i32, hour: *i32, minute: *i32, second: *i32, nsec: *i32);
@@ -144,19 +144,13 @@ export fn parse_go(layout: str, value: str, loc: Location): Result<Instant, str>
 }
 
 // ==== Component queries ====
-export fn date(i: Instant): (i32, i32, i32) {
-	let y: i32 = 0; let m: i32 = 0; let d: i32 = 0; let hh: i32 = 0; let mm: i32 = 0; let ss: i32 = 0; let ns: i32 = 0;
-	vt_instant_date(i.inner, &y, &m, &d, &hh, &mm, &ss, &ns);
-	return (y, m, d);
-}
-
-export fn clock(i: Instant): (i32, i32, i32) {
-	let hh: i32 = 0; let mm: i32 = 0; let ss: i32 = 0; vt_instant_clock(i.inner, &hh, &mm, &ss); return (hh, mm, ss);
-}
+// TODO: Tuple returns not yet supported - commented out
+// export fn date(i: Instant): (i32, i32, i32) { ... }
+// export fn clock(i: Instant): (i32, i32, i32) { ... }
+// export fn iso_week(i: Instant): (i32, i32) { ... }
 
 export fn weekday(i: Instant): i32 { return vt_instant_weekday(i.inner); }
 export fn yearday(i: Instant): i32 { return vt_instant_yearday(i.inner); }
-export fn iso_week(i: Instant): (i32, i32) { let y: i32 = 0; let w = vt_instant_isoweek(i.inner, &y); return (y, w); }
 
 // ==== Comparison ====
 export fn compare(a: Instant, b: Instant): i32 { return vt_instant_compare(a.inner, b.inner); }

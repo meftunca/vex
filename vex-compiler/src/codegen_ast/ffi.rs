@@ -42,6 +42,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
     ) -> Result<FunctionValue<'ctx>, String> {
         // Check if already declared in LLVM module
         if let Some(existing) = self.module.get_function(&func.name) {
+            // ✅ FIX: Register in HashMap even if already in LLVM module
+            // This ensures the function is always findable during call compilation
+            self.functions.insert(func.name.clone(), existing);
             return Ok(existing);
         }
 

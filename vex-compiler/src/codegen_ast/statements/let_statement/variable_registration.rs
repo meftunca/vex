@@ -713,8 +713,17 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }
         } else if let BasicValueEnum::ArrayValue(_array_val) = val {
             // Array values need to be stored in an alloca
-            let alloca = self.create_entry_block_alloca(name, final_var_type, is_mutable)?;
-            self.build_store_aligned(alloca, val)?;
+            // Try to use cached pointer from array literal compilation
+            let alloca = if let Some(cached_ptr) = self.last_compiled_array_ptr.take() {
+                // Use the pointer from array literal (avoids double alloca)
+                cached_ptr
+            } else {
+                // Fallback: create new alloca (for non-literal arrays)
+                let alloca = self.create_entry_block_alloca(name, final_var_type, is_mutable)?;
+                self.build_store_aligned(alloca, val)?;
+                alloca
+            };
+            
             self.variables.insert(name.to_string(), alloca);
             self.variable_types
                 .insert(name.to_string(), final_llvm_type);

@@ -340,7 +340,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 i, param.name, param.ty
             );
 
-            if let Some(llvm_param) = fn_val.get_nth_param((i + param_offset) as u32) {
+            let param_idx = crate::safe_param_index(i, param_offset)
+                .map_err(|e| format!("Parameter index overflow for {}: {}", param.name, e))?;
+            if let Some(llvm_param) = fn_val.get_nth_param(param_idx) {
                 let param_type = self.ast_type_to_llvm(&param.ty);
                 let alloca = self
                     .builder

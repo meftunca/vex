@@ -139,51 +139,77 @@ impl VexBackend {
                 match item {
                     vex_ast::Item::Function(func) if func.name == word => {
                         if let Some(text) = self.documents.get(uri) {
-                            if let Some(range) = find_pattern_in_source(&text, &format!("fn {}", word)) {
+                            if let Some(range) =
+                                find_pattern_in_source(&text, &format!("fn {}", word))
+                            {
                                 return Some((uri.clone(), range));
                             }
                         } else {
-                            return Some((uri.clone(), Range { start: Position { line: 0, character: 0 }, end: Position { line: 0, character: 1 } }));
+                            return Some((
+                                uri.clone(),
+                                Range {
+                                    start: Position {
+                                        line: 0,
+                                        character: 0,
+                                    },
+                                    end: Position {
+                                        line: 0,
+                                        character: 1,
+                                    },
+                                },
+                            ));
                         }
                     }
                     vex_ast::Item::Struct(s) if s.name == word => {
                         if let Some(text) = self.documents.get(uri) {
-                            if let Some(range) = find_pattern_in_source(&text, &format!("struct {}", word)) {
+                            if let Some(range) =
+                                find_pattern_in_source(&text, &format!("struct {}", word))
+                            {
                                 return Some((uri.clone(), range));
                             }
                         }
                     }
                     vex_ast::Item::Enum(e) if e.name == word => {
                         if let Some(text) = self.documents.get(uri) {
-                            if let Some(range) = find_pattern_in_source(&text, &format!("enum {}", word)) {
+                            if let Some(range) =
+                                find_pattern_in_source(&text, &format!("enum {}", word))
+                            {
                                 return Some((uri.clone(), range));
                             }
                         }
                     }
                     vex_ast::Item::Const(c) if c.name == word => {
                         if let Some(text) = self.documents.get(uri) {
-                            if let Some(range) = find_pattern_in_source(&text, &format!("const {}", word)) {
+                            if let Some(range) =
+                                find_pattern_in_source(&text, &format!("const {}", word))
+                            {
                                 return Some((uri.clone(), range));
                             }
                         }
                     }
                     vex_ast::Item::Contract(contract) if contract.name == word => {
                         if let Some(text) = self.documents.get(uri) {
-                            if let Some(range) = find_pattern_in_source(&text, &format!("contract {}", word)) {
+                            if let Some(range) =
+                                find_pattern_in_source(&text, &format!("contract {}", word))
+                            {
                                 return Some((uri.clone(), range));
                             }
                         }
                     }
                     vex_ast::Item::TypeAlias(alias) if alias.name == word => {
                         if let Some(text) = self.documents.get(uri) {
-                            if let Some(range) = find_pattern_in_source(&text, &format!("type {}", word)) {
+                            if let Some(range) =
+                                find_pattern_in_source(&text, &format!("type {}", word))
+                            {
                                 return Some((uri.clone(), range));
                             }
                         }
                     }
                     vex_ast::Item::Policy(policy) if policy.name == word => {
                         if let Some(text) = self.documents.get(uri) {
-                            if let Some(range) = find_pattern_in_source(&text, &format!("policy {}", word)) {
+                            if let Some(range) =
+                                find_pattern_in_source(&text, &format!("policy {}", word))
+                            {
                                 return Some((uri.clone(), range));
                             }
                         }

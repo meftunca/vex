@@ -255,7 +255,7 @@ mod tests {
     #[test]
     fn test_resolve_generic() {
         // Use absolute path from project root
-        let project_root = std::env::current_dir().unwrap();
+        let project_root = std::env::current_dir().expect("Failed to get current directory");
         let stdlib_path = project_root.join("vex-libs/std");
 
         if !stdlib_path.exists() {
@@ -266,10 +266,18 @@ mod tests {
         let resolver = StdlibResolver::new(&stdlib_path);
 
         // Test io module (has platform-specific files)
-        let io_path = resolver.resolve_module("io").unwrap();
+        let io_path = resolver
+            .resolve_module("io")
+            .expect("Failed to resolve io module");
         assert!(io_path.exists());
-        assert!(io_path.to_str().unwrap().contains("io/src/lib"));
-        assert!(io_path.to_str().unwrap().ends_with(".vx"));
+        assert!(io_path
+            .to_str()
+            .expect("Invalid UTF-8 in path")
+            .contains("io/src/lib"));
+        assert!(io_path
+            .to_str()
+            .expect("Invalid UTF-8 in path")
+            .ends_with(".vx"));
     }
 
     #[test]
@@ -281,7 +289,7 @@ mod tests {
 
     #[test]
     fn test_resolve_multiple() {
-        let project_root = std::env::current_dir().unwrap();
+        let project_root = std::env::current_dir().expect("Failed to get current directory");
         let stdlib_path = project_root.join("vex-libs/std");
 
         if !stdlib_path.exists() {
@@ -290,7 +298,9 @@ mod tests {
 
         let resolver = StdlibResolver::new(&stdlib_path);
         let modules = vec!["io", "collections", "string"];
-        let results = resolver.resolve_modules(&modules).unwrap();
+        let results = resolver
+            .resolve_modules(&modules)
+            .expect("Failed to resolve modules");
 
         assert_eq!(results.len(), 3);
         for (name, path) in results {
@@ -323,7 +333,7 @@ mod tests {
 
     #[test]
     fn test_priority_chain() {
-        let project_root = std::env::current_dir().unwrap();
+        let project_root = std::env::current_dir().expect("Failed to get current directory");
         let stdlib_path = project_root.join("vex-libs/std");
 
         if !stdlib_path.exists() {
@@ -334,8 +344,10 @@ mod tests {
         let resolver = StdlibResolver::new(&stdlib_path);
 
         // io module has platform-specific variants
-        let io_path = resolver.resolve_module("io").unwrap();
-        let path_str = io_path.to_str().unwrap();
+        let io_path = resolver
+            .resolve_module("io")
+            .expect("Failed to resolve io module");
+        let path_str = io_path.to_str().expect("Invalid UTF-8 in path");
 
         // Should select platform-specific or generic file
         assert!(

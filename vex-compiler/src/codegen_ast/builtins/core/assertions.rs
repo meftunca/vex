@@ -72,16 +72,20 @@ pub fn builtin_assert<'ctx>(
     // Check if condition is false
     let cond_bool = match condition {
         BasicValueEnum::IntValue(int_val) => {
-            // Convert to i1
-            codegen
-                .builder
-                .build_int_compare(
-                    inkwell::IntPredicate::NE,
-                    int_val,
-                    codegen.context.i32_type().const_int(0, false),
-                    "assert_cond",
-                )
-                .map_err(|e| format!("Failed to compare: {}", e))?
+            // If already i1 (bool), use directly; otherwise convert from integer
+            if int_val.get_type().get_bit_width() == 1 {
+                int_val
+            } else {
+                codegen
+                    .builder
+                    .build_int_compare(
+                        inkwell::IntPredicate::NE,
+                        int_val,
+                        int_val.get_type().const_int(0, false),
+                        "assert_cond",
+                    )
+                    .map_err(|e| format!("Failed to compare: {}", e))?
+            }
         }
         _ => {
             return Err("assert() condition must be boolean".to_string());

@@ -1,0 +1,18 @@
+fn main(): i32 {
+    // Test immutable binding
+    let x: i32 = 10;
+    assert(x == 10);
+    
+    // Test mutable binding with let!
+    let! y: i32 = 20;
+    assert(y == 20);
+    y = 30;
+    assert(y == 30);
+    
+    // Test mutable pointer
+    let! z: i32 = 100;
+    let! ptr: *i32 = &z;
+    assert(*ptr == 100);
+    
+    return 0;
+}

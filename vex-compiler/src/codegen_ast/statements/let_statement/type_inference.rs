@@ -570,27 +570,39 @@ impl<'ctx> ASTCodeGen<'ctx> {
         // Special case: Array with type annotation [T; N]
         if let Some(Type::Array(elem_type, _)) = ty {
             if let Expression::ArrayRepeat(value_expr, count_expr) = adjusted_value {
-                let alloca = self.create_entry_block_alloca(name, ty.unwrap(), is_mutable)?;
+                let alloca = self.create_entry_block_alloca(
+                    name,
+                    ty.ok_or("Missing type annotation for array")?,
+                    is_mutable,
+                )?;
                 self.compile_array_repeat_into_buffer(value_expr, count_expr, elem_type, alloca)?;
 
-                let llvm_type = self.ast_type_to_llvm(ty.unwrap());
+                let llvm_type = self.ast_type_to_llvm(
+                    ty.ok_or("Missing type annotation for array")?,
+                );
                 self.variables.insert(name.to_string(), alloca);
                 self.variable_types.insert(name.to_string(), llvm_type);
                 self.variable_ast_types
-                    .insert(name.to_string(), (*ty.unwrap()).clone());
+                    .insert(name.to_string(), (*ty.ok_or("Missing type for variable")?).clone());
 
                 // Return the alloca pointer (already registered)
                 return Ok(alloca.into());
             } else if let Expression::Array(elements) = adjusted_value {
                 if elements.len() > 100 {
-                    let alloca = self.create_entry_block_alloca(name, ty.unwrap(), is_mutable)?;
+                    let alloca = self.create_entry_block_alloca(
+                        name,
+                        ty.ok_or("Missing type annotation for large array")?,
+                        is_mutable,
+                    )?;
                     self.compile_array_literal_into_buffer(elements, elem_type, alloca)?;
 
-                    let llvm_type = self.ast_type_to_llvm(ty.unwrap());
+                    let llvm_type = self.ast_type_to_llvm(
+                        ty.ok_or("Missing type annotation for array")?,
+                    );
                     self.variables.insert(name.to_string(), alloca);
                     self.variable_types.insert(name.to_string(), llvm_type);
                     self.variable_ast_types
-                        .insert(name.to_string(), (*ty.unwrap()).clone());
+                        .insert(name.to_string(), (*ty.ok_or("Missing type for variable")?).clone());
 
                     // Return the alloca pointer (already registered)
                     return Ok(alloca.into());

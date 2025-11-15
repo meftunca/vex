@@ -219,9 +219,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // 4. Store each field
         for (i, field_val) in field_values.iter().enumerate() {
+            let field_idx = crate::safe_field_index(i)
+                .map_err(|e| format!("Struct field index overflow: {}", e))?;
             let field_ptr = self
                 .builder
-                .build_struct_gep(struct_type, struct_ptr, i as u32, &format!("field_{}", i))
+                .build_struct_gep(struct_type, struct_ptr, field_idx, &format!("field_{}", i))
                 .map_err(|e| format!("Failed to build struct GEP: {}", e))?;
 
             self.builder
@@ -280,12 +282,14 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Store each element
         for (i, elem_val) in element_values.iter().enumerate() {
+            let field_idx = crate::safe_field_index(i)
+                .map_err(|e| format!("Tuple field index overflow: {}", e))?;
             let field_ptr = self
                 .builder
                 .build_struct_gep(
                     tuple_struct_type,
                     tuple_ptr,
-                    i as u32,
+                    field_idx,
                     &format!("field_{}", i),
                 )
                 .map_err(|e| format!("Failed to build tuple GEP: {}", e))?;

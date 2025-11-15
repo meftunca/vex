@@ -53,12 +53,14 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         .struct_type(&data_llvm_types, false)
                         .get_undef();
                     for (i, _) in data_llvm_types.iter().enumerate() {
+                        let param_idx = crate::safe_field_index(i)
+                            .map_err(|e| format!("Enum field index overflow: {}", e))?;
                         let param = function
-                            .get_nth_param(i as u32)
+                            .get_nth_param(param_idx)
                             .ok_or_else(|| format!("Missing parameter {}", i))?;
                         tuple_val = self
                             .builder
-                            .build_insert_value(tuple_val, param, i as u32, &format!("field_{}", i))
+                            .build_insert_value(tuple_val, param, param_idx, &format!("field_{}", i))
                             .map_err(|e| format!("Failed to insert tuple field: {}", e))?
                             .into_struct_value();
                     }

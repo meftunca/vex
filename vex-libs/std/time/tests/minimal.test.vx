@@ -1,0 +1,16 @@
+// Minimal time test - just verify monotonic clock works
+import { monotonic_now } from "time";
+
+fn main(): i32 {
+    // Just call monotonic_now - don't even check result
+    // This tests that the module loads and function is callable
+    let t1 = monotonic_now();
+    let t2 = monotonic_now();
+    
+    // Basic sanity check
+    if t2 < t1 {
+        return 1;
+    }
+    
+    return 0;
+}

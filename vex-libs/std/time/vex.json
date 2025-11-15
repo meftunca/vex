@@ -5,16 +5,19 @@
   "main": "src/lib.vx",
   "native": {
     "sources": [
-      "native/src/common/vex_time_common.c",
-      "native/src/common/layout_parse.c",
-      "native/src/common/layout_format.c",
-      "native/src/common/simd_rfc3339.c",
-      "native/src/common/simd_detect.c",
-      "native/src/common/tz_and_windows.c",
-      "native/src/common/fast_parse.c",
-      "native/src/posix/time_posix.c"
+      "../../../vex-runtime/c/vex_time/src/common/vex_time_common.c",
+      "../../../vex-runtime/c/vex_time/src/common/layout_parse.c",
+      "../../../vex-runtime/c/vex_time/src/common/layout_format.c",
+      "../../../vex-runtime/c/vex_time/src/common/simd_rfc3339.c",
+      "../../../vex-runtime/c/vex_time/src/common/simd_detect.c",
+      "../../../vex-runtime/c/vex_time/src/common/tz_and_windows.c",
+      "../../../vex-runtime/c/vex_time/src/common/fast_parse.c",
+      "../../../vex-runtime/c/vex_time/src/posix/time_posix.c"
     ],
-    "include_dirs": ["/Users/mapletechnologies/Desktop/big_projects/vex_lang/vex-libs/std/time/native/include"],
+    "include_dirs": [
+      "../../../vex-runtime/c/vex_time/include",
+      "../../../vex-runtime/c"
+    ],
     "cflags": ["-O3", "-Wall", "-Wextra"]
   }
 }

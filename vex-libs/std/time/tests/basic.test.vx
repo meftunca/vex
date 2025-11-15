@@ -8,8 +8,6 @@ import {
     parse_duration,
     parse_rfc3339,
     parse_go,
-    date,
-    clock,
     weekday,
     unix_milli,
     unix_micro,

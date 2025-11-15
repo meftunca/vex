@@ -164,13 +164,15 @@ impl<'ctx> FFIBridge<'ctx> {
             // Array: [T; N] → [N x T]
             Type::Array(inner, size) => {
                 let inner_type = self.vex_type_to_llvm(inner)?;
+                let array_size = crate::safe_array_size(*size)
+                    .map_err(|e| format!("FFI array size overflow: {}", e))?;
                 let array_type = match inner_type {
-                    BasicMetadataTypeEnum::IntType(t) => t.array_type(*size as u32),
-                    BasicMetadataTypeEnum::FloatType(t) => t.array_type(*size as u32),
-                    BasicMetadataTypeEnum::PointerType(t) => t.array_type(*size as u32),
-                    BasicMetadataTypeEnum::ArrayType(t) => t.array_type(*size as u32),
-                    BasicMetadataTypeEnum::StructType(t) => t.array_type(*size as u32),
-                    BasicMetadataTypeEnum::VectorType(t) => t.array_type(*size as u32),
+                    BasicMetadataTypeEnum::IntType(t) => t.array_type(array_size),
+                    BasicMetadataTypeEnum::FloatType(t) => t.array_type(array_size),
+                    BasicMetadataTypeEnum::PointerType(t) => t.array_type(array_size),
+                    BasicMetadataTypeEnum::ArrayType(t) => t.array_type(array_size),
+                    BasicMetadataTypeEnum::StructType(t) => t.array_type(array_size),
+                    BasicMetadataTypeEnum::VectorType(t) => t.array_type(array_size),
                     _ => return Err("Unsupported array element type for FFI".to_string()),
                 };
                 Ok(array_type.into())

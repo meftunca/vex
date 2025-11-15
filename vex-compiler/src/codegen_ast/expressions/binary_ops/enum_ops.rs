@@ -142,7 +142,24 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
                 Ok(result.into())
             }
-            _ => Err("Only == and != are supported for enum comparison".to_string()),
+            BinaryOp::Lt | BinaryOp::Gt | BinaryOp::LtEq | BinaryOp::GtEq => {
+                let op_symbol = match op {
+                    BinaryOp::Lt => "<",
+                    BinaryOp::Gt => ">",
+                    BinaryOp::LtEq => "<=",
+                    BinaryOp::GtEq => ">=",
+                    _ => unreachable!(),
+                };
+                Err(format!(
+                    "Comparison operator '{}' requires Ord contract implementation. \
+                     Add `impl Ord {{ op{} ... }}` to your enum type.",
+                    op_symbol, op_symbol
+                ))
+            }
+            _ => Err(format!(
+                "Operator '{:?}' is not supported for enum types",
+                op
+            )),
         }
     }
 }

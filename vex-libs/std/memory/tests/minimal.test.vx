@@ -1,0 +1,7 @@
+// Minimal memory test - just verify module loads (no calls yet)
+import { alloc } from "memory";
+
+fn main(): i32 {
+    // Don't even call alloc - just verify import works
+    return 0;
+}

@@ -45,6 +45,8 @@ pub enum Token {
     // Keywords
     #[token("fn")]
     Fn,
+    #[token("let!")]
+    LetMut,
     #[token("let")]
     Let,
     #[token("struct")]
