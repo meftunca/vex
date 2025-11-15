@@ -2,7 +2,7 @@
   "name": "vex-language",
   "displayName": "Vex Language Support",
   "description": "Syntax highlighting and language support for Vex programming language",
-  "version": "0.1.4",
+  "version": "0.1.7",
   "publisher": "meftunca",
   "icon": "icons/vex-icon.png",
   "engines": {
@@ -21,8 +21,8 @@
     "unsafe"
   ],
   "scripts": {
-    "vscode:prepublish": "cd client && npm run compile ",
-    "compile": "cd client && npm run compile && cd .. && ./uninstall.sh && ./install.sh ",
+    "vscode:prepublish": "cd client && npm ci && npm run compile",
+    "compile": "cd client && npm ci && npm run compile && cd .. && ./uninstall.sh && ./install.sh ",
     "watch": "cd client && npm run watch",
     "package": "vsce package"
   },
@@ -137,12 +137,15 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "cd client && npm run compile",
-    "compile": "cd client && npm run compile ",
+    "vscode:prepublish": "cd client && npm ci && npm run compile",
+    "compile": "cd client && npm ci && npm run compile ",
     "watch": "cd client && npm run watch",
     "package": "vsce package"
   },
   "devDependencies": {
     "@vscode/vsce": "^2.22.0"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
   }
 }

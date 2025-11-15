@@ -218,8 +218,19 @@ impl<'ctx> ASTCodeGen<'ctx> {
             struct_type_args
         };
 
-        // Resolve method name
-        let method_resolution_result = self.resolve_method_name(&struct_name, method, args);
+        // ⭐ Create mangled struct name for generic methods: Vec_i32, Container_String, etc.
+        let mangled_struct_name = if struct_type_args.is_empty() {
+            struct_name.clone()
+        } else {
+            let type_names: Vec<String> = struct_type_args
+                .iter()
+                .map(|ty| self.type_to_string(ty))
+                .collect();
+            format!("{}_{}", struct_name, type_names.join("_"))
+        };
+
+        // Resolve method name using mangled struct name
+        let method_resolution_result = self.resolve_method_name(&mangled_struct_name, method, args);
 
         // ⭐ NEW: If method resolution fails, try generic method instantiation
         if method_resolution_result.is_err() {

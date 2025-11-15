@@ -109,6 +109,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             closure_types: HashMap::new(),
             scope_stack: Vec::new(),
             last_compiled_tuple_type: None,
+            last_compiled_array_ptr: None,
             current_method_is_mutable: false, // ⭐ NEW: Default to immutable
             diagnostics: DiagnosticEngine::new(), // Initialize diagnostic engine
             span_map,                         // ⭐ NEW: Store span map from parser

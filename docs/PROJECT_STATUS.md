@@ -12,7 +12,7 @@
 |-----------|------|-------|
 | AST | vex-ast/src/lib.rs | 986 |
 | Parser | vex-parser/src/parser/mod.rs | 511 |
-| Codegen | vex-compiler/src/codegen_ast/mod.rs | 372 |
+| Codegen | vex-compiler/src/codegen_ast/mod.rs | 373 |
 | Types | vex-compiler/src/codegen_ast/types.rs | 0 |
 | Pattern Matching | vex-compiler/src/codegen_ast/expressions/pattern_matching.rs | 0 |
 | Borrow Checker - Lifetimes | vex-compiler/src/borrow_checker/lifetimes.rs | 0 |

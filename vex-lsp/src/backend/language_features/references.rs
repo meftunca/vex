@@ -17,8 +17,10 @@ impl VexBackend {
             None => return Ok(None),
         };
 
-        // Get the word at cursor position
-        let word = get_word_at_position(&text, position);
+        // Get the token at cursor position (supports operator overload "op+" style names)
+        let word = get_token_at_position(&text, position);
+        // If dotted call, include receiver-based free function name (e.g., counter_new)
+        let receiver = get_receiver_at_position(&text, position);
         if word.is_empty() {
             return Ok(None);
         }
@@ -33,15 +35,26 @@ impl VexBackend {
                 let actual_col = start_pos + col_idx;
 
                 // Check if this is a whole word match (not part of another word)
-                let before_ok = actual_col == 0
-                    || !line
-                        .chars()
-                        .nth(actual_col - 1)
-                        .unwrap_or(' ')
-                        .is_alphanumeric();
+                let token_is_op = is_operator_token(&word);
+                let before_ok = actual_col == 0 || {
+                    let prev = line.chars().nth(actual_col - 1).unwrap_or(' ');
+                    if token_is_op {
+                        // For operator tokens, ensure previous char is not alnum or an op char
+                        !(prev.is_alphanumeric() || is_op_char(prev))
+                    } else {
+                        !prev.is_alphanumeric()
+                    }
+                };
                 let after_pos = actual_col + word.len();
-                let after_ok = after_pos >= line.len()
-                    || !line.chars().nth(after_pos).unwrap_or(' ').is_alphanumeric();
+                let after_ok = after_pos >= line.len() || {
+                    let next = line.chars().nth(after_pos).unwrap_or(' ');
+                    if token_is_op {
+                        // For operator tokens, ensure next char is not an identifier or op char
+                        !(next.is_alphanumeric() || is_op_char(next))
+                    } else {
+                        !next.is_alphanumeric()
+                    }
+                };
 
                 if before_ok && after_ok {
                     locations.push(Location {
@@ -60,6 +73,31 @@ impl VexBackend {
                 }
 
                 start_pos = actual_col + 1;
+            }
+        }
+
+        // If receiver exists, look for free function names like 'counter_new' too
+        if let Some(recv) = receiver {
+            let free_fn = format!("{}_{}", recv.to_lowercase(), word);
+            for (line_idx, line) in lines.iter().enumerate() {
+                let mut start_pos = 0;
+                while let Some(col_idx) = line[start_pos..].find(&free_fn) {
+                    let actual_col = start_pos + col_idx;
+                    locations.push(Location {
+                        uri: uri.clone(),
+                        range: Range {
+                            start: Position {
+                                line: line_idx as u32,
+                                character: actual_col as u32,
+                            },
+                            end: Position {
+                                line: line_idx as u32,
+                                character: (actual_col + free_fn.len()) as u32,
+                            },
+                        },
+                    });
+                    start_pos = actual_col + 1;
+                }
             }
         }
 

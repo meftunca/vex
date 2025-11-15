@@ -1,7 +1,7 @@
 // Debug Vec.get() - test without cleanup
 
 fn main(): i32 {
-    let v = Vec();
+    let v = Vec<i32>();
     v.push(42);
     
     let val = v.get(0);

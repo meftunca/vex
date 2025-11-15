@@ -9,16 +9,11 @@ import {
   TransportKind,
 } from "vscode-languageclient/node";
 
-let client: LanguageClient;
+let client: LanguageClient | undefined;
 
-export function activate(context: vscode.ExtensionContext) {
-  console.log("Vex Language Extension activating...");
-
+function createLanguageClient(): LanguageClient {
   // LSP server binary path
-  // IMPORTANT: The server binary must be on the system's PATH.
   const serverModule = "vex-lsp";
-
-  console.log(`Found Vex LSP server at: ${serverModule}`);
 
   // Server options: run the Rust LSP binary
   const serverOptions: ServerOptions = {
@@ -48,25 +43,48 @@ export function activate(context: vscode.ExtensionContext) {
     outputChannelName: "Vex Language Server",
   };
 
-  // Create and start the client
-  client = new LanguageClient(
+  return new LanguageClient(
     "vexLanguageServer",
     "Vex Language Server",
     serverOptions,
     clientOptions
   );
+}
 
-  // Start the client (also starts the server)
-  client.start();
+export function activate(context: vscode.ExtensionContext) {
+  console.log("Vex Language Extension activating...");
+  // Create and start the client (also starts the server)
+  client = createLanguageClient();
+  client.start().catch((e) => {
+    console.error("Failed to start Vex LSP server:", e);
+    vscode.window.showErrorMessage(
+      "Failed to start Vex Language Server: " + (e?.message ?? e)
+    );
+  });
 
   console.log("Vex Language Extension activated");
 
   // Register commands
   context.subscriptions.push(
     vscode.commands.registerCommand("vex.restartServer", async () => {
-      await client.stop();
-      await client.start();
-      vscode.window.showInformationMessage("Vex LSP server restarted");
+      try {
+        if (client) {
+          console.log("Attempting to stop the Vex LSP server...");
+          await client.stop();
+          console.log("Stopped the Vex LSP server");
+        }
+
+        // Recreate a fresh client and start
+        client = createLanguageClient();
+        console.log("Starting new Vex LSP server instance...");
+        await client.start();
+        vscode.window.showInformationMessage("Vex LSP server restarted");
+      } catch (err) {
+        console.error("Failed to restart Vex LSP server:", err);
+        vscode.window.showErrorMessage(
+          "Failed to restart Vex LSP server: " + (err as Error).message
+        );
+      }
     })
   );
 }
@@ -75,7 +93,12 @@ export function deactivate(): Thenable<void> | undefined {
   if (!client) {
     return undefined;
   }
-  return client.stop();
+  try {
+    return client.stop();
+  } catch (err) {
+    console.error("Error stopping client on deactivate:", err);
+    return undefined;
+  }
 }
 
 // This function is no longer needed as we rely on the PATH.

@@ -36,6 +36,24 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 // For tuple literals, create a Tuple type
                 // DON'T unwrap/consume - we need it later in register_struct_or_tuple_variable
                 (Type::Named("Tuple".to_string()), tuple_struct_type.into())
+            }
+            // ⭐ CRITICAL: For MethodCall expressions, infer return type from AST
+            else if matches!(value, Expression::MethodCall { .. }) {
+                // Use AST-level type inference instead of LLVM type inference
+                match self.infer_expression_type(value) {
+                    Ok(inferred_type) => {
+                        let inferred_llvm_type = self.ast_type_to_llvm(&inferred_type);
+                        eprintln!("  ✅ MethodCall inferred type: {:?}", inferred_type);
+                        (inferred_type, inferred_llvm_type.into())
+                    }
+                    Err(e) => {
+                        eprintln!("  ⚠️  MethodCall type inference failed: {}", e);
+                        // Fallback to LLVM inference
+                        let inferred_llvm_type = val.get_type();
+                        let inferred_ast_type = self.infer_ast_type_from_llvm(inferred_llvm_type)?;
+                        (inferred_ast_type, inferred_llvm_type)
+                    }
+                }
             } else {
                 // Infer type from LLVM value
                 let inferred_llvm_type = val.get_type();

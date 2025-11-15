@@ -27,8 +27,8 @@ impl VexBackend {
             None => return Ok(None),
         };
 
-        // Get word at cursor position
-        let word = get_word_at_position(&text, position);
+            // Get the token at cursor position (supports operator overload "op+" style names)
+            let word = get_token_at_position(&text, position);
         if word.is_empty() {
             return Ok(None);
         }

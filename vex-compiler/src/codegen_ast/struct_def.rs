@@ -133,6 +133,10 @@ pub struct ASTCodeGen<'ctx> {
     // Let statement reads this to get tuple struct type without recompiling elements
     pub(crate) last_compiled_tuple_type: Option<inkwell::types::StructType<'ctx>>,
 
+    // ⭐ Array pointer tracking: when compile_array_literal is called, store pointer here
+    // Cast/reference operations can use the pointer instead of re-allocating
+    pub(crate) last_compiled_array_ptr: Option<inkwell::values::PointerValue<'ctx>>,
+
     // ⭐ NEW: Method mutability tracking
     // Tracks whether current method is mutable (has ! in signature)
     // Used to validate self! usage in method bodies

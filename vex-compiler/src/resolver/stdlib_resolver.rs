@@ -7,27 +7,27 @@ use std::path::{Path, PathBuf};
 
 /// Standard library modules (built-in)
 const STDLIB_MODULES: &[&str] = &[
-    "io",
+    // "io",
     "core",
-    "collections",
-    "string",
-    "memory",
-    "sync",
-    "time",
-    "net",
-    "encoding",
-    "crypto",
-    "db",
-    "strconv",
-    "path",
-    "http",
-    "json",
-    "fmt",
+    // "collections",
+    // "string",
+    // "memory",
+    // "sync",
+    // "time",
+    // "net",
+    // "encoding",
+    // "crypto",
+    // "db",
+    // "strconv",
+    // "path",
+    // "http",
+    // "json",
+    // "fmt",
     "testing",
-    "math",    // Mathematical functions
-    "fs",      // File system operations
-    "env",     // Environment variables
-    "process", // Process management
+    // "math",    // Mathematical functions
+    // "fs",      // File system operations
+    // "env",     // Environment variables
+    // "process", // Process management
 ];
 
 /// Errors that can occur during module resolution

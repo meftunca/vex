@@ -635,9 +635,60 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Compile remaining arguments with type casting
         for (arg_idx, arg) in args.iter().enumerate() {
-            let mut val = self.compile_expression(arg)?;
+            // ⭐ NEW: For integer/float literals, compile with expected type if available
+            let mut val = if let Some(func_def) = self.function_defs.get(&mangled_name) {
+                if arg_idx < func_def.params.len() {
+                    let expected_ty = &func_def.params[arg_idx].ty;
+                    eprintln!("  🔍 Arg {}: expected_ty = {:?}", arg_idx, expected_ty);
+                    
+                    // For integer literals, compile directly to expected type
+                    if matches!(arg, Expression::IntLiteral(_)) {
+                        match expected_ty {
+                            Type::I8 | Type::I16 | Type::I32 | Type::I64 | Type::I128 |
+                            Type::U8 | Type::U16 | Type::U32 | Type::U64 | Type::U128 => {
+                                let target_llvm = self.ast_type_to_llvm(expected_ty);
+                                if let BasicTypeEnum::IntType(target_int_type) = target_llvm {
+                                    if let Expression::IntLiteral(value) = arg {
+                                        eprintln!("  ✅ Compiling IntLiteral({}) as {:?}", value, expected_ty);
+                                        target_int_type.const_int(*value as u64, false).into()
+                                    } else {
+                                        self.compile_expression(arg)?
+                                    }
+                                } else {
+                                    self.compile_expression(arg)?
+                                }
+                            }
+                            _ => self.compile_expression(arg)?
+                        }
+                    }
+                    // For float literals, compile directly to expected type
+                    else if matches!(arg, Expression::FloatLiteral(_)) {
+                        match expected_ty {
+                            Type::F16 | Type::F32 | Type::F64 => {
+                                let target_llvm = self.ast_type_to_llvm(expected_ty);
+                                if let BasicTypeEnum::FloatType(target_float_type) = target_llvm {
+                                    if let Expression::FloatLiteral(value) = arg {
+                                        target_float_type.const_float(*value).into()
+                                    } else {
+                                        self.compile_expression(arg)?
+                                    }
+                                } else {
+                                    self.compile_expression(arg)?
+                                }
+                            }
+                            _ => self.compile_expression(arg)?
+                        }
+                    } else {
+                        self.compile_expression(arg)?
+                    }
+                } else {
+                    self.compile_expression(arg)?
+                }
+            } else {
+                self.compile_expression(arg)?
+            };
             
-            // ⚠️ CRITICAL: Cast argument types to match function signature
+            // ⚠️ CRITICAL: Cast argument types to match function signature (for non-literals)
             if let Some(func_def) = self.function_defs.get(&mangled_name) {
                 if arg_idx < func_def.params.len() {
                     let expected_ty = &func_def.params[arg_idx].ty;

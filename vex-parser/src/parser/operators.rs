@@ -240,7 +240,6 @@ impl<'a> Parser<'a> {
     }
 
     pub(crate) fn parse_unary(&mut self) -> Result<Expression, ParseError> {
-        eprintln!("🔍 parse_unary: current token = {:?}", self.peek());
 
         // Await expression: await expr
         if self.match_token(&Token::Await) {

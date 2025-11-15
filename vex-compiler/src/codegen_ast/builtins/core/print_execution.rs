@@ -13,12 +13,8 @@ pub(super) fn compile_print_fmt<'ctx>(
         return Err("Format mode requires at least a format string".to_string());
     }
 
-    // Determine which C function to call
-    let fn_name = if func_name == "println" {
-        "vex_println_fmt"
-    } else {
-        "vex_print_fmt"
-    };
+    // Use single C function for both print and println
+    let fn_name = "vex_print_fmt";
 
     // Declare vex_print_fmt: void vex_print_fmt(const char* fmt, int count, VexValue* args)
     let vex_print_fmt_fn = if let Some(func) = codegen.module.get_function(fn_name) {
@@ -142,6 +138,31 @@ pub(super) fn compile_print_fmt<'ctx>(
         )
         .map_err(|e| format!("Failed to call {}: {}", fn_name, e))?;
 
+    // Add newline for println
+    if func_name == "println" {
+        codegen
+            .builder
+            .build_call(
+                vex_print_fmt_fn,
+                &[
+                    codegen
+                        .builder
+                        .build_global_string_ptr("\n", "newline")
+                        .map_err(|e| format!("Failed to create newline: {}", e))?
+                        .as_pointer_value()
+                        .into(),
+                    codegen.context.i32_type().const_int(0, false).into(),
+                    codegen
+                        .context
+                        .ptr_type(inkwell::AddressSpace::default())
+                        .const_null()
+                        .into(),
+                ],
+                "print_newline",
+            )
+            .map_err(|e| format!("Failed to print newline: {}", e))?;
+    }
+
     // Return void (i32 0 as dummy)
     Ok(codegen.context.i32_type().const_int(0, false).into())
 }
@@ -153,12 +174,8 @@ pub(super) fn compile_print_variadic<'ctx>(
     args: &[BasicValueEnum<'ctx>],
     arg_types: &[vex_ast::Type],
 ) -> Result<BasicValueEnum<'ctx>, String> {
-    // Determine which C function to call
-    let fn_name = if func_name == "println" {
-        "vex_println_args"
-    } else {
-        "vex_print_args"
-    };
+    // Use single C function for both print and println
+    let fn_name = "vex_print_args";
 
     // This is the existing implementation
     // (moved from builtin_print/builtin_println)
@@ -242,6 +259,63 @@ pub(super) fn compile_print_variadic<'ctx>(
         )
         .map_err(|e| format!("Failed to call {}: {}", fn_name, e))?;
 
+    // Add newline for println
+    if func_name == "println" {
+        let newline_str = codegen
+            .builder
+            .build_global_string_ptr("\n", "newline")
+            .map_err(|e| format!("Failed to create newline: {}", e))?;
+        
+        let newline_value_array = vex_value_type.array_type(1);
+        let newline_value_ptr = codegen
+            .builder
+            .build_alloca(newline_value_array, "newline_value")
+            .map_err(|e| format!("Failed to allocate newline value: {}", e))?;
+
+        let newline_elem_ptr = unsafe {
+            codegen
+                .builder
+                .build_gep(
+                    newline_value_array,
+                    newline_value_ptr,
+                    &[
+                        codegen.context.i32_type().const_int(0, false),
+                        codegen.context.i32_type().const_int(0, false),
+                    ],
+                    "newline_elem",
+                )
+                .map_err(|e| format!("Failed to GEP newline: {}", e))?
+        };
+
+        convert_to_vex_value_typed(
+            codegen,
+            newline_str.as_pointer_value().into(),
+            newline_elem_ptr,
+            &vex_ast::Type::String,
+        )?;
+
+        let newline_args_ptr = codegen
+            .builder
+            .build_pointer_cast(
+                newline_value_ptr,
+                codegen.context.ptr_type(inkwell::AddressSpace::default()),
+                "newline_args_ptr",
+            )
+            .map_err(|e| format!("Failed to cast newline args: {}", e))?;
+
+        codegen
+            .builder
+            .build_call(
+                vex_print_args_fn,
+                &[
+                    codegen.context.i32_type().const_int(1, false).into(),
+                    newline_args_ptr.into(),
+                ],
+                "print_newline",
+            )
+            .map_err(|e| format!("Failed to print newline: {}", e))?;
+    }
+
     Ok(codegen.context.i32_type().const_int(0, false).into())
 }
 
@@ -299,9 +373,39 @@ fn convert_to_vex_value_typed<'ctx>(
             .build_call(helper_fn, &[], "vex_value_nil_call")
             .map_err(|e| format!("Failed to call vex_value_nil: {}", e))?
     } else {
+        // Auto-cast value to match helper function signature (e.g., i64 → i32 for vex_value_i32)
+        let casted_val = if let BasicValueEnum::IntValue(int_val) = val {
+            let helper_param_types = helper_fn.get_type().get_param_types();
+            if let Some(inkwell::types::BasicMetadataTypeEnum::IntType(target_int_ty)) = helper_param_types.first() {
+                if int_val.get_type().get_bit_width() != target_int_ty.get_bit_width() {
+                    if int_val.get_type().get_bit_width() > target_int_ty.get_bit_width() {
+                        // Truncate: i64 → i32
+                        codegen
+                            .builder
+                            .build_int_truncate(int_val, *target_int_ty, "trunc_for_print")
+                            .map_err(|e| format!("Failed to truncate for print: {}", e))?
+                            .into()
+                    } else {
+                        // Extend: i32 → i64
+                        codegen
+                            .builder
+                            .build_int_s_extend(int_val, *target_int_ty, "ext_for_print")
+                            .map_err(|e| format!("Failed to extend for print: {}", e))?
+                            .into()
+                    }
+                } else {
+                    val
+                }
+            } else {
+                val
+            }
+        } else {
+            val
+        };
+        
         codegen
             .builder
-            .build_call(helper_fn, &[val.into()], &format!("{}_call", helper_name))
+            .build_call(helper_fn, &[casted_val.into()], &format!("{}_call", helper_name))
             .map_err(|e| format!("Failed to call {}: {}", helper_name, e))?
     };
 

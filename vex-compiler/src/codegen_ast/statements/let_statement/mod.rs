@@ -161,11 +161,16 @@ impl<'ctx> ASTCodeGen<'ctx> {
                             }
                         } else {
                             // Explicit type args - use them
+                            eprintln!("  → Has explicit type_args: {:?}", type_args_from_value);
                             if let Ok(inferred_type) =
                                 self.infer_expression_type_with_context(value, None)
                             {
+                                eprintln!("  → Inferred type: {:?}", inferred_type);
                                 self.variable_concrete_types
                                     .insert(name.clone(), inferred_type);
+                                eprintln!("  → Inserted into variable_concrete_types[{}]", name);
+                            } else {
+                                eprintln!("  → Type inference failed!");
                             }
                         }
                     }

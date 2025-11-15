@@ -10,6 +10,19 @@ pub struct CompletionContext {
 }
 
 pub fn get_word_at_position(text: &str, position: Position) -> String {
+    // Backwards-compat: prefer simple alphanumeric-only word detection
+    // This preserves callers that expect identifier-only words.
+    let token = get_token_at_position(text, position);
+    if token.chars().all(|c| c.is_alphanumeric() || c == '_') {
+        token
+    } else {
+        String::new()
+    }
+}
+
+/// Returns a token at the specified position. Token can be either an identifier (alphanumeric + _)
+/// or an operator overload name like `op+`, `op<<`, etc.
+pub fn get_token_at_position(text: &str, position: Position) -> String {
     let lines: Vec<&str> = text.lines().collect();
     let line_idx = position.line as usize;
     let char_idx = position.character as usize;
@@ -23,24 +36,221 @@ pub fn get_word_at_position(text: &str, position: Position) -> String {
         return String::new();
     }
 
-    // Find word boundaries
-    let mut start = char_idx;
-    let mut end = char_idx;
+    let is_word_char = |c: char| c.is_alphanumeric() || c == '_';
+    let is_op_char = |c: char| match c {
+        '+' | '-' | '*' | '/' | '%' | '<' | '>' | '=' | '!' | '&' | '|' | '^' | '~' | '?' | ':' => {
+            true
+        }
+        _ => false,
+    };
 
-    // Move start backwards to find word start
-    while start > 0 && line.chars().nth(start - 1).unwrap_or(' ').is_alphanumeric() {
-        start -= 1;
+    // If the character under cursor is a word character, use the existing alphanumeric logic
+    let c = line.chars().nth(char_idx).unwrap_or(' ');
+    if is_word_char(c) {
+        let mut start = char_idx;
+        let mut end = char_idx;
+
+        while start > 0 && is_word_char(line.chars().nth(start - 1).unwrap_or(' ')) {
+            start -= 1;
+        }
+        while end < line.len() && is_word_char(line.chars().nth(end).unwrap_or(' ')) {
+            end += 1;
+        }
+        return line[start..end].to_string();
     }
 
-    // Move end forwards to find word end
-    while end < line.len() && line.chars().nth(end).unwrap_or(' ').is_alphanumeric() {
+    // Otherwise, expand over combined word/op characters. This will capture `op+`, `op<<` or
+    // `opadd`-style method names as a single token when cursor is on an operator char.
+    let mut start = char_idx;
+    let mut end = char_idx + 1; // include the current char
+
+    while start > 0 {
+        let prev = line.chars().nth(start - 1).unwrap_or(' ');
+        if is_word_char(prev) || is_op_char(prev) {
+            start -= 1;
+        } else {
+            break;
+        }
+    }
+
+    while end < line.len() {
+        let next = line.chars().nth(end).unwrap_or(' ');
+        if is_word_char(next) || is_op_char(next) {
+            end += 1;
+        } else {
+            break;
+        }
+    }
+
+    let substring = line[start..end].to_string();
+    // If substring begins with 'op' followed by operator chars, extract 'op...' token
+    if substring.starts_with("op") {
+        let mut chars = substring.chars();
+        // advance "op"
+        chars.next();
+        chars.next();
+        // collect following op chars
+        let mut op_seq = String::from("op");
+        while let Some(ch) = chars.next() {
+            if is_op_char(ch) {
+                op_seq.push(ch);
+            } else {
+                break;
+            }
+        }
+        if op_seq.len() > 2 {
+            // at least 'op' + one op char
+            return op_seq;
+        }
+    }
+
+    // Otherwise return the maximal (alnum/op mixed) substring we found, but prefer alnum-only
+    if substring
+        .chars()
+        .all(|ch| is_word_char(ch) || is_op_char(ch))
+    {
+        substring
+    } else {
+        String::new()
+    }
+}
+
+pub fn is_op_char(c: char) -> bool {
+    match c {
+        '+' | '-' | '*' | '/' | '%' | '<' | '>' | '=' | '!' | '&' | '|' | '^' | '~' | '?' | ':' => {
+            true
+        }
+        _ => false,
+    }
+}
+
+pub fn is_operator_token(token: &str) -> bool {
+    token.chars().any(is_op_char)
+}
+
+/// If the cursor is on a dotted call, return the left-side receiver type name, e.g.
+/// for 'Counter.new(3)', when cursor is on 'new' we return Some("Counter").
+pub fn get_receiver_at_position(text: &str, position: Position) -> Option<String> {
+    let lines: Vec<&str> = text.lines().collect();
+    let line_idx = position.line as usize;
+    let char_idx = position.character as usize;
+
+    if line_idx >= lines.len() {
+        return None;
+    }
+    let line = lines[line_idx];
+    if char_idx > line.len() {
+        return None;
+    }
+
+    // Find token start and end for current token
+    let mut start = char_idx;
+    while start > 0
+        && (line.chars().nth(start - 1).unwrap_or(' ').is_alphanumeric()
+            || line.chars().nth(start - 1).unwrap_or(' ') == '_')
+    {
+        start -= 1;
+    }
+    let mut end = char_idx;
+    while end < line.len()
+        && (line.chars().nth(end).unwrap_or(' ').is_alphanumeric()
+            || line.chars().nth(end).unwrap_or(' ') == '_')
+    {
         end += 1;
     }
 
-    if start < end {
-        line[start..end].to_string()
-    } else {
-        String::new()
+    // Check the char preceding start - should be dot
+    if start == 0 {
+        return None;
+    }
+    let dot_pos = start - 1;
+    if line.chars().nth(dot_pos).unwrap_or(' ') != '.' {
+        return None;
+    }
+
+    // Expand left to find receiver base name (ignore generics for simplicity)
+    let mut recv_end = dot_pos;
+    let mut recv_start = dot_pos;
+    // Move left while char is word char; this yields 'Counter' from 'Counter.new'
+    while recv_start > 0
+        && (line
+            .chars()
+            .nth(recv_start - 1)
+            .unwrap_or(' ')
+            .is_alphanumeric()
+            || line.chars().nth(recv_start - 1).unwrap_or(' ') == '_')
+    {
+        recv_start -= 1;
+    }
+
+    if recv_start < recv_end {
+        let recv = line[recv_start..recv_end].to_string();
+        if !recv.is_empty() {
+            return Some(recv);
+        }
+    }
+
+    None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tower_lsp::lsp_types::Position;
+
+    #[test]
+    fn test_get_token_at_position_alphanumeric() {
+        let source = "fn add(x: i32) {\n    add(1, 2);\n}";
+        // Position on 'add' in definition
+        let pos = Position {
+            line: 0,
+            character: 3,
+        };
+        let token = get_token_at_position(source, pos);
+        assert_eq!(token, "add");
+    }
+
+    #[test]
+    fn test_get_token_at_position_operator() {
+        let source = "fn op+(other: i32): i32 {\n    op+(1, 2);\n}";
+        // Position on '+' in definition
+        let pos = Position {
+            line: 0,
+            character: 3 + 2,
+        }; // char of '+' assuming 'fn op+'
+        let token = get_token_at_position(source, pos);
+        assert_eq!(token, "op+");
+    }
+
+    #[test]
+    fn test_is_operator_token() {
+        assert!(is_operator_token("op+"));
+        assert!(!is_operator_token("add"));
+    }
+
+    #[test]
+    fn test_get_receiver_at_position_counter_new() {
+        let source = "let! counter = Counter.new(3);";
+        // Find 'new' index
+        let line = source;
+        let pos = Position {
+            line: 0,
+            character: line.find("new").unwrap() as u32,
+        };
+        let recv = get_receiver_at_position(source, pos).unwrap();
+        assert_eq!(recv, "Counter");
+    }
+
+    #[test]
+    fn test_get_receiver_at_position_vec_new() {
+        let source = "let v = Vec.new();";
+        let line = source;
+        let pos = Position {
+            line: 0,
+            character: line.find("new").unwrap() as u32,
+        };
+        let recv = get_receiver_at_position(source, pos).unwrap();
+        assert_eq!(recv, "Vec");
     }
 }
 

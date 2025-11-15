@@ -86,11 +86,51 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 args,
                 ..
             } => {
-                // Infer receiver type (this may contain Unknown)
+                // Infer receiver type first
                 let receiver_type = self.infer_expression_type_with_context(receiver, None)?;
 
-                // Try to infer more specific type from method signature
-                // This is deferred - we just return receiver_type for now
+                // Try to resolve method return type from function_defs
+                // Extract type args from receiver type (e.g., Vec<i32> -> [i32])
+                let type_args = match &receiver_type {
+                    Type::Generic { type_args, .. } => type_args.clone(),
+                    Type::Vec(elem_ty) => vec![*elem_ty.clone()],
+                    Type::Box(elem_ty) => vec![*elem_ty.clone()],
+                    Type::Option(elem_ty) => vec![*elem_ty.clone()],
+                    Type::Result(ok_ty, err_ty) => vec![*ok_ty.clone(), *err_ty.clone()],
+                    _ => vec![],
+                };
+
+                // Try to find instantiated method
+                if !type_args.is_empty() {
+                    let struct_name = match &receiver_type {
+                        Type::Generic { name, .. } => name.as_str(),
+                        Type::Vec(_) => "Vec",
+                        Type::Box(_) => "Box",
+                        Type::Option(_) => "Option",
+                        Type::Result(_, _) => "Result",
+                        _ => "",
+                    };
+
+                    if !struct_name.is_empty() {
+                        // Build mangled method name
+                        let type_suffix = type_args
+                            .iter()
+                            .map(|ty| self.type_to_string(ty).to_lowercase())
+                            .collect::<Vec<_>>()
+                            .join("_");
+                        let mangled_method_name = format!("{}_{}", struct_name, type_suffix);
+                        let full_method_name = format!("{}_{}", mangled_method_name, method);
+
+                        // Check if method exists in function_defs
+                        if let Some(func_def) = self.function_defs.get(&full_method_name) {
+                            if let Some(return_type) = &func_def.return_type {
+                                return Ok(return_type.clone());
+                            }
+                        }
+                    }
+                }
+
+                // Fallback to receiver type (old behavior)
                 Ok(receiver_type)
             }
 
@@ -140,21 +180,21 @@ impl<'ctx> ASTCodeGen<'ctx> {
             Expression::BoolLiteral(_) => Ok(Type::Bool),
             Expression::MapLiteral(_) => Ok(Type::Named("Map".to_string())),
             Expression::Array(elements) => {
-                // Array literal [1, 2, 3] is a Vec<T>
+                // Array literal [1, 2, 3] is Type::Array(elem_type, length)
                 if elements.is_empty() {
-                    return Ok(Type::Generic {
-                        name: "Vec".to_string(),
-                        type_args: vec![Type::I32], // Default to Vec<i32>
-                    });
+                    return Ok(Type::Array(Box::new(Type::I32), 0));
                 }
                 // Infer element type from first element
                 let elem_type = self.infer_expression_type(&elements[0])?;
-                Ok(Type::Generic {
-                    name: "Vec".to_string(),
-                    type_args: vec![elem_type],
-                })
+                Ok(Type::Array(Box::new(elem_type), elements.len()))
             }
             Expression::Ident(name) => {
+                // ⭐ CRITICAL: Check variable_concrete_types FIRST (highest priority)
+                // This contains full Generic types like Vec<i32>, not just mangled names
+                if let Some(ty) = self.variable_concrete_types.get(name) {
+                    return Ok(ty.clone());
+                }
+
                 // Check if we have AST type information first (most accurate)
                 if let Some(ast_type) = self.variable_ast_types.get(name) {
                     return Ok(ast_type.clone());
@@ -275,8 +315,23 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 receiver, method, ..
             } => {
                 // Infer return type of method call
-                // First get receiver type
-                let receiver_type = self.infer_expression_type(receiver)?;
+                
+                // Check if this is a static method call: Type.method()
+                // Receiver is Ident with uppercase first letter = static call
+                let is_static_call = matches!(**receiver, Expression::Ident(ref name) if name.chars().next().unwrap_or('_').is_uppercase());
+
+                // For static calls, treat receiver as a type name instead of variable
+                let receiver_type = if is_static_call {
+                    if let Expression::Ident(type_name) = &**receiver {
+                        // Static call: Counter.new() - receiver is type name
+                        Type::Named(type_name.clone())
+                    } else {
+                        self.infer_expression_type(receiver)?
+                    }
+                } else {
+                    // Instance call: counter.next() - receiver is variable
+                    self.infer_expression_type(receiver)?
+                };
 
                 // Get struct name and extract type arguments
                 let (struct_name, type_args) = match &receiver_type {
@@ -284,6 +339,16 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     Type::Generic { name, type_args } => (name.clone(), type_args.clone()),
                     _ => return Ok(Type::I32), // Fallback for primitives
                 };
+
+                // ⭐ For static method calls, check function_defs first
+                if is_static_call {
+                    let static_method_name = format!("{}_{}", struct_name.to_lowercase(), method);
+                    if let Some(func_def) = self.function_defs.get(&static_method_name) {
+                        if let Some(ret_ty) = &func_def.return_type {
+                            return Ok(ret_ty.clone());
+                        }
+                    }
+                }
 
                 eprintln!(
                     "🔍 TYPE INFERENCE for {}.{}: receiver_type={:?}, type_args={:?}",
@@ -328,9 +393,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
                 for pattern in &method_name_patterns {
                     if let Some(func_def) = self.function_defs.get(pattern) {
+                        eprintln!("🔍 Found function_def for {}", pattern);
+                        eprintln!("   func_def.return_type = {:?}", func_def.return_type);
                         if let Some(ret_ty) = &func_def.return_type {
                             eprintln!(
-                                "✅ Found instantiated method {} with return type {:?}",
+                                "✅ Method {} original return type: {:?}",
                                 pattern, ret_ty
                             );
 

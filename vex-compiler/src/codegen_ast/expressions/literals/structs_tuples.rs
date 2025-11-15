@@ -144,6 +144,21 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 } else {
                     field_val
                 }
+            } else if let BasicValueEnum::FloatValue(float_val) = field_val {
+                // ⭐ NEW: Auto-convert f64 -> f32 for struct field assignment
+                if let BasicTypeEnum::FloatType(target_float_ty) = field_llvm_ty {
+                    if float_val.get_type() != target_float_ty {
+                        // Cast f64 -> f32 or f32 -> f64
+                        self.builder
+                            .build_float_cast(float_val, target_float_ty, "field_fcast")
+                            .map_err(|e| format!("Failed to cast float field: {}", e))?
+                            .into()
+                    } else {
+                        field_val
+                    }
+                } else {
+                    field_val
+                }
             } else {
                 field_val
             };

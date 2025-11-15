@@ -22,10 +22,11 @@ if [ ! -f "$LSP_DEBUG" ] && [ ! -f "$LSP_RELEASE" ]; then
     fi
 fi
 
-# Build TypeScript client if needed
+# Ensure dependencies and build TypeScript client if needed
 if [ ! -f "$SCRIPT_DIR/out/extension.js" ]; then
-    echo "📦 Building TypeScript client..."
-    cd "$SCRIPT_DIR/client" && npm install && npm run compile
+    echo "📦 Installing root and client dependencies and building TypeScript client..."
+    cd "$SCRIPT_DIR" && npm ci
+    cd "$SCRIPT_DIR/client" && npm ci && npm run compile
     if [ $? -ne 0 ]; then
         echo "❌ Client build failed!"
         exit 1

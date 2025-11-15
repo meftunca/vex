@@ -11,9 +11,11 @@ if [ ! -f "$HOME/.cargo/target/release/vex-lsp" ]; then
   cargo build --release -p vex-lsp
 fi
 
-# Build client
+# Build client and ensure dependencies
+cd "$SCRIPT_DIR"
+npm ci
 cd "$SCRIPT_DIR/client"
-npm install
+npm ci
 npm run compile
 
 # Package extension

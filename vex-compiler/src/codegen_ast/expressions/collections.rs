@@ -67,6 +67,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
         // Store elements
         self.store_array_elements(array_ptr, array_type, elements, 0)?;
 
+        // ⭐ Cache array pointer for cast/reference operations
+        self.last_compiled_array_ptr = Some(array_ptr);
+
         // Return the array value (load from pointer)
         self.builder
             .build_load(array_type, array_ptr, "arrayval")

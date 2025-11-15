@@ -2,6 +2,7 @@
 use tower_lsp::lsp_types::*;
 
 use crate::backend::{language_features::helpers::*, VexBackend};
+use std::fs;
 
 impl VexBackend {
     pub async fn hover(&self, params: HoverParams) -> tower_lsp::jsonrpc::Result<Option<Hover>> {
@@ -24,11 +25,13 @@ impl VexBackend {
             None => return Ok(None),
         };
 
-        // Get word at cursor position
-        let word = get_word_at_position(&text, position);
+        // Get token at cursor position (supports operator overload "op+" style names)
+        let word = get_token_at_position(&text, position);
         if word.is_empty() {
             return Ok(None);
         }
+        // Get receiver for dotted calls like `Counter.new()` to provide method hover
+        let receiver = get_receiver_at_position(&text, position);
 
         // Try to find detailed information about the symbol
         if let Some(hover_info) = self.find_symbol_hover_info(&ast, &word) {
@@ -40,6 +43,76 @@ impl VexBackend {
                 range: None,
             }))
         } else {
+            // Try workspace ASTs for imported symbols
+            if let Some(hover_info) = self.find_symbol_hover_info_workspace(&word) {
+                return Ok(Some(Hover {
+                    contents: HoverContents::Markup(MarkupContent { kind: MarkupKind::Markdown, value: hover_info }),
+                    range: None,
+                }));
+            }
+
+            // If still not found, try resolving current file imports and parse the referenced module
+            for import in &ast.imports {
+                // module strings can be: "time" or "core/vec" or others
+                let module = import.module.clone();
+                // Try to locate in vendored stdlib under repo root: vex-libs/std/<module>/src/lib.vx
+                // Also allow module with path sep
+                let cwd = std::env::current_dir().ok();
+                if let Some(cwd) = cwd {
+                    let module_path = cwd.join("vex-libs").join("std");
+                    let mut module_dir = module_path.clone();
+                    for part in module.split('/') {
+                        module_dir = module_dir.join(part);
+                    }
+                    let lib_vx = module_dir.join("src").join("lib.vx");
+                    if lib_vx.exists() {
+                        if let Ok(text) = fs::read_to_string(&lib_vx) {
+                            if let Ok(mut parser) = vex_parser::Parser::new(&text) {
+                                if let Ok(parsed) = parser.parse() {
+                                    // Cache AST for future lookups
+                                    let uri = match lib_vx.canonicalize() {
+                                        Ok(abs) => format!("file://{}", abs.to_string_lossy()),
+                                        Err(_) => format!("file://{}", lib_vx.to_string_lossy()),
+                                    };
+                                    self.ast_cache.insert(uri.clone(), parsed.clone());
+                                    if let Some(hover_info) = self.find_symbol_hover_info(&parsed, &word) {
+                                        return Ok(Some(Hover { contents: HoverContents::Markup(MarkupContent { kind: MarkupKind::Markdown, value: hover_info }), range: None }));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            // Try receiver-based method hover (Counter.new)
+            if let Some(recv) = receiver {
+                if let Some(hover_info) = self.find_method_hover_info(&ast, &recv, &word) {
+                    return Ok(Some(Hover {
+                        contents: HoverContents::Markup(MarkupContent {
+                            kind: MarkupKind::Markdown,
+                            value: hover_info,
+                        }),
+                        range: None,
+                    }));
+                }
+                // If method not found inline, check free function like `fn counter_new`
+                let free_fn = format!("fn {}_{}", recv.to_lowercase(), word);
+                if let Some(range) = find_pattern_in_source(&text, &free_fn) {
+                    // Format simple hover for this free function
+                    let hover_info = format!(
+                        "```vex\nfn {}_{}(...)\n```\n\n*Vex function*",
+                        recv.to_lowercase(),
+                        word
+                    );
+                    return Ok(Some(Hover {
+                        contents: HoverContents::Markup(MarkupContent {
+                            kind: MarkupKind::Markdown,
+                            value: hover_info,
+                        }),
+                        range: Some(range),
+                    }));
+                }
+            }
             // Fallback: show the word that was found
             Ok(Some(Hover {
                 contents: HoverContents::Markup(MarkupContent {
@@ -70,6 +143,66 @@ impl VexBackend {
                     return Some(self.format_trait_hover(trait_));
                 }
                 _ => {}
+            }
+        }
+        None
+    }
+
+    fn find_symbol_hover_info_workspace(&self, symbol: &str) -> Option<String> {
+        // Search in the ast_cache for the symbol across other modules
+        for entry in self.ast_cache.iter() {
+            let ast = entry.value();
+            for item in &ast.items {
+                match item {
+                    vex_ast::Item::Function(func) if func.name == symbol => {
+                        return Some(self.format_function_hover(func));
+                    }
+                    vex_ast::Item::Struct(s) if s.name == symbol => {
+                        return Some(self.format_struct_hover(s));
+                    }
+                    vex_ast::Item::Enum(e) if e.name == symbol => {
+                        return Some(self.format_enum_hover(e));
+                    }
+                    vex_ast::Item::Const(c) if c.name == symbol => {
+                        return Some(self.format_const_hover(c));
+                    }
+                    vex_ast::Item::Contract(trait_) if trait_.name == symbol => {
+                        return Some(self.format_trait_hover(trait_));
+                    }
+                    _ => {}
+                }
+            }
+        }
+        None
+    }
+
+    fn find_method_hover_info(
+        &self,
+        ast: &vex_ast::Program,
+        recv: &str,
+        method: &str,
+    ) -> Option<String> {
+        for item in &ast.items {
+            if let vex_ast::Item::Struct(s) = item {
+                if s.name == recv {
+                    for m in &s.methods {
+                        if m.name == method {
+                            return Some(self.format_function_hover(m));
+                        }
+                    }
+                }
+            }
+            // Check external trait impls as well
+            if let vex_ast::Item::TraitImpl(impl_) = item {
+                if let vex_ast::Type::Named(ref name) = impl_.for_type {
+                    if name == recv {
+                        for m in &impl_.methods {
+                            if m.name == method {
+                                return Some(self.format_function_hover(m));
+                            }
+                        }
+                    }
+                }
             }
         }
         None

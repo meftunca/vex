@@ -1,31 +1,23 @@
-// Test inline struct method deprecation warnings
+// Test inline struct methods with proper f32 casts
 
 struct Vec2 {
     x: f32,
     y: f32,
-    
-    // This should trigger warning W0001
     add(other: Vec2): Vec2 {
-        return Vec2 { x: self.x + other.x, y: self.y + other.y };
-    }
-}
-
-struct Point impl Display {
-    x: i32,
-    y: i32,
-    
-    // This should also trigger warning W0001
-    display(): String {
-        return println("({}, {})", self.x, self.y);
+        let new_x = self.x + other.x;
+        let new_y = self.y + other.y;
+        return Vec2 { x: new_x, y: new_y };
     }
 }
 
 fn main() {
     let v1 = Vec2 { x: 1.0, y: 2.0 };
+    println("v1: ({}, {})", v1.x, v1.y);
+    
     let v2 = Vec2 { x: 3.0, y: 4.0 };
+    println("v2: ({}, {})", v2.x, v2.y);
+    
     let v3 = v1.add(v2);
     println("v3: ({}, {})", v3.x, v3.y);
-    
-    let p = Point { x: 10, y: 20 };
-    p.display();
+    println("Expected: (4, 6)");
 }

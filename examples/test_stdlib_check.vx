@@ -23,15 +23,15 @@ fn main() {
     print(val);
     print("\n");
     
-    // Test 4: with_capacity()
-    let v2 = vec_with_capacity(100);
+    // Test 4: with_capacity() - explicit type argument required
+    let v2 = vec_with_capacity<i32>(100);
     v2.push(42);
-    print("✓ vec_with_capacity(100)\n");
+    print("✓ vec_with_capacity<i32>(100)\n");
     
-    // Test 5: Constructor syntax
-    let v3 = Vec<i32>();
+    // Test 5: Vec.new() syntax
+    let v3 = vec_new<i32>();
     v3.push(777);
-    print("✓ Vec<i32>() constructor\n");
+    print("✓ vec_new<i32>() constructor\n");
     
     print("\n=== All available methods work! ===\n");
 }
