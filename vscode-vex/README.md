@@ -2,7 +2,7 @@
 
 **Status:** ✅ Globally Installed  
 **Extension ID:** `meftunca.vex-language`  
-**Version:** 0.1.2
+**Version:** 0.1.4
 
 ## 🚀 Quick Start
 
@@ -39,11 +39,12 @@ Cmd+Shift+P → "Developer: Reload Window"
 ### Current (v0.1.2)
 
 - ✅ **Syntax Highlighting** - Full Vex v0.1.2 syntax with all new features
-  - ✅ `unsafe` blocks for raw pointer operations
-  - ✅ Trait bounds syntax (`<T: Display>`)
-  - ✅ `interface` keyword support
-  - ✅ Extended types: f128, str, byte, unit, nil
-  - ✅ HashMap, HashSet, String types
+- ✅ **File Icons** - New `.vx` file icons with light/dark variants (contribute via "Vex File Icons" theme)
+- ✅ `unsafe` blocks for raw pointer operations
+- ✅ Trait bounds syntax (`<T: Display>`)
+- ✅ `interface` keyword support
+- ✅ Extended types: f128, str, byte, unit, nil
+- ✅ HashMap, HashSet, String types
 - ✅ **Language Server (LSP)** - Real-time diagnostics with exact positions
   - ✅ Trait bounds validation errors
   - ✅ Unsafe block tracking
@@ -142,6 +143,15 @@ cd client && npm run compile
 ```
 
 No reinstall needed! 🎉
+
+## File Icons
+
+This extension provides a small file icon theme so `.vx` files show a Vex icon in the Explorer. To enable it:
+
+1. Cmd+Shift+P → `Preferences: File Icon Theme`
+2. Choose `Vex File Icons` from the list
+
+If you still do not see the icons, try: `Reload Window` (Cmd+Shift+P → `Developer: Reload Window`).
 
 ---
 

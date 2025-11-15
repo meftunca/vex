@@ -2,7 +2,7 @@
   "name": "vex-language",
   "displayName": "Vex Language Support",
   "description": "Syntax highlighting and language support for Vex programming language",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "publisher": "meftunca",
   "icon": "icons/vex-icon.png",
   "engines": {
@@ -47,8 +47,8 @@
         ],
         "configuration": "./language-configuration.json",
         "icon": {
-          "light": "./icons/vex-file-icon-light.png",
-          "dark": "./icons/vex-file-icon-dark.png"
+          "light": "./icons/vex-icon-light.png",
+          "dark": "./icons/vex-icon-dark.png"
         }
       }
     ],
@@ -70,6 +70,13 @@
         "label": "Vex Dark",
         "uiTheme": "vs-dark",
         "path": "./themes/vex-dark.json"
+      }
+    ],
+    "iconThemes": [
+      {
+        "id": "vex-file-icons",
+        "label": "Vex File Icons",
+        "path": "./icons/vex-file-icon-theme.json"
       }
     ],
     "commands": [

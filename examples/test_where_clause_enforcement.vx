@@ -1,5 +1,5 @@
 // Test where clause enforcement
-// Expected: Compile successfully with trait bound validation
+// Expected: Compile successfully with contract bound validation
 
 contract Display {
     fn show(): string;

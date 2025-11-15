@@ -16,13 +16,13 @@ struct Vec2 impl Index, IndexMut {
     y: f64,
 }
 
-fn (self: Vec2) op[](index: i32): f64 {
+fn (self: &Vec2) op[](index: i32): f64 {
     if index == 0 { return self.x; }
     if index == 1 { return self.y; }
     return 0.0;
 }
 
-fn (self: Vec2) op[]=(index: i32, value: f64)! {
+fn (self: &Vec2!) op[]=(index: i32, value: f64) {
     if index == 0 { self.x = value; }
     elif index == 1 { self.y = value; }
 }
@@ -48,3 +48,4 @@ fn main(): i32 {
     
     return 1;  // Fail
 }
+

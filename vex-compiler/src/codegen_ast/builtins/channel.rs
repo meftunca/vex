@@ -27,10 +27,22 @@ pub fn builtin_channel_new<'ctx>(
         ));
     }
     let capacity = args[0].into_int_value();
+    
+    // ⭐ CRITICAL FIX: Cast capacity to i64 if needed (vex_channel_create expects i64)
+    let capacity_i64 = if capacity.get_type().get_bit_width() != 64 {
+        let i64_type = codegen.context.i64_type();
+        codegen
+            .builder
+            .build_int_s_extend(capacity, i64_type, "capacity_i64")
+            .map_err(|e| format!("Failed to cast capacity to i64: {}", e))?
+    } else {
+        capacity
+    };
+    
     let create_fn = codegen.get_or_declare_vex_channel_create();
     let call_site_value = codegen
         .builder
-        .build_call(create_fn, &[capacity.into()], "new_channel")
+        .build_call(create_fn, &[capacity_i64.into()], "new_channel")
         .map_err(|e| e.to_string())?;
 
     Ok(call_site_value.try_as_basic_value().unwrap_basic())

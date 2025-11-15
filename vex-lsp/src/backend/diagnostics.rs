@@ -431,9 +431,14 @@ impl VexBackend {
         }
     }
 
-    pub async fn publish_diagnostics(&self, uri: Url, diagnostics: Vec<Diagnostic>) {
+    pub async fn publish_diagnostics(
+        &self,
+        uri: Url,
+        diagnostics: Vec<Diagnostic>,
+        version: Option<i32>,
+    ) {
         self.client
-            .publish_diagnostics(uri, diagnostics, None)
+            .publish_diagnostics(uri, diagnostics, version)
             .await;
     }
 }

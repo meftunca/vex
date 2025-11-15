@@ -2,7 +2,10 @@
 # Install Vex VS Code Extension via Symlink (with LSP support)
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-EXTENSION_DIR="$HOME/.vscode-insiders/extensions/vex-language-0.9.2"
+# Read version from package.json
+VERSION=$(node -pe "require('./package.json').version")
+EXTENSION_DIR_STABLE="$HOME/.vscode/extensions/vex-language-$VERSION"
+EXTENSION_DIR_INSIDERS="$HOME/.vscode-insiders/extensions/vex-language-$VERSION"
 
 echo "🔧 Installing Vex Language Support for VS Code..."
 
@@ -29,15 +32,20 @@ if [ ! -f "$SCRIPT_DIR/out/extension.js" ]; then
     fi
 fi
 
-# Remove existing extension if present
-if [ -L "$EXTENSION_DIR" ] || [ -d "$EXTENSION_DIR" ]; then
-    echo "📦 Removing existing extension..."
-    rm -rf "$EXTENSION_DIR"
+# Remove existing stable/insiders extensions if present
+if [ -L "$EXTENSION_DIR_STABLE" ] || [ -d "$EXTENSION_DIR_STABLE" ]; then
+    echo "📦 Removing existing stable extension..."
+    rm -rf "$EXTENSION_DIR_STABLE"
+fi
+if [ -L "$EXTENSION_DIR_INSIDERS" ] || [ -d "$EXTENSION_DIR_INSIDERS" ]; then
+    echo "📦 Removing existing insiders extension..."
+    rm -rf "$EXTENSION_DIR_INSIDERS"
 fi
 
-# Create symlink
-echo "🔗 Creating symlink..."
-ln -s "$SCRIPT_DIR" "$EXTENSION_DIR"
+# Create symlink for both stable and insiders if 'code' path is not used
+echo "🔗 Creating symlink for stable and insiders..."
+ln -s "$SCRIPT_DIR" "$EXTENSION_DIR_STABLE"
+ln -s "$SCRIPT_DIR" "$EXTENSION_DIR_INSIDERS"
 
 if [ $? -eq 0 ]; then
     echo "✅ Successfully installed!"
@@ -52,6 +60,17 @@ if [ $? -eq 0 ]; then
     echo "  - Vex: Restart Language Server (Cmd+Shift+P)"
     echo ""
     echo "💡 LSP binary: $(ls -1 $HOME/.cargo/target/*/vex-lsp 2>/dev/null | head -1)"
+    # Also attempt to install via vsix if available
+    VSIX_FILE="$SCRIPT_DIR/vex-language-$VERSION.vsix"
+    if [ -f "$VSIX_FILE" ]; then
+        echo "📦 Installing VSIX for stable and insiders from $VSIX_FILE"
+        if command -v code >/dev/null 2>&1; then
+            code --install-extension "$VSIX_FILE" --force || true
+        fi
+        if command -v code-insiders >/dev/null 2>&1; then
+            code-insiders --install-extension "$VSIX_FILE" --force || true
+        fi
+    fi
     echo "💡 To uninstall: rm -rf $EXTENSION_DIR"
 else
     echo "❌ Installation failed!"

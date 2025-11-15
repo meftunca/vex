@@ -15,7 +15,7 @@ struct Point impl Display {
     y: i32,
     
     // This should also trigger warning W0001
-    (self: &Point) display(): String {
+    display(): String {
         return println("({}, {})", self.x, self.y);
     }
 }

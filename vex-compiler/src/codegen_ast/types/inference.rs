@@ -210,6 +210,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 let inner_type = self.infer_expression_type(expr)?;
                 Ok(Type::Reference(Box::new(inner_type), *is_mutable))
             }
+            Expression::Cast { target_type, .. } => {
+                // For cast expressions (x as T), return the target type
+                Ok(target_type.clone())
+            }
             Expression::FieldAccess { object, field } => {
                 // Infer type of field access (self.x, obj.field)
                 let base_type = self.infer_expression_type(object)?;

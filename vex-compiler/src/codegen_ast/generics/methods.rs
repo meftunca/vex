@@ -155,6 +155,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
         // Store mangled name mapping
         self.functions.insert(mangled_name.clone(), fn_val);
 
+        // ⚠️ CRITICAL: Register concrete method in function_defs for argument type checking
+        self.function_defs.insert(mangled_name.clone(), concrete_method.clone());
+        eprintln!("  ✅ Registered function_def: {}", mangled_name);
+
         // Check trait bounds before compilation
         if let Some(ref mut checker) = self.trait_bounds_checker {
             // Validate struct type args against struct's trait bounds
@@ -598,9 +602,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
     /// This is similar to compile_method_arguments but handles generic receivers
     pub(crate) fn compile_method_arguments_for_generic(
         &mut self,
-        _struct_name: &str,
-        _type_args: &[Type],
-        _method_name: &str,
+        struct_name: &str,
+        type_args: &[Type],
+        method_name: &str,
         _receiver: &Expression,
         receiver_val: BasicValueEnum<'ctx>,
         args: &[Expression],
@@ -609,12 +613,72 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         let mut arg_vals: Vec<BasicMetadataValueEnum> = vec![];
 
+        // Build mangled method name to look up function definition
+        let type_names: Vec<String> = type_args
+            .iter()
+            .map(|t| self.type_to_string(t))
+            .collect();
+        
+        let mangled_name = if type_args.is_empty() {
+            format!("{}_{}", struct_name, method_name)
+        } else {
+            format!(
+                "{}_{}_{}",
+                struct_name,
+                type_names.join("_"),
+                method_name
+            )
+        };
+
         // First argument is always the receiver (self)
         arg_vals.push(receiver_val.into());
 
-        // Compile remaining arguments
-        for arg in args {
-            let val = self.compile_expression(arg)?;
+        // Compile remaining arguments with type casting
+        for (arg_idx, arg) in args.iter().enumerate() {
+            let mut val = self.compile_expression(arg)?;
+            
+            // ⚠️ CRITICAL: Cast argument types to match function signature
+            if let Some(func_def) = self.function_defs.get(&mangled_name) {
+                if arg_idx < func_def.params.len() {
+                    let expected_ty = &func_def.params[arg_idx].ty;
+                    let source_ty = self.infer_expression_type(arg)?;
+                    
+                    // Integer width casting
+                    if self.is_integer_type(&source_ty) && self.is_integer_type(expected_ty) {
+                        if let BasicValueEnum::IntValue(int_val) = val {
+                            let target_llvm = self.ast_type_to_llvm(expected_ty);
+                            if let BasicTypeEnum::IntType(target_int_type) = target_llvm {
+                                let src_bits = int_val.get_type().get_bit_width();
+                                let dst_bits = target_int_type.get_bit_width();
+                                
+                                if src_bits != dst_bits {
+                                    let source_is_unsigned = self.is_unsigned_integer_type(&source_ty);
+                                    
+                                    val = if src_bits < dst_bits {
+                                        if source_is_unsigned {
+                                            self.builder
+                                                .build_int_z_extend(int_val, target_int_type, "generic_arg_zext")
+                                                .map_err(|e| format!("Failed to zero-extend: {}", e))?
+                                                .into()
+                                        } else {
+                                            self.builder
+                                                .build_int_s_extend(int_val, target_int_type, "generic_arg_sext")
+                                                .map_err(|e| format!("Failed to sign-extend: {}", e))?
+                                                .into()
+                                        }
+                                    } else {
+                                        self.builder
+                                            .build_int_truncate(int_val, target_int_type, "generic_arg_trunc")
+                                            .map_err(|e| format!("Failed to truncate: {}", e))?
+                                            .into()
+                                    };
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
             arg_vals.push(val.into());
         }
 

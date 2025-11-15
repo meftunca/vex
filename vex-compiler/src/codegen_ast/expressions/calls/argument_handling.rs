@@ -93,7 +93,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         }
     }
 
-    fn is_integer_type(&self, ty: &Type) -> bool {
+    pub(crate) fn is_integer_type(&self, ty: &Type) -> bool {
         matches!(
             ty,
             Type::I8
@@ -110,7 +110,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         )
     }
 
-    fn is_unsigned_integer_type(&self, ty: &Type) -> bool {
+    pub(crate) fn is_unsigned_integer_type(&self, ty: &Type) -> bool {
         matches!(
             ty,
             Type::U8 | Type::U16 | Type::U32 | Type::U64 | Type::U128 | Type::Bool
@@ -134,35 +134,31 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 if is_reference {
                     // Reference receiver: pass pointer directly
                     eprintln!("   → Reference receiver: passing pointer directly");
-                    Ok(receiver_val.into())
-                } else {
-                    // Non-reference receiver: check if it's a struct that needs loading
-                    let is_struct_receiver = match &receiver_param.ty {
-                        Type::Named(type_name) => self.struct_defs.contains_key(type_name),
-                        Type::Vec(_) | Type::Box(_) | Type::Option(_) | Type::Result(_, _) => true,
-                        Type::Generic { .. } => true,
-                        _ => false,
-                    };
-
-                    if is_struct_receiver {
-                        // Load the struct value from pointer
-                        eprintln!("   ⚠️ Loading receiver struct value from pointer");
-                        let struct_llvm_type = self.ast_type_to_llvm(&receiver_param.ty);
-                        let loaded_val = self
-                            .builder
-                            .build_load(struct_llvm_type, receiver_val, "receiver_load")
-                            .map_err(|e| format!("Failed to load receiver: {}", e))?;
-                        Ok(loaded_val.into())
-                    } else {
-                        Ok(receiver_val.into())
-                    }
+                    return Ok(receiver_val.into());
                 }
-            } else {
-                Ok(receiver_val.into())
+                
+                // Non-reference receiver: check if it's a struct that needs loading
+                let is_struct_receiver = match &receiver_param.ty {
+                    Type::Named(type_name) => self.struct_defs.contains_key(type_name),
+                    Type::Vec(_) | Type::Box(_) | Type::Option(_) | Type::Result(_, _) => true,
+                    Type::Generic { .. } => true,
+                    _ => false,
+                };
+
+                if is_struct_receiver {
+                    // Load the struct value from pointer
+                    eprintln!("   ⚠️ Loading receiver struct value from pointer");
+                    let struct_llvm_type = self.ast_type_to_llvm(&receiver_param.ty);
+                    let loaded_val = self
+                        .builder
+                        .build_load(struct_llvm_type, receiver_val, "receiver_load")
+                        .map_err(|e| format!("Failed to load receiver: {}", e))?;
+                    return Ok(loaded_val.into());
+                }
             }
-        } else {
-            Ok(receiver_val.into())
         }
+        
+        Ok(receiver_val.into())
     }
 
     /// Process method argument, handling struct loading

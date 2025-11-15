@@ -1,0 +1,29 @@
+// Test automatic integer width casting in function arguments
+
+fn takes_i64(x: i64): i64 {
+    return x;
+}
+
+fn takes_i32(x: i32): i32 {
+    return x;
+}
+
+fn takes_u64(x: u64): u64 {
+    return x;
+}
+
+fn main(): i32 {
+    // i32 literal to i64 parameter (sign extension)
+    let a = takes_i64(100);
+    println("takes_i64(100) = ");
+    
+    // i64 literal to i32 parameter (truncation)
+    let b = takes_i32(200);
+    println("takes_i32(200) = ");
+    
+    // i32 literal to u64 parameter (zero extension)
+    let c = takes_u64(300);
+    println("takes_u64(300) = ");
+    
+    return 0;
+}

@@ -136,6 +136,9 @@ impl LanguageServer for VexBackend {
                     ),
                 ),
                 workspace_symbol_provider: Some(OneOf::Left(true)),
+                // Enable formatting/range formatting
+                document_formatting_provider: Some(OneOf::Left(true)),
+                document_range_formatting_provider: Some(OneOf::Left(true)),
                 folding_range_provider: Some(FoldingRangeProviderCapability::Simple(true)),
                 type_definition_provider: Some(TypeDefinitionProviderCapability::Simple(true)),
                 implementation_provider: Some(ImplementationProviderCapability::Simple(true)),

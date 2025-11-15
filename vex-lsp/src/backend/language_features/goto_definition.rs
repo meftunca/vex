@@ -61,6 +61,15 @@ impl VexBackend {
                 vex_ast::Item::Const(c) if c.name == word => {
                     return find_pattern_in_source(text, &format!("const {}", word));
                 }
+                vex_ast::Item::Contract(contract) if contract.name == word => {
+                    return find_pattern_in_source(text, &format!("contract {}", word));
+                }
+                vex_ast::Item::TypeAlias(alias) if alias.name == word => {
+                    return find_pattern_in_source(text, &format!("type {}", word));
+                }
+                vex_ast::Item::Policy(policy) if policy.name == word => {
+                    return find_pattern_in_source(text, &format!("policy {}", word));
+                }
                 _ => {}
             }
         }

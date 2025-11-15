@@ -8,7 +8,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
     /// &SomeStruct → Some("SomeStruct")
     /// &Vec<T> → Some("Vec")
     /// &Box<T> → Some("Box")
-    fn extract_struct_name_from_receiver(&self, ty: &Type) -> Option<String> {
+    pub(crate) fn extract_struct_name_from_receiver(&self, ty: &Type) -> Option<String> {
         match ty {
             Type::Reference(inner, _) => self.extract_struct_name_from_receiver(inner),
             Type::Named(name) => Some(name.clone()),
@@ -26,14 +26,27 @@ impl<'ctx> ASTCodeGen<'ctx> {
     fn resolve_and_merge_imports(&self, program: &mut Program) -> Result<(), String> {
         use crate::module_resolver::ModuleResolver;
 
-        let mut resolver = ModuleResolver::new("stdlib");
+        // Two-tier module resolution:
+        // 1. vex-libs/std - Standard library packages (import "conv", "http", etc.)
+        // 2. stdlib - Prelude (auto-injected core types: Vec, Box, Option, Result)
+        let mut std_resolver = ModuleResolver::new("vex-libs/std");
+        let mut prelude_resolver = ModuleResolver::new("stdlib");
 
         // Collect all items from imported modules
         let mut imported_items = Vec::new();
 
         for import in &program.imports {
-            // Load the module - pass source file for relative path resolution
-            let imported_module = resolver.load_module(&import.module, Some(&self.source_file))?;
+            // Try standard library first (vex-libs/std), then prelude (stdlib)
+            let imported_module = match std_resolver.load_module(&import.module, Some(&self.source_file)) {
+                Ok(module) => {
+                    eprintln!("   ✅ Loaded from vex-libs/std: {}", import.module);
+                    module
+                }
+                Err(_) => {
+                    eprintln!("   ⏭️  Not in vex-libs/std, trying stdlib (prelude): {}", import.module);
+                    prelude_resolver.load_module(&import.module, Some(&self.source_file))?
+                }
+            };
 
             // Add all items from imported module
             // (In a real implementation, we'd respect the import { ... } selectors)
@@ -208,6 +221,23 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         // Store with mangled name (but keep original func structure)
                         let mut method_func = func.clone();
                         method_func.name = mangled_name.clone();
+
+                        // Replace `Self` in the stored AST for this method so subsequent
+                        // declaration uses concrete types during codegen
+                        if let Some(receiver) = &method_func.receiver {
+                            // We know `sn` is Some in this branch
+                            method_func.receiver = Some(vex_ast::Receiver {
+                                name: receiver.name.clone(),
+                                is_mutable: receiver.is_mutable,
+                                ty: Self::replace_self_in_type(&receiver.ty, &sn),
+                            });
+                        }
+                        for param in &mut method_func.params {
+                            param.ty = Self::replace_self_in_type(&param.ty, &sn);
+                        }
+                        if let Some(rt) = &mut method_func.return_type {
+                            *rt = Self::replace_self_in_type(rt, &sn);
+                        }
 
                         // ⭐ CRITICAL FIX: Store BOTH the fully mangled name AND the base name
                         // Fully mangled: Vec_push_i32_1 (for direct lookups)
@@ -415,6 +445,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
         if let Err(e) = self.module.verify() {
             eprintln!("❌ LLVM module verification failed:");
             eprintln!("{}", e.to_string());
+            eprintln!("\n📝 Dumping LLVM IR for inspection:");
+            eprintln!("{}", self.module.print_to_string().to_string());
             return Err(format!("Invalid LLVM IR generated: {}", e));
         }
         eprintln!("✅ LLVM module verification passed");
@@ -551,6 +583,23 @@ impl<'ctx> ASTCodeGen<'ctx> {
             let fn_type = eq_fn.get_type();
             let ne_fn = self.module.add_function(&ne_method_name, fn_type, None);
 
+            // ⚠️ Copy parameter attributes from op== to ensure signature compatibility
+            for i in 0..eq_fn.count_params() {
+                let eq_param = eq_fn.get_nth_param(i).unwrap();
+                let ne_param = ne_fn.get_nth_param(i).unwrap();
+                
+                // Copy struct return attribute if present
+                for attr_idx in [inkwell::attributes::AttributeLoc::Param(i), 
+                                 inkwell::attributes::AttributeLoc::Return] {
+                    for attr_kind in eq_fn.attributes(attr_idx) {
+                        ne_fn.add_attribute(attr_idx, attr_kind);
+                    }
+                }
+                
+                // Preserve parameter types exactly
+                ne_param.set_name(eq_param.get_name().to_str().unwrap());
+            }
+
             // Build function body: return !op==(rhs)
             let entry = self.context.append_basic_block(ne_fn, "entry");
             let builder = self.context.create_builder();
@@ -579,6 +628,39 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
             // Register in functions map
             self.functions.insert(ne_method_name.clone(), ne_fn);
+
+            // ⚠️ CRITICAL: Register function_def so argument handling knows parameter types
+            // Clone the op== function definition and change the name to op!=
+            if let Some(eq_func_def) = program.items.iter().find_map(|item| {
+                if let Item::Function(f) = item {
+                    if f.receiver.is_some() && f.name == "op==" {
+                        if let Some(receiver) = &f.receiver {
+                            let recv_type_name = match &receiver.ty {
+                                Type::Named(name) => Some(name.clone()),
+                                Type::Reference(inner, _) => {
+                                    if let Type::Named(name) = &**inner {
+                                        Some(name.clone())
+                                    } else {
+                                        None
+                                    }
+                                }
+                                _ => None,
+                            };
+                            if recv_type_name.as_ref() == Some(&type_name) {
+                                return Some(f);
+                            }
+                        }
+                    }
+                }
+                None
+            }) {
+                // Create a copy with op!= name
+                let mut ne_func_def = eq_func_def.clone();
+                ne_func_def.name = "op!=".to_string();
+                
+                // Register under mangled name
+                self.function_defs.insert(ne_method_name.clone(), ne_func_def);
+            }
 
             eprintln!(
                 "✅ Auto-generated: {} (from {})",

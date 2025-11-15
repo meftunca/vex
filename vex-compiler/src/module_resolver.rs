@@ -7,6 +7,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use vex_ast::Program;
 use vex_parser::Parser;
+use vex_pm::Manifest;
 
 /// Module resolver - loads and caches parsed modules
 pub struct ModuleResolver {
@@ -84,6 +85,31 @@ impl ModuleResolver {
         let parsed = parser
             .parse_file()
             .map_err(|e| format!("Failed to parse module {}: {}", module_path, e))?;
+
+        // Check for native dependencies in module's vex.json
+        if let Some(module_dir) = file_path.parent() {
+            let vex_json_path = module_dir.join("vex.json");
+            if vex_json_path.exists() {
+                if let Ok(manifest) = Manifest::from_file(&vex_json_path) {
+                    if let Some(native_config) = manifest.get_native() {
+                        let linker = vex_pm::NativeLinker::new(module_dir);
+                        match linker.process(native_config) {
+                            Ok(native_args) if !native_args.is_empty() => {
+                                eprintln!("   🔗 Native libs for '{}': {}", module_path, native_args);
+                                // Store native args for later use
+                                for arg in native_args.split_whitespace() {
+                                    self.native_linker_args.push(arg.to_string());
+                                }
+                            }
+                            Ok(_) => {} // No native args
+                            Err(e) => {
+                                eprintln!("   ⚠️  Warning: Failed to process native config for '{}': {}", module_path, e);
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         // Cache and return - use entry API so we can return a reference without double-borrowing
         let entry = self
@@ -183,7 +209,21 @@ impl ModuleResolver {
                 file_path.push(part);
             }
 
-            // Try multiple file patterns (prefer src/lib.vx)
+            // First, try to read vex.json to get the main file
+            let vex_json_path = file_path.join("vex.json");
+            if vex_json_path.exists() {
+                // Try to parse vex.json and get main field
+                if let Ok(manifest) = Manifest::from_file(&vex_json_path) {
+                    if let Some(main) = manifest.main {
+                        let main_file = file_path.join(main);
+                        if main_file.exists() {
+                            return Ok(main_file);
+                        }
+                    }
+                }
+            }
+
+            // Fallback: Try multiple file patterns (prefer src/lib.vx)
             for module_file in &["src/lib.vx", "mod.vx", "lib.vx"] {
                 let candidate = file_path.join(module_file);
                 if candidate.exists() {
@@ -253,13 +293,19 @@ mod tests {
         let resolver = ModuleResolver::new("vex-libs/std");
 
         // Test basic module path - use 'core' (std core libs) for reliable test
-        let path = resolver.module_path_to_file_path("core", None).unwrap();
+        let path = match resolver.module_path_to_file_path("core", None) {
+            Ok(p) => p,
+            Err(e) => panic!("Failed to resolve core module path: {}", e),
+        };
         assert!(path.to_string_lossy().contains("core/src/lib.vx")
             || path.to_string_lossy().contains("core/lib.vx")
             || path.to_string_lossy().contains("core/mod.vx"));
 
         // Test nested module path
-        let path = resolver.module_path_to_file_path("std::io", None).unwrap();
+        let path = match resolver.module_path_to_file_path("std::io", None) {
+            Ok(p) => p,
+            Err(e) => panic!("Failed to resolve std::io module path: {}", e),
+        };
         assert!(path.to_string_lossy().contains("std/io/mod.vx"));
     }
 
@@ -284,7 +330,10 @@ mod tests {
 
         resolver.module_cache.insert("mymod".to_string(), program);
 
-        let exports = resolver.get_module_exports("mymod").unwrap();
+        let exports = match resolver.get_module_exports("mymod") {
+            Ok(e) => e,
+            Err(err) => panic!("Failed to get module exports: {}", err),
+        };
         assert_eq!(exports, vec!["helper".to_string()]);
     }
 }

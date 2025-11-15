@@ -18,6 +18,6 @@ fn main(): i32 {
     let! v = Vec2 { x: 10.0, y: 20.0 };
     v[0] = 99.0;
     
-    // Check if assignment worked (we can't read without Index trait, so return fixed value)
+    // Check if assignment worked (we can't read without Index contract, so return fixed value)
     return 42;
 }

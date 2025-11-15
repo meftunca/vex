@@ -329,10 +329,14 @@ impl<'a> Parser<'a> {
                 // Removed hardcoded type constructors - now handled generically below
                 // Legacy lowercase syntax (deprecated, will be removed)
                 "vec" | "box" => {
+                    let capitalized = if let Some(first_char) = name.chars().next() {
+                        first_char.to_uppercase().to_string() + &name[1..]
+                    } else {
+                        name.clone()
+                    };
                     return Err(self.error(&format!(
                         "Deprecated: Use '{}' instead of '{}' (type-as-constructor pattern)",
-                        name.chars().next().unwrap().to_uppercase().to_string() + &name[1..],
-                        name
+                        capitalized, name
                     )));
                 }
                 _ => {

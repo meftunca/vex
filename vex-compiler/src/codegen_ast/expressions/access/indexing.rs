@@ -612,18 +612,33 @@ impl<'ctx> ASTCodeGen<'ctx> {
         })?;
 
         // Compile object (get self pointer)
-        let self_ptr = if let Expression::Ident(name) = object {
+        let self_arg = if let Expression::Ident(name) = object {
             let var_ptr = *self
                 .variables
                 .get(name)
                 .ok_or_else(|| format!("Variable {} not found", name))?;
-            let var_type = *self
-                .variable_types
-                .get(name)
-                .ok_or_else(|| format!("Type for {} not found", name))?;
-            self.builder
-                .build_load(var_type, var_ptr, "self_load")
-                .map_err(|e| format!("Failed to load self: {}", e))?
+            
+            // ⭐ CRITICAL FIX: Check if receiver expects reference vs value
+            // Get function definition to check receiver type
+            let func_def = self.function_defs.get(&method_name);
+            let expects_reference = func_def
+                .and_then(|def| def.receiver.as_ref())
+                .map(|recv| matches!(recv.ty, Type::Reference(_, _)))
+                .unwrap_or(false);
+            
+            if expects_reference {
+                // Receiver expects reference (&self) - pass pointer directly
+                var_ptr.into()
+            } else {
+                // Receiver expects value (self) - load struct value
+                let var_type = *self
+                    .variable_types
+                    .get(name)
+                    .ok_or_else(|| format!("Type for {} not found", name))?;
+                self.builder
+                    .build_load(var_type, var_ptr, "self_load")
+                    .map_err(|e| format!("Failed to load self: {}", e))?
+            }
         } else {
             return Err("Index operator on complex expressions not yet supported".to_string());
         };
@@ -633,7 +648,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             .builder
             .build_call(
                 function,
-                &[self_ptr.into(), index_val.into()],
+                &[self_arg.into(), index_val.into()],
                 "index_result",
             )
             .map_err(|e| format!("Failed to call index operator: {}", e))?

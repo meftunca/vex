@@ -99,11 +99,17 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // For inline methods: receiver + args (param_count = args.len() + 1)
         // Note: base_method_name already uses encoded operator name
+        // ⚠️ CRITICAL: Include type suffix for inline methods to support overloading
         let encoded_param_count = args.len() + 1; // For inline methods, param count includes receiver
         let inline_method_name = if method.starts_with("op")
             && (method == "op-" || method == "op+" || method == "op*")
         {
-            format!("{}_{}", base_method_name, encoded_param_count)
+            // For operators with type suffix (overloaded methods), use it
+            if !first_arg_type_suffix.is_empty() {
+                format!("{}{}_{}", base_method_name, first_arg_type_suffix, encoded_param_count)
+            } else {
+                format!("{}_{}", base_method_name, encoded_param_count)
+            }
         } else {
             base_method_name.clone()
         };

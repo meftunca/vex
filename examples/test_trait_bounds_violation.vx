@@ -1,4 +1,4 @@
-// Test trait bounds validation - Should FAIL at compile time
+// Test contract bounds validation - Should FAIL at compile time
 // Purpose: Verify that type checker rejects invalid type arguments
 
 contract Display {

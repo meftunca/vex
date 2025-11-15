@@ -555,190 +555,207 @@ fn main() -> Result<()> {
             let mut native_linker_args: Vec<String> = Vec::new();
 
             if !ast.imports.is_empty() {
-                let std_lib_path = PathBuf::from("stdlib");
-                let mut resolver = vex_compiler::ModuleResolver::new(std_lib_path);
+                // Two-tier module resolution:
+                // 1. vex-libs/std - Standard library packages (import "conv", "http", etc.)
+                // 2. stdlib - Prelude (auto-injected core types: Vec, Box, Option, Result)
+                let mut std_resolver = vex_compiler::ModuleResolver::new(PathBuf::from("vex-libs/std"));
+                let mut prelude_resolver = vex_compiler::ModuleResolver::new(PathBuf::from("stdlib"));
 
                 for import in &ast.imports {
                     let module_path = &import.module;
                     eprintln!("🔄 Resolving import: '{}'", module_path);
 
-                    match resolver.load_module(module_path, Some(&parser_file)) {
-                        Ok(module_ast) => {
-                            match &import.kind {
-                                vex_ast::ImportKind::Named => {
-                                    // Named import: only import requested items
-                                    if import.items.is_empty() {
-                                        // If no specific items, import all
-                                        for item in &module_ast.items {
-                                            match item {
-                                                vex_ast::Item::Function(func) => {
-                                                    ast.items.push(vex_ast::Item::Function(
-                                                        func.clone(),
-                                                    ));
-                                                }
-                                                vex_ast::Item::Struct(struct_def) => {
-                                                    ast.items.push(vex_ast::Item::Struct(
-                                                        struct_def.clone(),
-                                                    ));
-                                                }
-                                                vex_ast::Item::Const(const_decl) => {
-                                                    ast.items.push(vex_ast::Item::Const(
-                                                        const_decl.clone(),
-                                                    ));
-                                                }
-                                                vex_ast::Item::ExternBlock(extern_block) => {
-                                                    // Import extern declarations (for FFI)
-                                                    ast.items.push(vex_ast::Item::ExternBlock(
-                                                        extern_block.clone(),
-                                                    ));
-                                                }
-                                                _ => {}
-                                            }
-                                        }
-                                    } else {
-                                        // Import only specific items
-                                        // BUT: always import extern blocks (for FFI dependencies)
-                                        for item in &module_ast.items {
-                                            if let vex_ast::Item::ExternBlock(extern_block) = item {
-                                                ast.items.push(vex_ast::Item::ExternBlock(
-                                                    extern_block.clone(),
-                                                ));
-                                            }
-                                        }
-
-                                        for requested in &import.items {
-                                            for item in &module_ast.items {
-                                                match item {
-                                                    vex_ast::Item::Function(func)
-                                                        if func.name == *requested =>
-                                                    {
-                                                        ast.items.push(vex_ast::Item::Function(
-                                                            func.clone(),
-                                                        ));
-                                                    }
-                                                    vex_ast::Item::Struct(s)
-                                                        if s.name == *requested =>
-                                                    {
-                                                        ast.items
-                                                            .push(vex_ast::Item::Struct(s.clone()));
-                                                    }
-                                                    vex_ast::Item::Const(c)
-                                                        if c.name == *requested =>
-                                                    {
-                                                        ast.items
-                                                            .push(vex_ast::Item::Const(c.clone()));
-                                                    }
-                                                    _ => {}
-                                                }
-                                            }
-                                        }
-                                    }
+                    // Try standard library first (vex-libs/std), then prelude (stdlib)
+                    let module_ast = match std_resolver.load_module(module_path, Some(&parser_file)) {
+                        Ok(module) => {
+                            eprintln!("   ✅ Loaded from vex-libs/std: {}", module_path);
+                            module
+                        }
+                        Err(_) => {
+                            eprintln!("   ⏭️  Not in vex-libs/std, trying stdlib (prelude): {}", module_path);
+                            match prelude_resolver.load_module(module_path, Some(&parser_file)) {
+                                Ok(module) => {
+                                    eprintln!("   ✅ Loaded from stdlib: {}", module_path);
+                                    module
                                 }
-                                vex_ast::ImportKind::Module => {
-                                    // Module import: import all and track namespace
-                                    let module_name = module_path
-                                        .split(&['/', ':'][..])
-                                        .last()
-                                        .unwrap_or(module_path);
-
-                                    let mut imported_funcs = Vec::new();
-                                    for item in &module_ast.items {
-                                        match item {
-                                            vex_ast::Item::Function(func) => {
-                                                ast.items
-                                                    .push(vex_ast::Item::Function(func.clone()));
-                                                imported_funcs.push(func.name.clone());
-                                            }
-                                            vex_ast::Item::Struct(struct_def) => {
-                                                ast.items.push(vex_ast::Item::Struct(
-                                                    struct_def.clone(),
-                                                ));
-                                            }
-                                            vex_ast::Item::Const(const_decl) => {
-                                                ast.items
-                                                    .push(vex_ast::Item::Const(const_decl.clone()));
-                                            }
-                                            vex_ast::Item::ExternBlock(extern_block) => {
-                                                // Import extern declarations
-                                                ast.items.push(vex_ast::Item::ExternBlock(
-                                                    extern_block.clone(),
-                                                ));
-                                            }
-                                            _ => {}
-                                        }
-                                    }
-                                    // Save for later codegen registration
-                                    module_namespaces
-                                        .push((module_name.to_string(), imported_funcs));
-                                }
-                                vex_ast::ImportKind::Namespace(alias) => {
-                                    // Namespace import: import all with alias
-                                    let mut imported_funcs = Vec::new();
-                                    for item in &module_ast.items {
-                                        match item {
-                                            vex_ast::Item::Function(func) => {
-                                                ast.items
-                                                    .push(vex_ast::Item::Function(func.clone()));
-                                                imported_funcs.push(func.name.clone());
-                                            }
-                                            vex_ast::Item::Struct(struct_def) => {
-                                                ast.items.push(vex_ast::Item::Struct(
-                                                    struct_def.clone(),
-                                                ));
-                                            }
-                                            vex_ast::Item::Const(const_decl) => {
-                                                ast.items
-                                                    .push(vex_ast::Item::Const(const_decl.clone()));
-                                            }
-                                            vex_ast::Item::ExternBlock(extern_block) => {
-                                                // Import extern declarations
-                                                ast.items.push(vex_ast::Item::ExternBlock(
-                                                    extern_block.clone(),
-                                                ));
-                                            }
-                                            _ => {}
-                                        }
-                                    }
-                                    // Save for later codegen registration
-                                    module_namespaces.push((alias.clone(), imported_funcs));
+                                Err(e) => {
+                                    anyhow::bail!("⚠️  Import error for '{}': {}", module_path, e);
                                 }
                             }
                         }
-                        Err(e) => {
-                            anyhow::bail!("⚠️  Import error for '{}': {}", module_path, e);
+                    };
+
+                    match &import.kind {
+                        vex_ast::ImportKind::Named => {
+                            // Named import: only import requested items
+                            if import.items.is_empty() {
+                                // If no specific items, import all
+                                for item in &module_ast.items {
+                                    match item {
+                                        vex_ast::Item::Function(func) => {
+                                            ast.items.push(vex_ast::Item::Function(
+                                                func.clone(),
+                                            ));
+                                        }
+                                        vex_ast::Item::Struct(struct_def) => {
+                                            ast.items.push(vex_ast::Item::Struct(
+                                                struct_def.clone(),
+                                            ));
+                                        }
+                                        vex_ast::Item::Const(const_decl) => {
+                                            ast.items.push(vex_ast::Item::Const(
+                                                const_decl.clone(),
+                                            ));
+                                        }
+                                        vex_ast::Item::ExternBlock(extern_block) => {
+                                            // Import extern declarations (for FFI)
+                                            ast.items.push(vex_ast::Item::ExternBlock(
+                                                extern_block.clone(),
+                                            ));
+                                        }
+                                        _ => {}
+                                    }
+                                }
+                            } else {
+                                // Import only specific items
+                                // BUT: always import extern blocks (for FFI dependencies)
+                                for item in &module_ast.items {
+                                    if let vex_ast::Item::ExternBlock(extern_block) = item {
+                                        ast.items.push(vex_ast::Item::ExternBlock(
+                                            extern_block.clone(),
+                                        ));
+                                    }
+                                }
+
+                                for requested in &import.items {
+                                    for item in &module_ast.items {
+                                        match item {
+                                            vex_ast::Item::Function(func)
+                                                if func.name == *requested =>
+                                            {
+                                                ast.items.push(vex_ast::Item::Function(
+                                                    func.clone(),
+                                                ));
+                                            }
+                                            vex_ast::Item::Struct(s)
+                                                if s.name == *requested =>
+                                            {
+                                                ast.items
+                                                    .push(vex_ast::Item::Struct(s.clone()));
+                                            }
+                                            vex_ast::Item::Const(c)
+                                                if c.name == *requested =>
+                                            {
+                                                ast.items
+                                                    .push(vex_ast::Item::Const(c.clone()));
+                                            }
+                                            _ => {}
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        vex_ast::ImportKind::Module => {
+                            // Module import: import all and track namespace
+                            let module_name = module_path
+                                .split(&['/', ':'][..])
+                                .last()
+                                .unwrap_or(module_path);
+
+                            let mut imported_funcs = Vec::new();
+                            for item in &module_ast.items {
+                                match item {
+                                    vex_ast::Item::Function(func) => {
+                                        ast.items
+                                            .push(vex_ast::Item::Function(func.clone()));
+                                        imported_funcs.push(func.name.clone());
+                                    }
+                                    vex_ast::Item::Struct(struct_def) => {
+                                        ast.items.push(vex_ast::Item::Struct(
+                                            struct_def.clone(),
+                                        ));
+                                    }
+                                    vex_ast::Item::Const(const_decl) => {
+                                        ast.items
+                                            .push(vex_ast::Item::Const(const_decl.clone()));
+                                    }
+                                    vex_ast::Item::ExternBlock(extern_block) => {
+                                        // Import extern declarations
+                                        ast.items.push(vex_ast::Item::ExternBlock(
+                                            extern_block.clone(),
+                                        ));
+                                    }
+                                    _ => {}
+                                }
+                            }
+                            // Save for later codegen registration
+                            module_namespaces
+                                .push((module_name.to_string(), imported_funcs));
+                        }
+                        vex_ast::ImportKind::Namespace(alias) => {
+                            // Namespace import: import all with alias
+                            let mut imported_funcs = Vec::new();
+                            for item in &module_ast.items {
+                                match item {
+                                    vex_ast::Item::Function(func) => {
+                                        ast.items
+                                            .push(vex_ast::Item::Function(func.clone()));
+                                        imported_funcs.push(func.name.clone());
+                                    }
+                                    vex_ast::Item::Struct(struct_def) => {
+                                        ast.items.push(vex_ast::Item::Struct(
+                                            struct_def.clone(),
+                                        ));
+                                    }
+                                    vex_ast::Item::Const(const_decl) => {
+                                        ast.items
+                                            .push(vex_ast::Item::Const(const_decl.clone()));
+                                    }
+                                    vex_ast::Item::ExternBlock(extern_block) => {
+                                        // Import extern declarations
+                                        ast.items.push(vex_ast::Item::ExternBlock(
+                                            extern_block.clone(),
+                                        ));
+                                    }
+                                    _ => {}
+                                }
+                            }
+                            // Save for later codegen registration
+                            module_namespaces.push((alias.clone(), imported_funcs));
                         }
                     }
 
                     // Check for native dependencies in imported module's vex.json
-                    let module_dir = PathBuf::from("stdlib").join(module_path);
-                    let vex_json_path = module_dir.join("vex.json");
-                    if vex_json_path.exists() {
-                        if let Ok(manifest) = vex_pm::Manifest::from_file(&vex_json_path) {
-                            if let Some(native_config) = manifest.get_native() {
-                                let linker = vex_pm::NativeLinker::new(&module_dir);
-                                match linker.process(native_config) {
-                                    Ok(native_args) if !native_args.is_empty() => {
-                                        eprintln!(
-                                            "   🔗 Native libs for '{}': {}",
-                                            module_path, native_args
-                                        );
-                                        // Store native args in resolver for later use
-                                        for arg in native_args.split_whitespace() {
-                                            resolver.native_linker_args.push(arg.to_string());
+                    // Try both vex-libs/std and stdlib paths
+                    for base_path in ["vex-libs/std", "stdlib"] {
+                        let module_dir = PathBuf::from(base_path).join(module_path);
+                        let vex_json_path = module_dir.join("vex.json");
+                        if vex_json_path.exists() {
+                            if let Ok(manifest) = vex_pm::Manifest::from_file(&vex_json_path) {
+                                if let Some(native_config) = manifest.get_native() {
+                                    let linker = vex_pm::NativeLinker::new(&module_dir);
+                                    match linker.process(native_config) {
+                                        Ok(native_args_str) if !native_args_str.is_empty() => {
+                                            eprintln!(
+                                                "   🔗 Native libs for '{}': {}",
+                                                module_path, native_args_str
+                                            );
+                                            // Store native args for later use
+                                            for arg in native_args_str.split_whitespace() {
+                                                native_linker_args.push(arg.to_string());
+                                            }
                                         }
-                                    }
-                                    Ok(_) => {} // No native args
-                                    Err(e) => {
-                                        eprintln!("   ⚠️  Warning: Failed to process native config for '{}': {}", module_path, e);
+                                        Ok(_) => {} // No native args
+                                        Err(e) => {
+                                            eprintln!("   ⚠️  Warning: Failed to process native config for '{}': {}", module_path, e);
+                                        }
                                     }
                                 }
                             }
+                            break; // Found vex.json, stop searching
                         }
                     }
                 }
-
-                // Collect native linker args from resolver
-                native_linker_args.extend(resolver.native_linker_args);
             }
 
             // NOW run borrow checker AFTER imports are resolved

@@ -351,8 +351,14 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 }
 
                 // ✅ FIX: Void functions should always get implicit return, not unreachable
-                if func.return_type.is_none() {
-                    // Void function - add implicit return
+                let is_void_function = func.return_type.is_none()
+                    || matches!(func.return_type.as_ref(), Some(Type::Nil));
+
+                eprintln!("📍 Function {} implicit terminator: is_void={}, current_block={:?}", func.name, is_void_function, current_block.get_name().to_str());
+
+                if is_void_function {
+                    // Void/nil function - add implicit return
+                    eprintln!("   → Adding void return");
                     self.builder
                         .build_return(None)
                         .map_err(|e| format!("Failed to build void return: {}", e))?;

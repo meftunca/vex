@@ -23,10 +23,10 @@ fn main(): i32 {
     
     // If operator works, v3.x should be 4.0, v3.y should be 6.0
     // Test: if v3.x > 3.0, return 42, else return 0
-    if v3.x > 3.0 {
+    if v3.x > 3.0 /* as f32*/ {
         return 42;
     }
     print("v3: ({}, {})", v3.x, v3.y);
     
-    return v3.x;
+    return v3.x as i32;  // Should return 4
 }

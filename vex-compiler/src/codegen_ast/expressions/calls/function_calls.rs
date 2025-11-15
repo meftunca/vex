@@ -134,7 +134,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             };
 
             // ⭐ For struct variables, load struct value for BY VALUE parameter
-            let val = if is_struct_variable && param_expects_struct_by_value {
+            let mut val = if is_struct_variable && param_expects_struct_by_value {
                 if let Expression::Ident(name) = arg {
                     if let Some(struct_ptr) = self.variables.get(name) {
                         // Load struct value for BY VALUE parameter
@@ -159,6 +159,50 @@ impl<'ctx> ASTCodeGen<'ctx> {
             } else {
                 self.compile_expression(arg)?
             };
+
+            // ⭐ CRITICAL FIX: Cast integer arguments to match parameter type width
+            // This prevents "i32 100 passed to i64 parameter" LLVM errors
+            if let Some(param_ty) = param_type_opt {
+                if let BasicValueEnum::IntValue(int_val) = val {
+                    let target_llvm_type = self.ast_type_to_llvm(param_ty);
+                    if let inkwell::types::BasicTypeEnum::IntType(target_int_type) = target_llvm_type {
+                        let current_width = int_val.get_type().get_bit_width();
+                        let target_width = target_int_type.get_bit_width();
+                        
+                        if current_width != target_width {
+                            eprintln!(
+                                "🔄 Casting argument {} from i{} to i{} to match parameter type",
+                                i, current_width, target_width
+                            );
+                            
+                            val = if current_width < target_width {
+                                // Extend (sign or zero based on target type)
+                                let is_unsigned = matches!(
+                                    param_ty,
+                                    Type::U8 | Type::U16 | Type::U32 | Type::U64 | Type::U128
+                                );
+                                if is_unsigned {
+                                    self.builder
+                                        .build_int_z_extend(int_val, target_int_type, "arg_zext")
+                                        .map_err(|e| format!("Failed to zero-extend argument: {}", e))?
+                                        .into()
+                                } else {
+                                    self.builder
+                                        .build_int_s_extend(int_val, target_int_type, "arg_sext")
+                                        .map_err(|e| format!("Failed to sign-extend argument: {}", e))?
+                                        .into()
+                                }
+                            } else {
+                                // Truncate
+                                self.builder
+                                    .build_int_truncate(int_val, target_int_type, "arg_trunc")
+                                    .map_err(|e| format!("Failed to truncate argument: {}", e))?
+                                    .into()
+                            };
+                        }
+                    }
+                }
+            }
 
             // Check if parameter expects 'any' type
             let expects_any = if let Some(func_def) = &func_def_opt {
@@ -412,7 +456,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                     false
                                 };
 
-                                let val = if is_struct_variable && param_expects_struct_by_value {
+                                let mut val = if is_struct_variable && param_expects_struct_by_value {
                                     if let Expression::Ident(name) = arg {
                                         if let Some(struct_ptr) = self.variables.get(name) {
                                             let param_llvm_ty =
@@ -433,6 +477,47 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                     self.compile_expression(arg)?
                                 };
 
+                                // ⭐ CRITICAL FIX: Cast integer arguments to match parameter type (generic functions too)
+                                if let Some(param_ty) = param_type_opt {
+                                    if let BasicValueEnum::IntValue(int_val) = val {
+                                        let target_llvm_type = self.ast_type_to_llvm(param_ty);
+                                        if let inkwell::types::BasicTypeEnum::IntType(target_int_type) = target_llvm_type {
+                                            let current_width = int_val.get_type().get_bit_width();
+                                            let target_width = target_int_type.get_bit_width();
+                                            
+                                            if current_width != target_width {
+                                                eprintln!(
+                                                    "🔄 [Generic] Casting argument {} from i{} to i{} to match parameter type",
+                                                    i, current_width, target_width
+                                                );
+                                                
+                                                val = if current_width < target_width {
+                                                    let is_unsigned = matches!(
+                                                        param_ty,
+                                                        Type::U8 | Type::U16 | Type::U32 | Type::U64 | Type::U128
+                                                    );
+                                                    if is_unsigned {
+                                                        self.builder
+                                                            .build_int_z_extend(int_val, target_int_type, "arg_zext")
+                                                            .map_err(|e| format!("Failed to zero-extend argument: {}", e))?
+                                                            .into()
+                                                    } else {
+                                                        self.builder
+                                                            .build_int_s_extend(int_val, target_int_type, "arg_sext")
+                                                            .map_err(|e| format!("Failed to sign-extend argument: {}", e))?
+                                                            .into()
+                                                    }
+                                                } else {
+                                                    self.builder
+                                                        .build_int_truncate(int_val, target_int_type, "arg_trunc")
+                                                        .map_err(|e| format!("Failed to truncate argument: {}", e))?
+                                                        .into()
+                                                };
+                                            }
+                                        }
+                                    }
+                                }
+
                                 arg_vals.push(val.into());
                                 arg_basic_vals.push(val);
                             }
@@ -449,6 +534,54 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
             // If we have a function value, we can proceed with the call now
             if let Some(fn_val) = fn_val_opt {
+                // ⭐ CRITICAL FIX: Cast arguments to match LLVM function signature
+                // This is needed for external C functions (malloc, free, etc.) that don't have AST definitions
+                let fn_type = fn_val.get_type();
+                let param_types = fn_type.get_param_types();
+                
+                // Cast arguments if needed
+                for (i, arg_val_meta) in arg_vals.iter_mut().enumerate() {
+                    if i < param_types.len() {
+                        let param_type = param_types[i];
+                        let arg_val = match arg_val_meta {
+                            inkwell::values::BasicMetadataValueEnum::IntValue(iv) => BasicValueEnum::IntValue(*iv),
+                            inkwell::values::BasicMetadataValueEnum::FloatValue(fv) => BasicValueEnum::FloatValue(*fv),
+                            inkwell::values::BasicMetadataValueEnum::PointerValue(pv) => BasicValueEnum::PointerValue(*pv),
+                            inkwell::values::BasicMetadataValueEnum::ArrayValue(av) => BasicValueEnum::ArrayValue(*av),
+                            inkwell::values::BasicMetadataValueEnum::StructValue(sv) => BasicValueEnum::StructValue(*sv),
+                            inkwell::values::BasicMetadataValueEnum::VectorValue(vv) => BasicValueEnum::VectorValue(*vv),
+                            _ => continue,
+                        };
+                        
+                        // Cast integers if width mismatch
+                        if let (BasicValueEnum::IntValue(int_val), inkwell::types::BasicMetadataTypeEnum::IntType(target_int_type)) = (arg_val, param_type) {
+                            let current_width = int_val.get_type().get_bit_width();
+                            let target_width = target_int_type.get_bit_width();
+                            
+                            if current_width != target_width {
+                                eprintln!(
+                                    "🔄 [External] Casting argument {} from i{} to i{} for function signature",
+                                    i, current_width, target_width
+                                );
+                                
+                                let casted = if current_width < target_width {
+                                    // For external C functions, always zero-extend (size_t is unsigned)
+                                    self.builder
+                                        .build_int_z_extend(int_val, target_int_type, "ext_arg_cast")
+                                        .map_err(|e| format!("Failed to cast external function argument: {}", e))?
+                                        .into()
+                                } else {
+                                    self.builder
+                                        .build_int_truncate(int_val, target_int_type, "ext_arg_trunc")
+                                        .map_err(|e| format!("Failed to truncate external function argument: {}", e))?
+                                        .into()
+                                };
+                                *arg_val_meta = casted;
+                            }
+                        }
+                    }
+                }
+                
                 // Build call
                 let call_site = self
                     .builder

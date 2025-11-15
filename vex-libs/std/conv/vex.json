@@ -1,0 +1,13 @@
+{
+  "name": "conv",
+  "version": "0.1.0",
+  "description": "Type conversion utilities - to_string() for all primitive types",
+  "authors": ["Vex Language Team"],
+  "license": "MIT",
+  "main": "src/lib.vx",
+  "native": {
+    "libraries": ["vex_runtime"],
+    "search_paths": ["../../../vex-runtime/c"],
+    "include_dirs": ["../../../vex-runtime/c"]
+  }
+}

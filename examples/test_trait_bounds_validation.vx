@@ -1,5 +1,5 @@
-// Test trait bounds validation - Type checker enforcement
-// Purpose: Verify that trait bounds are checked at compile time
+// Test contract bounds validation - Type checker enforcement
+// Purpose: Verify that contract bounds are checked at compile time
 
 contract Display {
     show(): i32;
@@ -31,7 +31,7 @@ struct NoDisplay {
     value: i32,
 }
 
-// Generic function with trait bound
+// Generic function with contract bound
 fn print_value<T: Display>(val: T): i32 {
     return val.show();
 }
@@ -59,7 +59,7 @@ fn main(): i32 {
     // ❌ TODO: Should fail at compile time: NoDisplay doesn't implement Display
     // Uncomment to test type checker enforcement:
     // let nd = NoDisplay { value: 42 };
-    // print_value(nd);  // ERROR: trait bound not satisfied
+    // print_value(nd);  // ERROR: contract bound not satisfied
     
     return 0;
 }

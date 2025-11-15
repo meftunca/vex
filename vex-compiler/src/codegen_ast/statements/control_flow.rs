@@ -165,9 +165,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 .build_return(Some(&val))
                 .map_err(|e| format!("Failed to build return: {}", e))?;
         } else {
-            // Get the function's actual return type
+            // No return value - check if function expects void return
             if let Some(func) = self.current_function {
                 if let Some(ret_ty) = func.get_type().get_return_type() {
+                    // Function has return type, return appropriate zero value
                     let basic_type: BasicTypeEnum = ret_ty
                         .try_into()
                         .map_err(|_| "Failed to convert return type to BasicType".to_string())?;
@@ -188,16 +189,16 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         }
                     }
                 } else {
-                    let zero = self.context.i32_type().const_int(0, false);
+                    // ⭐ CRITICAL FIX: Void function - return nothing
                     self.builder
-                        .build_return(Some(&zero))
-                        .map_err(|e| format!("Failed to build return: {}", e))?;
+                        .build_return(None)
+                        .map_err(|e| format!("Failed to build void return: {}", e))?;
                 }
             } else {
-                let zero = self.context.i32_type().const_int(0, false);
+                // ⭐ CRITICAL FIX: No current function (shouldn't happen) - assume void
                 self.builder
-                    .build_return(Some(&zero))
-                    .map_err(|e| format!("Failed to build return: {}", e))?;
+                    .build_return(None)
+                    .map_err(|e| format!("Failed to build void return: {}", e))?;
             }
         }
         Ok(())

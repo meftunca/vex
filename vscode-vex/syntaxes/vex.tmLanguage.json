@@ -111,23 +111,23 @@
       "patterns": [
         {
           "name": "keyword.control.vex",
-          "match": "\\b(if|else|match|case|switch|for|while|loop|break|continue|return|defer|yield|await|async|go)\\b"
+          "match": "\\b(if|else|elif|match|switch|case|default|for|while|loop|break|continue|return|defer|select|async|await|go|gpu|launch|spawn|yield)\\b"
         },
         {
           "name": "keyword.declaration.vex",
-          "match": "\\b(fn|struct|enum|trait|impl|type|const|let|policy|with|interface)\\b"
+          "match": "\\b(fn|struct|enum|contract|impl|type|const|let!|let|policy|extern)\\b"
         },
         {
           "name": "storage.modifier.vex",
-          "match": "\\b(export|unsafe|extern)\\b"
+          "match": "\\b(export|import|from|as|with)\\b"
         },
         {
           "name": "keyword.other.vex",
-          "match": "\\b(as|in|where|Self|self|super|import|from)\\b"
+          "match": "\\b(in|where|Self|self|super)\\b"
         },
         {
           "name": "constant.language.vex",
-          "match": "\\b(true|false|null|nil|None|Some|Ok|Err)\\b"
+          "match": "\\b(true|false|nil|None|Some|Ok|Err)\\b"
         },
         {
           "name": "keyword.operator.mutable.vex",
@@ -139,7 +139,7 @@
       "patterns": [
         {
           "name": "support.type.primitive.vex",
-          "match": "\\b(i8|i16|i32|i64|i128|u8|u16|u32|u64|u128|f16|f32|f64|f128|bool|string|str|char|byte|void|never|error|unit)\\b"
+          "match": "\\b(i8|i16|i32|i64|i128|u8|u16|u32|u64|u128|f16|f32|f64|bool|string|byte|error|nil)\\b"
         },
         {
           "name": "entity.name.type.vex",
@@ -147,7 +147,7 @@
         },
         {
           "name": "storage.type.vex",
-          "match": "\\b(dyn|Box|Rc|Arc|Vec|Map|Set|HashMap|HashSet|Channel|Option|Result|Some|None|Ok|Err|String)\\b"
+          "match": "\\b(Vec|Box|Option|Result|Channel|Future|HashMap)\\b"
         }
       ]
     },
@@ -156,6 +156,10 @@
         {
           "name": "entity.name.function.vex",
           "match": "\\b([a-z_][a-z0-9_]*)\\s*(?=\\()"
+        },
+        {
+          "name": "entity.name.function.vex",
+          "match": "\\b(op(?:\\+|\\-|\\*|/|%|\\^|&|\\||~|<<|>>|<|>|==|!=|<=|>=|\\?\\?|::)+)\\s*(?=\\()"
         },
         {
           "name": "support.function.builtin.vex",
@@ -167,7 +171,7 @@
       "patterns": [
         {
           "name": "keyword.operator.vex",
-          "match": "(\\+|\\-|\\*|\\/|%|\\^|&|\\||!|~|<<|>>|==|!=|<|>|<=|>=|&&|\\|\\||=|\\+=|\\-=|\\*=|\\/=|%=|&=|\\|=|\\^=|<<=|>>=)"
+          "match": "(\\*\\*=|\\*\\*|\\.\\.=|\\.\\.|\\?\\?|::|<<=|>>=|<<|>>|\\+=|\\-=|\\*=|\\/=|%=|&=|\\|=|\\^=|==|!=|<=|>=|&&|\\|\\||\\+|\\-|\\*|\\/|%|\\^|::|&|\\||!|~|<|>|=)"
         },
         {
           "name": "keyword.operator.arrow.vex",

@@ -8,16 +8,14 @@ pub struct Program {
 }
 
 impl Program {
-    /// Inject core prelude imports (Vec, Box, Option, Result, etc.)
-    /// Called by compiler before compilation to auto-import stdlib/core
-    ///
-    /// Layer 1 (stdlib/core) is the global prelude - always available without explicit imports
+    /// Auto-import core prelude modules (Vec, Box, Option, Result, Display, etc.)
+    /// Layer 1 (stdlib/core) is ALWAYS injected - global prelude available everywhere
     /// This injects: Vec, Box, Option, Result, String, and core contracts (Display, Clone, Debug)
+    /// User CANNOT override these - they are reserved Layer 1 types
     pub fn inject_core_prelude(&mut self) {
-        // Core modules that should be auto-imported as prelude
+        // Core modules from stdlib/ - ALWAYS injected (Layer 1 prelude)
         let core_modules = vec![
-            "core/vec", // Vec<T> type definition
-            // "core/vec_methods", // Vec<T> methods (push, get, len, etc.)
+            "core/vec",    // Vec<T> type definition
             "core/box",    // Box<T>
             "core/option", // Option<T>
             "core/result", // Result<T,E>
@@ -25,11 +23,9 @@ impl Program {
         ];
 
         for module in core_modules {
-            // Skip if already imported by user
-            if self.imports.iter().any(|i| i.module == module) {
-                continue;
-            }
-
+            // Always inject stdlib/core modules - these are Layer 1 prelude
+            // Even if user tried to import them manually, we inject at the beginning
+            // so stdlib/ version takes precedence
             let import = Import {
                 kind: ImportKind::Module,
                 items: vec![], // Module import (not selective)
@@ -37,7 +33,7 @@ impl Program {
                 alias: None,
             };
 
-            // Insert at beginning so user imports can override if needed
+            // Insert at beginning - stdlib/core has absolute priority
             self.imports.insert(0, import);
         }
     }

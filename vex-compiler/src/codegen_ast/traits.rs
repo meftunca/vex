@@ -95,16 +95,25 @@ impl<'ctx> ASTCodeGen<'ctx> {
         for (i, stmt) in method.body.statements.iter().enumerate() {
             let is_last = i == method.body.statements.len() - 1;
 
-            // If last statement is expression, save its value for potential implicit return
+            // If last statement is expression and method has non-void return, save for implicit return
             if is_last && matches!(stmt, Statement::Expression(_)) && method.return_type.is_some() {
                 if let Statement::Expression(expr) = stmt {
-                    let val = self.compile_expression(expr)?;
-                    last_expr_value = Some(val);
-                    continue; // Don't compile as statement
+                    // Check if return type is void/nil
+                    let is_void_return = matches!(method.return_type.as_ref(), Some(Type::Nil));
+                    
+                    if is_void_return {
+                        // Void/nil function: compile expression as statement (for side effects)
+                        self.compile_statement(stmt)?;
+                    } else {
+                        // Non-void function: save expression value for implicit return
+                        let val = self.compile_expression(expr)?;
+                        last_expr_value = Some(val);
+                        continue; // Don't compile as statement
+                    }
                 }
+            } else {
+                self.compile_statement(stmt)?;
             }
-
-            self.compile_statement(stmt)?;
         }
 
         // If we have a last expression value and block is not terminated, use implicit return
@@ -133,13 +142,17 @@ impl<'ctx> ASTCodeGen<'ctx> {
             .get_terminator()
             .is_none()
         {
-            if method.return_type.is_some() {
-                return Err(format!("Function {} must return a value", mangled_name));
-            } else {
-                let ret_val = self.context.i32_type().const_int(0, false);
+            // Determine if void/nil return
+            let is_void_or_nil = method.return_type.is_none()
+                || matches!(method.return_type.as_ref(), Some(Type::Nil));
+
+            if is_void_or_nil {
+                // Void/nil function - add implicit void return
                 self.builder
-                    .build_return(Some(&ret_val))
-                    .map_err(|e| format!("Failed to build return: {}", e))?;
+                    .build_return(None)
+                    .map_err(|e| format!("Failed to build void return: {}", e))?;
+            } else if method.return_type.is_some() {
+                return Err(format!("Function {} must return a value", mangled_name));
             }
         }
 

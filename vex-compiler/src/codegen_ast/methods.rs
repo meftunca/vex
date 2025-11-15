@@ -4,9 +4,12 @@ use inkwell::types::BasicTypeEnum;
 
 impl<'ctx> ASTCodeGen<'ctx> {
     /// Replace `Self` types with concrete struct name in local context
-    fn replace_self_in_type(ty: &vex_ast::Type, concrete_type: &str) -> vex_ast::Type {
+    pub(crate) fn replace_self_in_type(ty: &vex_ast::Type, concrete_type: &str) -> vex_ast::Type {
         match ty {
             vex_ast::Type::Named(name) if name == "Self" => {
+                vex_ast::Type::Named(concrete_type.to_string())
+            }
+            vex_ast::Type::SelfType => {
                 vex_ast::Type::Named(concrete_type.to_string())
             }
             vex_ast::Type::Reference(inner, is_mut) => vex_ast::Type::Reference(
@@ -104,40 +107,37 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 // Find matching trait impl
                 let mut found_match = None;
                 for trait_impl in &struct_def.impl_traits {
-                    if !trait_impl.type_args.is_empty() {
-                        // ⭐ CRITICAL: Check if this trait defines this operator method!
-                        // Get trait definition and check if it has this method
-                        let trait_has_method =
-                            if let Some(trait_def) = self.trait_defs.get(&trait_impl.name) {
-                                trait_def.methods.iter().any(|m| m.name == method.name)
-                            } else {
-                                false // Trait not found, assume no
-                            };
+                    // ⭐ CRITICAL: Check if this trait defines this operator method!
+                    // Get trait definition and check if it has this method
+                    let trait_has_method =
+                        if let Some(trait_def) = self.trait_defs.get(&trait_impl.name) {
+                            trait_def.methods.iter().any(|m| m.name == method.name)
+                        } else {
+                            false // Trait not found, assume no
+                        };
 
-                        if !trait_has_method {
-                            // This trait doesn't define this method, skip it
-                            continue;
-                        }
+                    if !trait_has_method {
+                        // This trait doesn't define this method, skip it
+                        continue;
+                    }
 
-                        // Check if first param type matches trait's type arg
-                        if first_param_ty == &trait_impl.type_args[0] {
-                            // Mangle: StructName_TraitName_TypeArg_method_paramCount
-                            let type_str = match &trait_impl.type_args[0] {
-                                Type::Named(n) => n.clone(),
-                                Type::I32 => "i32".to_string(),
-                                Type::I64 => "i64".to_string(),
-                                Type::F32 => "f32".to_string(),
-                                Type::F64 => "f64".to_string(),
-                                Type::Bool => "bool".to_string(),
-                                Type::String => "String".to_string(),
-                                _ => "unknown".to_string(),
-                            };
-                            found_match = Some(format!(
-                                "{}_{}_{}_{}",
-                                struct_name, trait_impl.name, type_str, method_name_encoded
-                            ));
-                            break;
-                        }
+                    // Handle both explicit type args (Add<i32>) and default (Add uses Self)
+                    let matches = if !trait_impl.type_args.is_empty() {
+                        // Explicit type arg - check if first param matches
+                        first_param_ty == &trait_impl.type_args[0]
+                    } else {
+                        // Default type arg (Self) - always generate suffix for overload resolution
+                        true
+                    };
+
+                    if matches {
+                        // Mangle: StructName_method_TypeArg_paramCount
+                        let type_suffix = self.generate_type_suffix(first_param_ty);
+                        found_match = Some(format!(
+                            "{}{}",
+                            base_name, type_suffix
+                        ));
+                        break;
                     }
                 }
 
@@ -183,22 +183,36 @@ impl<'ctx> ASTCodeGen<'ctx> {
             param_types.push(param_llvm_ty.into());
         }
 
-        let ret_type = if let Some(ref ty) = method.return_type {
+        // Determine return type: Nil → void, None → i32, Some(ty) → convert ty
+        let fn_type = if let Some(ref ty) = method.return_type {
             // Substitute Self -> Named(struct_name) for inline methods
             let concrete_ret = Self::replace_self_in_type(ty, struct_name);
-            self.ast_type_to_llvm(&concrete_ret)
-        } else {
-            inkwell::types::BasicTypeEnum::IntType(self.context.i32_type())
-        };
 
-        let fn_type = match ret_type {
-            BasicTypeEnum::IntType(t) => t.fn_type(&param_types, false),
-            BasicTypeEnum::FloatType(t) => t.fn_type(&param_types, false),
-            BasicTypeEnum::ArrayType(t) => t.fn_type(&param_types, false),
-            BasicTypeEnum::StructType(t) => t.fn_type(&param_types, false),
-            BasicTypeEnum::PointerType(t) => t.fn_type(&param_types, false),
-            BasicTypeEnum::VectorType(t) => t.fn_type(&param_types, false),
-            BasicTypeEnum::ScalableVectorType(t) => t.fn_type(&param_types, false),
+            if matches!(concrete_ret, Type::Nil) {
+                // Nil return type → void
+                self.context.void_type().fn_type(&param_types, false)
+            } else {
+                // Regular return type
+                let ret_type = self.ast_type_to_llvm(&concrete_ret);
+                match ret_type {
+                    BasicTypeEnum::IntType(t) => t.fn_type(&param_types, false),
+                    BasicTypeEnum::FloatType(t) => t.fn_type(&param_types, false),
+                    BasicTypeEnum::ArrayType(t) => t.fn_type(&param_types, false),
+                    BasicTypeEnum::StructType(t) => t.fn_type(&param_types, false),
+                    BasicTypeEnum::PointerType(t) => t.fn_type(&param_types, false),
+                    BasicTypeEnum::VectorType(t) => t.fn_type(&param_types, false),
+                    BasicTypeEnum::ScalableVectorType(t) => t.fn_type(&param_types, false),
+                    _ => {
+                        return Err(format!(
+                            "Unsupported return type for method {}",
+                            method.name
+                        ))
+                    }
+                }
+            }
+        } else {
+            // No return type → void (not i32 anymore)
+            self.context.void_type().fn_type(&param_types, false)
         };
 
         let fn_val = self.module.add_function(&mangled_name, fn_type, None);
@@ -241,36 +255,35 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
                 let mut found_match = None;
                 for trait_impl in &struct_def.impl_traits {
-                    if !trait_impl.type_args.is_empty() {
-                        // ⭐ CRITICAL: Check if this trait defines this operator method!
-                        let trait_has_method =
-                            if let Some(trait_def) = self.trait_defs.get(&trait_impl.name) {
-                                trait_def.methods.iter().any(|m| m.name == method.name)
-                            } else {
-                                false
-                            };
+                    // ⭐ CRITICAL: Check if this trait defines this operator method!
+                    let trait_has_method =
+                        if let Some(trait_def) = self.trait_defs.get(&trait_impl.name) {
+                            trait_def.methods.iter().any(|m| m.name == method.name)
+                        } else {
+                            false
+                        };
 
-                        if !trait_has_method {
-                            continue;
-                        }
+                    if !trait_has_method {
+                        continue;
+                    }
 
-                        if first_param_ty == &trait_impl.type_args[0] {
-                            let type_str = match &trait_impl.type_args[0] {
-                                Type::Named(n) => n.clone(),
-                                Type::I32 => "i32".to_string(),
-                                Type::I64 => "i64".to_string(),
-                                Type::F32 => "f32".to_string(),
-                                Type::F64 => "f64".to_string(),
-                                Type::Bool => "bool".to_string(),
-                                Type::String => "String".to_string(),
-                                _ => "unknown".to_string(),
-                            };
-                            found_match = Some(format!(
-                                "{}_{}_{}_{}",
-                                struct_name, trait_impl.name, type_str, method_name_encoded
-                            ));
-                            break;
-                        }
+                    // Handle both explicit type args (Add<i32>) and default (Add uses Self)
+                    let matches = if !trait_impl.type_args.is_empty() {
+                        // Explicit type arg - check if first param matches
+                        first_param_ty == &trait_impl.type_args[0]
+                    } else {
+                        // Default type arg (Self) - always generate suffix for overload resolution
+                        true
+                    };
+
+                    if matches {
+                        let type_suffix = self.generate_type_suffix(first_param_ty);
+                        eprintln!("  🔍 compile_struct_method found match, type_suffix={}", type_suffix);
+                        found_match = Some(format!(
+                            "{}{}",
+                            base_name, type_suffix
+                        ));
+                        break;
                     }
                 }
 
@@ -454,16 +467,25 @@ impl<'ctx> ASTCodeGen<'ctx> {
         for (i, stmt) in method.body.statements.iter().enumerate() {
             let is_last = i == method.body.statements.len() - 1;
 
-            // If last statement is expression, save its value for potential implicit return
+            // If last statement is expression and method has non-void return, save for implicit return
             if is_last && matches!(stmt, Statement::Expression(_)) && method.return_type.is_some() {
                 if let Statement::Expression(expr) = stmt {
-                    let val = self.compile_expression(expr)?;
-                    last_expr_value = Some(val);
-                    continue; // Don't compile as statement
+                    // Check if return type is void/nil
+                    let is_void_return = matches!(method.return_type.as_ref(), Some(Type::Nil));
+                    
+                    if is_void_return {
+                        // Void/nil function: compile expression as statement (for side effects)
+                        self.compile_statement(stmt)?;
+                    } else {
+                        // Non-void function: save expression value for implicit return
+                        let val = self.compile_expression(expr)?;
+                        last_expr_value = Some(val);
+                        continue; // Don't compile as statement
+                    }
                 }
+            } else {
+                self.compile_statement(stmt)?;
             }
-
-            self.compile_statement(stmt)?;
         }
 
         // If we have a last expression value and block is not terminated, use implicit return
@@ -489,13 +511,21 @@ impl<'ctx> ASTCodeGen<'ctx> {
             .get_terminator()
             .is_none()
         {
-            if method.return_type.is_some() {
-                return Err(format!("Function {} must return a value", mangled_name));
-            } else {
-                let ret_val = self.context.i32_type().const_int(0, false);
+            // Determine if void/nil return
+            let is_void_or_nil = method.return_type.is_none()
+                || matches!(method.return_type.as_ref(), Some(Type::Nil));
+
+            eprintln!("📍 Method {} terminator check: return_type={:?}, is_void_or_nil={}", 
+                mangled_name, method.return_type, is_void_or_nil);
+
+            if is_void_or_nil {
+                // Void/nil function - add implicit void return
+                eprintln!("   → Adding void return");
                 self.builder
-                    .build_return(Some(&ret_val))
-                    .map_err(|e| format!("Failed to build return: {}", e))?;
+                    .build_return(None)
+                    .map_err(|e| format!("Failed to build void return: {}", e))?;
+            } else if method.return_type.is_some() {
+                return Err(format!("Function {} must return a value", mangled_name));
             }
         }
 

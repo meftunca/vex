@@ -10,6 +10,7 @@ repository.workspace = true
 vex-ast = { path = "../vex-ast" }
 vex-lexer = { path = "../vex-lexer" }
 vex-parser = { path = "../vex-parser" }
+vex-pm = { path = "../vex-pm" }
 inkwell.workspace = true
 rspirv.workspace = true
 spirv.workspace = true

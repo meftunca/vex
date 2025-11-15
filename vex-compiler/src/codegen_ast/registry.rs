@@ -174,21 +174,34 @@ impl<'ctx> ASTCodeGen<'ctx> {
             param_types.push(self.ast_type_to_llvm(&param.ty).into());
         }
 
-        let ret_type = if let Some(ref ty) = method.return_type {
-            self.ast_type_to_llvm(ty)
+        // Determine return type: Nil → void, None → void, Some(ty) → convert ty
+        let fn_type = if let Some(ref ty) = method.return_type {
+            eprintln!("🔍 Trait method {} return type: {:?}", method.name, ty);
+            if matches!(ty, Type::Nil) {
+                eprintln!("   → nil detected, using void type");
+                // Nil return type → void
+                self.context.void_type().fn_type(&param_types, false)
+            } else {
+                // Regular return type
+                let ret_type = self.ast_type_to_llvm(ty);
+                use inkwell::types::BasicTypeEnum;
+                match ret_type {
+                    BasicTypeEnum::IntType(t) => t.fn_type(&param_types, false),
+                    BasicTypeEnum::FloatType(t) => t.fn_type(&param_types, false),
+                    BasicTypeEnum::ArrayType(t) => t.fn_type(&param_types, false),
+                    BasicTypeEnum::StructType(t) => t.fn_type(&param_types, false),
+                    BasicTypeEnum::PointerType(t) => t.fn_type(&param_types, false),
+                    _ => {
+                        return Err(format!(
+                            "Unsupported return type for trait method {}",
+                            method.name
+                        ))
+                    }
+                }
+            }
         } else {
-            inkwell::types::BasicTypeEnum::IntType(self.context.i32_type())
-        };
-
-        use inkwell::types::BasicTypeEnum;
-        let fn_type = match ret_type {
-            BasicTypeEnum::IntType(t) => t.fn_type(&param_types, false),
-            BasicTypeEnum::FloatType(t) => t.fn_type(&param_types, false),
-            BasicTypeEnum::ArrayType(t) => t.fn_type(&param_types, false),
-            BasicTypeEnum::StructType(t) => t.fn_type(&param_types, false),
-            BasicTypeEnum::PointerType(t) => t.fn_type(&param_types, false),
-            BasicTypeEnum::VectorType(t) => t.fn_type(&param_types, false),
-            BasicTypeEnum::ScalableVectorType(t) => t.fn_type(&param_types, false),
+            // No return type → void
+            self.context.void_type().fn_type(&param_types, false)
         };
 
         let fn_val = self.module.add_function(&mangled_name, fn_type, None);

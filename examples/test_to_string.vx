@@ -6,7 +6,7 @@ import {
     bool_to_string, 
     f64_to_string,
     string_to_string 
-} from "conv/src/lib.vx";
+} from "conv";
 
 fn main(): i32 {
     println("=== to_string() Test ===\n");

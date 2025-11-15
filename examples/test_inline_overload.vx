@@ -1,4 +1,4 @@
-// Test: Inline operator overloading with generic traits
+// Test: Inline operator overloading with generic contracts
 
 
 contract Add<Rhs> {

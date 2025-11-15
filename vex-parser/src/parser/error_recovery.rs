@@ -187,7 +187,10 @@ mod tests {
             fn valid3(): i32 { return 200; }
         "#;
 
-        let mut parser = Parser::new(source).unwrap();
+        let mut parser = match Parser::new(source) {
+            Ok(p) => p,
+            Err(e) => panic!("Failed to create parser: {:?}", e),
+        };
         let (_program, diagnostics) = parser.parse_with_recovery();
 
         // Should collect multiple errors
@@ -209,7 +212,10 @@ mod tests {
             fn test2(): i32 { return 2; }
         "#;
 
-        let mut parser = Parser::new(source).unwrap();
+        let mut parser = match Parser::new(source) {
+            Ok(p) => p,
+            Err(e) => panic!("Failed to create parser: {:?}", e),
+        };
         let (_program, diagnostics) = parser.parse_with_recovery();
 
         assert!(!diagnostics.is_empty(), "Should have errors");

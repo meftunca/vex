@@ -184,20 +184,41 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                     )
                                 })?;
 
-                            // Get self pointer (NOT loaded - pass pointer for mutation)
+                            // Get self argument - check if receiver expects reference vs value
                             let var_ptr = *self
                                 .variables
                                 .get(var_name)
                                 .ok_or_else(|| format!("Variable {} not found", var_name))?;
 
+                            // Check function signature to determine if receiver expects reference
+                            let func_def = self.function_defs.get(&method_name);
+                            let expects_reference = func_def
+                                .and_then(|def| def.receiver.as_ref())
+                                .map(|recv| matches!(recv.ty, Type::Reference(_, _)))
+                                .unwrap_or(false);
+
+                            let self_arg: BasicValueEnum = if expects_reference {
+                                // Receiver expects reference (&self) - pass pointer directly
+                                var_ptr.into()
+                            } else {
+                                // Receiver expects value (self) - load struct value
+                                let var_type = *self
+                                    .variable_types
+                                    .get(var_name)
+                                    .ok_or_else(|| format!("Type for {} not found", var_name))?;
+                                self.builder
+                                    .build_load(var_type, var_ptr, "self_load")
+                                    .map_err(|e| format!("Failed to load self: {}", e))?
+                            };
+
                             // Compile index and value
                             let index_val = self.compile_expression(index)?;
 
-                            // Call opindexset(self_ptr, index, value) - pass pointer for mutation
+                            // Call opindexset(self_arg, index, value)
                             self.builder
                                 .build_call(
                                     function,
-                                    &[var_ptr.into(), index_val.into(), val.into()],
+                                    &[self_arg.into(), index_val.into(), val.into()],
                                     "index_assign",
                                 )
                                 .map_err(|e| {

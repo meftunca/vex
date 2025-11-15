@@ -18,25 +18,100 @@ impl<'ctx> ASTCodeGen<'ctx> {
             return Ok(Vec::new());
         }
 
-        // Infer first type parameter from first argument
-        if args.is_empty() {
-            return Err(format!(
-                "Cannot infer type arguments for '{}': no arguments provided",
-                func_def.name
-            ));
+        // Build map: type param name -> inferred type
+        let mut type_param_map: HashMap<String, Type> = HashMap::new();
+
+        // Match arguments to parameters and infer type parameters
+        for (i, param) in func_def.params.iter().enumerate() {
+            if i >= args.len() {
+                break; // Not enough arguments
+            }
+
+            let arg_type = self.infer_expression_type(&args[i])?;
+            self.match_type_param(&param.ty, &arg_type, &mut type_param_map);
         }
 
-        let first_arg_type = self.infer_expression_type(&args[0])?;
-
-        // For now, simple strategy: assume all type params are the same type as first arg
-        // This works for max<T>(a: T, b: T), identity<T>(x: T), etc.
-        // TODO: More sophisticated type inference for multi-param generics
+        // Build type_args vector in the order of func_def.type_params
         let mut type_args = Vec::new();
-        for _ in 0..func_def.type_params.len() {
-            type_args.push(first_arg_type.clone());
+        for type_param in &func_def.type_params {
+            if let Some(inferred_ty) = type_param_map.get(&type_param.name) {
+                type_args.push(inferred_ty.clone());
+            } else {
+                return Err(format!(
+                    "Cannot infer type parameter '{}' for function '{}'",
+                    type_param.name, func_def.name
+                ));
+            }
         }
 
         Ok(type_args)
+    }
+
+    /// Match a parameter type pattern against an argument type to infer type parameters
+    /// Example: param_ty = T, arg_ty = i32 → map[T] = i32
+    ///          param_ty = (T, U), arg_ty = (i32, string) → map[T]=i32, map[U]=string
+    fn match_type_param(
+        &self,
+        param_ty: &Type,
+        arg_ty: &Type,
+        type_param_map: &mut HashMap<String, Type>,
+    ) {
+        match param_ty {
+            // Single type parameter: T
+            Type::Named(name) if name.chars().next().map_or(false, |c| c.is_uppercase()) => {
+                // Check if this is a type parameter (starts with uppercase)
+                // TODO: Better check - compare with func_def.type_params
+                type_param_map.insert(name.clone(), arg_ty.clone());
+            }
+            // Tuple: (T, U) matched with (i32, string)
+            Type::Tuple(param_types) => {
+                if let Type::Tuple(arg_types) = arg_ty {
+                    for (p_ty, a_ty) in param_types.iter().zip(arg_types.iter()) {
+                        self.match_type_param(p_ty, a_ty, type_param_map);
+                    }
+                }
+            }
+            // Reference: &T matched with &i32
+            Type::Reference(inner_param, _) => {
+                if let Type::Reference(inner_arg, _) = arg_ty {
+                    self.match_type_param(inner_param, inner_arg, type_param_map);
+                }
+            }
+            // Option<T>, Result<T, E>, Vec<T>
+            Type::Option(inner_param) => {
+                if let Type::Option(inner_arg) = arg_ty {
+                    self.match_type_param(inner_param, inner_arg, type_param_map);
+                }
+            }
+            Type::Result(ok_param, err_param) => {
+                if let Type::Result(ok_arg, err_arg) = arg_ty {
+                    self.match_type_param(ok_param, ok_arg, type_param_map);
+                    self.match_type_param(err_param, err_arg, type_param_map);
+                }
+            }
+            Type::Vec(inner_param) => {
+                if let Type::Vec(inner_arg) = arg_ty {
+                    self.match_type_param(inner_param, inner_arg, type_param_map);
+                }
+            }
+            // Generic with type args: HashMap<K, V>
+            Type::Generic { name, type_args } => {
+                if let Type::Generic {
+                    name: arg_name,
+                    type_args: arg_type_args,
+                } = arg_ty
+                {
+                    if name == arg_name {
+                        for (p_ty, a_ty) in type_args.iter().zip(arg_type_args.iter()) {
+                            self.match_type_param(p_ty, a_ty, type_param_map);
+                        }
+                    }
+                }
+            }
+            _ => {
+                // Non-generic type, no inference needed
+            }
+        }
     }
 
     /// Instantiate all methods of a generic struct with concrete type arguments

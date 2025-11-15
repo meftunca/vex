@@ -25,14 +25,22 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Dispatch to type-specific handlers
         match (&left_val, &right_val) {
-            (BasicValueEnum::IntValue(l), BasicValueEnum::IntValue(r)) => match op {
-                vex_ast::BinaryOp::Pow => self.compile_int_power(*l, *r),
-                _ => self.compile_integer_binary_op(*l, *r, op),
-            },
-            (BasicValueEnum::FloatValue(l), BasicValueEnum::FloatValue(r)) => match op {
-                vex_ast::BinaryOp::Pow => self.compile_float_power(*l, *r),
-                _ => self.compile_float_binary_op(*l, *r, op),
-            },
+            (BasicValueEnum::IntValue(l), BasicValueEnum::IntValue(r)) => {
+                // Align integer widths if needed
+                let (l, r) = self.align_integer_widths(*l, *r)?;
+                match op {
+                    vex_ast::BinaryOp::Pow => self.compile_int_power(l, r),
+                    _ => self.compile_integer_binary_op(l, r, op),
+                }
+            }
+            (BasicValueEnum::FloatValue(l), BasicValueEnum::FloatValue(r)) => {
+                // Align float widths (f32 vs f64)
+                let (l, r) = self.align_float_widths(*l, *r)?;
+                match op {
+                    vex_ast::BinaryOp::Pow => self.compile_float_power(l, r),
+                    _ => self.compile_float_binary_op(l, r, op),
+                }
+            }
             (BasicValueEnum::PointerValue(l), BasicValueEnum::PointerValue(r)) => {
                 self.compile_pointer_binary_op(*l, *r, op)
             }

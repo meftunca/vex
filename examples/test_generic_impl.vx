@@ -1,4 +1,4 @@
-// Test generic impl clause - Multiple trait implementations with type parameters
+// Test generic impl clause - Multiple contract implementations with type parameters
 // Syntax: struct Type impl Trait1<T1>, Trait2<T2> { }
 
 contract Add<Rhs> {

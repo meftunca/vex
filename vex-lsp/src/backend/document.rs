@@ -17,7 +17,7 @@ impl VexBackend {
 
         // Parse and send diagnostics (with version tracking)
         let diagnostics = self.parse_and_diagnose(&uri, &text, version).await;
-        self.publish_diagnostics(params.text_document.uri, diagnostics)
+        self.publish_diagnostics(params.text_document.uri, diagnostics, Some(version))
             .await;
     }
 
@@ -35,7 +35,7 @@ impl VexBackend {
 
             // Re-parse and send diagnostics (with version tracking)
             let diagnostics = self.parse_and_diagnose(&uri, &text, version).await;
-            self.publish_diagnostics(params.text_document.uri, diagnostics)
+            self.publish_diagnostics(params.text_document.uri, diagnostics, Some(version))
                 .await;
         }
     }

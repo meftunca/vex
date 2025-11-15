@@ -87,13 +87,16 @@ impl VexBackend {
     ) {
         // Function name
         if let Some(range) = self.find_token_range(source, &func.name) {
+            let mut modifiers = vec![SemanticTokenModifier::DECLARATION];
+            if func.is_async {
+                modifiers.push(SemanticTokenModifier::ASYNC);
+            }
             tokens.push(SemanticToken {
                 delta_line: range.start.line as u32,
                 delta_start: range.start.character as u32,
                 length: (range.end.character - range.start.character) as u32,
                 token_type: self.token_type_to_index(SemanticTokenType::FUNCTION),
-                token_modifiers_bitset: self
-                    .token_modifiers_to_bitset(&[SemanticTokenModifier::DECLARATION]),
+                token_modifiers_bitset: self.token_modifiers_to_bitset(&modifiers),
             });
         }
 

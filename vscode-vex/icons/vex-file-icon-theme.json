@@ -1,0 +1,21 @@
+{
+  "iconDefinitions": {
+    "vex": {
+      "iconPath": "./icons/vex-file-icon-dark.png"
+    },
+    "vex_light": {
+      "iconPath": "./icons/vex-file-icon-light.png"
+    }
+  },
+  "fileExtensions": {
+    "vx": "vex"
+  },
+  "languageIds": ["vex"],
+  "fileNames": {},
+  "folderNames": {},
+  "light": {
+    "iconDefinitions": {
+      "vex": { "iconPath": "./icons/vex-file-icon-light.png" }
+    }
+  }
+}

@@ -1,4 +1,4 @@
-// Test multiple generic trait implementations
+// Test multiple generic contract implementations
 contract Add<Rhs> {
     op+(other: Rhs): Self;
 }

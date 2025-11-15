@@ -76,13 +76,13 @@ fn test_proposal(): i32 {
 
 // Drawbacks:
 // 1. Less explicit than contract system
-// 2. Can't enforce trait bounds across multiple types
+// 2. Can't enforce contract bounds across multiple types
 // 3. Harder to require operator implementation at compile time
 // 4. No interface/contract abstraction
 
 // Hybrid Approach: Keep contracts, add operator syntax sugar
 // Note: Default type parameters (Rhs = Self) not yet implemented
-// Note: Generic impl traits (impl Add<i32>) not yet fully implemented
+// Note: Generic impl contracts (impl Add<i32>) not yet fully implemented
 // Note: External operator methods commented out until compilation fixed
 
 /*

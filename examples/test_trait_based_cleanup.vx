@@ -3,14 +3,14 @@
 
 fn test_vec_cleanup() {
     print("Creating Vec...\n");
-    let v = vec_new();
+    let v = vec_new<i32>();
     print("Vec created, will be cleaned up at end of function\n");
     // vec_free(v) should be called automatically here
 }
 
 fn test_box_cleanup() {
     print("Creating Box...\n");
-    let b = box_new(42);
+    let b = box_new<i32>(42);
     print("Box created, will be cleaned up at end of function\n");
     // box_free(b) should be called automatically here
 }
