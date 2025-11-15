@@ -14,14 +14,18 @@ impl<'ctx> ASTCodeGen<'ctx> {
         match method {
             "push" => {
                 if args.len() != 1 {
+                    self.emit_argument_count_mismatch("Vec.push", 1, args.len(), vex_diagnostics::Span::unknown());
                     return Err("Vec.push() requires exactly 1 argument".to_string());
                 }
 
                 // Get Vec pointer (already a pointer, no need to load)
-                let vec_ptr = *self
-                    .variables
-                    .get(var_name)
-                    .ok_or_else(|| format!("Vec variable {} not found", var_name))?;
+                let vec_ptr = match self.variables.get(var_name) {
+                    Some(v) => *v,
+                    None => {
+                        self.emit_undefined_variable(var_name, vex_diagnostics::Span::unknown());
+                        return Err(format!("Vec variable {} not found", var_name));
+                    }
+                };
 
                 let value = self.compile_expression(&args[0])?;
 
@@ -53,14 +57,18 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }
             "len" => {
                 if !args.is_empty() {
+                    self.emit_argument_count_mismatch("Vec.len", 0, args.len(), vex_diagnostics::Span::unknown());
                     return Err("Vec.len() takes no arguments".to_string());
                 }
 
                 // Get Vec pointer (already a pointer, no need to load)
-                let vec_ptr = *self
-                    .variables
-                    .get(var_name)
-                    .ok_or_else(|| format!("Vec variable {} not found", var_name))?;
+                let vec_ptr = match self.variables.get(var_name) {
+                    Some(v) => *v,
+                    None => {
+                        self.emit_undefined_variable(var_name, vex_diagnostics::Span::unknown());
+                        return Err(format!("Vec variable {} not found", var_name));
+                    }
+                };
 
                 let len_fn = self.get_vex_vec_len();
 
@@ -75,6 +83,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }
             "get" => {
                 if args.len() != 1 {
+                    self.emit_argument_count_mismatch("Vec.get", 1, args.len(), vex_diagnostics::Span::unknown());
                     return Err("Vec.get() requires exactly 1 argument (index)".to_string());
                 }
 

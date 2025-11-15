@@ -3,7 +3,7 @@
 
 fn main(): i32 {
     // Simplified test - unsafe block compilation
-    let! result = 0;
+    let! result:i32 = 0;
     
     // ✅ OK: Inside unsafe block
     unsafe {

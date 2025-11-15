@@ -846,7 +846,7 @@ unsafe { ... }      // Unsafe block
 
 **Basic:**
 
-```vex
+````vex
 fn add(x: i32, y: i32): i32 {
     return x + y;
 }
@@ -863,7 +863,7 @@ fn matrix_multiply<const N: usize, const M: usize, const P: usize>(
 ): [[f32; P]; N] {
     // Implementation
 }
-```
+````
 
 #### Where Clauses ✅ (v0.1.2)
 

@@ -54,7 +54,7 @@ pub fn has_builtin_contract(type_name: &str, contract_name: &str) -> bool {
         type_name,
         "i32" | "i64" | "i8" | "i16" | "i128" | "u8" | "u16" | "u32" | "u64" | "u128"
     );
-    let is_float = matches!(type_name, "f32" | "f64");
+    let is_float = matches!(type_name, "f16" | "f32" | "f64");
     let is_numeric = is_int || is_float;
 
     match contract_name {
@@ -79,6 +79,7 @@ pub fn has_builtin_contract(type_name: &str, contract_name: &str) -> bool {
                     | "u32"
                     | "u64"
                     | "u128"
+                    | "f16"
                     | "f32"
                     | "f64"
                     | "bool"
@@ -100,6 +101,7 @@ pub fn has_builtin_contract(type_name: &str, contract_name: &str) -> bool {
                     | "u32"
                     | "u64"
                     | "u128"
+                    | "f16"
                     | "f32"
                     | "f64"
                     | "bool"
@@ -206,7 +208,7 @@ pub fn codegen_builtin_operator<'ctx>(
         type_name,
         "i32" | "i64" | "i8" | "i16" | "i128" | "u8" | "u16" | "u32" | "u64" | "u128"
     );
-    let is_float = matches!(type_name, "f32" | "f64");
+    let is_float = matches!(type_name, "f16" | "f32" | "f64");
 
     match (contract_name, method_name) {
         // ⭐ PHASE 1: Arithmetic operators

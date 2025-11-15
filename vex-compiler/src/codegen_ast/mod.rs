@@ -18,6 +18,7 @@ mod associated_types; // Associated types resolution
 pub mod builtins; // Now a directory module
 mod compilation; // Compilation and code generation utilities
 mod constants;
+mod diagnostic_helpers; // Diagnostic helper methods for error reporting
 mod drop_trait; // Drop trait automatic cleanup (RAII)
 mod expressions;
 mod ffi;

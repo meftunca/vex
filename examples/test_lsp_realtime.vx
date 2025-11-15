@@ -1,0 +1,21 @@
+// Test real-time LSP diagnostics
+// Open this in VS Code with Vex LSP extension
+// Should show squiggly lines immediately!
+
+fn main() {
+    // Unused variable warning (should show yellow squiggle)
+    let unused_x = 10;
+    let _ignored = 20;  // No warning (underscore prefix)
+    
+    // Used variable (no warning)
+    let y = 5;
+    print(y);
+    
+    // Unused parameter warning
+    test_func(42);
+}
+
+fn test_func(unused_param: i32) {
+    // Parameter never used - should show warning
+    print("no usage of param");
+}

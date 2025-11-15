@@ -6,8 +6,15 @@ use vex_diagnostics::{Diagnostic, DiagnosticEngine};
 use std::collections::{HashSet, HashMap};
 
 pub mod unused_variables;
+// TODO: Fix AST structure compatibility
+// pub mod dead_code;
+// pub mod unreachable_code;
+// pub mod naming_convention;
 
 pub use unused_variables::UnusedVariableRule;
+// pub use dead_code::DeadCodeRule;
+// pub use unreachable_code::UnreachableCodeRule;
+// pub use naming_convention::NamingConventionRule;
 
 /// Trait for implementing lint rules
 pub trait LintRule {
@@ -39,6 +46,10 @@ impl Linter {
         
         // Add default rules
         linter.add_rule(Box::new(UnusedVariableRule::new()));
+        // TODO: Add more rules when AST structure is fully compatible
+        // linter.add_rule(Box::new(DeadCodeRule::new()));
+        // linter.add_rule(Box::new(UnreachableCodeRule::new()));
+        // linter.add_rule(Box::new(NamingConventionRule::new()));
         
         linter
     }
@@ -94,7 +105,7 @@ mod tests {
     #[test]
     fn test_linter_creation() {
         let linter = Linter::new();
-        assert_eq!(linter.rules.len(), 1); // Should have unused variable rule
+        assert_eq!(linter.rules.len(), 1); // Only unused_variables for now
     }
     
     #[test]

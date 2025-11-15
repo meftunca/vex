@@ -26,12 +26,13 @@ The `vex test` command is fully implemented with support for:
 
 **Status:** PARTIALLY IMPLEMENTED  
 **Severity:** HIGH  
-**Priority:** CRITICAL  
+**Priority:** CRITICAL
 
 **Description:**  
 The `vex format` command exists but vex-formatter is only ~40% complete. Major gaps include:
 
 **Missing AST Node Coverage:**
+
 - All expression types (literals, operators, calls, indexing, ranges, async/await, match, struct literals, closures, type casting)
 - Statement types (switch, for loops, pattern destructuring, compound assignments)
 - Type system features (union types, conditional types, function types)
@@ -39,6 +40,7 @@ The `vex format` command exists but vex-formatter is only ~40% complete. Major g
 - Contract/trait features (associated types, default implementations)
 
 **Configuration Not Used:**
+
 - `max_width`, `brace_style`, `trailing_comma`, `quote_style` options are defined but ignored
 - Rules modules (spacing, indentation, expressions) exist but not integrated
 

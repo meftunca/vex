@@ -1,0 +1,29 @@
+// Test code actions in VS Code
+// Open with Vex LSP extension and see lightbulb icons
+
+fn main() {
+    // Test 1: Unused variable - should show "Rename to `_unused_x`" and "Remove unused variable"
+    let unused_x = 10;
+    
+    // Test 2: Unused parameter - should show lightbulb
+    helper(42);
+    
+    // Test 3: Simple variable
+    let z = 5;
+    print(z);
+}
+
+fn helper(unused_param: i32) {
+    print("helper called");
+}
+
+// Test 4: Struct without Debug trait - should suggest "Implement Debug for Point"
+struct Point {
+    x: i32,
+    y: i32,
+}
+
+fn test_point() {
+    let p = Point { x: 1, y: 2 };
+    print(p.x);
+}

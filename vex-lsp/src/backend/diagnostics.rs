@@ -2,6 +2,7 @@
 
 use tower_lsp::lsp_types::*;
 use vex_compiler::borrow_checker::BorrowChecker;
+use vex_compiler::linter::Linter;
 
 use super::VexBackend;
 
@@ -22,8 +23,19 @@ impl VexBackend {
             return diagnostics;
         }
 
-        // If we have AST, run borrow checker
+        // If we have AST, run linter + borrow checker
         if let Some(mut program) = cached_doc.ast {
+            // Run linter for warnings (unused variables, etc.)
+            let mut linter = Linter::new();
+            let lint_warnings = linter.lint(&program);
+            for vex_diag in &lint_warnings {
+                let mut lsp_diag = vex_to_lsp_diagnostic(vex_diag);
+                lsp_diag.severity = Some(DiagnosticSeverity::WARNING);
+                lsp_diag.source = Some("vex-linter".to_string());
+                diagnostics.push(lsp_diag);
+            }
+
+            // Run borrow checker
             let mut borrow_checker = BorrowChecker::new();
             if let Err(error) = borrow_checker.check_program(&mut program) {
                 diagnostics.push(self.borrow_error_to_diagnostic(&error, text));

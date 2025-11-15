@@ -266,12 +266,145 @@ impl VexBackend {
         params: &CodeActionParams,
         actions: &mut Vec<CodeActionOrCommand>,
     ) {
+        // Get document text for context
+        let uri_str = params.text_document.uri.to_string();
+        let text = self.documents.get(&uri_str).map(|r| r.value().clone()).unwrap_or_default();
+        let lines: Vec<&str> = text.lines().collect();
+
         // Quick fixes based on diagnostic codes
         if let Some(code) = &diagnostic.code {
             match code {
                 NumberOrString::String(code_str) => match code_str.as_str() {
+                    "W0001" => {
+                        // Unused variable - suggest prefixing with underscore
+                        if let Some(var_name) = Self::extract_variable_from_message(&diagnostic.message) {
+                            let new_name = format!("_{}", var_name);
+                            
+                            actions.push(CodeActionOrCommand::CodeAction(CodeAction {
+                                title: format!("Rename to `{}`", new_name),
+                                kind: Some(CodeActionKind::QUICKFIX),
+                                diagnostics: Some(vec![diagnostic.clone()]),
+                                edit: Some(WorkspaceEdit {
+                                    changes: Some(std::collections::HashMap::from([(
+                                        params.text_document.uri.clone(),
+                                        vec![TextEdit {
+                                            range: diagnostic.range,
+                                            new_text: new_name,
+                                        }],
+                                    )])),
+                                    document_changes: None,
+                                    change_annotations: None,
+                                }),
+                                command: None,
+                                is_preferred: Some(true),
+                                disabled: None,
+                                data: None,
+                            }));
+
+                            // Also suggest removing if it's truly unused
+                            let line_idx = diagnostic.range.start.line as usize;
+                            if line_idx < lines.len() {
+                                let line = lines[line_idx];
+                                if line.trim().starts_with("let ") {
+                                    actions.push(CodeActionOrCommand::CodeAction(CodeAction {
+                                        title: "Remove unused variable".to_string(),
+                                        kind: Some(CodeActionKind::QUICKFIX),
+                                        diagnostics: Some(vec![diagnostic.clone()]),
+                                        edit: Some(WorkspaceEdit {
+                                            changes: Some(std::collections::HashMap::from([(
+                                                params.text_document.uri.clone(),
+                                                vec![TextEdit {
+                                                    range: Range {
+                                                        start: Position {
+                                                            line: diagnostic.range.start.line,
+                                                            character: 0,
+                                                        },
+                                                        end: Position {
+                                                            line: diagnostic.range.start.line + 1,
+                                                            character: 0,
+                                                        },
+                                                    },
+                                                    new_text: String::new(),
+                                                }],
+                                            )])),
+                                            document_changes: None,
+                                            change_annotations: None,
+                                        }),
+                                        command: None,
+                                        is_preferred: Some(false),
+                                        disabled: None,
+                                        data: None,
+                                    }));
+                                }
+                            }
+                        }
+                    }
+                    "E0594" | "E0101" | "E0102" => {
+                        // Cannot assign to immutable - suggest making mutable
+                        if let Some(var_name) = Self::extract_variable_from_message(&diagnostic.message) {
+                            let line_idx = diagnostic.range.start.line as usize;
+                            if line_idx < lines.len() {
+                                let line = lines[line_idx];
+                                if let Some(col) = line.find(&format!("let {}", var_name)) {
+                                    // Insert ! after "let"
+                                    actions.push(CodeActionOrCommand::CodeAction(CodeAction {
+                                        title: format!("Make `{}` mutable", var_name),
+                                        kind: Some(CodeActionKind::QUICKFIX),
+                                        diagnostics: Some(vec![diagnostic.clone()]),
+                                        edit: Some(WorkspaceEdit {
+                                            changes: Some(std::collections::HashMap::from([(
+                                                params.text_document.uri.clone(),
+                                                vec![TextEdit {
+                                                    range: Range {
+                                                        start: Position {
+                                                            line: line_idx as u32,
+                                                            character: (col + 3) as u32, // "let".len()
+                                                        },
+                                                        end: Position {
+                                                            line: line_idx as u32,
+                                                            character: (col + 3) as u32,
+                                                        },
+                                                    },
+                                                    new_text: "!".to_string(),
+                                                }],
+                                            )])),
+                                            document_changes: None,
+                                            change_annotations: None,
+                                        }),
+                                        command: None,
+                                        is_preferred: Some(true),
+                                        disabled: None,
+                                        data: None,
+                                    }));
+                                }
+                            }
+                        }
+                    }
+                    "W0002" | "W0003" | "W0004" | "W0005" => {
+                        // Dead code - suggest removing or making public
+                        actions.push(CodeActionOrCommand::CodeAction(CodeAction {
+                            title: "Remove dead code".to_string(),
+                            kind: Some(CodeActionKind::QUICKFIX),
+                            diagnostics: Some(vec![diagnostic.clone()]),
+                            edit: Some(WorkspaceEdit {
+                                changes: Some(std::collections::HashMap::from([(
+                                    params.text_document.uri.clone(),
+                                    vec![TextEdit {
+                                        range: diagnostic.range,
+                                        new_text: String::new(),
+                                    }],
+                                )])),
+                                document_changes: None,
+                                change_annotations: None,
+                            }),
+                            command: None,
+                            is_preferred: Some(false),
+                            disabled: None,
+                            data: None,
+                        }));
+                    }
                     "unused_variable" => {
-                        // Suggest removing unused variable
+                        // Legacy code - kept for compatibility
                         actions.push(CodeActionOrCommand::CodeAction(CodeAction {
                             title: "Remove unused variable".to_string(),
                             kind: Some(CodeActionKind::QUICKFIX),
@@ -302,6 +435,14 @@ impl VexBackend {
                 _ => {}
             }
         }
+    }
+
+    /// Extract variable name from diagnostic message
+    /// "unused variable: `x`" → Some("x")
+    fn extract_variable_from_message(message: &str) -> Option<String> {
+        let start = message.find('`')?;
+        let end = message[start + 1..].find('`')?;
+        Some(message[start + 1..start + 1 + end].to_string())
     }
 
     pub async fn code_action_resolve(
