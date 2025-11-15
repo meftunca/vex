@@ -282,30 +282,43 @@ fn main() -> Result<()> {
             let input_str = input.to_str().unwrap_or("unknown.vx");
             let mut parser = vex_parser::Parser::new_with_file(input_str, &source)?;
 
-            let mut ast = match parser.parse_file() {
-                Ok(ast) => ast,
-                Err(parse_error) => {
-                    // Print parse error as formatted diagnostic
-                    if let Some(diag) = parse_error.as_diagnostic() {
-                        if json {
-                            // Output single diagnostic as JSON
-                            println!("{{\"diagnostics\":[{{");
-                            println!("  \"level\":\"error\",");
-                            println!("  \"code\":\"{}\",", diag.code);
-                            println!("  \"message\":\"{}\",", diag.message.replace('"', "\\\""));
-                            println!("  \"file\":\"{}\",", diag.span.file);
-                            println!("  \"line\":{},", diag.span.line);
-                            println!("  \"column\":{}", diag.span.column);
-                            println!("}}]}}");
-                        } else {
-                            eprintln!("{}", diag.format(&source));
+            // Use error recovery to collect all parse errors
+            let (ast_opt, parse_diagnostics) = parser.parse_with_recovery();
+            
+            // Display all parse diagnostics
+            if !parse_diagnostics.is_empty() {
+                if json {
+                    // Output all diagnostics as JSON array
+                    println!("{{\"diagnostics\":[");
+                    for (i, diag) in parse_diagnostics.iter().enumerate() {
+                        if i > 0 {
+                            println!(",");
                         }
-                    } else {
-                        eprintln!("{}", parse_error);
+                        println!("  {{");
+                        println!("    \"level\":\"{}\",", diag.level);
+                        println!("    \"code\":\"{}\",", diag.code);
+                        println!("    \"message\":\"{}\",", diag.message.replace('"', "\\\""));
+                        println!("    \"file\":\"{}\",", diag.span.file);
+                        println!("    \"line\":{},", diag.span.line);
+                        println!("    \"column\":{}", diag.span.column);
+                        println!("  }}");
                     }
-                    return Err(anyhow::anyhow!("Parse failed"));
+                    println!("]}}");
+                } else {
+                    // Print all diagnostics with formatting
+                    for diag in &parse_diagnostics {
+                        eprintln!("{}", diag.format(&source));
+                        eprintln!(); // Blank line between errors
+                    }
                 }
-            };
+                
+                // If parsing failed completely, abort
+                if ast_opt.is_none() {
+                    return Err(anyhow::anyhow!("Parse failed with {} error(s)", parse_diagnostics.len()));
+                }
+            }
+            
+            let mut ast = ast_opt.unwrap();
 
             // Extract span map from parser
             let span_map = parser.take_span_map();
@@ -337,6 +350,37 @@ fn main() -> Result<()> {
             }
             println!("   ✅ Borrow check passed");
 
+            // Run linter for warnings
+            let mut linter = vex_compiler::Linter::new();
+            let lint_warnings = linter.lint(&ast);
+            
+            if !lint_warnings.is_empty() {
+                if json {
+                    // Append warnings to JSON output
+                    println!("{{\"warnings\":[");
+                    for (i, warning) in lint_warnings.iter().enumerate() {
+                        if i > 0 {
+                            println!(",");
+                        }
+                        println!("  {{");
+                        println!("    \"level\":\"warning\",");
+                        println!("    \"code\":\"{}\",", warning.code);
+                        println!("    \"message\":\"{}\",", warning.message.replace('"', "\\\""));
+                        println!("    \"file\":\"{}\",", warning.span.file);
+                        println!("    \"line\":{},", warning.span.line);
+                        println!("    \"column\":{}", warning.span.column);
+                        println!("  }}");
+                    }
+                    println!("]}}");
+                } else {
+                    // Print warnings with formatting
+                    for warning in &lint_warnings {
+                        eprintln!("{}", warning.format(&source));
+                    }
+                    eprintln!(); // Blank line after warnings
+                }
+            }
+
             let context = inkwell::context::Context::create();
             let mut codegen = vex_compiler::ASTCodeGen::new_with_source_file(
                 &context, filename, span_map, input_str,
@@ -367,6 +411,21 @@ fn main() -> Result<()> {
 
             if codegen.has_errors() {
                 return Err(anyhow::anyhow!("Compilation failed with errors"));
+            }
+
+            // Print error/warning summary
+            let error_count = parse_diagnostics.iter().filter(|d| d.level == vex_compiler::ErrorLevel::Error).count();
+            let warning_count = lint_warnings.len();
+            
+            if !json && (error_count > 0 || warning_count > 0) {
+                eprintln!();
+                if error_count > 0 && warning_count > 0 {
+                    eprintln!("error: aborting due to {} previous error(s); {} warning(s) emitted", error_count, warning_count);
+                } else if error_count > 0 {
+                    eprintln!("error: aborting due to {} previous error(s)", error_count);
+                } else {
+                    eprintln!("warning: {} warning(s) emitted", warning_count);
+                }
             }
 
             eprintln!("🔍 About to initialize LLVM target");

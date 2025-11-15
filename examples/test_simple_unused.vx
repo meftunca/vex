@@ -1,0 +1,8 @@
+// Simple test - unused variable should warn
+fn main() {
+    let x: i32 = 5;
+    let y: i32 = 10;
+    let _ignored: i32 = 20;  // Should NOT warn (starts with _)
+    
+    let result: i32 = y + 15;  // Only y is used, x should warn
+}

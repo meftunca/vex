@@ -33,9 +33,11 @@ Use `vex --help` to see all available commands and global options.
 Create a new Vex project with the specified name.
 
 **Options:**
+
 - `--path <PATH>`: Project path (default: `./<name>`)
 
 **Examples:**
+
 ```bash
 vex new my-project
 vex new my-app --path /path/to/projects/my-app
@@ -48,9 +50,11 @@ This creates a new directory with a basic project structure including `vex.json`
 Initialize a Vex project in an existing directory by creating a `vex.json` manifest file.
 
 **Arguments:**
+
 - `PATH`: Project path (default: current directory)
 
 **Examples:**
+
 ```bash
 vex init
 vex init /path/to/existing/project
@@ -63,12 +67,15 @@ vex init /path/to/existing/project
 Add a dependency to the project.
 
 **Arguments:**
+
 - `PACKAGE`: Package URL (e.g., `github.com/user/repo@v1.0.0`)
 
 **Options:**
+
 - `--version <VERSION>`: Version (if not specified in package URL)
 
 **Examples:**
+
 ```bash
 vex add github.com/user/math-lib@v1.2.0
 vex add github.com/user/http-client --version ^2.0.0
@@ -79,9 +86,11 @@ vex add github.com/user/http-client --version ^2.0.0
 Remove a dependency from the project.
 
 **Arguments:**
+
 - `PACKAGE`: Package name
 
 **Examples:**
+
 ```bash
 vex remove github.com/user/math-lib
 ```
@@ -91,6 +100,7 @@ vex remove github.com/user/math-lib
 List all project dependencies.
 
 **Examples:**
+
 ```bash
 vex list
 ```
@@ -100,6 +110,7 @@ vex list
 Update all dependencies to their latest compatible versions.
 
 **Examples:**
+
 ```bash
 vex update
 ```
@@ -109,6 +120,7 @@ vex update
 Clean cache and build artifacts.
 
 **Examples:**
+
 ```bash
 vex clean
 ```
@@ -120,9 +132,11 @@ vex clean
 Compile a Vex source file to an executable.
 
 **Arguments:**
+
 - `INPUT`: Input `.vx` file
 
 **Options:**
+
 - `-o, --output <OUTPUT>`: Output file path
 - `--simd`: Enable SIMD optimizations
 - `--gpu`: Enable GPU support
@@ -133,6 +147,7 @@ Compile a Vex source file to an executable.
 - `--json`: Output diagnostics as JSON (for IDE integration)
 
 **Examples:**
+
 ```bash
 vex compile main.vx
 vex compile src/app.vx -o my-app
@@ -146,15 +161,18 @@ vex compile --locked --json main.vx
 Compile and execute a Vex source file, or execute code from a string.
 
 **Arguments:**
+
 - `INPUT`: Input `.vx` file or code string (when using `-c`)
 - `ARGS`: Arguments to pass to the program
 
 **Options:**
+
 - `-c, --code <CODE>`: Execute code from string (like `node -c`)
 - `--json`: Output diagnostics as JSON
 - `-O, --opt-level <LEVEL>`: Optimization level (0-3, default: 0)
 
 **Examples:**
+
 ```bash
 vex run main.vx
 vex run main.vx -- arg1 arg2
@@ -169,9 +187,11 @@ vex run --json main.vx
 Check syntax of a Vex source file without compiling.
 
 **Arguments:**
+
 - `INPUT`: Input `.vx` file
 
 **Examples:**
+
 ```bash
 vex check main.vx
 ```
@@ -181,12 +201,15 @@ vex check main.vx
 Format Vex source code.
 
 **Arguments:**
+
 - `INPUT`: Input `.vx` file
 
 **Options:**
+
 - `-i, --in-place`: Format the file in place
 
 **Examples:**
+
 ```bash
 vex format main.vx
 vex format -i main.vx
@@ -199,9 +222,11 @@ vex format -i main.vx
 Run tests in the project.
 
 **Arguments:**
+
 - `PATTERN`: Specific test file or pattern (default: all tests)
 
 **Options:**
+
 - `-v, --verbose`: Run tests verbosely
 - `--no-parallel`: Disable parallel test execution
 - `--timeout <SECONDS>`: Custom timeout in seconds
@@ -218,6 +243,7 @@ Run tests in the project.
 - `--run <REGEX>`: Filter tests by name (regex)
 
 **Examples:**
+
 ```bash
 vex test
 vex test my_test

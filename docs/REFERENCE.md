@@ -14,22 +14,24 @@ This document is the comprehensive syntax reference for the Vex programming lang
 2. [Lexical Structure](#lexical-structure)
 3. [Type System](#type-system)
 4. [Variables and Constants](#variables-and-constants)
-5. [Functions and Methods](#functions-and-methods)
-6. [Control Flow](#control-flow)
-7. [Structs](#structs)
-8. [Enums](#enums)
-9. [Contracts](#contracts)
-10. [Generics](#generics)
-11. [Pattern Matching](#pattern-matching)
-12. [Error Handling](#error-handling)
-13. [Concurrency](#concurrency)
-14. [Memory Management](#memory-management)
-15. [Modules and Imports](#modules-and-imports)
-16. [Policy System](#policy-system)
-17. [Standard Library](#standard-library)
-18. [Operators](#operators)
-19. [CLI Commands and Tools](#cli-commands-and-tools)
-20. [Quick Reference](#quick-reference)
+5. [Expressions](#expressions)
+6. [Statements](#statements)
+7. [Functions and Methods](#functions-and-methods)
+8. [Control Flow](#control-flow)
+9. [Structs](#structs)
+10. [Enums](#enums)
+11. [Contracts](#contracts)
+12. [Generics](#generics)
+13. [Pattern Matching](#pattern-matching)
+14. [Error Handling](#error-handling)
+15. [Concurrency](#concurrency)
+16. [Memory Management](#memory-management)
+17. [Modules and Imports](#modules-and-imports)
+18. [Policy System](#policy-system)
+19. [Standard Library](#standard-library)
+20. [Operators](#operators)
+21. [CLI Commands and Tools](#cli-commands-and-tools)
+22. [Quick Reference](#quick-reference)
 
 ---
 
@@ -264,30 +266,18 @@ let pair: (i32, string) = (42, "answer");
 let triple: (f64, bool, i32) = (3.14, true, 100);
 ```
 
-#### Slices (Future)
+#### Slices
 
 ```vex
-let s: [i32] = arr[1..4];  // Dynamic-size view
+let s: &[i32] = arr[1..4];     // Immutable slice
+let mut_s: &mut [i32] = arr;   // Mutable slice
 ```
 
-### Collection Types
-
-**Verified in standard library:**
+#### References
 
 ```vex
-Vec<T>          // Dynamic array
-Map<K, V>       // Hash map
-Set<T>          // Hash set
-Box<T>          // Heap allocation
-Channel<T>      // Goroutine communication
-```
-
-**Usage:**
-
-```vex
-let vec = Vec.new();        // NOT Vec::new()
-let map = Map.new();
-let boxed = Box.new(42);
+let ref: &i32 = &value;        // Immutable reference
+let mut_ref: &mut i32 = &mut value;  // Mutable reference
 ```
 
 ### Advanced Types
@@ -299,6 +289,58 @@ type Result = i32 | string | error;
 type Nullable<T> = T | nil;
 
 let value: i32 | string = 42;
+```
+
+#### Intersection Types ✅ (v0.1.2)
+
+```vex
+type ReadWrite = Read & Write;
+type SerializableClone = Serialize & Clone;
+```
+
+#### Conditional Types ✅ (v0.1.2)
+
+**TypeScript-style type-level conditionals:**
+
+```vex
+// Syntax: T extends U ? X : Y
+type Unwrap<T> = T extends Option<infer U> ? U : T;
+type ExtractOk<T> = T extends Result<infer V, infer E> ? V : T;
+type ExtractErr<T> = T extends Result<infer V, infer E> ? E : never;
+type OnlyOption<T> = T extends Option<infer U> ? T : never;
+```
+
+#### Infer Types ✅ (v0.1.2)
+
+```vex
+// Used in conditional types to extract type variables
+type Unwrap<T> = T extends Option<infer U> ? U : T;
+```
+
+#### Typeof Types ✅ (v0.1.2)
+
+```vex
+// Get type of expression at compile time
+let t: typeof(42) = 100;  // t: i32
+```
+
+#### Unit and Never Types ✅ (v0.1.2)
+
+```vex
+// Unit type (void)
+fn no_return() { }  // Returns unit type
+
+// Never type (diverging functions)
+fn panic(): never { /* never returns */ }
+```
+
+#### Const-Generic Arrays ✅ (v0.1.2)
+
+```vex
+// Arrays with const generic size parameters
+struct Matrix<const N: usize, const M: usize> {
+    data: [[f32; M]; N],
+}
 ```
 
 #### Generic Types
@@ -480,6 +522,322 @@ let x = "text";    // Different type allowed
 
 ---
 
+## Expressions
+
+> **See:** [Specifications/06_Expressions.md](../Specifications/06_Expressions.md)
+
+### Literals
+
+#### Numeric Literals
+
+```vex
+// Integers
+42          // i32 (default)
+42i64       // Explicit type
+0xFF        // Hexadecimal
+0o777       // Octal
+0b1010      // Binary
+1_000_000   // Underscore separators
+
+// Large integers (i128/u128)
+170141183460469231731687303715884105727i128  // BigInt literal
+
+// Floats
+3.14        // f64 (default)
+3.14f32     // Explicit type
+1.23e10     // Scientific notation
+```
+
+#### String Literals
+
+```vex
+"Hello, World!"           // Regular string
+f"Value: {variable}"      // Formatted string (f-string)
+```
+
+#### Other Literals
+
+```vex
+true        // Boolean
+false       // Boolean
+nil         // Unit value
+```
+
+### Operators
+
+#### Arithmetic
+
+```vex
+a + b       // Addition
+a - b       // Subtraction
+a * b       // Multiplication
+a / b       // Division
+a % b       // Modulo
+a ** b      // Power (exponentiation)
+```
+
+#### Comparison
+
+```vex
+a == b      // Equal
+a != b      // Not equal
+a < b       // Less than
+a <= b      // Less or equal
+a > b       // Greater than
+a >= b      // Greater or equal
+```
+
+#### Logical
+
+```vex
+a && b      // Logical AND
+a || b      // Logical OR
+!a          // Logical NOT
+```
+
+#### Bitwise
+
+```vex
+a & b       // Bitwise AND
+a | b       // Bitwise OR
+a ^ b       // Bitwise XOR
+a << b      // Left shift
+a >> b      // Right shift
+```
+
+#### Postfix
+
+```vex
+x++         // Increment (x = x + 1)
+x--         // Decrement (x = x - 1)
+```
+
+### Function Calls
+
+```vex
+// Regular call
+add(1, 2)
+
+// Method call
+obj.method(args)
+
+// Mutable method call
+obj.method(args)!
+
+// Generic call
+Vec.new<i32>()
+```
+
+### Collections
+
+#### Arrays
+
+```vex
+[1, 2, 3, 4]              // Array literal
+[value; count]             // Repeat syntax
+```
+
+#### Tuples
+
+```vex
+(1, "hello", true)         // Tuple literal
+```
+
+#### Maps
+
+```vex
+{"key": value, "key2": value2}  // Map literal
+```
+
+### Struct and Enum Construction
+
+```vex
+// Struct literal
+Point { x: 10, y: 20 }
+
+// Generic struct
+Box<i32> { value: 42 }
+
+// Enum constructor
+Result.Ok(42)
+Option.None
+```
+
+### Ranges
+
+```vex
+0..10       // Exclusive range (0 to 9)
+0..=10      // Inclusive range (0 to 10)
+..10        // From start to 10
+5..         // From 5 to end
+..          // Full range
+```
+
+### Memory Operations
+
+```vex
+&expr       // Reference
+&mut expr   // Mutable reference
+*ptr        // Dereference
+
+new(expr)   // Heap allocation
+make([T], size)  // Slice creation
+```
+
+### Type Operations
+
+```vex
+expr as Type        // Type cast
+typeof(expr)        // Get type at runtime
+expr?               // Error propagation (Result unwrap)
+```
+
+### Concurrency
+
+```vex
+await future        // Await async result
+<-channel           // Channel receive
+```
+
+### Closures
+
+```vex
+|x, y| x + y                    // Simple closure
+|x: i32, y: i32| x + y          // Typed parameters
+|x, y| { x + y; }               // Block body
+```
+
+### Match Expressions
+
+```vex
+match value {
+    Some(x) => x * 2,
+    None => 0,
+}
+```
+
+### Block Expressions
+
+```vex
+// Regular block
+{ stmt1; stmt2; expr }
+
+// Async block
+async { stmt1; stmt2; expr }
+```
+
+---
+
+## Statements
+
+> **See:** [Specifications/07_Statements.md](../Specifications/07_Statements.md)
+
+### Variable Declarations
+
+```vex
+let x = 42;
+let! y = 100;       // Mutable
+let z: i32 = 200;   // With type annotation
+```
+
+### Pattern Destructuring
+
+```vex
+// Tuple destructuring
+let (a, b) = (1, 2);
+
+// Struct destructuring
+let Point { x, y } = point;
+
+// Enum destructuring
+let Some(value) = option;
+```
+
+### Assignments
+
+```vex
+x = 42;             // Simple assignment
+x += 5;             // Compound assignment
+x -= 3;
+x *= 2;
+x /= 4;
+x %= 7;
+```
+
+### Control Flow
+
+#### If Statements
+
+```vex
+if condition {
+    // code
+} elif other_condition {
+    // code
+} else {
+    // code
+}
+```
+
+#### Loops
+
+```vex
+// For loop (C-style)
+for let i = 0; i < 10; i++ {
+    // code
+}
+
+// While loop
+while condition {
+    // code
+}
+
+// Infinite loop
+loop {
+    // code
+    if should_break { break; }
+}
+
+// For-in loop
+for item in collection {
+    // code
+}
+```
+
+#### Switch Statement
+
+```vex
+switch value {
+case 1:
+    // handle 1
+case 2, 3:
+    // handle 2 or 3
+default:
+    // default case
+}
+```
+
+#### Match Statement
+
+```vex
+match value {
+    Some(x) if x > 0 => x * 2,
+    Some(_) => 0,
+    None => -1,
+}
+```
+
+### Other Statements
+
+```vex
+return value;       // Return
+break;              // Break loop
+continue;           // Continue loop
+defer cleanup();    // Defer execution
+unsafe { ... }      // Unsafe block
+```
+
+---
+
 ## Functions and Methods
 
 > **See:** [Specifications/05_Functions_and_Methods.md](../Specifications/05_Functions_and_Methods.md)
@@ -493,17 +851,89 @@ fn add(x: i32, y: i32): i32 {
     return x + y;
 }
 
-fn greet(name: string) {
-    // No return type = returns nil
+### Advanced Function Features
+
+#### Const Generics ✅ (v0.1.2)
+
+```vex
+// Const parameters in functions
+fn matrix_multiply<const N: usize, const M: usize, const P: usize>(
+    a: [[f32; M]; N],
+    b: [[f32; P]; M]
+): [[f32; P]; N] {
+    // Implementation
 }
 ```
 
-**Entry Point:**
+#### Where Clauses ✅ (v0.1.2)
 
 ```vex
-fn main(): i32 {
-    return 0;  // Exit code
+// Type constraints
+fn print<T>(value: T) where T: Display {
+    // Implementation
 }
+
+// Multiple constraints
+fn compare<T, U>(a: T, b: U) where T: Ord, U: Ord {
+    // Implementation
+}
+```
+
+#### Variadic Functions ✅ (v0.1.2)
+
+```vex
+// Variable arguments
+fn format(template: string, args: ...any): string {
+    // Implementation
+}
+
+// Typed variadic
+fn sum(values: ...i32): i32 {
+    // Implementation
+}
+```
+
+#### Async Functions ✅ (v0.1.2)
+
+```vex
+async fn fetch_data(url: string): Result<string, error> {
+    // Implementation
+}
+```
+
+#### GPU Functions ✅ (v0.1.2)
+
+```vex
+gpu fn vector_add(a: [f32], b: [f32]): [f32] {
+    // GPU kernel code
+}
+```
+
+#### Operator Overloading ✅ (v0.1.2)
+
+```vex
+// Define operator in contract
+contract Add {
+    op+(rhs: Self): Self;
+}
+
+// Implement for custom type
+struct Point impl Add {
+    x: i32,
+    y: i32,
+
+    fn op+(rhs: Point): Point {
+        return Point {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+        };
+    }
+}
+
+// Usage
+let p1 = Point { x: 1, y: 2 };
+let p2 = Point { x: 3, y: 4 };
+let p3 = p1 + p2;  // Calls op+
 ```
 
 ### Method Mutability (Hibrit Model)
@@ -716,6 +1146,47 @@ while condition {
 let! i = 0;
 while i < 10 {
     i = i + 1;
+}
+```
+
+### Loop Statement ✅ (v0.1.2)
+
+**Infinite loop:**
+
+```vex
+loop {
+    // body
+    if should_break {
+        break;
+    }
+}
+```
+
+### Switch Statement ✅ (v0.1.2)
+
+**Go-style switch:**
+
+```vex
+switch value {
+case 1:
+    // handle 1
+case 2, 3:
+    // handle 2 or 3
+default:
+    // default case
+}
+```
+
+**Type switch:**
+
+```vex
+switch {
+case x is i32:
+    // x is integer
+case x is string:
+    // x is string
+default:
+    // other type
 }
 ```
 
@@ -1305,32 +1776,32 @@ match x {
 }
 ```
 
-**Enums:**
+**Struct patterns:**
 
 ```vex
-match option {
-    Some(value) => { /* use value */ }
-    None => { }
+match point {
+    Point { x: 0, y: 0 } => { /* origin */ }
+    Point { x, y } => { /* bind x and y */ }
+    Point { x, .. } => { /* ignore other fields */ }
 }
 ```
 
-**Tuples:**
+**Enum patterns:**
 
 ```vex
-match pair {
-    (0, 0) => { }
-    (x, 0) => { /* x is bound */ }
-    (x, y) => { }
+match result {
+    Ok(value) => { /* success */ }
+    Err(error) => { /* failure */ }
 }
 ```
 
-**Or patterns:**
+**Complex patterns:**
 
 ```vex
-match x {
-    1 | 2 | 3 => { }
-    4 | 5 | 6 => { }
-    _ => { }
+match data {
+    Some(Point { x, y }) if x > 0 => { /* positive x */ }
+    Some(_) => { /* other point */ }
+    None => { /* no data */ }
 }
 ```
 
@@ -1393,6 +1864,21 @@ fn process(): Result<i32, string> {
 }
 ```
 
+### Error Creation ✅ (v0.1.2)
+
+```vex
+// Create error values
+let err = error.new("Something went wrong");
+
+// In functions
+fn validate(x: i32): Result<i32, error> {
+    if x < 0 {
+        return Err(error.new("Must be positive"));
+    }
+    return Ok(x);
+}
+```
+
 ---
 
 ## Concurrency
@@ -1417,6 +1903,34 @@ fn main(): i32 {
 ```
 
 **Status:** ✅ Parser supports, basic runtime implemented
+
+### Select Statement ✅ (v0.1.2)
+
+**Go-style select for channel operations:**
+
+```vex
+let! ch1: Channel<i32> = Channel(1);
+let! ch2: Channel<string> = Channel(1);
+
+select {
+case val = <-ch1:
+    println(f"Received from ch1: {val}");
+case msg = <-ch2:
+    println(f"Received from ch2: {msg}");
+}
+```
+
+**With default case:**
+
+```vex
+select {
+case val = <-ch:
+    process(val);
+default:
+    // Non-blocking operation
+    println("No data available");
+}
+```
 
 ### Async/Await
 
@@ -1848,16 +2362,12 @@ let! ch: Channel<i64> = Channel(10);
 let value = <-ch;  // Desugars to ch.recv()
 ```
 
-### Assignment
+### Postfix Operators
 
-| Operator | Description     | Example  |
-| -------- | --------------- | -------- |
-| `=`      | Assignment      | `x = 42` |
-| `+=`     | Add assign      | `x += 5` |
-| `-=`     | Subtract assign | `x -= 5` |
-| `*=`     | Multiply assign | `x *= 2` |
-| `/=`     | Divide assign   | `x /= 2` |
-| `%=`     | Modulo assign   | `x %= 3` |
+| Operator | Description | Example |
+| -------- | ----------- | ------- |
+| `++`     | Increment   | `x++`   |
+| `--`     | Decrement   | `x--`   |
 
 ### Member Access
 
@@ -2280,15 +2790,16 @@ find src -name "*.vx" -exec vex format -i {} \;
 
 - **Language Version:** 0.1.2
 - **Syntax Version:** 0.1.2
-- **Last Verified:** November 10, 2025
+- **Last Updated:** November 16, 2025
 
 ### Sources
 
 This reference is verified against:
 
-- Source code: `vex-lexer/src/lib.rs`, `vex-parser/src/`, `vex-ast/src/lib.rs`
+- Source code: `vex-lexer/src/lib.rs`, `vex-parser/src/`, `vex-ast/src/lib.rs`, `vex-compiler/src/`
 - Specifications: `Specifications/*.md`
 - Test suite: `examples/`, `stdlib-tests/`
+- CLI: `vex-cli/src/main.rs`
 
 ---
 

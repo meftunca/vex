@@ -1,0 +1,18 @@
+// Test file for unused variable warning
+fn main() {
+    let x = 5;  // Should warn: unused variable `x`
+    let y = 10;
+    let z = y + 15;
+    
+    println!("{}", z);  // Only z is used
+}
+
+fn test_params(a: i32, b: i32) -> i32 {
+    // Should warn: unused parameter `b`
+    return a + 10;
+}
+
+fn test_underscore(_ignored: i32, _also_ignored: i32) -> i32 {
+    // Should NOT warn - starts with underscore
+    return 42;
+}

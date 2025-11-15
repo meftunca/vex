@@ -1,0 +1,10 @@
+// Test file for error recovery - should report ALL 3 errors
+fn test() {
+    let x = ;  // Error 1: expected expression
+    let y: = 5;  // Error 2: expected type
+    let z = w;  // Error 3: undefined variable
+}
+
+fn main() {
+    test();
+}
