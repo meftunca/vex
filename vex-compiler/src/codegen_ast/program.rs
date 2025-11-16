@@ -37,16 +37,20 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         for import in &program.imports {
             // Try standard library first (vex-libs/std), then prelude (stdlib)
-            let imported_module = match std_resolver.load_module(&import.module, Some(&self.source_file)) {
-                Ok(module) => {
-                    eprintln!("   ✅ Loaded from vex-libs/std: {}", import.module);
-                    module
-                }
-                Err(_) => {
-                    eprintln!("   ⏭️  Not in vex-libs/std, trying stdlib (prelude): {}", import.module);
-                    prelude_resolver.load_module(&import.module, Some(&self.source_file))?
-                }
-            };
+            let imported_module =
+                match std_resolver.load_module(&import.module, Some(&self.source_file)) {
+                    Ok(module) => {
+                        eprintln!("   ✅ Loaded from vex-libs/std: {}", import.module);
+                        module
+                    }
+                    Err(_) => {
+                        eprintln!(
+                            "   ⏭️  Not in vex-libs/std, trying stdlib (prelude): {}",
+                            import.module
+                        );
+                        prelude_resolver.load_module(&import.module, Some(&self.source_file))?
+                    }
+                };
 
             // Add all items from imported module
             // (In a real implementation, we'd respect the import { ... } selectors)
@@ -101,9 +105,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
     }
 
     pub fn compile_program(&mut self, program: &Program) -> Result<(), String> {
-        // ⭐ NEW: Inject core prelude (auto-import stdlib/core)
+        // ⭐ NOTE: Prelude now injected at CLI level (vex-cli/src/main.rs)
+        // Layer 1 prelude is embedded in compiler binary and prepended to user code
         let mut merged_program = program.clone();
-        merged_program.inject_core_prelude();
 
         // ⭐ NEW: Resolve and merge imported modules
         self.resolve_and_merge_imports(&mut merged_program)?;
@@ -597,22 +601,19 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 let ne_param = ne_fn
                     .get_nth_param(i)
                     .ok_or_else(|| format!("Missing parameter {} in op!= function", i))?;
-                
+
                 // Copy struct return attribute if present
-                for attr_idx in [inkwell::attributes::AttributeLoc::Param(i), 
-                                 inkwell::attributes::AttributeLoc::Return] {
+                for attr_idx in [
+                    inkwell::attributes::AttributeLoc::Param(i),
+                    inkwell::attributes::AttributeLoc::Return,
+                ] {
                     for attr_kind in eq_fn.attributes(attr_idx) {
                         ne_fn.add_attribute(attr_idx, attr_kind);
                     }
                 }
-                
+
                 // Preserve parameter types exactly
-                ne_param.set_name(
-                    eq_param
-                        .get_name()
-                        .to_str()
-                        .unwrap_or("param"),
-                );
+                ne_param.set_name(eq_param.get_name().to_str().unwrap_or("param"));
             }
 
             // Build function body: return !op==(rhs)
@@ -672,9 +673,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 // Create a copy with op!= name
                 let mut ne_func_def = eq_func_def.clone();
                 ne_func_def.name = "op!=".to_string();
-                
+
                 // Register under mangled name
-                self.function_defs.insert(ne_method_name.clone(), ne_func_def);
+                self.function_defs
+                    .insert(ne_method_name.clone(), ne_func_def);
             }
 
             eprintln!(

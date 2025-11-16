@@ -1,0 +1,23 @@
+// core - Vex Language Core Library
+// Layer 1: Global builtins (auto-imported)
+
+// NOTE: Currently Vex doesn't support re-exporting from other files
+// So we inline all core definitions here instead of splitting into multiple files
+
+// For now, just export the basic contracts
+// TODO: Implement proper module system with re-exports
+
+export contract Display {
+    display(): str;
+}
+
+export contract Clone {
+    clone(): Self;
+}
+
+export contract Debug {
+    debug(): str;
+}
+
+// Re-export all operator contracts from ops.vx
+// These are already defined in ops.vx, we just make them available

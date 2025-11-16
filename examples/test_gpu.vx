@@ -1,0 +1,9 @@
+// Simple GPU test
+fn gpu_kernel() {
+    let x = 42;
+    print(x);
+}
+
+fn main() {
+    gpu_kernel();
+}

@@ -1,12 +1,7 @@
-// Math Module - Matematik fonksiyonları
-// Vex Math API - Production-ready mathematical operations
-
-// ============================================================================
-// External C Functions (vex_math runtime + libm)
-// ============================================================================
+// Math Module - Clean, Generic-First Design
+// Simplified using function overloading and consistent naming
 
 extern "C" {
-    // Trigonometric functions
     fn sin(x: f64): f64;
     fn cos(x: f64): f64;
     fn tan(x: f64): f64;
@@ -14,236 +9,243 @@ extern "C" {
     fn acos(x: f64): f64;
     fn atan(x: f64): f64;
     fn atan2(y: f64, x: f64): f64;
-    
-    // Hyperbolic functions
     fn sinh(x: f64): f64;
     fn cosh(x: f64): f64;
     fn tanh(x: f64): f64;
-    
-    // Exponential & Logarithmic
+    fn asinh(x: f64): f64;
+    fn acosh(x: f64): f64;
+    fn atanh(x: f64): f64;
     fn exp(x: f64): f64;
     fn exp2(x: f64): f64;
     fn log(x: f64): f64;
     fn log2(x: f64): f64;
     fn log10(x: f64): f64;
     fn pow(x: f64, y: f64): f64;
-    
-    // Rounding functions
+    fn sqrt(x: f64): f64;
+    fn cbrt(x: f64): f64;
     fn ceil(x: f64): f64;
     fn floor(x: f64): f64;
     fn round(x: f64): f64;
     fn trunc(x: f64): f64;
-    
-    // Utility functions
     fn fabs(x: f64): f64;
-    fn sqrt(x: f64): f64;
-    fn cbrt(x: f64): f64;
     fn hypot(x: f64, y: f64): f64;
     fn fmod(x: f64, y: f64): f64;
     fn copysign(x: f64, y: f64): f64;
+    fn fmax(x: f64, y: f64): f64;
+    fn fmin(x: f64, y: f64): f64;
+    fn isnan(x: f64): i32;
+    fn isinf(x: f64): i32;
+    fn isfinite(x: f64): i32;
+    fn erf(x: f64): f64;
+    fn erfc(x: f64): f64;
+    fn tgamma(x: f64): f64;
+    fn lgamma(x: f64): f64;
     
-    // f32 versions
     fn sinf(x: f32): f32;
     fn cosf(x: f32): f32;
     fn tanf(x: f32): f32;
     fn sqrtf(x: f32): f32;
     fn powf(x: f32, y: f32): f32;
     fn fabsf(x: f32): f32;
+    fn ceilf(x: f32): f32;
+    fn floorf(x: f32): f32;
+    fn roundf(x: f32): f32;
 }
 
-// ============================================================================
-// Mathematical Constants
-// ============================================================================
+
+export type FLOAT_TYPES = f16 | f32 | f64;
+export type INTEGER_TYPES = i8 | i16 | i32 | i64 | u8 | u16 | u32 | u64;
+export type NUMERIC_TYPES = FLOAT_TYPES | INTEGER_TYPES;
 
 export const PI: f64 = 3.14159265358979323846;
 export const E: f64 = 2.71828182845904523536;
+export const TAU: f64 = 6.28318530717958647693;
 export const PHI: f64 = 1.61803398874989484820;
 export const SQRT2: f64 = 1.41421356237309504880;
-export const LN2: f64 = 0.69314718055994530942;
-export const LN10: f64 = 2.30258509299404568402;
 
 // ============================================================================
-// Trigonometry
+// ABSOLUTE VALUE - abs(x)
 // ============================================================================
-
-export fn sin_f64(x: f64): f64 {
-    return sin(x);
-}
-
-export fn cos_f64(x: f64): f64 {
-    return cos(x);
-}
-
-export fn tan_f64(x: f64): f64 {
-    return tan(x);
-}
-
-export fn asin_f64(x: f64): f64 {
-    return asin(x);
-}
-
-export fn acos_f64(x: f64): f64 {
-    return acos(x);
-}
-
-export fn atan_f64(x: f64): f64 {
-    return atan(x);
-}
-
-export fn atan2_f64(y: f64, x: f64): f64 {
-    return atan2(y, x);
-}
+export fn abs(x: f64): f64 { return fabs(x); }
+export fn abs(x: f32): f32 { return fabsf(x); }
+export fn abs(x: i32): i32 { if x < 0 { return 0 - x; } return x; }
+export fn abs(x: i64): i64 { if x < 0 { return 0 - x; } return x; }
+export fn abs(x: i8): i8 { if x < 0 { return 0 - x; } return x; }
+export fn abs(x: i16): i16 { if x < 0 { return 0 - x; } return x; }
 
 // ============================================================================
-// Exponential & Logarithmic
+// MIN/MAX - min(a, b) / max(a, b)
 // ============================================================================
-
-export fn exp_f64(x: f64): f64 {
-    return exp(x);
-}
-
-export fn log_f64(x: f64): f64 {
-    return log(x);
-}
-
-export fn log2_f64(x: f64): f64 {
-    return log2(x);
-}
-
-export fn log10_f64(x: f64): f64 {
-    return log10(x);
-}
-
-export fn pow_f64(x: f64, y: f64): f64 {
-    return pow(x, y);
-}
-
-export fn sqrt_f64(x: f64): f64 {
-    return sqrt(x);
-}
-
-export fn cbrt_f64(x: f64): f64 {
-    return cbrt(x);
-}
+export fn min<T=NUMERIC_TYPES>(a: T, b: T): T { if a < b { return a; } return b; }
+export fn max<T=NUMERIC_TYPES>(a: T, b: T): T { if a > b { return a; } return b; }
+// export fn min(a: f32, b: f32): f32 { return fmin(a as f64, b as f64) as f32; }
+// export fn max(a: f32, b: f32): f32 { return fmax(a as f64, b as f64) as f32; }
+// export fn min(a: f64, b: f64): f64 { return fmin(a, b); }
+// export fn max(a: f64, b: f64): f64 { return fmax(a, b); }
 
 // ============================================================================
-// Rounding
+// CLAMP - clamp(x, min, max)
 // ============================================================================
-
-export fn ceil_f64(x: f64): f64 {
-    return ceil(x);
-}
-
-export fn floor_f64(x: f64): f64 {
-    return floor(x);
-}
-
-export fn round_f64(x: f64): f64 {
-    return round(x);
-}
-
-export fn trunc_f64(x: f64): f64 {
-    return trunc(x);
-}
-
-// ============================================================================
-// Utility
-// ============================================================================
-
-export fn abs_f64(x: f64): f64 {
-    return fabs(x);
-}
-
-export fn abs_f32(x: f32): f32 {
-    return fabsf(x);
-}
-
-export fn abs_i32(x: i32): i32 {
-    if x < 0 {
-        return 0 - x;
-    }
-    return x;
-}
-
-export fn abs_i64(x: i64): i64 {
-    if x < 0 {
-        return 0 - x;
-    }
-    return x;
-}
-
-export fn min_i32(a: i32, b: i32): i32 {
-    if a < b {
-        return a;
-    }
-    return b;
-}
-
-export fn max_i32(a: i32, b: i32): i32 {
-    if a > b {
-        return a;
-    }
-    return b;
-}
-
-export fn min_f64(a: f64, b: f64): f64 {
-    if a < b {
-        return a;
-    }
-    return b;
-}
-
-export fn max_f64(a: f64, b: f64): f64 {
-    if a > b {
-        return a;
-    }
-    return b;
-}
-
-export fn clamp_i32(x: i32, min: i32, max: i32): i32 {
-    if x < min {
-        return min;
-    }
-    if x > max {
-        return max;
-    }
-    return x;
-}
-
-export fn clamp_f64(x: f64, min: f64, max: f64): f64 {
-    if x < min {
-        return min;
-    }
-    if x > max {
-        return max;
-    }
+export fn clamp<T=NUMERIC_TYPES>(x: T, min_val: T, max_val: T): T {
+    if x < min_val { return min_val; }
+    if x > max_val { return max_val; }
     return x;
 }
 
 // ============================================================================
-// Advanced Math
+// SIGN - sign(x) -> returns -1, 0, or 1
+// ============================================================================
+export fn sign<T=INTEGER_TYPES>(x: T): T {
+    if x > 0 { return 1; } elif x < 0 { return -1; } else { return 0; }
+}
+export fn sign<T=FLOAT_TYPES>(x: T): T {
+    if x > 0.0 { return 1.0; } elif x < 0.0 { return -1.0; } else { return 0.0; }
+}
+// ============================================================================
+// TRIGONOMETRY
+// ============================================================================
+export fn sin_f64(x: f64): f64 { return sin(x); }
+export fn cos_f64(x: f64): f64 { return cos(x); }
+export fn tan_f64(x: f64): f64 { return tan(x); }
+export fn asin_f64(x: f64): f64 { return asin(x); }
+export fn acos_f64(x: f64): f64 { return acos(x); }
+export fn atan_f64(x: f64): f64 { return atan(x); }
+export fn atan2_f64(y: f64, x: f64): f64 { return atan2(y, x); }
+export fn sin_f32(x: f32): f32 { return sinf(x); }
+export fn cos_f32(x: f32): f32 { return cosf(x); }
+export fn tan_f32(x: f32): f32 { return tanf(x); }
+
+// ============================================================================
+// HYPERBOLIC
+// ============================================================================
+export fn sinh_f64(x: f64): f64 { return sinh(x); }
+export fn cosh_f64(x: f64): f64 { return cosh(x); }
+export fn tanh_f64(x: f64): f64 { return tanh(x); }
+export fn asinh_f64(x: f64): f64 { return asinh(x); }
+export fn acosh_f64(x: f64): f64 { return acosh(x); }
+export fn atanh_f64(x: f64): f64 { return atanh(x); }
+
+// ============================================================================
+// EXPONENTIAL & LOGARITHMIC
+// ============================================================================
+export fn exp_f64(x: f64): f64 { return exp(x); }
+export fn exp2_f64(x: f64): f64 { return exp2(x); }
+export fn log_f64(x: f64): f64 { return log(x); }
+export fn log2_f64(x: f64): f64 { return log2(x); }
+export fn log10_f64(x: f64): f64 { return log10(x); }
+export fn pow_f64(x: f64, y: f64): f64 { return pow(x, y); }
+export fn sqrt_f64(x: f64): f64 { return sqrt(x); }
+export fn cbrt_f64(x: f64): f64 { return cbrt(x); }
+export fn sqrt_f32(x: f32): f32 { return sqrtf(x); }
+export fn pow_f32(x: f32, y: f32): f32 { return powf(x, y); }
+
+// ============================================================================
+// ROUNDING
+// ============================================================================
+export fn ceil_f64(x: f64): f64 { return ceil(x); }
+export fn floor_f64(x: f64): f64 { return floor(x); }
+export fn round_f64(x: f64): f64 { return round(x); }
+export fn trunc_f64(x: f64): f64 { return trunc(x); }
+export fn ceil_f32(x: f32): f32 { return ceilf(x); }
+export fn floor_f32(x: f32): f32 { return floorf(x); }
+export fn round_f32(x: f32): f32 { return roundf(x); }
+
+// ============================================================================
+// CLASSIFICATION
+// ============================================================================
+export fn is_nan(x: f64): bool { return isnan(x) != 0; }
+export fn is_inf(x: f64): bool { return isinf(x) != 0; }
+export fn is_finite(x: f64): bool { return isfinite(x) != 0; }
+
+// ============================================================================
+// ADVANCED MATH
+// ============================================================================
+export fn hypot_f64(x: f64, y: f64): f64 { return hypot(x, y); }
+export fn fmod_f64(x: f64, y: f64): f64 { return fmod(x, y); }
+export fn copysign_f64(x: f64, y: f64): f64 { return copysign(x, y); }
+
+export fn lerp(a: f64, b: f64, t: f64): f64 { return a + (b - a) * t; }
+export fn lerp(a: f32, b: f32, t: f32): f32 { return a + (b - a) * t; }
+
+export fn degrees(radians: f64): f64 { return radians * 180.0 / PI; }
+export fn radians(degrees: f64): f64 { return degrees * PI / 180.0; }
+
+// ============================================================================
+// SPECIAL FUNCTIONS
+// ============================================================================
+export fn erf_f64(x: f64): f64 { return erf(x); }
+export fn erfc_f64(x: f64): f64 { return erfc(x); }
+export fn gamma_f64(x: f64): f64 { return tgamma(x); }
+export fn lgamma_f64(x: f64): f64 { return lgamma(x); }
+
+// ============================================================================
+// INTEGER MATH
 // ============================================================================
 
-export fn hypot_f64(x: f64, y: f64): f64 {
-    return hypot(x, y);
+export fn gcd(a: i32, b: i32): i32 {
+    let! x: i32 = abs(a);
+    let! y: i32 = abs(b);
+    while y != 0 {
+        let temp: i32 = y;
+        y = x % y;
+        x = temp;
+    }
+    return x;
 }
 
-export fn copysign_f64(x: f64, y: f64): f64 {
-    return copysign(x, y);
+export fn gcd(a: i64, b: i64): i64 {
+    let! x: i64 = abs(a);
+    let! y: i64 = abs(b);
+    while y != 0 {
+        let temp: i64 = y;
+        y = x % y;
+        x = temp;
+    }
+    return x;
 }
 
-export fn fmod_f64(x: f64, y: f64): f64 {
-    return fmod(x, y);
+export fn lcm(a: i32, b: i32): i32 {
+    if a == 0 || b == 0 { return 0; }
+    return abs(a * b) / gcd(a, b);
 }
 
-// ============================================================================
-// Angle Conversion
-// ============================================================================
-
-export fn degrees(radians: f64): f64 {
-    return radians * 180.0 / PI;
+export fn lcm(a: i64, b: i64): i64 {
+    if a == 0 || b == 0 { return 0; }
+    return abs(a * b) / gcd(a, b);
 }
 
-export fn radians(degrees: f64): f64 {
-    return degrees * PI / 180.0;
+export fn factorial(n: i32): i64 {
+    if n < 0 { return 0; }
+    if n == 0 || n == 1 { return 1; }
+    let! result: i64 = 1;
+    let! i: i32 = 2;
+    while i <= n {
+        result = result * (i as i64);
+        i = i + 1;
+    }
+    return result;
+}
+
+export fn pow_int(base: i32, exp: i32): i32 {
+    if exp < 0 { return 0; }
+    if exp == 0 { return 1; }
+    let! result: i32 = 1;
+    let! i: i32 = 0;
+    while i < exp {
+        result = result * base;
+        i = i + 1;
+    }
+    return result;
+}
+
+export fn pow_int(base: i64, exp: i64): i64 {
+    if exp < 0 { return 0; }
+    if exp == 0 { return 1; }
+    let! result: i64 = 1;
+    let! i: i64 = 0;
+    while i < exp {
+        result = result * base;
+        i = i + 1;
+    }
+    return result;
 }

@@ -3,11 +3,10 @@
 
 import { 
     sin_f64, cos_f64, tan_f64,
-    sqrt_f64, pow_f64, abs_f64,
+    sqrt_f64, pow_f64,
     PI, E,
-    min_i32, max_i32, abs_i32,
-    clamp_f64
-} from "math";
+    abs, min, max, clamp
+} from "../src/lib.vx";
 
 fn test_trigonometry(): i32 {
     // Test sin
@@ -53,21 +52,24 @@ fn test_sqrt_and_pow(): i32 {
 }
 
 fn test_absolute_value(): i32 {
-    // Test abs_i32
-    if abs_i32(-5) != 5 {
+    // Test abs for i32
+    let abs_int1: i32 = abs(-5);
+    if abs_int1 != 5 {
         return 1; // abs(-5) should be 5
     }
     
-    if abs_i32(7) != 7 {
+    let abs_int2: i32 = abs(7);
+    if abs_int2 != 7 {
         return 2; // abs(7) should be 7
     }
     
-    if abs_i32(0) != 0 {
+    let abs_int3: i32 = abs(0);
+    if abs_int3 != 0 {
         return 3; // abs(0) should be 0
     }
     
-    // Test abs_f64
-    let abs_neg: f64 = abs_f64(-3.14);
+    // Test abs for f64
+    let abs_neg: f64 = abs(-3.14);
     if abs_neg > 3.1401 || abs_neg < 3.1399 {
         return 4; // abs(-3.14) should be ~3.14
     }
@@ -76,15 +78,18 @@ fn test_absolute_value(): i32 {
 }
 
 fn test_min_max(): i32 {
-    if min_i32(5, 10) != 5 {
+    let min_result: i32 = min(5, 10);
+    if min_result != 5 {
         return 1; // min(5,10) should be 5
     }
     
-    if max_i32(5, 10) != 10 {
+    let max_result: i32 = max(5, 10);
+    if max_result != 10 {
         return 2; // max(5,10) should be 10
     }
     
-    if min_i32(-5, -10) != -10 {
+    let min_neg: i32 = min(-5, -10);
+    if min_neg != -10 {
         return 3; // min(-5,-10) should be -10
     }
     
@@ -92,17 +97,17 @@ fn test_min_max(): i32 {
 }
 
 fn test_clamp(): i32 {
-    let clamped1: f64 = clamp_f64(5.0, 0.0, 10.0);
+    let clamped1: f64 = clamp(5.0, 0.0, 10.0);
     if clamped1 > 5.0001 || clamped1 < 4.9999 {
         return 1; // clamp(5, 0, 10) should be ~5
     }
     
-    let clamped2: f64 = clamp_f64(-5.0, 0.0, 10.0);
+    let clamped2: f64 = clamp(-5.0, 0.0, 10.0);
     if clamped2 > 0.0001 || clamped2 < -0.0001 {
         return 2; // clamp(-5, 0, 10) should be ~0
     }
     
-    let clamped3: f64 = clamp_f64(15.0, 0.0, 10.0);
+    let clamped3: f64 = clamp(15.0, 0.0, 10.0);
     if clamped3 > 10.0001 || clamped3 < 9.9999 {
         return 3; // clamp(15, 0, 10) should be ~10
     }

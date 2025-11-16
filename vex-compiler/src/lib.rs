@@ -3,6 +3,8 @@ pub mod builtin_contracts; // Builtin contract implementations for primitives
 pub mod codegen_ast; // Modular LLVM codegen
 pub mod linter; // Static analysis and code quality warnings
 pub mod module_resolver;
+pub mod prelude; // Embedded Layer 1 prelude (Vex code in compiler binary)
+pub mod prelude_loader; // Prelude parser and injection
 pub mod resolver; // Platform detection & stdlib resolution
 pub mod trait_bounds_checker; // Trait bounds verification
 pub mod type_registry; // Builtin type name registry for O(1) lookup
@@ -17,6 +19,7 @@ pub use codegen_ast::ASTCodeGen;
 pub use diagnostics::{error_codes, Diagnostic, DiagnosticEngine, ErrorLevel, Span};
 pub use linter::{LintRule, Linter, UnusedVariableRule};
 pub use module_resolver::ModuleResolver;
+pub use prelude_loader::{inject_prelude_into_program, load_embedded_prelude, PreludeLoadError};
 pub use resolver::{Arch, Platform, ResolveError, StdlibResolver, Target};
 pub use trait_bounds_checker::TraitBoundsChecker;
 pub use utils::llvm_safety::{

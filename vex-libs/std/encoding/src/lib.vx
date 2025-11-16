@@ -5,7 +5,6 @@
 //   import { base64_encode, hex_decode, uuid_v4, uuid_v7 } from "encoding";
 
 // External C functions from vex-runtime/c/vex_fastenc/
-extern "C" {
     // UUID type
     struct vex_uuid {
         bytes: [u8; 16],
@@ -23,6 +22,8 @@ extern "C" {
         alpha: i32,  // 0=RFC, 1=HEX, 2=Crockford
         pad: i32,    // padding
     }
+extern "C" {
+
     
     // Hex
     fn vex_hex_encode(src: *u8, n: u64, dst: *u8!, uppercase: i32): u64;
@@ -44,13 +45,13 @@ extern "C" {
     
     // UUID
     fn vex_uuid_v1(out: *vex_uuid): i32;
-    fn vex_uuid_v3(out: *vex_uuid, ns: *const vex_uuid, name: *u8, len: u64): i32;
+    fn vex_uuid_v3(out: *vex_uuid, ns: *vex_uuid, name: *u8, len: u64): i32;
     fn vex_uuid_v4(out: *vex_uuid): i32;
-    fn vex_uuid_v5(out: *vex_uuid, ns: *const vex_uuid, name: *u8, len: u64): i32;
+    fn vex_uuid_v5(out: *vex_uuid, ns: *vex_uuid, name: *u8, len: u64): i32;
     fn vex_uuid_v6(out: *vex_uuid): i32;
     fn vex_uuid_v7(out: *vex_uuid): i32;
     fn vex_uuid_v8(out: *vex_uuid, custom: *u8): i32;
-    fn vex_uuid_format(out: *u8!, u: *const vex_uuid): i32;  // 37 bytes (36 + null)
+    fn vex_uuid_format(out: *u8!, u: *vex_uuid): i32;  // 37 bytes (36 + null)
     fn vex_uuid_parse(s: *u8, out: *vex_uuid): i32;
 }
 
@@ -158,7 +159,7 @@ export fn uuid_v7(): UUID {
 export fn uuid_format(u: UUID): string {
     let! buf: [u8; 37];
     unsafe {
-        vex_uuid_format(buf.as_mut_ptr(), &u as *const vex_uuid);
+        vex_uuid_format(buf.as_mut_ptr(), &u as *vex_uuid);
         return string.from_utf8_unchecked(&buf[0..36]);
     }
 }

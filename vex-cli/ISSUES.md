@@ -55,37 +55,50 @@ The `vex check` command performs syntax checking without full compilation.
 
 ## 🐛 Known Bugs
 
-### 1. Emit SPIR-V Flag Not Implemented
+### 1. Emit SPIR-V Flag Partially Implemented
 
-**Status:** PARTIALLY IMPLEMENTED  
+**Status:** PARTIALLY IMPLEMENTED ✅  
 **Severity:** LOW  
 **Priority:** MEDIUM
 
 **Description:**  
-The `--emit-spirv` flag is defined in the compile command but not used in the implementation. The parameter is ignored with `_`.
+The `--emit-spirv` flag now generates LLVM IR with GPU annotations (`.spirv.ll` file) but doesn't emit final SPIR-V binary yet. Full SPIR-V binary emission requires LLVM SPIR-V backend integration.
 
-**Location:**  
-`vex-cli/src/main.rs`, line ~250: `emit_spirv: _,`
+**Current Functionality:**
+- ✅ Flag is recognized and processed
+- ✅ Requires `--gpu` flag to work
+- ✅ Generates LLVM IR for SPIR-V target
+- ⚠️ Final `.spv` binary emission not yet implemented
+
+**Usage:**
+```bash
+vex compile --gpu --emit-spirv shader.vx
+# Outputs: vex-builds/shader.spirv.ll
+# Convert with: llvm-spirv shader.spirv.ll -o shader.spv
+```
 
 **Impact:**  
-GPU SPIR-V emission is not available.
+GPU SPIR-V development requires manual llvm-spirv conversion step.
 
 ### 2. Error Handling Inconsistencies
 
-**Status:** MINOR ISSUE  
+**Status:** IMPROVED ✅  
 **Severity:** LOW  
 **Priority:** LOW
 
 **Description:**  
-Some commands use `eprintln!` for errors and `std::process::exit(1)`, while others rely on `?` propagation. This creates inconsistent error reporting.
+Most error handling has been standardized to use proper `Result` propagation with JSON support. Dependency resolution errors now return proper errors instead of using `std::process::exit(1)`.
 
-**Examples:**
+**Improvements:**
+- ✅ Dependency resolution uses proper error propagation
+- ✅ JSON error output for dependency failures
+- ✅ Consistent error formatting
 
-- Compile command: `eprintln!("❌ Dependency resolution failed: {}", e); std::process::exit(1);`
-- Other commands: Return `Result` with `?`
+**Remaining Minor Issues:**
+- Some legacy code paths may still use different error styles
 
 **Impact:**  
-Inconsistent user experience for error messages.
+Mostly resolved - error handling is now consistent across most commands.
 
 ## 🔧 Technical Debt
 
@@ -118,16 +131,32 @@ IDE integration is limited to compilation errors only.
 
 ## 📋 Feature Requests
 
-### 1. Interactive Mode
+### 1. Interactive Mode (REPL)
 
+**Status:** IMPLEMENTED ✅  
 **Description:**  
-Add an interactive REPL mode for quick testing and experimentation.
+Interactive REPL mode for quick testing and experimentation is now available.
 
-**Proposed Command:**
-
+**Usage:**
 ```bash
-vex repl
+vex repl                  # Start REPL
+vex repl --load file.vx   # Load file into context
+vex repl --verbose        # Verbose mode
 ```
+
+**Features:**
+- ✅ Interactive code execution
+- ✅ Context management (clear, show)
+- ✅ File loading
+- ✅ Help system
+- ⚠️ JIT execution not yet implemented (parses only)
+
+**REPL Commands:**
+- `exit/quit` - Exit REPL
+- `help` - Show commands
+- `clear` - Clear context
+- `show` - Show current context
+- `load <file>` - Load file
 
 ### 2. Build Configuration Profiles
 

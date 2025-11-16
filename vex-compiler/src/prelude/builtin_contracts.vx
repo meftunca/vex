@@ -1,0 +1,116 @@
+// Builtin Type Contract Extensions
+// This file declares which contracts are extended by builtin types.
+// The compiler uses these declarations to generate zero-overhead LLVM IR.
+
+// ============================================================================
+// Standard Library Contracts
+// ============================================================================
+
+export contract Display {
+    display(): str;
+}
+
+export contract Clone {
+    clone(): Self;
+}
+
+export contract Debug {
+    debug(): str;
+}
+
+// ============================================================================
+// PHASE 1: Arithmetic Operators (i32, i64, f32, f64)
+// ============================================================================
+
+// Integer types: full arithmetic support
+i8 extends Add, Sub, Mul, Div, Mod, Neg;
+i16 extends Add, Sub, Mul, Div, Mod, Neg;
+i32 extends Add, Sub, Mul, Div, Mod, Neg;
+i64 extends Add, Sub, Mul, Div, Mod, Neg;
+i128 extends Add, Sub, Mul, Div, Mod, Neg;
+
+// Unsigned integer types: no Neg
+u8 extends Add, Sub, Mul, Div, Mod;
+u16 extends Add, Sub, Mul, Div, Mod;
+u32 extends Add, Sub, Mul, Div, Mod;
+u64 extends Add, Sub, Mul, Div, Mod;
+u128 extends Add, Sub, Mul, Div, Mod;
+
+// Floating point types: no Mod
+f16 extends Add, Sub, Mul, Div, Neg;
+f32 extends Add, Sub, Mul, Div, Neg;
+f64 extends Add, Sub, Mul, Div, Neg;
+
+// ============================================================================
+// PHASE 1.5: Bitwise Operators (integers only)
+// ============================================================================
+
+i8 extends BitAnd, BitOr, BitXor, BitNot, Shl, Shr;
+i16 extends BitAnd, BitOr, BitXor, BitNot, Shl, Shr;
+i32 extends BitAnd, BitOr, BitXor, BitNot, Shl, Shr;
+i64 extends BitAnd, BitOr, BitXor, BitNot, Shl, Shr;
+i128 extends BitAnd, BitOr, BitXor, BitNot, Shl, Shr;
+
+u8 extends BitAnd, BitOr, BitXor, BitNot, Shl, Shr;
+u16 extends BitAnd, BitOr, BitXor, BitNot, Shl, Shr;
+u32 extends BitAnd, BitOr, BitXor, BitNot, Shl, Shr;
+u64 extends BitAnd, BitOr, BitXor, BitNot, Shl, Shr;
+u128 extends BitAnd, BitOr, BitXor, BitNot, Shl, Shr;
+
+// ============================================================================
+// PHASE 2: Comparison Operators
+// ============================================================================
+
+// All numeric types support Eq and Ord
+i8 extends Eq, Ord;
+i16 extends Eq, Ord;
+i32 extends Eq, Ord;
+i64 extends Eq, Ord;
+i128 extends Eq, Ord;
+
+u8 extends Eq, Ord;
+u16 extends Eq, Ord;
+u32 extends Eq, Ord;
+u64 extends Eq, Ord;
+u128 extends Eq, Ord;
+
+f16 extends Eq, Ord;
+f32 extends Eq, Ord;
+f64 extends Eq, Ord;
+
+// Boolean and string
+bool extends Eq, Not;
+string extends Eq, Ord;
+
+// ============================================================================
+// PHASE 3: Compound Assignment (future)
+// ============================================================================
+
+// TODO: Phase 3 - compound assignment operators
+// i32 extends AddAssign, SubAssign, MulAssign, DivAssign, ModAssign;
+// u32 extends AddAssign, SubAssign, MulAssign, DivAssign, ModAssign;
+// i32 extends BitAndAssign, BitOrAssign, BitXorAssign, ShlAssign, ShrAssign;
+
+// ============================================================================
+// Non-Operator Contracts
+// ============================================================================
+
+// All primitives support Display, Clone, Debug
+i8 extends Display, Clone, Debug;
+i16 extends Display, Clone, Debug;
+i32 extends Display, Clone, Debug;
+i64 extends Display, Clone, Debug;
+i128 extends Display, Clone, Debug;
+
+u8 extends Display, Clone, Debug;
+u16 extends Display, Clone, Debug;
+u32 extends Display, Clone, Debug;
+u64 extends Display, Clone, Debug;
+u128 extends Display, Clone, Debug;
+
+f16 extends Display, Clone, Debug;
+f32 extends Display, Clone, Debug;
+f64 extends Display, Clone, Debug;
+
+bool extends Display, Clone, Debug;
+string extends Display, Clone, Debug;

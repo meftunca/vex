@@ -111,7 +111,7 @@
       "patterns": [
         {
           "name": "keyword.control.vex",
-          "match": "\\b(if|else|elif|match|switch|case|default|for|while|loop|break|continue|return|defer|select|async|await|go|gpu|launch|spawn|yield)\\b"
+          "match": "\\b(if|else|elif|match|switch|case|default|for|while|loop|break|continue|return|defer|select|async|await|go|gpu|launch|spawn|yield|unsafe)\\b"
         },
         {
           "name": "keyword.declaration.vex",

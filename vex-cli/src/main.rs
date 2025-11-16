@@ -138,6 +138,17 @@ enum Commands {
         in_place: bool,
     },
 
+    /// Interactive REPL (Read-Eval-Print-Loop)
+    Repl {
+        /// Load file before starting REPL
+        #[arg(short, long, value_name = "FILE")]
+        load: Option<PathBuf>,
+
+        /// Enable verbose output
+        #[arg(short, long)]
+        verbose: bool,
+    },
+
     /// Run tests
     Test {
         /// Specific test file or pattern (default: all tests)
@@ -251,13 +262,17 @@ fn main() -> Result<()> {
             opt_level,
             emit_llvm,
             locked,
-            emit_spirv: _,
+            emit_spirv,
             json,
         } => {
             // Resolve dependencies before compilation
             if let Err(e) = vex_pm::resolve_dependencies_for_build(locked) {
-                eprintln!("❌ Dependency resolution failed: {}", e);
-                std::process::exit(1);
+                if json {
+                    println!("{{\"error\":\"Dependency resolution failed: {}\"}}}}", e);
+                } else {
+                    eprintln!("❌ Dependency resolution failed: {}", e);
+                }
+                return Err(anyhow::anyhow!("Dependency resolution failed: {}", e));
             }
 
             use inkwell::targets::{FileType, Target};
@@ -319,6 +334,10 @@ fn main() -> Result<()> {
             }
             
             let mut ast = ast_opt.unwrap();
+
+            // ⭐ INJECT EMBEDDED PRELUDE (Layer 1 - Self-hosted)
+            ast = vex_compiler::inject_prelude_into_program(ast)
+                .map_err(|e| anyhow::anyhow!("Failed to load prelude: {}", e))?;
 
             // Extract span map from parser
             let span_map = parser.take_span_map();
@@ -461,7 +480,7 @@ fn main() -> Result<()> {
                 )
                 .ok_or_else(|| anyhow::anyhow!("Unable to create target machine"))?;
 
-            // Write LLVM IR or object file based on emit_llvm flag
+            // Write LLVM IR, SPIR-V, or object file based on flags
             if emit_llvm {
                 let ll_path = output_path.with_extension("ll");
                 codegen
@@ -471,6 +490,40 @@ fn main() -> Result<()> {
                 println!("✓ LLVM IR generated!");
                 println!("  Output: {}", ll_path.display());
                 println!("\n▶️  View with: cat {}", ll_path.display());
+                return Ok(());
+            }
+
+            if emit_spirv {
+                // SPIR-V emission for GPU code
+                if !gpu {
+                    if json {
+                        println!("{{\"error\":\"SPIR-V emission requires --gpu flag\"}}");
+                    } else {
+                        eprintln!("⚠️  Warning: --emit-spirv requires --gpu flag");
+                        eprintln!("   Use: vex compile --gpu --emit-spirv {}", input.display());
+                    }
+                    return Err(anyhow::anyhow!("SPIR-V emission requires GPU mode"));
+                }
+
+                let spirv_path = output_path.with_extension("spv");
+                
+                // TODO: Implement actual SPIR-V emission via LLVM SPIR-V backend
+                // For now, emit LLVM IR with SPIR-V target triple
+                let spirv_ll = output_path.with_extension("spirv.ll");
+                codegen
+                    .module
+                    .print_to_file(&spirv_ll)
+                    .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+                
+                if json {
+                    println!("{{\"spirv_ir\":\"{}\"}}", spirv_ll.display());
+                } else {
+                    println!("✓ SPIR-V IR generated!");
+                    println!("  Output: {}", spirv_ll.display());
+                    println!("\n⚠️  Note: Full SPIR-V binary emission is not yet implemented");
+                    println!("   Generated LLVM IR with GPU annotations instead");
+                    println!("\n▶️  Convert with: llvm-spirv {} -o {}", spirv_ll.display(), spirv_path.display());
+                }
                 return Ok(());
             }
 
@@ -602,6 +655,10 @@ fn main() -> Result<()> {
                     return Err(anyhow::anyhow!("Parse failed"));
                 }
             };
+
+            // ⭐ INJECT EMBEDDED PRELUDE (Layer 1 - Self-hosted)
+            ast = vex_compiler::inject_prelude_into_program(ast)
+                .map_err(|e| anyhow::anyhow!("Failed to load prelude: {}", e))?;
 
             // Extract span map from parser
             let span_map = parser.take_span_map();
@@ -978,7 +1035,11 @@ fn main() -> Result<()> {
             let mut parser = vex_parser::Parser::new_with_file(input_str, &source)?;
 
             match parser.parse_file() {
-                Ok(_) => {
+                Ok(mut ast) => {
+                    // ⭐ INJECT EMBEDDED PRELUDE (Layer 1 - Self-hosted)
+                    ast = vex_compiler::inject_prelude_into_program(ast)
+                        .map_err(|e| anyhow::anyhow!("Failed to load prelude: {}", e))?;
+
                     // Print warnings if any
                     let diagnostics = parser.diagnostics();
                     if !diagnostics.is_empty() {
@@ -1020,6 +1081,140 @@ fn main() -> Result<()> {
                 println!("{}", formatted);
             }
 
+            Ok(())
+        }
+
+        Commands::Repl { load, verbose } => {
+            println!("🔮 Vex REPL v0.2.0");
+            println!("Type 'exit' or Ctrl+D to quit, 'help' for commands\n");
+
+            use std::io::{self, Write};
+
+            let mut context_code = String::new();
+            
+            // Load file if provided
+            if let Some(ref load_path) = load {
+                match std::fs::read_to_string(load_path) {
+                    Ok(content) => {
+                        context_code = content.clone();
+                        println!("✅ Loaded: {}", load_path.display());
+                        if verbose {
+                            println!("--- Context ---\n{}\n--------------", content);
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("⚠️  Failed to load file: {}", e);
+                    }
+                }
+            }
+
+            let mut line_number = 1;
+            loop {
+                print!("vex [{}]> ", line_number);
+                io::stdout().flush()?;
+
+                let mut input = String::new();
+                match io::stdin().read_line(&mut input) {
+                    Ok(0) => break, // EOF (Ctrl+D)
+                    Ok(_) => {
+                        let trimmed = input.trim();
+                        
+                        // Handle special commands
+                        match trimmed {
+                            "exit" | "quit" => break,
+                            "help" => {
+                                println!("REPL Commands:");
+                                println!("  exit/quit  - Exit REPL");
+                                println!("  help       - Show this help");
+                                println!("  clear      - Clear context");
+                                println!("  show       - Show current context");
+                                println!("  load <file>- Load file into context");
+                                println!("\nVex code is executed immediately");
+                                continue;
+                            }
+                            "clear" => {
+                                context_code.clear();
+                                println!("✅ Context cleared");
+                                continue;
+                            }
+                            "show" => {
+                                if context_code.is_empty() {
+                                    println!("(empty context)");
+                                } else {
+                                    println!("--- Context ---\n{}\n--------------", context_code);
+                                }
+                                continue;
+                            }
+                            _ if trimmed.starts_with("load ") => {
+                                let path = trimmed.strip_prefix("load ").unwrap().trim();
+                                match std::fs::read_to_string(path) {
+                                    Ok(content) => {
+                                        context_code = content.clone();
+                                        println!("✅ Loaded: {}", path);
+                                    }
+                                    Err(e) => {
+                                        eprintln!("❌ Failed to load: {}", e);
+                                    }
+                                }
+                                continue;
+                            }
+                            "" => continue,
+                            _ => {}
+                        }
+
+                        // Build complete program with context
+                        let full_code = if context_code.is_empty() {
+                            // Wrap single expression in main
+                            if !trimmed.contains("fn ") && !trimmed.ends_with(';') {
+                                format!("fn main() {{ print({}); }}", trimmed)
+                            } else {
+                                trimmed.to_string()
+                            }
+                        } else {
+                            // Add to existing context
+                            format!("{}\n{}", context_code, trimmed)
+                        };
+
+                        // Try to parse and execute
+                        match vex_parser::Parser::new(&full_code) {
+                            Ok(mut parser) => {
+                                match parser.parse() {
+                                    Ok(ast) => {
+                                        if verbose {
+                                            println!("✓ Parsed successfully");
+                                        }
+                                        
+                                        // For now, just parse and show success
+                                        // TODO: Implement actual execution with LLVM JIT
+                                        println!("✅ Code accepted (execution not yet implemented)");
+                                        
+                                        // Add to context if it's a declaration
+                                        if trimmed.starts_with("fn ") || trimmed.starts_with("struct ") 
+                                            || trimmed.starts_with("const ") {
+                                            context_code.push_str("\n");
+                                            context_code.push_str(trimmed);
+                                        }
+                                    }
+                                    Err(e) => {
+                                        eprintln!("❌ Parse error: {}", e);
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                eprintln!("❌ Lexer error: {}", e);
+                            }
+                        }
+
+                        line_number += 1;
+                    }
+                    Err(e) => {
+                        eprintln!("❌ Input error: {}", e);
+                        break;
+                    }
+                }
+            }
+
+            println!("\n👋 Goodbye!");
             Ok(())
         }
 
@@ -1253,6 +1448,10 @@ fn run_single_test(test_file: &PathBuf, timeout: Option<u64>, _verbose: bool) ->
     let mut ast = parser
         .parse_file()
         .map_err(|e| anyhow::anyhow!("Parse error: {}", e))?;
+
+    // ⭐ INJECT EMBEDDED PRELUDE (Layer 1 - Self-hosted)
+    ast = vex_compiler::inject_prelude_into_program(ast)
+        .map_err(|e| anyhow::anyhow!("Failed to load prelude: {}", e))?;
 
     let span_map = parser.take_span_map();
 

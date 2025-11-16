@@ -20,6 +20,7 @@ impl<'a> Parser<'a> {
             Token::U32 => "u32",
             Token::U64 => "u64",
             Token::U128 => "u128",
+            Token::F16 => "f16",
             Token::F32 => "f32",
             Token::F64 => "f64",
             Token::Bool => "bool",

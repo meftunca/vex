@@ -230,6 +230,7 @@ impl<'a> Parser<'a> {
                 | Token::U32
                 | Token::U64
                 | Token::U128
+                | Token::F16
                 | Token::F32
                 | Token::F64
                 | Token::Bool

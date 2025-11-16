@@ -1,0 +1,34 @@
+// stdlib/core/src/box.vx
+// Box<T> - Heap-allocated value (self-hosted Vex implementation)
+// Wraps C runtime vex_box_* functions
+
+extern "C" {
+    fn vex_box_new(elem_size: i64): ptr;
+    fn vex_box_get(box: ptr): ptr;
+    fn vex_box_free(box: ptr);
+    fn vex_memcpy(dest: ptr, src: ptr, size: i64): ptr;
+}
+
+export struct Box<T> impl Drop {
+    _ptr: ptr
+}
+
+// Static constructor: Box.new<T>(value)
+export fn box_new<T>(value: T): Box<T> {
+    let size = sizeof<T>();
+    let ptr = vex_box_new(size);
+    // Copy value into heap
+    vex_memcpy(ptr, &value, size);
+    return Box { _ptr: ptr };
+}
+
+// Dereference: get value from Box<T>
+export fn box_get<T>(self: &Box<T>): &T {
+    let value_ptr = vex_box_get(self._ptr);
+    return value_ptr as &T;
+}
+
+// Drop implementation (automatic cleanup)
+fn (self: &Box<T>) drop() {
+    vex_box_free(self._ptr);
+}
