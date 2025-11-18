@@ -1,4 +1,5 @@
 // Expression compilation - control flow (match, block, ?, await)
+use crate::{debug_log, debug_println};
 use super::ASTCodeGen;
 use inkwell::values::BasicValueEnum;
 

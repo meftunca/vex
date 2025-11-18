@@ -6,10 +6,10 @@
   "license": "MIT",
   "main": "src/lib.vx",
   "native": {
-    "sources": ["native/vex_swisstable_v2.c"],
+    "sources": [],
     "libraries": ["vex_runtime"],
-    "search_paths": ["../../../vex-runtime/c"],
-    "include_dirs": ["native/", "../../../vex-runtime/c/include/"],
+    "search_paths": ["/Users/mapletechnologies/Desktop/big_projects/vex_lang/vex-runtime/c"],
+    "include_dirs": ["native/", "/Users/mapletechnologies/Desktop/big_projects/vex_lang/vex-runtime/c/include/"],
     "cflags": ["-O3", "-march=native", "-DUSE_SIMD", "-Wall"]
   }
 }

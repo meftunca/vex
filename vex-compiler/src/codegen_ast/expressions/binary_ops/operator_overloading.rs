@@ -2,6 +2,7 @@
 //!
 //! Handles Vec concatenation, builtin contracts, and user-defined operator methods
 
+use crate::{debug_log, debug_println};
 use super::super::super::ASTCodeGen;
 use inkwell::values::BasicValueEnum;
 use vex_ast::*;
@@ -15,7 +16,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         right: &Expression,
     ) -> Result<Option<BasicValueEnum<'ctx>>, String> {
         // ⭐ NEW: Operator Overloading - Check if left operand has operator contract
-        eprintln!("🔍 Binary op: {:?} {:?} {:?}", left, op, right);
+        debug_println!("🔍 Binary op: {:?} {:?} {:?}", left, op, right);
         if let Ok(left_type) = self.infer_expression_type(left) {
             eprintln!("   Left type inferred: {:?}", left_type);
 

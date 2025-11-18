@@ -46,6 +46,7 @@ impl<'a> FormattingVisitor<'a> {
             }
         }
     }
+
     /// Visit import statement
     fn visit_import(&mut self, _import: &Import) {
         // TODO: Implement import formatting

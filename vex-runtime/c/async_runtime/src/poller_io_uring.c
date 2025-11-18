@@ -9,15 +9,19 @@
 #warning "io_uring headers may be too old; falling back should be configured in Makefile."
 #endif
 
+/* Use vex allocator */
+extern void* xmalloc(size_t size);
+extern void xfree(void* ptr);
+
 typedef struct Poller {
     struct io_uring ring;
 } Poller;
 
 Poller* poller_create() {
-    Poller* p = (Poller*)malloc(sizeof(Poller));
+    Poller* p = (Poller*)xmalloc(sizeof(Poller));
     if (!p) return NULL;
     if (io_uring_queue_init(256, &p->ring, 0) != 0) {
-        free(p); return NULL;
+        xfree(p); return NULL;
     }
     return p;
 }
@@ -25,7 +29,7 @@ Poller* poller_create() {
 void poller_destroy(Poller* p) {
     if (!p) return;
     io_uring_queue_exit(&p->ring);
-    free(p);
+    xfree(p);
 }
 
 int poller_add(Poller* p, int fd, EventType type, void* user_data) {

@@ -41,9 +41,11 @@ impl<'a> Parser<'a> {
                 || matches!(self.peek(), Token::OperatorMethod(_)); // ⭐ NEW: Operator methods
 
             if is_method {
-                // If 'fn' present, consume it; otherwise continue (method name will be next)
+                // If 'fn' present, reject with clear error message
                 if self.check(&Token::Fn) {
-                    self.advance(); // consume 'fn'
+                    return Err(self.error(
+                        "Contract methods should not use 'fn' keyword. Use method signature directly: 'method_name(params): ReturnType;'"
+                    ));
                 }
                 trait_methods.push(self.parse_trait_method_signature()?);
             } else if self.check(&Token::Type) {

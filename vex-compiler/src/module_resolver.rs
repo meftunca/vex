@@ -210,6 +210,16 @@ impl ModuleResolver {
                 }
             }
 
+            // Try adding .vx extension if none was provided
+            let with_vx = file_path.with_extension("vx");
+            if with_vx.exists() {
+                return Ok(with_vx);
+            }
+            let with_vxc = file_path.with_extension("vxc");
+            if with_vxc.exists() {
+                return Ok(with_vxc);
+            }
+
             return Err(format!("Module file not found: {:?}", file_path));
         }
 
@@ -253,8 +263,14 @@ impl ModuleResolver {
             }
 
             // Fallback: Try multiple file patterns (prefer src/lib.vx)
-            for module_file in &["src/lib.vx", "mod.vx", "lib.vx"] {
-                let candidate = file_path.join(module_file);
+            // Also handle direct file references (e.g., "collections/src/hashmap")
+            for module_file in &["src/lib.vx", "mod.vx", "lib.vx", ".vx", ".vxc"] {
+                let candidate = if module_file.starts_with('.') {
+                    // Direct file with extension (e.g., hashmap + .vx)
+                    file_path.with_extension(&module_file[1..])
+                } else {
+                    file_path.join(module_file)
+                };
                 if candidate.exists() {
                     return Ok(candidate);
                 }

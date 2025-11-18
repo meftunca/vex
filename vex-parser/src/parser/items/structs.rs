@@ -121,7 +121,10 @@ impl<'a> Parser<'a> {
                 self.diagnostics.push(warning);
                 methods.push(self.parse_struct_method()?);
             } else if matches!(self.peek(), Token::OperatorMethod(_)) {
-                // ⭐ Emit deprecation warning for inline operator methods
+                /* Lines 124-141 omitted */
+                methods.push(self.parse_struct_method()?);
+            } else if matches!(self.peek(), Token::Ident(s) if s == "op") {
+                // ⭐ NEW: Bare "op" identifier for constructor operator method
                 let span = self.token_to_diag_span(&self.peek_span().span);
                 let warning = vex_diagnostics::Diagnostic::warning(
                     "W0001",
@@ -129,7 +132,7 @@ impl<'a> Parser<'a> {
                     span,
                 )
                 .with_help(format!(
-                    "Define operator methods outside the struct: fn (self: &{}) op+(...) {{ }}",
+                    "Define constructor outside the struct: fn (self: &{}) op(...) {{ }}",
                     name
                 ))
                 .with_note(
@@ -279,6 +282,14 @@ impl<'a> Parser<'a> {
             let op_name_owned = op_name.clone();
             self.advance(); // consume operator token
             (true, op_name_owned)
+        } else if let Token::Ident(ident_name) = self.peek() {
+            // ⭐ NEW: Check if Ident is "op" (constructor)
+            if ident_name == "op" {
+                self.advance(); // consume 'op'
+                (true, "op".to_string())
+            } else {
+                (false, self.consume_identifier()?)
+            }
         } else {
             (false, self.consume_identifier()?)
         };
@@ -311,6 +322,8 @@ impl<'a> Parser<'a> {
             is_gpu: false,
             is_mutable,  // ⭐ NEW: Store mutability flag
             is_operator, // ⭐ NEW: Store operator flag
+            is_static: false, // ⭐ Struct methods are never static (use external static methods)
+            static_type: None,
             receiver,
             name,
             type_params: Vec::new(),

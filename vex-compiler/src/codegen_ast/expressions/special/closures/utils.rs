@@ -156,6 +156,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
             is_gpu: false,
             is_mutable,         // ⭐ NEW: Method mutability matches closure capture mode
             is_operator: false, // Closures are not operators
+            is_static: false,
+            static_type: None,
             receiver: Some(Receiver {
                 name: "self".to_string(), // Generated closure struct methods use 'self'
                 is_mutable,

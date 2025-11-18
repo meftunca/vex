@@ -1,0 +1,12 @@
+fn new(): Point {
+    return /* expr */;
+}
+
+struct Point {
+    x: i32,
+}
+
+fn main(): i32 {
+    let _p = Point.new();
+    return 0;
+}

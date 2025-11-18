@@ -2,7 +2,7 @@
 
 **Version:** 0.2.0  
 **Date:** November 12, 2025  
-**Status:** Draft
+**Status:** Syntax Ready (Codegen Pending)
 
 ---
 

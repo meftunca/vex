@@ -10,8 +10,8 @@
 
 | Component | File | Lines |
 |-----------|------|-------|
-| AST | vex-ast/src/lib.rs | 1022 |
-| Parser | vex-parser/src/parser/mod.rs | 512 |
+| AST | vex-ast/src/lib.rs | 1024 |
+| Parser | vex-parser/src/parser/mod.rs | 530 |
 | Codegen | vex-compiler/src/codegen_ast/mod.rs | 378 |
 | Types | vex-compiler/src/codegen_ast/types.rs | 0 |
 | Pattern Matching | vex-compiler/src/codegen_ast/expressions/pattern_matching.rs | 0 |

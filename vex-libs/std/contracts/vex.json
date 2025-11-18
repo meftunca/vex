@@ -1,0 +1,11 @@
+{
+  "name": "contracts",
+  "version": "0.2.0",
+  "description": "Standard contracts for collections, conversion, comparison, and memory management",
+  "authors": ["Vex Team"],
+  "license": "MIT",
+  "dependencies": {},
+  "exports": {
+    "main": "src/lib.vx"
+  }
+}

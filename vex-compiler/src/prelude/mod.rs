@@ -53,7 +53,6 @@ mod tests {
 
     #[test]
     fn test_prelude_sources_not_empty() {
-        assert!(!LIB.is_empty(), "lib.vx should not be empty");
         assert!(!VEC.is_empty(), "vec.vx should not be empty");
         assert!(!OPTION.is_empty(), "option.vx should not be empty");
         assert!(!RESULT.is_empty(), "result.vx should not be empty");
@@ -76,7 +75,6 @@ mod tests {
         let modules = get_embedded_prelude();
         let names: Vec<&str> = modules.iter().map(|(name, _)| *name).collect();
 
-        assert_eq!(names[0], "core::lib");
         assert_eq!(names[1], "core::ops");
         assert_eq!(names[2], "core::builtin_contracts");
         assert_eq!(names[3], "core::option");

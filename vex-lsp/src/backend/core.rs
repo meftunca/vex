@@ -11,34 +11,102 @@ use tower_lsp::{Client, LanguageServer};
 
 use crate::module_resolver::ModuleResolver;
 
-// Simple document cache for incremental parsing
+// Document cache with real parsing (uses DashMap for concurrent access)
 #[derive(Debug)]
 pub struct DocumentCache {
-    // Placeholder - implement incremental parsing later
+    cache: DashMap<String, CachedDocument>,
 }
 
 impl DocumentCache {
     pub fn new() -> Self {
-        Self {}
-    }
-
-    pub fn update(&self, _uri: &str, _text: String, _version: i32) -> CachedDocument {
-        // Placeholder implementation
-        CachedDocument {
-            parse_errors: Vec::new(),
-            ast: None,
+        Self {
+            cache: DashMap::new(),
         }
     }
 
-    pub fn remove(&self, _uri: &str) {
-        // Placeholder implementation
+    pub fn update(&self, uri: &str, text: String, version: i32) -> CachedDocument {
+        // Fast path: check if already cached
+        if let Some(cached) = self.cache.get(uri) {
+            if cached.version == version {
+                return cached.clone();
+            }
+        }
+
+        // Parse with error recovery (don't panic on parse errors)
+        let mut parser = match vex_parser::Parser::new_with_file(uri, &text) {
+            Ok(p) => p,
+            Err(e) => {
+                tracing::error!("Lexer error for {}: {}", uri, e);
+                // Lexer error - return early
+                let diag = vex_diagnostics::Diagnostic::error(
+                    "E0001",
+                    format!("Lexer error: {}", e),
+                    vex_diagnostics::Span::unknown(),
+                );
+                let cached = CachedDocument {
+                    parse_errors: vec![diag],
+                    ast: None,
+                    version,
+                };
+                self.cache.insert(uri.to_string(), cached.clone());
+                return cached;
+            }
+        };
+
+        tracing::debug!("Calling parse_with_recovery for {}", uri);
+        let (ast_opt, mut parse_errors) =
+            match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                parser.parse_with_recovery()
+            })) {
+                Ok(result) => result,
+                Err(panic_err) => {
+                    let panic_msg = if let Some(s) = panic_err.downcast_ref::<&str>() {
+                        s.to_string()
+                    } else if let Some(s) = panic_err.downcast_ref::<String>() {
+                        s.clone()
+                    } else {
+                        "Unknown panic".to_string()
+                    };
+                    tracing::error!("Parser panicked for {}: {}", uri, panic_msg);
+
+                    let diag = vex_diagnostics::Diagnostic::error(
+                        "E0002",
+                        format!("Parser crashed: {}", panic_msg),
+                        vex_diagnostics::Span::unknown(),
+                    );
+                    let cached = CachedDocument {
+                        parse_errors: vec![diag],
+                        ast: None,
+                        version,
+                    };
+                    self.cache.insert(uri.to_string(), cached.clone());
+                    return cached;
+                }
+            };
+
+        // Also collect any warnings from parser
+        parse_errors.extend(parser.diagnostics().iter().cloned());
+
+        let cached = CachedDocument {
+            parse_errors,
+            ast: ast_opt,
+            version,
+        };
+
+        self.cache.insert(uri.to_string(), cached.clone());
+        cached
+    }
+
+    pub fn remove(&self, uri: &str) {
+        self.cache.remove(uri);
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CachedDocument {
     pub parse_errors: Vec<vex_diagnostics::Diagnostic>,
     pub ast: Option<vex_ast::Program>,
+    pub version: i32,
 }
 
 pub struct VexBackend {
@@ -172,9 +240,8 @@ impl LanguageServer for VexBackend {
                     ),
                 ),
                 workspace_symbol_provider: Some(OneOf::Left(true)),
-                // Enable formatting/range formatting
                 document_formatting_provider: Some(OneOf::Left(true)),
-                document_range_formatting_provider: Some(OneOf::Left(true)),
+                document_range_formatting_provider: None,
                 folding_range_provider: Some(FoldingRangeProviderCapability::Simple(true)),
                 type_definition_provider: Some(TypeDefinitionProviderCapability::Simple(true)),
                 implementation_provider: Some(ImplementationProviderCapability::Simple(true)),

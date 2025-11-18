@@ -555,6 +555,52 @@ bool vex_atomic_ptr_compare_exchange(vex_atomic_ptr_t *atomic, void **expected, 
 // BARRIER
 // ============================================================================
 
+#ifdef __APPLE__
+/* macOS custom barrier implementation */
+vex_barrier_t *vex_barrier_new(size_t count) {
+    vex_barrier_t *barrier = (vex_barrier_t *)vex_malloc(sizeof(vex_barrier_t));
+    if (!barrier) {
+        vex_panic("Barrier allocation failed");
+    }
+    
+    pthread_mutex_init(&barrier->mutex, NULL);
+    pthread_cond_init(&barrier->cond, NULL);
+    barrier->count = count;
+    barrier->current = 0;
+    barrier->generation = 0;
+    
+    return barrier;
+}
+
+void vex_barrier_wait(vex_barrier_t *barrier) {
+    pthread_mutex_lock(&barrier->mutex);
+    
+    size_t gen = barrier->generation;
+    barrier->current++;
+    
+    if (barrier->current >= barrier->count) {
+        /* Last thread - reset and wake all */
+        barrier->generation++;
+        barrier->current = 0;
+        pthread_cond_broadcast(&barrier->cond);
+    } else {
+        /* Wait for barrier to complete */
+        while (gen == barrier->generation) {
+            pthread_cond_wait(&barrier->cond, &barrier->mutex);
+        }
+    }
+    
+    pthread_mutex_unlock(&barrier->mutex);
+}
+
+void vex_barrier_drop(vex_barrier_t *barrier) {
+    pthread_mutex_destroy(&barrier->mutex);
+    pthread_cond_destroy(&barrier->cond);
+    vex_free(barrier);
+}
+
+#else
+/* Linux native pthread_barrier_t implementation */
 vex_barrier_t *vex_barrier_new(size_t count) {
     vex_barrier_t *barrier = (vex_barrier_t *)vex_malloc(sizeof(vex_barrier_t));
     if (!barrier) {
@@ -587,6 +633,7 @@ void vex_barrier_drop(vex_barrier_t *barrier) {
     }
     vex_free(barrier);
 }
+#endif
 
 // ============================================================================
 // ONCE

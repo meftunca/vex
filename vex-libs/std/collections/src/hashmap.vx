@@ -1,23 +1,43 @@
-// HashMap<K, V> - Generic hash map
-// Zero-cost wrapper over vex_swisstable_v2.c (30M+ ops/s)
+//zero-cost wrapper over vex_swisstable_v2.c (30M+ ops/s)
 
 // External C functions from vex_swisstable_v2.c
-extern "C" {
-    fn vex_map_new_v2(map: **void, capacity: i64): bool;
-    fn vex_map_insert_v2(map: *void, key: str, value: *void): bool;
-    fn vex_map_get_v2(map: *void, key: str): *void;
-    fn vex_map_remove_v2(map: *void, key: str): bool;
-    fn vex_map_len_v2(map: *void): i64;
-    fn vex_map_free_v2(map: *void);
-}
+import {
+    vex_map_new_v2,
+    vex_map_insert_v2,
+    vex_map_get_v2,
+    vex_map_remove_v2,
+    vex_map_len_v2,
+    vex_map_free_v2
+} from "./native.vxc";
 
+    
+
+contract HashMapContract<K, V> {
+    insert(key: K, value: V): Option<V>;
+    get(key: K): Option<V>;
+    remove(key: K): Option<V> ;
+    contains_key(key: K): bool ;
+    len(): i64 ;
+    is_empty(): bool ;
+    clear() ;
+}
 // HashMap<K, V> - Generic hash map
-export struct HashMap<K, V> {
-    inner: *void,     // Opaque pointer to C SwissMap
+export struct HashMap<K, V> impl HashMapContract<K, V> {
+    inner: *u8,     // Opaque pointer to C SwissMap
     len: i64,         // Cached length
     capacity: i64,    // Current capacity
 }
 
+// ⭐ Static constructor - enables HashMap<str, i32>() syntax
+// These are FREE FUNCTIONS, not methods (no receiver = static)
+export fn HashMap.new<K, V>(): HashMap<K, V> {
+    return with_capacity_hashmap<K, V>(16);
+}
+
+export fn HashMap.new<K, V>(cap: i64): HashMap<K, V> {
+    return with_capacity_hashmap<K, V>(cap);
+}
+    
 // Free functions for HashMap construction
 export fn new_hashmap<K, V>(): HashMap<K, V> {
     return with_capacity_hashmap<K, V>(16);
@@ -25,7 +45,7 @@ export fn new_hashmap<K, V>(): HashMap<K, V> {
 
 export fn with_capacity_hashmap<K, V>(cap: i64): HashMap<K, V> {
     let! map = HashMap<K, V> {
-        inner: 0 as *void,
+        inner: 0 as *u8,
         len: 0,
         capacity: cap,
     };
@@ -36,35 +56,20 @@ export fn with_capacity_hashmap<K, V>(cap: i64): HashMap<K, V> {
     return map;
 }
 
-// Concrete constructors for common types (temporary workaround)
-export fn new_hashmap_str_i32(): HashMap<str, i32> {
-    return with_capacity_hashmap(16);
-}
 
-export fn new_hashmap_i32_i32(): HashMap<i32, i32> {
-    return with_capacity_hashmap(16);
-}
-
-export fn with_capacity_hashmap_str_i32(cap: i64): HashMap<str, i32> {
-    return with_capacity_hashmap(cap);
-}
-
-export fn with_capacity_hashmap_i32_i32(cap: i64): HashMap<i32, i32> {
-    return with_capacity_hashmap(cap);
-}
 
 // HashMap methods using Golang-style syntax
 fn (self: &HashMap<K, V>!) insert(key: K, value: V): Option<V> {
     // For now, use simple string conversion
     // TODO: Proper hash function for generic K
-    let key_str = "key";  // Placeholder
+    let! key_str = "key";  // Placeholder
     
     // Check if key exists (for return value)
     let old_ptr = vex_map_get_v2(self.inner, key_str);
-    if old_ptr == (0 as *void) {
+    if old_ptr == (0 as *u8) {
         let old_val = None;
         // Insert/update
-        let inserted = vex_map_insert_v2(self.inner, key_str, &value as *void);
+        let inserted = vex_map_insert_v2(self.inner, key_str, &value as *u8);
         if inserted {
             self.len = self.len + 1;
         }
@@ -73,7 +78,7 @@ fn (self: &HashMap<K, V>!) insert(key: K, value: V): Option<V> {
         let old = *(old_ptr as *V);
         let old_val = Some(old);
         // Insert/update
-        vex_map_insert_v2(self.inner, key_str, &value as *void);
+        vex_map_insert_v2(self.inner, key_str, &value as *u8);
         return old_val;
     }
 }
@@ -83,7 +88,7 @@ fn (self: &HashMap<K, V>) get(key: K): Option<V> {
     let key_str = "key";  // Placeholder
     let ptr = vex_map_get_v2(self.inner, key_str);
     
-    if ptr == (0 as *void) {
+    if ptr == (0 as *u8) {
         return None;
     } else {
         let val = *(ptr as *V);
@@ -97,7 +102,7 @@ fn (self: &HashMap<K, V>!) remove(key: K): Option<V> {
     
     // Get old value before removing
     let ptr = vex_map_get_v2(self.inner, key_str);
-    if ptr == (0 as *void) {
+    if ptr == (0 as *u8) {
         return None;
     }
     

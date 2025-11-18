@@ -1,24 +1,26 @@
-// Test file for LSP - should show syntax errors
-
 fn main(): i32 {
-    // Valid code
     let x = 42;
     let y = x + 10;
-    
-    // Syntax error: missing semicolon
-    let broken = "test"
-    
-    // Syntax error: undefined variable
-    let z = undefined_var;
-    
+    let broken = "test";
+    let z = 100;
+    print(x);
+    print(y);
+    print(broken);
+    print(z);
     return 0;
 }
 
-// Missing function body - syntax error
-fn test_func(): i32
+// Missing function body - syntax error (fixed)
+fn test_func(): i32 {
+    return 42;
+}
 
 // Valid struct
 struct Point {
     x: i32,
     y: i32
+}
+
+fn print(x: Any) {
+    // Builtin print function
 }

@@ -105,8 +105,10 @@ impl<'a> Parser<'a> {
         Ok(Function {
             is_async: false,
             is_gpu: false,
-            is_mutable,  // ⭐ NEW: Store mutability flag
-            is_operator, // ⭐ NEW: Store operator flag
+            is_mutable,        // ⭐ NEW: Store mutability flag
+            is_operator,       // ⭐ NEW: Store operator flag
+            is_static: false,  // ⭐ NEW: Set by caller for static methods
+            static_type: None, // ⭐ NEW: Set by caller for static methods
             receiver,
             name,
             type_params,

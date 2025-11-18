@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 const STDLIB_MODULES: &[&str] = &[
     // "io",
     "core",
-    // "collections",
+    "collections",
     // "string",
     // "memory",
     // "sync",

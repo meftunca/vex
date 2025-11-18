@@ -1,6 +1,7 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
+use vex_compiler::{debug_log, debug_println};
 
 #[derive(Parser)]
 #[command(name = "vex")]
@@ -459,15 +460,15 @@ fn main() -> Result<()> {
                 }
             }
 
-            eprintln!("🔍 About to initialize LLVM target");
+            debug_println!("🔍 About to initialize LLVM target");
             // Link the final executable
             println!("   🔗 Linking executable...");
             let obj_path = PathBuf::from(format!("vex-builds/{}.o", filename));
 
-            eprintln!("🔍 Calling Target::initialize_native");
+            debug_println!("🔍 Calling Target::initialize_native");
             Target::initialize_native(&inkwell::targets::InitializationConfig::default())
                 .map_err(|e| anyhow::anyhow!(e.to_string()))?;
-            eprintln!("🔍 Target initialized");
+            debug_println!("🔍 Target initialized");
             let target_triple = inkwell::targets::TargetMachine::get_default_triple();
             let target =
                 Target::from_triple(&target_triple).map_err(|e| anyhow::anyhow!(e.to_string()))?;
@@ -683,11 +684,9 @@ fn main() -> Result<()> {
             let mut native_linker_args: Vec<String> = Vec::new();
 
             if !ast.imports.is_empty() {
-                // Two-tier module resolution:
-                // 1. vex-libs/std - Standard library packages (import "conv", "http", etc.)
-                // 2. stdlib - Prelude (auto-injected core types: Vec, Box, Option, Result)
+                // Module resolution: vex-libs/std - Standard library packages (import "conv", "http", etc.)
+                // Note: Prelude (Vec, Box, Option, Result) is now auto-injected by compiler
                 let mut std_resolver = vex_compiler::ModuleResolver::new(PathBuf::from("vex-libs/std"));
-                let mut prelude_resolver = vex_compiler::ModuleResolver::new(PathBuf::from("stdlib"));
 
                 // Collect sub-imports to add after iteration
                 let mut sub_imports_to_add: Vec<vex_ast::Import> = Vec::new();
@@ -744,20 +743,11 @@ fn main() -> Result<()> {
                         module_path.clone()
                     };
 
-                    // Try standard library first (vex-libs/std), then prelude (stdlib)
+                    // Load from standard library (vex-libs/std)
                     let module_ast = match std_resolver.load_module(&actual_module_path, Some(&parser_file)) {
-                        Ok(module) => {
-                            module
-                        }
-                        Err(_) => {
-                            match prelude_resolver.load_module(&actual_module_path, Some(&parser_file)) {
-                                Ok(module) => {
-                                    module
-                                }
-                                Err(e) => {
-                                    anyhow::bail!("⚠️  Import error for '{}': {}", module_path, e);
-                                }
-                            }
+                        Ok(module) => module,
+                        Err(e) => {
+                            anyhow::bail!("⚠️  Import error for '{}': {}", module_path, e);
                         }
                     };
 
@@ -767,34 +757,51 @@ fn main() -> Result<()> {
                     for sub_import in &module_ast.imports {
                         // Convert relative imports to absolute path
                         let sub_module_path = if sub_import.module.starts_with("./") || sub_import.module.starts_with("../") {
-                            // Resolve ./ relative to parent package
-                            // If actual_module_path is "math" (package), resolve relative to package/src/
-                            // Example: math → math/src/lib.vx (via vex.json main field)
-                            //          math/src/lib.vx imports "./native.vxc" → "math/src/native.vxc"
+                            // Resolve ./ relative to the ACTUAL loaded file
+                            // Example: "collections" → loads "collections/src/lib.vx" (via vex.json)
+                            //          lib.vx imports "./hashmap" → resolve to "collections/src/hashmap"
+                            // Example: "collections/src/hashmap" → loads "collections/src/hashmap.vx"
+                            //          hashmap.vx imports "./hashmap.vxc" → resolve to "collections/src/hashmap.vxc"
                             
-                            // Check if this is a package import (no .vx/.vxc extension)
-                            let is_package_import = !actual_module_path.ends_with(".vx") && !actual_module_path.ends_with(".vxc");
-                            
-                            let base_dir = if is_package_import {
-                                // Package import uses main field, default to <package>/src/
+                            // Determine base directory: if actual_module_path is already resolved,
+                            // just use its directory (don't assume src/ again)
+                            let base_dir = if actual_module_path.contains('/') {
+                                let parts: Vec<&str> = actual_module_path.rsplitn(2, '/').collect();
+                                if parts.len() == 2 {
+                                    parts[1].to_string() // Everything before the last /
+                                } else {
+                                    "".to_string()
+                                }
+                            } else if !actual_module_path.ends_with(".vx") && !actual_module_path.ends_with(".vxc") {
+                                // Package import with no slashes - assume src/
                                 format!("{}/src", actual_module_path)
                             } else {
-                                // Direct file import, use its directory
-                                if actual_module_path.contains('/') {
-                                    let parts: Vec<&str> = actual_module_path.rsplitn(2, '/').collect();
-                                    if parts.len() == 2 {
-                                        parts[1].to_string() // Everything before the last /
-                                    } else {
-                                        "".to_string()
-                                    }
-                                } else {
-                                    "".to_string() // No directory, root level
-                                }
+                                "".to_string() // No directory, root level
                             };
                             
-                            let relative_cleaned = sub_import.module.trim_start_matches("./");
+                            // Handle both ./ and ../ prefixes
+                            let relative_cleaned = if sub_import.module.starts_with("../") {
+                                // For ../, go up one directory level
+                                let without_prefix = sub_import.module.trim_start_matches("../");
+                                if base_dir.contains('/') {
+                                    let parent_parts: Vec<&str> = base_dir.rsplitn(2, '/').collect();
+                                    if parent_parts.len() == 2 {
+                                        format!("{}/{}", parent_parts[1], without_prefix)
+                                    } else {
+                                        without_prefix.to_string()
+                                    }
+                                } else {
+                                    without_prefix.to_string()
+                                }
+                            } else {
+                                sub_import.module.trim_start_matches("./").to_string()
+                            };
+                            
                             if base_dir.is_empty() {
-                                relative_cleaned.to_string()
+                                relative_cleaned
+                            } else if relative_cleaned.starts_with(&base_dir) {
+                                // Avoid double-adding base_dir
+                                relative_cleaned
                             } else {
                                 format!("{}/{}", base_dir, relative_cleaned)
                             }
@@ -1181,7 +1188,7 @@ fn main() -> Result<()> {
         }
         Commands::Check { input } => {
             // TODO: Implement syntax checking
-            println!("🔍 Checking: {:?}", input);
+            debug_println!("🔍 Checking: {:?}", input);
             let source = std::fs::read_to_string(&input)?;
             let input_str = input.to_str().unwrap_or("unknown.vx");
             let mut parser = vex_parser::Parser::new_with_file(input_str, &source)?;
@@ -1425,7 +1432,7 @@ fn main() -> Result<()> {
             };
 
             // Discover test files
-            println!("🔍 Discovering tests with pattern: {}", search_pattern);
+            debug_println!("🔍 Discovering tests with pattern: {}", search_pattern);
 
             // Debug: print current directory
             if verbose {
@@ -1610,18 +1617,14 @@ fn run_single_test(test_file: &PathBuf, timeout: Option<u64>, _verbose: bool) ->
     // Import resolution (same as vex run)
     if !ast.imports.is_empty() {
         let mut std_resolver = vex_compiler::ModuleResolver::new(PathBuf::from("vex-libs/std"));
-        let mut prelude_resolver = vex_compiler::ModuleResolver::new(PathBuf::from("stdlib"));
 
         for import in &ast.imports {
             let module_path = &import.module;
             
             let module_ast = match std_resolver.load_module(module_path, Some(test_file_str)) {
                 Ok(module) => module,
-                Err(_) => match prelude_resolver.load_module(module_path, Some(test_file_str)) {
-                    Ok(module) => module,
-                    Err(e) => {
-                        return Err(anyhow::anyhow!("Module resolution failed: {}", e));
-                    }
+                Err(e) => {
+                    return Err(anyhow::anyhow!("Module resolution failed: {}", e));
                 }
             };
 

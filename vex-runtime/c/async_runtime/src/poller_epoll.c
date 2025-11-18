@@ -6,22 +6,26 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* Use vex allocator */
+extern void* xmalloc(size_t size);
+extern void xfree(void* ptr);
+
 typedef struct Poller {
     int epfd;
 } Poller;
 
 Poller* poller_create() {
-    Poller* p = (Poller*)malloc(sizeof(Poller));
+    Poller* p = (Poller*)xmalloc(sizeof(Poller));
     if (!p) return NULL;
     p->epfd = epoll_create1(EPOLL_CLOEXEC);
-    if (p->epfd < 0) { free(p); return NULL; }
+    if (p->epfd < 0) { xfree(p); return NULL; }
     return p;
 }
 
 void poller_destroy(Poller* p) {
     if (!p) return;
     close(p->epfd);
-    free(p);
+    xfree(p);
 }
 
 int poller_add(Poller* p, int fd, EventType type, void* user_data) {

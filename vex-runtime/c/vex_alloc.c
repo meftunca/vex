@@ -10,6 +10,7 @@
  * - Inline cache (no function call overhead)
  * - Optional tracking (disabled by default)
  * - Lock-free everything (atomic or thread-local only)
+ * - Pluggable backend (mimalloc/jemalloc/system)
  * 
  * Performance:
  * - Stack alloc: 0 cycles (compile-time)
@@ -24,6 +25,7 @@
  */
 
 #include "vex.h"
+#include "vex_allocator.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>

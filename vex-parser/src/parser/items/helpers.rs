@@ -42,6 +42,11 @@ impl<'a> Parser<'a> {
                 self.advance();
                 Ok("new".to_string())
             }
+            Token::From => {
+                // Allow 'from' as identifier in function/field names
+                self.advance();
+                Ok("from".to_string())
+            }
             _ => Err(self.error("Expected identifier or keyword")),
         }
     }

@@ -196,15 +196,15 @@ rect_mut.scale(2); // '!' yok
 
 ```vex
 contract Display {
-    fn show();        // Immutable contract
-    fn update()!;     // Mutable contract
+    show();        // ✅ No 'fn' prefix in contract declarations
+    update()!;     // Mutable contract method
 }
 
 struct User impl Display {
     name: string,
     age: i32,
 
-    // Contract methods MUST be here (in struct body)
+    // Contract methods MUST be implemented here (in struct body)
     fn show() {
         print(self.name, " - ", self.age);
     }

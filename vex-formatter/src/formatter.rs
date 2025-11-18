@@ -20,8 +20,20 @@ impl Formatter {
     /// Format source code
     pub fn format(&self, source: &str) -> Result<String> {
         // Parse source code to AST
-        let mut parser = Parser::new_with_file("formatter.vx", source)?;
-        let program = parser.parse_file()?;
+        let mut parser = match Parser::new_with_file("formatter.vx", source) {
+            Ok(p) => p,
+            Err(e) => {
+                return Err(anyhow::anyhow!("Lexer error: {}", e));
+            }
+        };
+
+        let program = match parser.parse_file() {
+            Ok(p) => p,
+            Err(e) => {
+                // Return original source if parse fails - don't format broken code
+                return Err(anyhow::anyhow!("Parse error: {}", e));
+            }
+        };
 
         // Visit AST and format
         let mut visitor = FormattingVisitor::new(&self.config);

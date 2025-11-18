@@ -107,38 +107,56 @@ impl<'a> Parser<'a> {
             } else if self.check(&Token::Fn) {
                 self.advance(); // consume 'fn'
 
-                // Check for static method syntax: fn Type<T>.method()
+                // ⭐ NEW: Check for static method syntax: fn Type<T>.method()
                 let checkpoint = self.current;
+                let mut static_type = None;
+                let mut type_params = Vec::new();
+                let mut const_params = Vec::new();
 
-                // Try to consume type name (could be identifier or keyword like 'new')
-                let is_static_method = if let Token::Ident(_) = self.peek() {
+                // Try to consume type name (could be identifier or keyword)
+                let is_static_method = if let Token::Ident(type_name) = self.peek() {
+                    let type_name_str = type_name.clone();
                     self.advance(); // consume type name
 
-                    // Check for generic args: Type<T>
+                    // Check for generic args: Type<T, U>
                     if self.check(&Token::Lt) {
-                        // Skip generic args
-                        self.advance(); // '<'
-                        let mut depth = 1;
-                        while depth > 0 && !self.is_at_end() {
-                            match self.peek() {
-                                Token::Lt => depth += 1,
-                                Token::Gt => depth -= 1,
-                                _ => {}
-                            }
-                            self.advance();
-                        }
+                        let (tp, cp) = self.parse_type_params()?;
+                        type_params = tp;
+                        const_params = cp;
                     }
 
                     // Check for dot: Type.method or Type<T>.method
-                    self.check(&Token::Dot)
+                    if self.check(&Token::Dot) {
+                        static_type = Some(type_name_str);
+                        true
+                    } else {
+                        false
+                    }
                 } else {
                     false
                 };
 
                 if is_static_method {
                     self.advance(); // consume '.'
-                                    // This is a static method! Parse rest as normal function
-                    let func = self.parse_function()?;
+
+                    // Parse the rest as a normal function
+                    let mut func = self.parse_function()?;
+
+                    // Mark as static method and store type info
+                    func.is_static = true;
+                    func.static_type = static_type.clone();
+
+                    // Merge generic params from Type<T> with method params
+                    if !type_params.is_empty() {
+                        // Type generics come first: Vec<T>.from_slice() has T from Vec
+                        type_params.extend(func.type_params);
+                        func.type_params = type_params;
+                    }
+                    if !const_params.is_empty() {
+                        const_params.extend(func.const_params);
+                        func.const_params = const_params;
+                    }
+
                     items.push(Item::Function(func));
                 } else {
                     // Not a static method, backtrack

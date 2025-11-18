@@ -9,11 +9,13 @@ export struct Box<T> impl Drop {
 }
 
 // Static constructor: Box.new<T>(value)
-export fn box_new<T>(value: T): Box<T> {
+    export fn box_new<T>(value: T): Box<T> {
     let size = sizeof<T>();
     let ptr = vex_box_new(size);
     // Copy value into heap
     vex_memcpy(ptr, &value, size);
+    
+
     return Box { _ptr: ptr };
 }
 

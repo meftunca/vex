@@ -1,0 +1,14 @@
+struct Point {
+    x: i32,
+}
+
+fn Point.new(x: i32): Point {
+    return  Point{x: x};
+}
+
+fn main(): i32 {
+
+    let p = Point(10);
+    print(p.x);
+    return 0;
+}

@@ -107,10 +107,16 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 // This is a static method call: Type.method(args) or Vec<i32>.new()
                 // Try static method first; if not found, fall through to instance method
                 // resolution so that inline/instance methods are not shadowed by type name.
-                if let Ok(val) =
-                    self.compile_static_method_call(potential_type_name, method, type_args, args)
-                {
-                    return Ok(val);
+                eprintln!("🔍 Attempting static method call: {}.{}", potential_type_name, method);
+                match self.compile_static_method_call(potential_type_name, method, type_args, args) {
+                    Ok(val) => {
+                        eprintln!("✅ Static method call succeeded!");
+                        return Ok(val);
+                    }
+                    Err(e) => {
+                        eprintln!("❌ Static method call failed: {}", e);
+                        // Fall through to other resolution methods
+                    }
                 }
 
                 // Special-case: allow calling an instance method as a static call when

@@ -11,7 +11,9 @@
  * - Once - One-time initialization
  * 
  * Platform Support:
- * - POSIX: pthread_mutex, pthread_rwlock, pthread_barrier
+ * - POSIX: pthread_mutex, pthread_rwlock
+ * - Linux: pthread_barrier (native)
+ * - macOS: Custom barrier implementation (pthread_barrier not available)
  * - C11: stdatomic.h (atomic_int, atomic_uint_fast64_t, etc.)
  * - Lock-free: All Atomic<T> operations use compiler intrinsics
  * 
@@ -346,16 +348,31 @@ bool vex_atomic_ptr_compare_exchange(vex_atomic_ptr_t *atomic, void **expected, 
 // ============================================================================
 
 /**
- * Barrier - Wait for N threads to reach sync point
+ * Barrier - Thread Synchronization Point
+ * 
+ * Blocks threads until N threads reach the barrier.
+ * Last thread to arrive unblocks all threads.
  * 
  * Usage:
  *   Barrier *b = vex_barrier_new(3);  // Wait for 3 threads
  *   vex_barrier_wait(b);              // Blocks until 3 threads call this
  */
+#ifdef __APPLE__
+/* macOS doesn't have pthread_barrier_t, use custom implementation */
+typedef struct {
+    pthread_mutex_t mutex;
+    pthread_cond_t cond;
+    size_t count;
+    size_t current;
+    size_t generation;
+} vex_barrier_t;
+#else
+/* Linux and other POSIX systems have pthread_barrier_t */
 typedef struct {
     pthread_barrier_t barrier;
     size_t count;
 } vex_barrier_t;
+#endif
 
 vex_barrier_t *vex_barrier_new(size_t count);
 void vex_barrier_wait(vex_barrier_t *barrier);

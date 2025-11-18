@@ -24,15 +24,29 @@ impl VexBackend {
         let text = Arc::new(params.text_document.text.clone());
         let version = params.text_document.version;
 
-        tracing::info!("Document opened: {}", uri);
+        tracing::info!("Document opened: {} (v{}, {} bytes, async parsing)", uri, version, text.len());
 
         // Store document (Arc for cheap cloning)
         self.documents.insert(uri.clone(), Arc::clone(&text));
 
-        // Parse and send diagnostics (with version tracking)
-        let diagnostics = self.parse_and_diagnose(&uri, &text, version).await;
-        self.publish_diagnostics(params.text_document.uri, diagnostics, Some(version))
-            .await;
+        // Spawn async parsing task (debounced, not blocking)
+        let backend = self.clone_backend();
+        let uri_clone = uri.clone();
+        let text_clone = Arc::clone(&text);
+        let doc_uri = params.text_document.uri.clone();
+
+        tokio::spawn(async move {
+            // Small delay to avoid blocking UI on file open
+            tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+            tracing::debug!("Starting parse for {} (v{})", uri_clone, version);
+            let start = std::time::Instant::now();
+            let diagnostics = backend.parse_and_diagnose(&uri_clone, &text_clone, version).await;
+            let elapsed = start.elapsed();
+            tracing::info!("Parsed {} in {:.2}ms ({} diagnostics)", uri_clone, elapsed.as_secs_f64() * 1000.0, diagnostics.len());
+            backend
+                .publish_diagnostics(doc_uri, diagnostics, Some(version))
+                .await;
+        });
     }
 
     pub async fn did_change(&self, params: DidChangeTextDocumentParams) {
@@ -42,7 +56,7 @@ impl VexBackend {
         if let Some(change) = params.content_changes.first() {
             let text = Arc::new(change.text.clone());
 
-            tracing::info!("Document changed: {} (version {})", uri, version);
+            tracing::debug!("Document changed: {} (v{}, {} bytes)", uri, version, text.len());
 
             // Update document (Arc for cheap cloning)
             self.documents.insert(uri.clone(), Arc::clone(&text));
@@ -62,17 +76,22 @@ impl VexBackend {
                 // Wait 300ms for more edits
                 tokio::time::sleep(tokio::time::Duration::from_millis(300)).await;
 
+                tracing::debug!("Starting debounced parse for {} (v{})", uri_clone, version);
+                let start = std::time::Instant::now();
+
                 // Parse in background thread with timeout protection (5s max)
                 let parse_future = backend.parse_and_diagnose(&uri_clone, &text_clone, version);
                 match tokio::time::timeout(tokio::time::Duration::from_secs(5), parse_future).await
                 {
                     Ok(diagnostics) => {
+                        let elapsed = start.elapsed();
+                        tracing::info!("Parsed {} in {:.2}ms ({} diagnostics)", uri_clone, elapsed.as_secs_f64() * 1000.0, diagnostics.len());
                         backend
                             .publish_diagnostics(doc_uri, diagnostics, Some(version))
                             .await;
                     }
                     Err(_) => {
-                        tracing::error!("Parse timeout for {} (version {})", uri_clone, version);
+                        tracing::error!("Parse timeout for {} (v{}) after 5s", uri_clone, version);
                     }
                 }
             });

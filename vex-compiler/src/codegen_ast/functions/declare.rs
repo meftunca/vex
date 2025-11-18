@@ -1,5 +1,6 @@
 // src/codegen/functions/declare.rs
 use super::super::*;
+use crate::{debug_log, debug_println};
 use inkwell::types::{BasicMetadataTypeEnum, BasicTypeEnum};
 use inkwell::values::FunctionValue;
 
@@ -8,8 +9,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
         &mut self,
         func: &Function,
     ) -> Result<FunctionValue<'ctx>, String> {
-        println!("🔍 DECLARE_FUNCTION: entering for {}", func.name);
-        println!("🔍 DECLARE_FUNCTION: is_async = {}", func.is_async);
+        debug_println!("🔍 DECLARE_FUNCTION: entering for {}", func.name);
+        debug_println!("🔍 DECLARE_FUNCTION: is_async = {}", func.is_async);
+
         // If receiver exists, ensure that `Self` in the function signature is
         // substituted for the actual concrete type. This prevents `SelfType`
         // from leaking into LLVM function declarations.
@@ -33,7 +35,19 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }
         }
 
-        let fn_name = if let Some(ref receiver) = func_for_decl.receiver {
+        let fn_name = if func_for_decl.is_static {
+            let type_name = func_for_decl
+                .static_type
+                .as_ref()
+                .ok_or_else(|| "Static method missing type name".to_string())?;
+
+            if func_for_decl.name.starts_with(&format!("{}_", type_name)) {
+                func_for_decl.name.clone()
+            } else {
+                let encoded_method_name = Self::encode_operator_name(&func_for_decl.name);
+                format!("{}_{}", type_name, encoded_method_name)
+            }
+        } else if let Some(ref receiver) = func_for_decl.receiver {
             let type_name = match &receiver.ty {
                 Type::Named(name) => name.clone(),
                 Type::Generic { name, .. } => name.clone(), // Generic types like Container<T>
@@ -76,19 +90,24 @@ impl<'ctx> ASTCodeGen<'ctx> {
             func.name.clone()
         };
 
-        eprintln!(
+        debug_log!(
             "🔍 DEBUG: func.name='{}', fn_name='{}', func.is_async={}",
-            func.name, fn_name, func.is_async
+            func.name,
+            fn_name,
+            func.is_async
         );
 
         // ⭐ SPECIAL HANDLING: async main() should be declared as regular main
         let is_async_main = func.name == "main" && func.is_async;
         let effective_is_async = func.is_async; // Keep async for main too
-        eprintln!("🔍 DEBUG: func.name='{}', fn_name='{}', func.is_async={}, is_async_main={}, effective_is_async={}", 
+        debug_log!("🔍 DEBUG: func.name='{}', fn_name='{}', func.is_async={}, is_async_main={}, effective_is_async={}", 
             func.name, fn_name, func.is_async, is_async_main, effective_is_async);
-        eprintln!(
+        debug_log!(
             "🔍 Function {}: is_async={}, is_async_main={}, effective_is_async={}",
-            func.name, func.is_async, is_async_main, effective_is_async
+            func.name,
+            func.is_async,
+            is_async_main,
+            effective_is_async
         );
 
         let mut param_types = vec![];
@@ -120,12 +139,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let is_variadic = func.is_variadic;
 
         let fn_val = if let Some(ref ty) = func_for_decl.return_type {
-            println!("🔍 ABOUT TO CHECK RETURN TYPE for {}", fn_name);
-            eprintln!("🔍 Function {} return type check: {:?}", fn_name, ty);
+            debug_println!("🔍 ABOUT TO CHECK RETURN TYPE for {}", fn_name);
+            debug_log!("🔍 Function {} return type check: {:?}", fn_name, ty);
 
             // ⭐ SPECIAL: Type::Nil should be treated as void (no return value)
             if matches!(ty, Type::Nil) {
-                eprintln!("🟢 Function {} return type: nil (void)", fn_name);
+                debug_log!("🟢 Function {} return type: nil (void)", fn_name);
                 let fn_type = self.context.void_type().fn_type(&param_types, is_variadic);
                 let fn_val = self.module.add_function(&fn_name, fn_type, None);
                 self.functions.insert(fn_name.clone(), fn_val);

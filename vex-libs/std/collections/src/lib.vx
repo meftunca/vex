@@ -1,12 +1,12 @@
 // std.collections - Collection types
 // Re-exports all collection types and functions
 
-import { HashMap, new_hashmap, with_capacity_hashmap } from "hashmap";
-import { HashSet, new_hashset, with_capacity_hashset } from "hashset";
+import { HashMap, new_hashmap, with_capacity_hashmap } from "./hashmap";
+import { HashSet, new_hashset, with_capacity_hashset } from "./hashset";
 
 export { 
-    HashMap, new_hashmap, with_capacity_hashmap,
-    HashSet, new_hashset, with_capacity_hashset
+    HashMap,
+    HashSet
 };
 
 // Version info

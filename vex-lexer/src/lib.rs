@@ -355,7 +355,9 @@ pub enum Token {
     // Operator methods: op+, op-, op*, op/, op%, op==, op[], op++, etc.
     // Must come BEFORE regular identifiers to match first
     // Order matters: longer operators first (op<<= before op<<, op[]= before op[])
-    #[regex(r"op(\+\+|--|\*\*|<<=|>>=|\.\.=|\?\?|\[\]=|\[\]|[+\-*/%&|^]=|==|!=|<=|>=|<<|>>|&&|\|\||\.\.|\^|~|[+\-*/%<>&|!()])", |lex| lex.slice().to_string(), priority = 15)]
+    // ⭐ NEW: Added bare "op" (constructor) support - matches "op" followed by optional operator
+    // NOTE: op(, op) are NOT operators - they're for function call syntax
+    #[regex(r"op(?:\+\+|--|\*\*|<<=|>>=|\.\.=|\?\?|\[\]=|\[\]|[+\-*/%&|^]=|==|!=|<=|>=|<<|>>|&&|\|\||\.\.|\^|~|[+\-*/%<>&|!])?", |lex| lex.slice().to_string(), priority = 15)]
     OperatorMethod(String),
 
     // Identifiers - defined after operator methods

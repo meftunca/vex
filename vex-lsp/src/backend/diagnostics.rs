@@ -24,9 +24,9 @@ impl VexBackend {
             return diagnostics;
         }
 
-        // If we have AST, run linter + borrow checker
+        // If we have AST, run linter (fast) + borrow checker (slower, optional)
         if let Some(mut program) = cached_doc.ast {
-            // Run linter for warnings (unused variables, etc.)
+            // Run linter for warnings (unused variables, etc.) - this is fast
             let mut linter = Linter::new();
             let lint_warnings = linter.lint(&program);
             for vex_diag in &lint_warnings {
@@ -36,10 +36,13 @@ impl VexBackend {
                 diagnostics.push(lsp_diag);
             }
 
-            // Run borrow checker
-            let mut borrow_checker = BorrowChecker::new();
-            if let Err(error) = borrow_checker.check_program(&mut program) {
-                diagnostics.push(self.borrow_error_to_diagnostic(&error, text));
+            // Run borrow checker ONLY if no parse errors (this can be slow)
+            // Skip borrow checking if file has syntax errors to reduce CPU usage
+            if cached_doc.parse_errors.is_empty() {
+                let mut borrow_checker = BorrowChecker::new();
+                if let Err(error) = borrow_checker.check_program(&mut program) {
+                    diagnostics.push(self.borrow_error_to_diagnostic(&error, text));
+                }
             }
 
             // Store in legacy cache for compatibility (wrap in Arc)

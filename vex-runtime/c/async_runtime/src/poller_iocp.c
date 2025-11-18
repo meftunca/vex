@@ -6,22 +6,26 @@
 #include <mswsock.h>
 #include <stdlib.h>
 
+/* Use vex allocator */
+extern void* xmalloc(size_t size);
+extern void xfree(void* ptr);
+
 typedef struct Poller {
     HANDLE iocp;
 } Poller;
 
 Poller* poller_create() {
-    Poller* p = (Poller*)malloc(sizeof(Poller));
+    Poller* p = (Poller*)xmalloc(sizeof(Poller));
     if (!p) return NULL;
     p->iocp = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 0);
-    if (!p->iocp) { free(p); return NULL; }
+    if (!p->iocp) { xfree(p); return NULL; }
     return p;
 }
 
 void poller_destroy(Poller* p) {
     if (!p) return;
     CloseHandle(p->iocp);
-    free(p);
+    xfree(p);
 }
 
 int poller_add(Poller* p, int fd, EventType type, void* user_data) {

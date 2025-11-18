@@ -1,6 +1,7 @@
 // Vex Language Client Extension
 // Activates and manages the LSP connection
 
+import * as path from "path";
 import * as vscode from "vscode";
 import {
   LanguageClient,
@@ -12,8 +13,14 @@ import {
 let client: LanguageClient | undefined;
 
 function createLanguageClient(): LanguageClient {
-  // LSP server binary path
-  const serverModule = "vex-lsp";
+  // LSP server binary path - use development binary
+  const serverModule = path.join(
+    process.env.HOME || "",
+    ".cargo",
+    "target",
+    "debug",
+    "vex-lsp"
+  );
 
   // Server options: run the Rust LSP binary
   const serverOptions: ServerOptions = {

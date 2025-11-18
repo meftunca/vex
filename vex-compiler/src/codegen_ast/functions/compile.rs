@@ -1,18 +1,20 @@
 // src/codegen/functions/compile.rs
+use crate::{debug_log, debug_println};
 use super::super::*;
 use inkwell::values::BasicValueEnum;
 
 impl<'ctx> ASTCodeGen<'ctx> {
     pub(crate) fn compile_function(&mut self, func: &Function) -> Result<(), String> {
         eprintln!(
-            "🔨 compile_function: {} (receiver: {}, is_async: {})",
+            "🔨 compile_function: {} (receiver: {}, is_async: {}, is_static: {})",
             func.name,
             func.receiver.is_some(),
-            func.is_async
+            func.is_async,
+            func.is_static
         );
         eprintln!("   Body has {} statements", func.body.statements.len());
         if !func.body.statements.is_empty() {
-            eprintln!("   First stmt: {:?}", func.body.statements[0]);
+            debug_log!("   First stmt: {:?}", func.body.statements[0]);
         }
 
         // Initialize async runtime if this is main() and we have a runtime handle
@@ -48,7 +50,17 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let previous_return_type = self.current_function_return_type.clone();
         self.current_function_return_type = func.return_type.clone();
 
-        let fn_name = if let Some(ref receiver) = func.receiver {
+        // ⭐ NEW: Handle static methods (fn Type.method())
+        let fn_name = if func.is_static {
+            // Static method: fn Vec<T>.new()
+            let type_name = func.static_type.as_ref().ok_or_else(|| {
+                "Static method missing type name".to_string()
+            })?;
+            
+            // Mangle as Type_method
+            let encoded_method_name = Self::encode_operator_name(&func.name);
+            format!("{}_{}", type_name, encoded_method_name)
+        } else if let Some(ref receiver) = func.receiver {
             let type_name = match &receiver.ty {
                 Type::Named(name) => name.clone(),
                 Type::Generic { name, .. } => name.clone(), // Generic types like Container<T>
@@ -167,13 +179,13 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
             // Runtime* rt = runtime_create(4);
             let runtime_create = self.get_or_declare_runtime_create();
-            eprintln!("🔍 runtime_create function declared");
+            debug_println!("🔍 runtime_create function declared");
             let num_workers = self.context.i32_type().const_int(4, false);
             let runtime_call = self
                 .builder
                 .build_call(runtime_create, &[num_workers.into()], "runtime")
                 .map_err(|e| format!("Failed to call runtime_create: {}", e))?;
-            eprintln!("🔍 runtime_call built successfully");
+            debug_println!("🔍 runtime_call built successfully");
 
             let runtime_ptr = runtime_call
                 .try_as_basic_value()

@@ -1,5 +1,6 @@
 // src/codegen/program.rs
 use super::*;
+use crate::{debug_log, debug_println};
 
 impl<'ctx> ASTCodeGen<'ctx> {
     /// Extract struct name from receiver type
@@ -24,16 +25,14 @@ impl<'ctx> ASTCodeGen<'ctx> {
     /// Resolve and merge all imports into the program AST
     /// This ensures generic methods from imported modules are available
     /// MUST be called before borrow checker to properly register all symbols
-    /// 
+    ///
     /// **RECURSIVE**: Resolves sub-imports (e.g., lib.vx importing native.vxc)
     pub fn resolve_and_merge_imports(&mut self, program: &mut Program) -> Result<(), String> {
         use crate::module_resolver::ModuleResolver;
 
-        // Two-tier module resolution:
-        // 1. vex-libs/std - Standard library packages (import "conv", "http", etc.)
-        // 2. stdlib - Prelude (auto-injected core types: Vec, Box, Option, Result)
+        // Module resolution: vex-libs/std - Standard library packages (import "conv", "http", etc.)
+        // Note: Prelude (Vec, Box, Option, Result) is now auto-injected by compiler
         let mut std_resolver = ModuleResolver::new("vex-libs/std");
-        let mut prelude_resolver = ModuleResolver::new("stdlib");
 
         // Collect all items from imported modules
         let mut imported_items = Vec::new();
@@ -45,27 +44,15 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 continue;
             }
 
-            // Try standard library first (vex-libs/std), then prelude (stdlib)
+            // Load from standard library (vex-libs/std)
             let imported_module =
                 match std_resolver.load_module(&import.module, Some(&self.source_file)) {
                     Ok(module) => {
                         eprintln!("   ✅ Loaded from vex-libs/std: {}", import.module);
                         module
                     }
-                    Err(_) => {
-                        // Don't try prelude for explicit vex-libs/std paths (would create double prefix)
-                        if import.module.starts_with("vex-libs/std") {
-                            return Err(format!(
-                                "Module not found: {}. Check if the path is correct.",
-                                import.module
-                            ));
-                        }
-
-                        eprintln!(
-                            "   ⏭️  Not in vex-libs/std, trying stdlib (prelude): {}",
-                            import.module
-                        );
-                        prelude_resolver.load_module(&import.module, Some(&self.source_file))?
+                    Err(e) => {
+                        return Err(format!("Module not found: {}. Error: {}", import.module, e));
                     }
                 };
 
@@ -73,9 +60,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
             // which processes imports iteratively until all are resolved
 
             // Build export set from module
-            let mut exported_symbols: std::collections::HashSet<String> = std::collections::HashSet::new();
+            let mut exported_symbols: std::collections::HashSet<String> =
+                std::collections::HashSet::new();
             let mut re_export_modules: Vec<(Vec<String>, String, bool)> = Vec::new(); // (items, module, is_wildcard)
-            
+
             // Scan module items for export declarations
             for item in &imported_module.items {
                 match item {
@@ -88,14 +76,17 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                 from_module.clone(),
                                 export.is_wildcard,
                             ));
-                            
+
                             // Also add to exported symbols (these are now exported by this module)
                             if export.is_wildcard {
                                 eprintln!("   🔄 Re-exporting all from: {}", from_module);
                             } else {
                                 for symbol in &export.items {
                                     exported_symbols.insert(symbol.clone());
-                                    eprintln!("   🔄 Re-exporting '{}' from: {}", symbol, from_module);
+                                    eprintln!(
+                                        "   🔄 Re-exporting '{}' from: {}",
+                                        symbol, from_module
+                                    );
                                 }
                             }
                         } else {
@@ -119,24 +110,25 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     _ => {}
                 }
             }
-            
+
             // Process re-exports by loading the referenced modules
             for (items_to_export, from_module, is_wildcard) in re_export_modules {
                 // Load module using a fresh resolver to avoid borrow conflicts
                 let mut re_export_std_resolver = ModuleResolver::new("vex-libs/std");
-                let mut re_export_prelude_resolver = ModuleResolver::new("stdlib");
-                
-                let re_exported_module = match re_export_std_resolver.load_module(&from_module, Some(&self.source_file)) {
+
+                let re_exported_module = match re_export_std_resolver
+                    .load_module(&from_module, Some(&self.source_file))
+                {
                     Ok(module) => module,
-                    Err(_) => match re_export_prelude_resolver.load_module(&from_module, Some(&self.source_file)) {
-                        Ok(module) => module,
-                        Err(e) => {
-                            eprintln!("   ⚠️  Warning: Re-export failed - module '{}' not found: {}", from_module, e);
-                            continue;
-                        }
+                    Err(e) => {
+                        eprintln!(
+                            "   ⚠️  Warning: Re-export failed - module '{}' not found: {}",
+                            from_module, e
+                        );
+                        continue;
                     }
                 };
-                
+
                 if is_wildcard {
                     // export * from "module" - export all items from that module
                     for item in &re_exported_module.items {
@@ -176,7 +168,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                 Item::Contract(trait_def) => trait_def.name == *item_name,
                                 _ => false,
                             };
-                            
+
                             if matches {
                                 imported_items.push(item.clone());
                                 break;
@@ -185,14 +177,19 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     }
                 }
             }
-            
+
             // In Vex, if no explicit export declarations, everything is exported by default
             // This matches the current behavior and prevents breaking existing code
             let export_all = exported_symbols.is_empty();
-            
-            eprintln!("   📦 Module '{}' exports: {} (export_all={})", 
-                import.module, 
-                if export_all { "all symbols".to_string() } else { format!("{:?}", exported_symbols) },
+
+            eprintln!(
+                "   📦 Module '{}' exports: {} (export_all={})",
+                import.module,
+                if export_all {
+                    "all symbols".to_string()
+                } else {
+                    format!("{:?}", exported_symbols)
+                },
                 export_all
             );
 
@@ -208,12 +205,14 @@ impl<'ctx> ASTCodeGen<'ctx> {
                             // Check if item is requested AND exported
                             let is_requested = import.items.contains(&item_name.to_string());
                             let is_exported = export_all || exported_symbols.contains(item_name);
-                            
+
                             if is_requested && !is_exported {
-                                eprintln!("   ⚠️  Warning: Cannot import '{}' from '{}' - not exported", 
-                                    item_name, import.module);
+                                eprintln!(
+                                    "   ⚠️  Warning: Cannot import '{}' from '{}' - not exported",
+                                    item_name, import.module
+                                );
                             }
-                            
+
                             is_requested && is_exported
                         }
                     }
@@ -227,8 +226,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
             // ⭐ CRITICAL FIX: Collect all extern functions that imported functions depend on
             // When importing abs(), it calls fabs() internally - we need fabs in scope too
             // JavaScript semantics: Functions carry their module context
-            let mut required_extern_functions: std::collections::HashSet<String> = std::collections::HashSet::new();
-            
+            let mut required_extern_functions: std::collections::HashSet<String> =
+                std::collections::HashSet::new();
+
             // Collect ALL extern function names from the imported module
             // These are internal dependencies that exported functions may call
             for item in &imported_module.items {
@@ -238,9 +238,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     }
                 }
             }
-            
-            eprintln!("   🔧 Module has {} extern functions as internal dependencies", 
-                required_extern_functions.len());
+
+            eprintln!(
+                "   🔧 Module has {} extern functions as internal dependencies",
+                required_extern_functions.len()
+            );
 
             // Add filtered items from imported module
             for item in &imported_module.items {
@@ -250,7 +252,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         if !should_import_item(&func.name) {
                             continue;
                         }
-                        
+
                         // If this is a method (has receiver), mangle its name NOW
                         // This prevents double-mangling in compile_program
                         if let Some(receiver) = &func.receiver {
@@ -290,10 +292,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         // ✅ CRITICAL FIX: Include ExternBlocks as internal module dependencies
                         // JavaScript semantics: When you import a function, it carries its module context
                         // Example: import { abs } → abs() calls fabs() internally → fabs must be available
-                        
-                        eprintln!("   📦 Including ExternBlock with {} functions as module dependencies", 
-                            extern_block.functions.len());
-                        
+
+                        eprintln!(
+                            "   📦 Including ExternBlock with {} functions as module dependencies",
+                            extern_block.functions.len()
+                        );
+
                         // ALWAYS include extern blocks from imported modules
                         // They are internal implementation details that exported functions depend on
                         imported_items.push(item.clone());
@@ -309,7 +313,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
         }
 
         // Merge imported items into program (before original items to avoid shadowing)
-        eprintln!("   📋 Merged {} imported items into AST", imported_items.len());
+        eprintln!(
+            "   📋 Merged {} imported items into AST",
+            imported_items.len()
+        );
         let mut extern_blocks = Vec::new();
         let mut other_items = Vec::new();
         for item in &imported_items[..imported_items.len().min(15)] {
@@ -323,7 +330,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     other_items.push(item);
                 }
                 Item::ExternBlock(block) => {
-                    eprintln!("      - ExternBlock with {} functions", block.functions.len());
+                    eprintln!(
+                        "      - ExternBlock with {} functions",
+                        block.functions.len()
+                    );
                     for func in &block.functions {
                         eprintln!("         * {}", func.name);
                     }
@@ -334,20 +344,28 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 }
             }
         }
-        eprintln!("   📊 Breakdown: {} ExternBlocks, {} other items", extern_blocks.len(), other_items.len());
-        
+        eprintln!(
+            "   📊 Breakdown: {} ExternBlocks, {} other items",
+            extern_blocks.len(),
+            other_items.len()
+        );
+
         let mut original_items = Vec::new();
         std::mem::swap(&mut program.items, &mut original_items);
         program.items = imported_items;
         program.items.extend(original_items);
-        
+
         // ⭐ NEW: Track namespace imports for constant access (math.PI)
         // Register namespace aliases and their module constants
         for import in &program.imports {
             if let ImportKind::Namespace(alias) = &import.kind {
-                eprintln!("   📦 Registering namespace: {} → module '{}'", alias, import.module);
-                self.namespace_imports.insert(alias.clone(), import.module.clone());
-                
+                eprintln!(
+                    "   📦 Registering namespace: {} → module '{}'",
+                    alias, import.module
+                );
+                self.namespace_imports
+                    .insert(alias.clone(), import.module.clone());
+
                 // Find and register constants from the imported module
                 // We'll compile them during const compilation phase
             }
@@ -440,12 +458,33 @@ impl<'ctx> ASTCodeGen<'ctx> {
             if let Item::Function(func) = item {
                 // Debug: Print function info
                 if func.receiver.is_some() {
-                    eprintln!("🔍 Function with receiver: {}", func.name);
+                    debug_println!("🔍 Function with receiver: {}", func.name);
                     eprintln!("   Receiver: {:?}", func.receiver);
                 }
 
-                // Check if this is a method (has receiver parameter)
-                let (func_name, is_method) = if let Some(receiver) = &func.receiver {
+                // Check if this is a method (has receiver parameter) or a static method
+                let (func_name, is_method) = if func.is_static {
+                    let type_name = func
+                        .static_type
+                        .as_ref()
+                        .ok_or_else(|| format!("Static method '{}' missing type name", func.name))?
+                        .clone();
+
+                    let encoded_method_name = Self::encode_operator_name(&func.name);
+                    let mangled_name = format!("{}_{}", type_name, encoded_method_name);
+
+                    let mut static_func = func.clone();
+                    static_func.name = mangled_name.clone();
+
+                    // Store static method definitions with both PascalCase and lowercase keys
+                    self.function_defs
+                        .insert(mangled_name.clone(), static_func.clone());
+                    let lowercase_lookup =
+                        format!("{}_{}", type_name.to_lowercase(), encoded_method_name);
+                    self.function_defs.insert(lowercase_lookup, static_func);
+
+                    (mangled_name, true)
+                } else if let Some(receiver) = &func.receiver {
                     // This is a method - extract struct name from receiver type and mangle the name
                     let struct_name = self.extract_struct_name_from_receiver(&receiver.ty);
                     if let Some(sn) = struct_name {
@@ -719,7 +758,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         eprintln!("✅ All functions compiled successfully");
 
         // ⭐ ASYNC: Verify LLVM module for correctness
-        eprintln!("🔍 Verifying LLVM module...");
+        debug_println!("🔍 Verifying LLVM module...");
         if let Err(e) = self.module.verify() {
             eprintln!("❌ LLVM module verification failed:");
             eprintln!("{}", e.to_string());

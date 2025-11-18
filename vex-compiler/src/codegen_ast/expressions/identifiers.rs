@@ -1,4 +1,5 @@
 // Expression compilation - identifiers and variable access
+use crate::{debug_log, debug_println};
 use super::ASTCodeGen;
 use crate::diagnostics::{error_codes, Diagnostic, ErrorLevel, Span};
 use inkwell::values::BasicValueEnum;
@@ -47,7 +48,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 .ok_or_else(|| format!("Type for variable {} not found", name))?;
 
             if name == "result" {
-                eprintln!("[DEBUG result] Variable 'result' type: {:?}", ty);
+                debug_println!("[DEBUG result] Variable 'result' type: {:?}", ty);
                 eprintln!(
                     "[DEBUG result] Is in variable_struct_names: {}",
                     self.variable_struct_names.contains_key(name)
@@ -59,7 +60,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             if self.variable_struct_names.contains_key(name) {
                 // This is a struct variable - return pointer without loading
                 if name == "result" {
-                    eprintln!("[DEBUG result] Returning pointer without loading");
+                    debug_println!("[DEBUG result] Returning pointer without loading");
                 }
                 return Ok((*ptr).into());
             }

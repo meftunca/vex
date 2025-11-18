@@ -27,9 +27,15 @@ impl VexBackend {
             return Ok(None);
         }
 
-        // Check if cursor is on an import statement
+        // Check if cursor is on an import/export statement
         if let Some(import_location) = self.resolve_import_at_position(&uri, &text, position) {
             return Ok(Some(GotoDefinitionResponse::Scalar(import_location)));
+        }
+
+        // Check if cursor is on export {} from statement
+        if let Some(export_location) = self.resolve_export_from_at_position(&uri, &text, position)
+        {
+            return Ok(Some(GotoDefinitionResponse::Scalar(export_location)));
         }
 
         // Get the AST
@@ -289,6 +295,60 @@ impl VexBackend {
         let resolved_path = self
             .module_resolver
             .resolve_import(import_path, current_file.as_deref())?;
+
+        // Convert to file URI
+        let file_uri = tower_lsp::lsp_types::Url::from_file_path(&resolved_path).ok()?;
+
+        Some(Location {
+            uri: file_uri,
+            range: Range::default(), // Jump to start of file
+        })
+    }
+
+    /// Resolve export {} from statement at cursor position
+    fn resolve_export_from_at_position(
+        &self,
+        uri: &tower_lsp::lsp_types::Url,
+        text: &str,
+        position: Position,
+    ) -> Option<Location> {
+        let line_idx = position.line as usize;
+        let lines: Vec<&str> = text.lines().collect();
+
+        if line_idx >= lines.len() {
+            return None;
+        }
+
+        let line = lines[line_idx];
+
+        // Check if line contains "export ... from" pattern
+        if !line.trim().starts_with("export ") || !line.contains(" from ") {
+            return None;
+        }
+
+        // Extract module path from: export { ... } from "path"
+        // or: export * from "path"
+        let from_parts: Vec<&str> = line.split(" from ").collect();
+        if from_parts.len() < 2 {
+            return None;
+        }
+
+        // Extract string literal after "from"
+        let path_part = from_parts[1];
+        let module_path = path_part
+            .trim()
+            .trim_start_matches('"')
+            .trim_end_matches('"')
+            .trim_end_matches(';')
+            .trim();
+
+        // Get current file path for relative imports
+        let current_file = uri.to_file_path().ok();
+
+        // Resolve module path to file
+        let resolved_path = self
+            .module_resolver
+            .resolve_import(module_path, current_file.as_deref())?;
 
         // Convert to file URI
         let file_uri = tower_lsp::lsp_types::Url::from_file_path(&resolved_path).ok()?;

@@ -1,5 +1,6 @@
 // Trait method resolution and compilation
 
+use crate::{debug_log, debug_println};
 use crate::codegen_ast::ASTCodeGen;
 use vex_ast::*;
 
@@ -60,20 +61,20 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 method,
                 args.len()
             );
-            eprintln!("🔍 First arg: {:?}", args[0]);
+            debug_println!("🔍 First arg: {:?}", args[0]);
             if let Ok(arg_type) = self.infer_expression_type(&args[0]) {
-                eprintln!("🔍 First arg type inferred: {:?}", arg_type);
+                debug_println!("🔍 First arg type inferred: {:?}", arg_type);
                 // For method lookup, use the FULL type including references
                 // This matches how registration works in program.rs
                 let suffix = self.generate_type_suffix(&arg_type);
-                eprintln!("🔍 Type suffix generated: {}", suffix);
+                debug_println!("🔍 Type suffix generated: {}", suffix);
                 suffix
             } else {
-                eprintln!("🔍 Failed to infer first arg type");
+                debug_println!("🔍 Failed to infer first arg type");
                 String::new()
             }
         } else {
-            eprintln!("🔍 Method call {}.{}() with no args", struct_name, method);
+            debug_println!("🔍 Method call {}.{}() with no args", struct_name, method);
             String::new()
         };
 
@@ -119,7 +120,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Check all naming schemes: inline typed > inline untyped > external typed > external untyped
         // ⚠️ CRITICAL: Prioritize inline methods to avoid collision with external methods
-        eprintln!("🔍 Checking method names:");
+        debug_println!("🔍 Checking method names:");
         eprintln!(
             "   inline_method_name: {} (exists: {})",
             inline_method_name,
@@ -207,7 +208,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     if !args.is_empty() {
                         // Try to infer the type of first argument
                         if let Ok(arg_type) = self.infer_expression_type(&args[0]) {
-                            eprintln!("🔍 Method lookup: struct={}, trait={}, method={}, arg_type={:?}, trait_type_arg={:?}",
+                            debug_println!("🔍 Method lookup: struct={}, trait={}, method={}, arg_type={:?}, trait_type_arg={:?}",
                                 struct_name, trait_impl.name, method, arg_type, trait_impl.type_args[0]);
                             // Check if this arg type matches trait's type arg
                             if arg_type == trait_impl.type_args[0] {
@@ -383,6 +384,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
             is_gpu: false,
             is_mutable: trait_method.is_mutable, // ⭐ NEW: Copy mutability from trait
             is_operator: trait_method.is_operator, // ⭐ NEW: Copy operator flag from trait
+            is_static: false,
+            static_type: None,
             receiver,
             name: trait_method.name.clone(),
             type_params: vec![],

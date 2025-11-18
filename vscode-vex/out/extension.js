@@ -37,12 +37,13 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.activate = activate;
 exports.deactivate = deactivate;
+const path = __importStar(require("path"));
 const vscode = __importStar(require("vscode"));
 const node_1 = require("vscode-languageclient/node");
 let client;
 function createLanguageClient() {
-    // LSP server binary path
-    const serverModule = "vex-lsp";
+    // LSP server binary path - use development binary
+    const serverModule = path.join(process.env.HOME || "", ".cargo", "target", "debug", "vex-lsp");
     // Server options: run the Rust LSP binary
     const serverOptions = {
         run: {

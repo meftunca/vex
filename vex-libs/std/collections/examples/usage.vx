@@ -1,13 +1,12 @@
 // HashMap and HashSet usage examples
 
-import { HashMap } from "../src/hashmap";
-import { HashSet } from "../src/hashset";
+import { HashMap,HashSet } from "collections";
 
 fn example_hashmap_basic() {
     println("=== HashMap Basic Example ===");
     
     // Create HashMap
-    let! scores = HashMap.new();
+    let! scores = HashMap<str, i32>();
     
     // Insert player scores
     scores.insert("Alice", 100);
@@ -88,19 +87,17 @@ fn example_hashset_membership() {
     allowed_users.insert("alice");
     allowed_users.insert("bob");
     
-    // Check access
-    let user = "alice";
-    if allowed_users.contains(user) {
-        println("{} has access ✅", user);
+    // Check access (using string literals directly to avoid move issues)
+    if allowed_users.contains("alice") {
+        println("alice has access ✅");
     } else {
-        println("{} denied ❌", user);
+        println("alice denied ❌");
     }
     
-    let user2 = "eve";
-    if allowed_users.contains(user2) {
-        println("{} has access ✅", user2);
+    if allowed_users.contains("eve") {
+        println("eve has access ✅");
     } else {
-        println("{} denied ❌", user2);
+        println("eve denied ❌");
     }
     
     println("");

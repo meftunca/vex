@@ -1,6 +1,7 @@
 // Borrow Checker Orchestrator
 // Main coordination logic for all borrow checking phases
 
+use crate::{debug_log, debug_println};
 use crate::borrow_checker::borrows::BorrowRulesChecker;
 use crate::borrow_checker::errors::BorrowResult;
 use crate::borrow_checker::immutability::ImmutabilityChecker;
@@ -29,7 +30,7 @@ impl BorrowChecker {
     /// Run all borrow checking phases on a program
     pub fn check_program(&mut self, program: &mut Program) -> BorrowResult<()> {
         // Phase 0.1: Register imported symbols (they're global and always valid)
-        eprintln!("🔍 Borrow checker: Registering {} imports", program.imports.len());
+        debug_println!("🔍 Borrow checker: Registering {} imports", program.imports.len());
         for import in &program.imports {
             match &import.kind {
                 ImportKind::Named => {
@@ -67,7 +68,7 @@ impl BorrowChecker {
 
         // Phase 0.2: Register global symbols (extern functions + top-level functions + constants)
         // These are always valid and never go out of scope
-        eprintln!("🔍 Borrow checker: Registering {} top-level items", program.items.len());
+        debug_println!("🔍 Borrow checker: Registering {} top-level items", program.items.len());
         for item in &program.items {
             match item {
                 Item::ExternBlock(block) => {

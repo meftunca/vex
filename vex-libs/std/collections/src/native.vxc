@@ -1,0 +1,21 @@
+// HashMap<K, V> - Generic hash map
+// Zero-cost wrapper over vex_swisstable_v2.c (30M+ ops/s)
+
+// External C functions from vex_swisstable_v2.c
+extern "C" {
+    fn vex_map_new_v2(map: *(*u8), capacity: i64): bool;
+    fn vex_map_insert_v2(map: *u8, key: str, value: *u8): bool;
+    fn vex_map_get_v2(map: *u8, key: str): *u8;
+    fn vex_map_remove_v2(map: *u8, key: str): bool;
+    fn vex_map_len_v2(map: *u8): i64;
+    fn vex_map_free_v2(map: *u8);
+}
+
+export {
+    vex_map_new_v2,
+    vex_map_insert_v2,
+    vex_map_get_v2,
+    vex_map_remove_v2,
+    vex_map_len_v2,
+    vex_map_free_v2
+};

@@ -12,6 +12,23 @@ pub mod types; // Type interning and utilities
 pub mod utils; // Utility modules (safe arithmetic, etc.)
 pub mod visibility; // Contract enforcement and visibility checks
 
+// Debug logging macros (only enabled in debug builds)
+#[macro_export]
+macro_rules! debug_log {
+    ($($arg:tt)*) => {
+        #[cfg(debug_assertions)]
+        eprintln!($($arg)*);
+    };
+}
+
+#[macro_export]
+macro_rules! debug_println {
+    ($($arg:tt)*) => {
+        #[cfg(debug_assertions)]
+        println!($($arg)*);
+    };
+}
+
 // Re-export diagnostics from vex-diagnostics crate
 pub use vex_diagnostics as diagnostics;
 

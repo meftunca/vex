@@ -218,6 +218,8 @@ pub struct Function {
     pub is_gpu: bool,
     pub is_mutable: bool,  // ⭐ NEW: Method-level mutability (fn method()!)
     pub is_operator: bool, // ⭐ NEW: Operator overload method (fn op+(...))
+    pub is_static: bool,   // ⭐ NEW: Static method flag (fn Type.method())
+    pub static_type: Option<String>, // ⭐ NEW: Type name for static methods (Vec, HashMap, etc.)
     pub receiver: Option<Receiver>, // For methods
     pub name: String,
     pub type_params: Vec<TypeParam>, // Generic type parameters with bounds: <T: Display, U: Clone>

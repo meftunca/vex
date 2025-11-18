@@ -5,6 +5,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* Use vex allocator */
+extern void* xmalloc(size_t size);
+extern void xfree(void* ptr);
+
 // Reserved userdata value for timer events (use address as unique marker)
 static char timer_marker;
 #define TIMER_USERDATA ((uintptr_t)&timer_marker)
@@ -15,11 +19,11 @@ typedef struct Poller {
 } Poller;
 
 Poller* poller_create() {
-    Poller* p = (Poller*)malloc(sizeof(Poller));
+    Poller* p = (Poller*)xmalloc(sizeof(Poller));
     if (!p) return NULL;
     
     if (vex_net_loop_create(&p->loop) != 0) {
-        free(p);
+        xfree(p);
         return NULL;
     }
     
@@ -31,7 +35,7 @@ Poller* poller_create() {
 void poller_destroy(Poller* p) {
     if (!p) return;
     vex_net_loop_close(&p->loop);
-    free(p);
+    xfree(p);
 }
 
 int poller_add(Poller* p, int fd, EventType type, void* user_data) {

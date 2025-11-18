@@ -10,6 +10,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let c_dir = PathBuf::from(&manifest_dir).join("c");
     let async_io_dir = c_dir.join("async_runtime");
 
+    // ========== Allocator Selection ==========
+    let allocator = env::var("VEX_ALLOCATOR").unwrap_or_else(|_| "mimalloc".to_string());
+    println!("cargo:warning=Building with allocator: {}", allocator);
+
     // Source files
     let sources = vec![
         async_io_dir.join("src/runtime.c"),
@@ -66,7 +70,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .include(async_io_dir.join("include"))
         .include(&c_dir) // For vex_channel.h
         .flag("-std=c11")
-        .flag("-O2");
+        .flag("-O2")
+        .define("VEX_RUNTIME_INTEGRATED", None); // Enable vex_malloc/vex_free in async runtime
+
+    // ========== Allocator Configuration ==========
+    match allocator.as_str() {
+        "mimalloc" => {
+            let mimalloc_dir = c_dir.join("allocators/mimalloc");
+            let mimalloc_src = mimalloc_dir.join("src/static.c");
+            
+            builder.define("VEX_USE_MIMALLOC", None);
+            builder.include(mimalloc_dir.join("include"));
+            builder.file(&mimalloc_src);
+            
+            println!("cargo:warning=Using mimalloc from: {}", mimalloc_src.display());
+        }
+        "system" => {
+            println!("cargo:warning=Using system allocator (malloc/free)");
+        }
+        _ => {
+            return Err(format!("Unknown allocator: {} (valid: mimalloc, system)", allocator).into());
+        }
+    }
 
     // Add pthread on Unix
     if target_os != "windows" {

@@ -5,6 +5,10 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+/* Use vex allocator */
+extern void* xmalloc(size_t size);
+extern void xfree(void* ptr);
+
 typedef struct Poller
 {
     int kq;
@@ -12,13 +16,13 @@ typedef struct Poller
 
 Poller *poller_create()
 {
-    Poller *p = (Poller *)malloc(sizeof(Poller));
+    Poller *p = (Poller *)xmalloc(sizeof(Poller));
     if (!p)
         return NULL;
     p->kq = kqueue();
     if (p->kq < 0)
     {
-        free(p);
+        xfree(p);
         return NULL;
     }
     return p;
@@ -29,7 +33,7 @@ void poller_destroy(Poller *p)
     if (!p)
         return;
     close(p->kq);
-    free(p);
+    xfree(p);
 }
 
 int poller_add(Poller *p, int fd, EventType type, void *user_data)

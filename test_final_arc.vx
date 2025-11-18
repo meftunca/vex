@@ -1,9 +1,0 @@
-// Test Arc with contract-based constructor
-
-import { Arc } from "sync";
-
-fn main() {
-    // Constructor using op() - no "new" needed
-    let arc1 = Arc(100);
-    println(100);
-}

@@ -1426,12 +1426,12 @@ let failure = Err("error message");
 
 ```vex
 contract Display {
-    fn show();
+    show();        // ✅ No 'fn' prefix in contracts
 }
 
 contract Logger {
-    fn log(msg: string);     // Immutable contract
-    fn clear()!;             // Mutable contract
+    log(msg: string);     // Immutable contract
+    clear()!;             // Mutable contract - '!' indicates mutability
 }
 ```
 
