@@ -1,0 +1,31 @@
+import * as math from "math";
+
+fn main() {
+    let abs_int1: i32 = math.abs(-5) as i32;
+    if abs_int1 != 5 {
+        print("FAIL: abs(-5) != 5\n");
+    } else {
+        print("PASS: abs(-5) = 5\n");
+    }
+    
+    let abs_int2: i32 = math.abs(7);
+    if abs_int2 != 7 {
+        print("FAIL: abs(7) != 7\n");
+    } else {
+        print("PASS: abs(7) = 7\n");
+    }
+    
+    let abs_int3: i32 = math.abs(0);
+    if abs_int3 != 0 {
+        print("FAIL: abs(0) != 0\n");
+    } else {
+        print("PASS: abs(0) = 0\n");
+    }
+    
+    let abs_neg: f64 = math.abs(-3.14);
+    if abs_neg > 3.1401 || abs_neg < 3.1399 {
+        print("FAIL: abs(-3.14) out of range\n");
+    } else {
+        print("PASS: abs(-3.14) ~= 3.14\n");
+    }
+}

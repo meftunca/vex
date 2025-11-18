@@ -211,21 +211,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
             let rest_count_u32 = crate::safe_array_size(remaining_count)
                 .map_err(|e| format!("Rest array size overflow: {}", e))?;
             let rest_array_type: BasicTypeEnum = match elem_type {
-                BasicTypeEnum::IntType(t) => {
-                    t.array_type(rest_count_u32).as_basic_type_enum()
-                }
-                BasicTypeEnum::FloatType(t) => {
-                    t.array_type(rest_count_u32).as_basic_type_enum()
-                }
-                BasicTypeEnum::PointerType(t) => {
-                    t.array_type(rest_count_u32).as_basic_type_enum()
-                }
-                BasicTypeEnum::StructType(t) => {
-                    t.array_type(rest_count_u32).as_basic_type_enum()
-                }
-                BasicTypeEnum::ArrayType(t) => {
-                    t.array_type(rest_count_u32).as_basic_type_enum()
-                }
+                BasicTypeEnum::IntType(t) => t.array_type(rest_count_u32).as_basic_type_enum(),
+                BasicTypeEnum::FloatType(t) => t.array_type(rest_count_u32).as_basic_type_enum(),
+                BasicTypeEnum::PointerType(t) => t.array_type(rest_count_u32).as_basic_type_enum(),
+                BasicTypeEnum::StructType(t) => t.array_type(rest_count_u32).as_basic_type_enum(),
+                BasicTypeEnum::ArrayType(t) => t.array_type(rest_count_u32).as_basic_type_enum(),
                 _ => return Err("Unsupported element type for rest pattern".to_string()),
             };
 

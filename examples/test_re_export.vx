@@ -1,0 +1,15 @@
+// Test re-export functionality
+
+// Test 1: Named re-export
+// export { Arc } from "./vex-libs/std/sync/src/arc.vx";
+
+// Test 2: Wildcard re-export  
+// export * from "./vex-libs/std/sync/src/arc.vx";
+
+// For now, test basic import/export
+import { abs } from "math";
+
+fn main() {
+    let x: i32 = abs(-42);
+    println(x);
+}

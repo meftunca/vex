@@ -1,0 +1,20 @@
+// Test 1: Named import
+import { abs, sin, cos } from "math";
+
+// Test 2: Namespace import  
+import * as math from "math";
+
+// Test 3: Constant access
+fn test_constants() {
+    let pi: f64 = math.PI;
+    let e: f64 = math.E;
+    println(pi);
+    println(e);
+}
+
+// Test 4: Function calls
+fn main() {
+    println(abs(-5));
+    println(sin(0.0));
+    test_constants();
+}

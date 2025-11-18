@@ -1,20 +1,57 @@
-// Sync Module
-// Concurrency primitives - Channel (MPSC)
+// stdlib/sync - Concurrency Primitives
+// Thread-safe smart pointers, locks, and atomics
+//
+// Types:
+// - Arc<T> - Atomic reference counting (thread-safe)
+// - Rc<T> - Reference counting (single-threaded, faster)
+// - Mutex<T> - Mutual exclusion lock
+// - RwLock<T> - Read-write lock (many readers, one writer)
+// - AtomicI32, AtomicI64, AtomicBool - Lock-free atomics
+// - Barrier - Thread synchronization barrier  
+// - Once - One-time initialization
+// - Condvar - Condition variable
 //
 // Usage:
-//   import { Channel } from "sync";
+//   import { Arc, Mutex, AtomicI32 } from "sync";
+//   
+//   let shared = Arc.new(Mutex.new(0));
+//   let counter = AtomicI32.new(0);
 
-// External C functions from vex-runtime/c/vex_channel.c
-extern "C" {
-    fn vex_channel_create(capacity: u64): *u8;
-    fn vex_channel_send(chan: *u8, data: *u8): bool;
-    fn vex_channel_recv(chan: *u8, out: *u8!): bool;
-    fn vex_channel_close(chan: *u8);
-    fn vex_channel_destroy(chan: *u8);
-}
 
-// Channel<T> - Multi-Producer Single-Consumer channel
-export struct Channel<T> {
-    ptr: *u8,
-}
+import {Arc} from "./arc.vx";
+import {Rc} from "./rc.vx";
+import {Mutex} from "./mutex.vx";
+import {RwLock} from "./rwLock.vx";
+import {AtomicI32,AtomicI64,AtomicBool} from "./atomicI32.vx";
+import {Barrier} from "./barrier.vx";
+import {Once} from "./once.vx";
+import {Condvar} from "./condvar.vx";
+import {fence, spin_loop_hint} from "./utilities.vx";
+
+
+// ============================================================================
+// Memory Ordering Constants
+// ============================================================================
+
+export const ORDERING_RELAXED: i32 = 0;
+export const ORDERING_ACQUIRE: i32 = 2;
+export const ORDERING_RELEASE: i32 = 3;
+export const ORDERING_ACQ_REL: i32 = 4;
+export const ORDERING_SEQ_CST: i32 = 5;
+
+
+export {
+    Arc,
+    Rc,
+    Mutex,
+    RwLock,
+    AtomicI32,
+    AtomicI64,
+    AtomicBool,
+    Barrier,
+    Once,
+    Condvar,
+    fence,
+    spin_loop_hint,
+};
 

@@ -58,9 +58,31 @@ my-project/
 
 ### Entry Points
 
-- **Library**: `src/lib.vx` (default)
+- **Library**: `src/lib.vx` (default main entry)
+- **Module**: `src/mod.vx` (alternative if no lib.vx)
 - **Executable**: `src/main.vx` or specified in `vex.json`
 - **Custom**: Configurable via `main` field in manifest
+
+**Import Resolution**:
+```vex
+// Package name import uses "main" field from vex.json
+import { abs } from "math";  
+// → Resolves to: vex-libs/std/math/src/lib.vx (from vex.json)
+
+// Direct file import bypasses vex.json
+import { sin } from "math/native.vxc";  
+// → Resolves to: vex-libs/std/math/src/native.vxc
+
+// Relative imports (within module files)
+import { helper } from "./utils.vx";
+// → Resolves relative to current file
+```
+
+**Priority Order**:
+1. `vex.json` → `main` field value
+2. `src/lib.vx` (if exists)
+3. `src/mod.vx` (if exists)
+4. Error: No entry point found
 
 ---
 

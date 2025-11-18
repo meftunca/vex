@@ -56,13 +56,26 @@ impl ModuleResolver {
         // Check cache first (use contains_key to avoid long-lived immutable borrow)
         if self.module_cache.contains_key(module_path) {
             // Safe to unwrap: contains_key ensures a value exists
-            return Ok(self.module_cache.get(module_path).expect("Module present in cache"));
+            return Ok(self
+                .module_cache
+                .get(module_path)
+                .expect("Module present in cache"));
         }
 
+        // Strip "vex-libs/std/" prefix if present (normalize import paths)
+        let normalized_module_path = if module_path.starts_with("vex-libs/std/") {
+            &module_path[13..] // Skip "vex-libs/std/"
+        } else {
+            module_path
+        };
+
         // Use StdlibResolver if it's a stdlib module
-        let file_path = if self.stdlib_resolver.is_stdlib_module(module_path) {
+        let file_path = if self
+            .stdlib_resolver
+            .is_stdlib_module(normalized_module_path)
+        {
             // Try StdlibResolver first (vex-libs/std)
-            match self.stdlib_resolver.resolve_module(module_path) {
+            match self.stdlib_resolver.resolve_module(normalized_module_path) {
                 Ok(path) => path,
                 Err(_) => {
                     // Fallback to legacy stdlib/ directory - keep deterministic behavior
@@ -79,8 +92,9 @@ impl ModuleResolver {
         let source = fs::read_to_string(&file_path)
             .map_err(|e| format!("Failed to read module {}: {}", module_path, e))?;
 
-        // Parse module
-        let mut parser = Parser::new(&source)
+        // Parse module with file path (for .vxc extern block restriction)
+        let file_path_str = file_path.to_str().unwrap_or(module_path);
+        let mut parser = Parser::new_with_file(file_path_str, &source)
             .map_err(|e| format!("Failed to lex module {}: {}", module_path, e))?;
         let parsed = parser
             .parse_file()
@@ -95,7 +109,10 @@ impl ModuleResolver {
                         let linker = vex_pm::NativeLinker::new(module_dir);
                         match linker.process(native_config) {
                             Ok(native_args) if !native_args.is_empty() => {
-                                eprintln!("   🔗 Native libs for '{}': {}", module_path, native_args);
+                                eprintln!(
+                                    "   🔗 Native libs for '{}': {}",
+                                    module_path, native_args
+                                );
                                 // Store native args for later use
                                 for arg in native_args.split_whitespace() {
                                     self.native_linker_args.push(arg.to_string());
@@ -103,7 +120,10 @@ impl ModuleResolver {
                             }
                             Ok(_) => {} // No native args
                             Err(e) => {
-                                eprintln!("   ⚠️  Warning: Failed to process native config for '{}': {}", module_path, e);
+                                eprintln!(
+                                    "   ⚠️  Warning: Failed to process native config for '{}': {}",
+                                    module_path, e
+                                );
                             }
                         }
                     }
@@ -165,8 +185,8 @@ impl ModuleResolver {
             let file_path = base_dir.join(module_path);
             eprintln!("   📁 Resolved path: {:?}", file_path);
 
-            // If path already ends with .vx, use it directly
-            if module_path.ends_with(".vx") {
+            // If path already ends with .vx or .vxc, use it directly
+            if module_path.ends_with(".vx") || module_path.ends_with(".vxc") {
                 if file_path.exists() {
                     return Ok(file_path);
                 }
@@ -174,7 +194,16 @@ impl ModuleResolver {
             }
 
             // Otherwise try common module file names (prefer src/lib.vx pattern)
-            for module_file in &["src/lib.vx", "mod.vx", "lib.vx", "index.vx", "main.vx"] {
+            // Also check for .vxc files (C-interop)
+            for module_file in &[
+                "src/lib.vx",
+                "src/lib.vxc",
+                "mod.vx",
+                "lib.vx",
+                "lib.vxc",
+                "index.vx",
+                "main.vx",
+            ] {
                 let candidate = file_path.join(module_file);
                 if candidate.exists() {
                     return Ok(candidate);
@@ -255,8 +284,18 @@ impl ModuleResolver {
         // First, gather explicit exports (export { a, b })
         for item in &program.items {
             if let vex_ast::Item::Export(export) = item {
-                for e in &export.items {
-                    exports.push(e.clone());
+                // Re-export syntax: export { x } from "module" or export * from "module"
+                if export.from_module.is_some() {
+                    // Re-exports are handled during import resolution
+                    // Just track the exported names here
+                    for e in &export.items {
+                        exports.push(e.clone());
+                    }
+                } else {
+                    // Regular export: export { x, y }
+                    for e in &export.items {
+                        exports.push(e.clone());
+                    }
                 }
             }
         }
@@ -297,9 +336,11 @@ mod tests {
             Ok(p) => p,
             Err(e) => panic!("Failed to resolve core module path: {}", e),
         };
-        assert!(path.to_string_lossy().contains("core/src/lib.vx")
-            || path.to_string_lossy().contains("core/lib.vx")
-            || path.to_string_lossy().contains("core/mod.vx"));
+        assert!(
+            path.to_string_lossy().contains("core/src/lib.vx")
+                || path.to_string_lossy().contains("core/lib.vx")
+                || path.to_string_lossy().contains("core/mod.vx")
+        );
 
         // Test nested module path
         let path = match resolver.module_path_to_file_path("std::io", None) {
@@ -325,7 +366,11 @@ mod tests {
         // Build a simple program with explicit export list
         let program = Program {
             imports: vec![],
-            items: vec![vex_ast::Item::Export(vex_ast::Export { items: vec!["helper".to_string()] })],
+            items: vec![vex_ast::Item::Export(vex_ast::Export {
+                items: vec!["helper".to_string()],
+                from_module: None,
+                is_wildcard: false,
+            })],
         };
 
         resolver.module_cache.insert("mymod".to_string(), program);

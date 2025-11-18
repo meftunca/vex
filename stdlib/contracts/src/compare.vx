@@ -1,0 +1,43 @@
+// ============================================================================
+// Comparison Contracts
+// ============================================================================
+
+/// Equality comparison
+export contract Eq {
+    /// Returns true if self equals other
+    fn eq(self: &Self, other: &Self): bool;
+    
+    /// Returns true if self does not equal other
+    fn ne(self: &Self, other: &Self): bool;
+}
+
+/// Ordering comparison
+export contract Ord {
+    /// Compares self with other, returns ordering
+    fn cmp(self: &Self, other: &Self): Ordering;
+    
+    /// Returns true if self < other
+    fn lt(self: &Self, other: &Self): bool;
+    
+    /// Returns true if self <= other
+    fn le(self: &Self, other: &Self): bool;
+    
+    /// Returns true if self > other
+    fn gt(self: &Self, other: &Self): bool;
+    
+    /// Returns true if self >= other
+    fn ge(self: &Self, other: &Self): bool;
+}
+
+/// Ordering result
+export enum Ordering {
+    Less,
+    Equal,
+    Greater
+}
+
+/// Hash computation for use in hash tables
+export contract Hash {
+    /// Computes hash value for this instance
+    fn hash(self: &Self): u64;
+}

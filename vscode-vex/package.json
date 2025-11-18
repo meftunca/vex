@@ -2,7 +2,7 @@
   "name": "vex-language",
   "displayName": "Vex Language Support",
   "description": "Syntax highlighting and language support for Vex programming language",
-  "version": "0.1.7",
+  "version": "0.1.9",
   "publisher": "meftunca",
   "icon": "icons/vex-icon.png",
   "engines": {
@@ -43,7 +43,8 @@
           "vex"
         ],
         "extensions": [
-          ".vx"
+          ".vx",
+          ".vxc"
         ],
         "configuration": "./language-configuration.json",
         "icon": {

@@ -1,0 +1,37 @@
+// Vex Downcast Type Safety Demo
+// This demonstrates the new type safety features for preventing unsafe implicit downcasts
+
+fn main() {
+    print("=== Vex Type Safety Demo ===\n\n");
+    
+    // ✅ ALLOWED: Implicit upcasts (safe widening)
+    print("✅ Implicit upcasts (safe):\n");
+    let small: i32 = 100;
+    let big: i64 = small;  // i32 -> i64: OK
+    print("  i32 -> i64: OK\n");
+    
+    let float: f32 = 3.14 as f32;  // Explicit for f32 literal
+    let double: f64 = float;  // f32 -> f64: OK
+    print("  f32 -> f64: OK\n\n");
+    
+    // ❌ REJECTED: Implicit downcasts (data loss risk)
+    print("❌ Implicit downcasts (rejected):\n");
+    print("  i64 -> i32: COMPILE ERROR\n");
+    print("  f64 -> f32: COMPILE ERROR\n");
+    print("  f64 -> i32: COMPILE ERROR\n\n");
+    
+    // ✅ ALLOWED: Explicit casts (programmer acknowledges risk)
+    print("✅ Explicit casts (allowed):\n");
+    let big_num: i64 = 1000000;
+    let truncated: i32 = big_num as i32;
+    print("  i64 -> i32 with 'as': OK\n");
+    
+    let pi: f64 = 3.14159265;
+    let pi_f32: f32 = pi as f32;
+    print("  f64 -> f32 with 'as': OK\n");
+    
+    let x: i32 = pi as i32;
+    print("  f64 -> i32 with 'as': OK\n\n");
+    
+    print("Type safety enforced! 🎉\n");
+}

@@ -1,0 +1,7 @@
+import * as math from "math";
+
+fn main() {
+    let pi = math.PI;
+    print("PI = ");
+    println(pi);
+}

@@ -9,7 +9,7 @@
 // EXPECTED_OUTPUT: vex -> performance
 // EXPECTED_OUTPUT: python -> dynamic
 // EXPECTED_OUTPUT: java -> enterprise
-// EXPECTED_OUTPUT: rust (updated) -> blazing-fast
+// EXPECTED_OUTPUT: rust (updated): blazing-fast
 // EXPECTED_OUTPUT: Empty map length: 0
 // EXPECTED_OUTPUT: === All tests passed! ===
 
@@ -60,7 +60,7 @@ fn main(): i32 {
     // 6. Update existing key
     map.insert("rust", "blazing-fast");
     let val_updated = map.get("rust");
-    print("rust (updated) -> ");
+    print("rust (updated): ");
     println(val_updated);
     
     // 7. Empty map literal

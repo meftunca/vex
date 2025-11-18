@@ -65,7 +65,7 @@ function createLanguageClient() {
     const clientOptions = {
         documentSelector: [{ scheme: "file", language: "vex" }],
         synchronize: {
-            fileEvents: vscode.workspace.createFileSystemWatcher("**/*.vx"),
+            fileEvents: vscode.workspace.createFileSystemWatcher("**/*.{vx,vxc}"),
         },
         outputChannelName: "Vex Language Server",
     };

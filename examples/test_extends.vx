@@ -1,0 +1,20 @@
+// Test extends keyword support
+
+struct Base {
+    id: i32
+    name: string
+}
+
+struct Derived extends Base {
+    extra: string
+}
+
+fn main() {
+    let obj = Derived {
+        id: 1,
+        name: "test",
+        extra: "data"
+    }
+    
+    println("ID: {}, Name: {}, Extra: {}", obj.id, obj.name, obj.extra)
+}

@@ -1,0 +1,9 @@
+// Module A - exports a constant
+
+const MAGIC_NUMBER: i32 = 42;
+
+fn double(x: i32): i32 {
+    return x * 2;
+}
+
+export { MAGIC_NUMBER, double };

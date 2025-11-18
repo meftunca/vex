@@ -1,0 +1,20 @@
+import "math";
+
+fn main() {
+    print("Testing constant usage...\n");
+    
+    // Test 1: Direct constant access
+    let pi_value: f64 = PI;
+    print("PI = ");
+    
+    // Test 2: Constant in expression
+    let tau: f64 = 2.0 * PI;
+    print("TAU = 2*PI\n");
+    
+    // Test 3: degrees/radians with PI
+    let half_circle: f64 = degrees(PI);
+    print("degrees(PI) should be 180\n");
+    
+    let quarter_turn: f64 = radians(90.0);
+    print("radians(90) should be ~PI/2\n");
+}

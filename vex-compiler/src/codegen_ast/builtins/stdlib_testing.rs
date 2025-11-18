@@ -22,18 +22,18 @@ pub fn stdlib_testing_assert<'ctx>(
     let condition = args[0].into_int_value();
 
     // If condition is false, panic
-    let then_block = codegen
-        .context
-        .append_basic_block(
-            codegen.current_function.ok_or("No current function context")?,
-            "assert_pass",
-        );
-    let else_block = codegen
-        .context
-        .append_basic_block(
-            codegen.current_function.ok_or("No current function context")?,
-            "assert_fail",
-        );
+    let then_block = codegen.context.append_basic_block(
+        codegen
+            .current_function
+            .ok_or("No current function context")?,
+        "assert_pass",
+    );
+    let else_block = codegen.context.append_basic_block(
+        codegen
+            .current_function
+            .ok_or("No current function context")?,
+        "assert_fail",
+    );
 
     codegen
         .builder
@@ -104,18 +104,18 @@ pub fn stdlib_testing_assert_eq<'ctx>(
         .get_function("vex_panic")
         .ok_or("vex_panic not declared")?;
 
-    let then_block = codegen
-        .context
-        .append_basic_block(
-            codegen.current_function.ok_or("No current function context")?,
-            "assert_eq_pass",
-        );
-    let else_block = codegen
-        .context
-        .append_basic_block(
-            codegen.current_function.ok_or("No current function context")?,
-            "assert_eq_fail",
-        );
+    let then_block = codegen.context.append_basic_block(
+        codegen
+            .current_function
+            .ok_or("No current function context")?,
+        "assert_eq_pass",
+    );
+    let else_block = codegen.context.append_basic_block(
+        codegen
+            .current_function
+            .ok_or("No current function context")?,
+        "assert_eq_fail",
+    );
 
     codegen
         .builder
@@ -184,18 +184,18 @@ pub fn stdlib_testing_assert_ne<'ctx>(
         .get_function("vex_panic")
         .ok_or("vex_panic not declared")?;
 
-    let then_block = codegen
-        .context
-        .append_basic_block(
-            codegen.current_function.ok_or("No current function context")?,
-            "assert_ne_pass",
-        );
-    let else_block = codegen
-        .context
-        .append_basic_block(
-            codegen.current_function.ok_or("No current function context")?,
-            "assert_ne_fail",
-        );
+    let then_block = codegen.context.append_basic_block(
+        codegen
+            .current_function
+            .ok_or("No current function context")?,
+        "assert_ne_pass",
+    );
+    let else_block = codegen.context.append_basic_block(
+        codegen
+            .current_function
+            .ok_or("No current function context")?,
+        "assert_ne_fail",
+    );
 
     codegen
         .builder

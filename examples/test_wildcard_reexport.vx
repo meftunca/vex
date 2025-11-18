@@ -1,0 +1,10 @@
+// Re-export all from test_wildcard_export.vx
+
+export * from "./test_wildcard_export.vx";
+
+// Add extra function
+fn local_func(): i32 {
+    return 999;
+}
+
+export { local_func };

@@ -40,8 +40,29 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }
         }
 
-        // Case 2: Simple variable field access
+        // Case 2: Namespace constant access (math.PI, math.E, etc.)
+        // Check BEFORE struct field access because namespace imports create variables too
         if let Expression::Ident(var_name) = object {
+            // Check if this is a namespace import alias
+            if let Some(namespace_module) = self.namespace_imports.get(var_name).cloned() {
+                // Field is a constant from the imported module
+                // Look up the constant in the module's global constants
+                let const_name = format!("{}::{}", namespace_module, field);
+                
+                if let Some(&const_val) = self.module_constants.get(&const_name) {
+                    eprintln!("   📌 Resolved namespace constant: {}.{} → {}", var_name, field, const_name);
+                    return Ok(const_val);
+                }
+                
+                // Also try without module prefix (direct constant name)
+                if let Some(&const_val) = self.module_constants.get(field) {
+                    eprintln!("   📌 Resolved namespace constant (direct): {}.{}", var_name, field);
+                    return Ok(const_val);
+                }
+                
+                return Err(format!("Constant '{}' not found in namespace '{}'", field, var_name));
+            }
+            
             // Check if this variable is tracked as a struct
             let maybe_struct_name = self.variable_struct_names.get(var_name).cloned();
 

@@ -9,6 +9,32 @@ impl<'a> Parser<'a> {
     pub(crate) fn parse_extern_block(&mut self) -> Result<Item, ParseError> {
         self.consume(&Token::Extern, "Expected 'extern'")?;
 
+        // ⚠️ SAFETY CHECK: extern blocks only allowed in .vxc files
+        // This prevents unsafe native code in regular .vx files
+        // Exception: stdlib/prelude files (temporary - will be migrated to .vxc)
+        let is_stdlib = self.file_name.starts_with("core::")
+            || self.file_name.starts_with("vex::")
+            || self.file_name.contains("/stdlib/");
+        let is_vxc = self.file_name.ends_with(".vxc");
+        let is_test_input = self.file_name.contains("<"); // <input>, <stdin> for REPL
+
+        if !is_vxc && !is_stdlib && !is_test_input {
+            return Err(self.error(&format!(
+                "extern blocks are only allowed in .vxc (C-interop) files\n\
+                 \n\
+                 help: rename this file to have a .vxc extension, or move extern declarations to a separate .vxc file\n\
+                 \n\
+                 Current file: {}\n\
+                 \n\
+                 Example structure:\n\
+                 - src/native.vxc     (extern \"C\" {{ ... }})\n\
+                 - src/lib.vx         (import {{ ... }} from \"./native.vxc\")\n\
+                 \n\
+                 This restriction helps isolate unsafe native code and makes it easier to review security-sensitive parts of your codebase.",
+                self.file_name
+            )));
+        }
+
         // Parse ABI: extern "C" { ... } or extern "system" { ... }
         let abi = if let Token::StringLiteral(s) = self.peek() {
             let abi = s.clone();
@@ -27,6 +53,16 @@ impl<'a> Parser<'a> {
             // Check if it's a type declaration or function
             if self.check(&Token::Type) {
                 types.push(self.parse_extern_type()?);
+            } else if self.check(&Token::Export) {
+                // Support: export fn ... inside extern blocks
+                self.advance(); // consume 'export'
+                if self.check(&Token::Fn) {
+                    let mut func = self.parse_extern_function()?;
+                    func.is_exported = true; // Mark as exported
+                    functions.push(func);
+                } else {
+                    return Err(self.error("Expected 'fn' after 'export' in extern block"));
+                }
             } else if self.check(&Token::Fn) {
                 functions.push(self.parse_extern_function()?);
             } else {
@@ -103,6 +139,7 @@ impl<'a> Parser<'a> {
             return_type,
             is_variadic,
             variadic_type: None, // C-style variadic (no type info)
+            is_exported: false,  // Default: not exported (will be set to true if needed)
         })
     }
 

@@ -7,8 +7,6 @@
 /// Dead code elimination: LLVM will optimize away unused prelude functions
 /// at link time, so including the full prelude has no runtime cost.
 
-/// Core prelude module containing fundamental types and traits
-pub const LIB: &str = include_str!("lib.vx");
 
 /// Vec<T> - Dynamic array implementation
 pub const VEC: &str = include_str!("vec.vx");
@@ -40,7 +38,6 @@ pub const BUILTIN_CONTRACTS: &str = include_str!("builtin_contracts.vx");
 /// 7. box.vx - Box<T> type
 pub fn get_embedded_prelude() -> Vec<(&'static str, &'static str)> {
     vec![
-        ("core::lib", LIB),
         ("core::ops", OPS),
         ("core::builtin_contracts", BUILTIN_CONTRACTS),
         ("core::option", OPTION),

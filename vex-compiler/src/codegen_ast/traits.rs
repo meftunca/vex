@@ -102,7 +102,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 if let Statement::Expression(expr) = stmt {
                     // Check if return type is void/nil
                     let is_void_return = matches!(method.return_type.as_ref(), Some(Type::Nil));
-                    
+
                     if is_void_return {
                         // Void/nil function: compile expression as statement (for side effects)
                         self.compile_statement(stmt)?;

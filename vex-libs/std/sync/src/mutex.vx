@@ -1,0 +1,51 @@
+// ============================================================================
+// Mutex<T> - Mutual Exclusion Lock
+// ============================================================================
+
+import {
+    vex_mutex_new, vex_mutex_lock, vex_mutex_try_lock,
+    vex_mutex_guard_drop, vex_mutex_guard_get_mut, vex_mutex_drop
+} from "./native.vxc";
+
+export struct Mutex<T> impl Drop {
+    _ptr: *T
+}
+
+export struct MutexGuard<T> impl Drop {
+    _ptr: *T
+}
+
+export fn mutex_new<T>(value: T): Mutex<T> {
+    let size = sizeof<T>();
+    let value_ptr = &value as *u8;
+    let ptr = vex_mutex_new(value_ptr, size);
+    return Mutex { _ptr: ptr };
+}
+
+export fn mutex_lock<T>(self: &Mutex<T>): MutexGuard<T> {
+    let guard_ptr = vex_mutex_lock(self._ptr);
+    return MutexGuard { _ptr: guard_ptr };
+}
+
+export fn mutex_try_lock<T>(self: &Mutex<T>): Option<MutexGuard<T>> {
+    let! guard_ptr: *u8 = 0 as *u8;
+    let success = vex_mutex_try_lock(self._ptr, &guard_ptr as *u8);
+    if success == 1 {
+        return Option.Some(MutexGuard { _ptr: guard_ptr });
+    } else {
+        return Option.None;
+    }
+}
+
+export fn mutex_guard_get_mut<T>(self: &MutexGuard<T>!): &T! {
+    let data = vex_mutex_guard_get_mut(self._ptr);
+    return data as &T!;
+}
+
+fn (self: &MutexGuard<T>) drop() {
+    vex_mutex_guard_drop(self._ptr);
+}
+
+fn (self: &Mutex<T>) drop() {
+    vex_mutex_drop(self._ptr);
+}

@@ -39,6 +39,36 @@ export fn multiply(x: i32, y: i32): i32 {
 - One module per file
 - File name becomes module name
 - Private by default (use `export` keyword)
+- **JavaScript-like semantics**: Only exported symbols are accessible from outside
+
+### Module Privacy (JavaScript-like)
+
+**Important**: Vex follows JavaScript/TypeScript module semantics, NOT Rust/Go:
+
+```vex
+// math/internal.vx
+fn fabs(x: f64): f64 {  // Private - not exported
+    // Internal implementation
+}
+
+export fn abs(x: f64): f64 {  // Public API
+    return fabs(x);  // ✅ Can call within same module
+}
+
+// main.vx
+import { abs } from "math/internal";
+
+fn main() {
+    abs(-5.0);   // ✅ Works - abs is exported
+    fabs(-5.0);  // ❌ Error - fabs is NOT exported
+}
+```
+
+**Key Difference**:
+- **JavaScript/Vex**: Functions can call non-exported functions in their own module
+- **Rust/Go**: All symbols in a module are visible to importers (package-level visibility)
+
+When you import a function, it carries its own module context - internal calls remain valid.
 
 ### Module Paths
 
@@ -46,18 +76,66 @@ Standard library modules:
 
 ```
 vex-libs/std/
+├── math/
+│   ├── vex.json        # Package manifest (optional)
+│   ├── src/
+│   │   ├── lib.vx      # Main entry point (default)
+│   │   └── native.vxc  # Native FFI bindings
 ├── io/
-│   ├── mod.vx          # Main module
-│   ├── file.vx         # Submodule
-│   └── stream.vx       # Submodule
+│   ├── vex.json
+│   ├── src/
+│   │   ├── lib.vx      # Main module
+│   │   ├── file.vx     # Submodule
+│   │   └── stream.vx   # Submodule
 ├── net/
-│   ├── mod.vx
-│   ├── http.vx
-│   └── tcp.vx
+│   ├── vex.json
+│   └── src/
+│       ├── lib.vx
+│       ├── http.vx
+│       └── tcp.vx
 └── ...
 ```
 
-**Import Path**: `"io"` → `vex-libs/std/io/mod.vx`
+### Import Resolution Rules
+
+**1. Package Name (Recommended)**
+```vex
+import { abs } from "math";  
+// → Resolves to: vex-libs/std/math/src/lib.vx (from vex.json "main" field)
+```
+
+**2. Direct File Import**
+```vex
+import { sin } from "math/native.vxc";  
+// → Resolves to: vex-libs/std/math/src/native.vxc
+
+import { helper } from "io/file.vx";
+// → Resolves to: vex-libs/std/io/src/file.vx
+```
+
+**3. Relative Imports (Within Module)**
+```vex
+// In: vex-libs/std/math/src/lib.vx
+import { fabs } from "./native.vxc";  
+// → Resolves to: vex-libs/std/math/src/native.vxc
+```
+
+### Package Entry Point (vex.json)
+
+The `main` field in `vex.json` specifies the primary export:
+
+```json
+{
+  "name": "math",
+  "version": "1.0.0",
+  "main": "src/lib.vx"  
+}
+```
+
+**Resolution**:
+- `import from "math"` → Uses `main` field → `src/lib.vx`
+- `import from "math/native.vxc"` → Direct file path → `src/native.vxc`
+- If no `vex.json`: Defaults to `src/lib.vx` or `src/mod.vx`
 
 ---
 
@@ -204,6 +282,24 @@ export { helper };
 // Or directly
 export { helper } from "internal";
 ```
+
+### Default Export Behavior
+
+**v0.1.2**: If NO explicit `export` declarations exist in a module, ALL symbols are exported (export-all).
+
+```vex
+// math.vx - No explicit exports
+fn abs(x: i32): i32 { ... }  // ✅ Exported (export-all mode)
+fn helper(): i32 { ... }     // ✅ Exported (export-all mode)
+
+// vs.
+
+// math.vx - With explicit exports
+export fn abs(x: i32): i32 { ... }  // ✅ Exported
+fn helper(): i32 { ... }            // ❌ NOT exported (private)
+```
+
+**Rule**: Once you use `export` on ANY symbol, ONLY explicitly exported symbols are visible.
 
 ---
 

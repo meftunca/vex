@@ -16,7 +16,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         async_io_dir.join("src/worker_context.c"),
         async_io_dir.join("src/lockfree_queue.c"),
         async_io_dir.join("src/common.c"),
-        c_dir.join("vex_args.c"),   // Command-line arguments
+        c_dir.join("vex_args.c"), // Command-line arguments
         c_dir.join("vex_channel.c"),
         c_dir.join("vex_io.c"),     // I/O functions (print, println, etc.)
         c_dir.join("vex_alloc.c"),  // Memory allocation
@@ -84,8 +84,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // --- Linker Configuration ---
 
-    let out_dir = env::var("OUT_DIR")
-        .map_err(|e| format!("Failed to get OUT_DIR: {}", e))?;
+    let out_dir = env::var("OUT_DIR").map_err(|e| format!("Failed to get OUT_DIR: {}", e))?;
 
     // 1. Instruct Cargo how to link the `vex` binary itself (for `cargo test`, etc.).
     println!("cargo:rustc-link-search=native={}", out_dir);
@@ -109,8 +108,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // NOTE: Add other libs like -ldl, -lrt for Linux if needed later.
 
     println!("cargo:warning=Linker args content: {}", linker_args);
-    std::fs::write(&linker_args_path, &linker_args)
-        .unwrap_or_else(|e| panic!("Failed to write linker args to {}: {}", linker_args_path.display(), e));
+    std::fs::write(&linker_args_path, &linker_args).unwrap_or_else(|e| {
+        panic!(
+            "Failed to write linker args to {}: {}",
+            linker_args_path.display(),
+            e
+        )
+    });
     println!("cargo:warning=Successfully wrote linker args file.");
 
     // 3. Expose the output directory to the `vex-runtime` crate so it can find the args file.

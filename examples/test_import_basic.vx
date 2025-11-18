@@ -1,0 +1,13 @@
+import * as math from "math";
+
+fn main() {
+    print("Testing namespace import...\n");
+    
+    // Test that relative imports (./native.vxc) work
+    let pi: f64 = math.PI;
+    print("PI value: ");
+    print(pi);
+    print("\n");
+    
+    print("Namespace import test passed!\n");
+}

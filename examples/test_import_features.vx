@@ -1,0 +1,15 @@
+import { abs } from "math";
+import * as math from "math";
+
+fn main() {
+    // Named import
+    let x = abs(-42);
+    
+    // Namespace import with constant
+    let pi: f64 = math.PI;
+    let e: f64 = math.E;
+    
+    println(x);
+    println(pi);
+    println(e);
+}

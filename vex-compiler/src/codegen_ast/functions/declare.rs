@@ -76,26 +76,31 @@ impl<'ctx> ASTCodeGen<'ctx> {
             func.name.clone()
         };
 
-        eprintln!("🔍 DEBUG: func.name='{}', fn_name='{}', func.is_async={}", func.name, fn_name, func.is_async);
+        eprintln!(
+            "🔍 DEBUG: func.name='{}', fn_name='{}', func.is_async={}",
+            func.name, fn_name, func.is_async
+        );
 
         // ⭐ SPECIAL HANDLING: async main() should be declared as regular main
         let is_async_main = func.name == "main" && func.is_async;
         let effective_is_async = func.is_async; // Keep async for main too
         eprintln!("🔍 DEBUG: func.name='{}', fn_name='{}', func.is_async={}, is_async_main={}, effective_is_async={}", 
             func.name, fn_name, func.is_async, is_async_main, effective_is_async);
-        eprintln!("🔍 Function {}: is_async={}, is_async_main={}, effective_is_async={}", 
-            func.name, func.is_async, is_async_main, effective_is_async);
-        
+        eprintln!(
+            "🔍 Function {}: is_async={}, is_async_main={}, effective_is_async={}",
+            func.name, func.is_async, is_async_main, effective_is_async
+        );
+
         let mut param_types = vec![];
         if fn_name == "main" && !func.is_async {
             // int main(int argc, char **argv) - only for sync main (NOT async main)
             let i32_type = self.context.i32_type();
             let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
-            
+
             param_types.push(i32_type.into()); // argc
             param_types.push(ptr_type.into()); // argv (char**)
         }
-        
+
         if let Some(ref receiver) = func_for_decl.receiver {
             // ⭐ NEW: External methods (fn (p: Point)) pass receiver BY VALUE
             // Only reference receivers (fn (p: &Point!) are pointers
@@ -117,7 +122,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let fn_val = if let Some(ref ty) = func_for_decl.return_type {
             println!("🔍 ABOUT TO CHECK RETURN TYPE for {}", fn_name);
             eprintln!("🔍 Function {} return type check: {:?}", fn_name, ty);
-            
+
             // ⭐ SPECIAL: Type::Nil should be treated as void (no return value)
             if matches!(ty, Type::Nil) {
                 eprintln!("🟢 Function {} return type: nil (void)", fn_name);
@@ -130,7 +135,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
             // If this is a method and return type is SelfType, replace with concrete struct
             let actual_ret_ty = if matches!(ty, vex_ast::Type::SelfType) {
                 if let Some(ref receiver) = func_for_decl.receiver {
-                    if let Some(struct_name) = self.extract_struct_name_from_receiver(&receiver.ty) {
+                    if let Some(struct_name) = self.extract_struct_name_from_receiver(&receiver.ty)
+                    {
                         vex_ast::Type::Named(struct_name)
                     } else {
                         ty.clone()
@@ -143,11 +149,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
             };
             // ⭐ ASYNC: For async functions, return type is Future<T> (pointer)
             // Wrapper returns Future<T>, resume function returns CoroStatus (i32)
-                let mut llvm_ret = if effective_is_async {
+            let mut llvm_ret = if effective_is_async {
                 // Async wrapper returns Future<T> = void* pointer
                 BasicTypeEnum::PointerType(self.context.ptr_type(inkwell::AddressSpace::default()))
             } else {
-                    self.ast_type_to_llvm(&actual_ret_ty)
+                self.ast_type_to_llvm(&actual_ret_ty)
             };
 
             eprintln!(
@@ -165,7 +171,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             );
 
             // ⚠️ CRITICAL FIX: For String return type (Type::String), verify we have PointerType
-                if matches!(ty, Type::String) && !matches!(llvm_ret, BasicTypeEnum::PointerType(_)) {
+            if matches!(ty, Type::String) && !matches!(llvm_ret, BasicTypeEnum::PointerType(_)) {
                 eprintln!(
                     "⚠️ WARNING: String return type should be PointerType, got {:?}",
                     llvm_ret
@@ -196,7 +202,31 @@ impl<'ctx> ASTCodeGen<'ctx> {
             let fn_type = self.context.void_type().fn_type(&param_types, is_variadic);
             self.module.add_function(&fn_name, fn_type, None)
         };
-        self.functions.insert(fn_name.clone(), fn_val);
+
+        // ⭐ CRITICAL FIX: For function overloading, generate mangled name with parameter types
+        // This allows multiple functions with same base name but different signatures
+        let mangled_fn_name = if !func.params.is_empty() && !func.type_params.is_empty() {
+            // Generic function - use base name (will be instantiated with type args later)
+            fn_name.clone()
+        } else if !func.params.is_empty() {
+            // Non-generic function with parameters - mangle with parameter types
+            let mut param_suffix = String::new();
+            for param in &func.params {
+                param_suffix.push_str(&self.generate_type_suffix(&param.ty));
+            }
+            let mangled = format!("{}{}", fn_name, param_suffix);
+            eprintln!("🔧 Function overload: {} → {}", fn_name, mangled);
+
+            // Register with BOTH names:
+            // 1. Mangled name for type-specific lookup
+            self.functions.insert(mangled.clone(), fn_val);
+            // 2. Base name for generic lookup (will be overridden by last overload, but that's OK)
+            fn_name.clone()
+        } else {
+            fn_name.clone()
+        };
+
+        self.functions.insert(mangled_fn_name, fn_val);
         Ok(fn_val)
     }
 }

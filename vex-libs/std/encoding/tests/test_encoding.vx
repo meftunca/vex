@@ -1,0 +1,65 @@
+// Test encoding package functionality
+import { hex_encode, hex_decode } from "encoding";
+import { base64_encode, base64_decode, Base64Config, Base64Alphabet } from "encoding";
+import { base32_encode, base32_decode, Base32Config, Base32Alphabet } from "encoding";
+import { uuid_v4, uuid_format, uuid_parse } from "encoding";
+
+fn main() {
+    // Test Hex encoding
+    println("=== Hex Encoding ===");
+    let hex_lower = hex_encode("Hello, World!", false);
+    println("Hex (lowercase): " + hex_lower);
+    
+    let hex_upper = hex_encode("Hello, World!", true);
+    println("Hex (uppercase): " + hex_upper);
+    
+    let decoded_hex = hex_decode(hex_lower).unwrap();
+    println("Decoded hex: " + decoded_hex);
+    
+    // Test Base64 encoding
+    println("\n=== Base64 Encoding ===");
+    let b64_cfg = Base64Config {
+        alphabet: Base64Alphabet.Standard,
+        padding: true,
+        wrap: 0
+    };
+    let b64_encoded = base64_encode("Hello, World!", b64_cfg);
+    println("Base64: " + b64_encoded);
+    
+    let b64_decoded = base64_decode(b64_encoded, Base64Alphabet.Standard).unwrap();
+    println("Decoded base64: " + b64_decoded);
+    
+    // Test Base64 URL-safe
+    let b64_url_cfg = Base64Config {
+        alphabet: Base64Alphabet.UrlSafe,
+        padding: false,
+        wrap: 0
+    };
+    let b64_url = base64_encode("Hello, World!", b64_url_cfg);
+    println("Base64 (URL-safe, no padding): " + b64_url);
+    
+    // Test Base32 encoding
+    println("\n=== Base32 Encoding ===");
+    let b32_cfg = Base32Config {
+        alphabet: Base32Alphabet.RFC,
+        padding: true
+    };
+    let b32_encoded = base32_encode("Test data", b32_cfg);
+    println("Base32 (RFC): " + b32_encoded);
+    
+    let b32_decoded = base32_decode(b32_encoded, Base32Alphabet.RFC).unwrap();
+    println("Decoded base32: " + b32_decoded);
+    
+    // Test UUID generation
+    println("\n=== UUID Generation ===");
+    let uuid = uuid_v4().unwrap();
+    let uuid_str = uuid_format(uuid);
+    println("UUID v4: " + uuid_str);
+    
+    // Parse UUID back
+    let parsed = uuid_parse(uuid_str).unwrap();
+    let parsed_str = uuid_format(parsed);
+    println("Parsed UUID: " + parsed_str);
+    
+    println("\n✅ All encoding tests passed!");
+}

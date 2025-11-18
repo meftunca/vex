@@ -7,12 +7,12 @@ fn main() {
     println!("{}", z);  // Only z is used
 }
 
-fn test_params(a: i32, b: i32) -> i32 {
+fn test_params(a: i32, b: i32): i32 {
     // Should warn: unused parameter `b`
     return a + 10;
 }
 
-fn test_underscore(_ignored: i32, _also_ignored: i32) -> i32 {
+fn test_underscore(_ignored: i32, _also_ignored: i32): i32 {
     // Should NOT warn - starts with underscore
     return 42;
 }

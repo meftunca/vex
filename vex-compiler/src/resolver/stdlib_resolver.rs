@@ -24,10 +24,10 @@ const STDLIB_MODULES: &[&str] = &[
     // "json",
     // "fmt",
     "testing",
-    // "math",    // Mathematical functions
-    // "fs",      // File system operations
-    // "env",     // Environment variables
-    // "process", // Process management
+    "math", // Mathematical functions
+            // "fs",      // File system operations
+            // "env",     // Environment variables
+            // "process", // Process management
 ];
 
 /// Errors that can occur during module resolution
@@ -148,6 +148,20 @@ impl StdlibResolver {
             return Err(ResolveError::ModuleNotFound(module_name.to_string()));
         }
 
+        // If submodule path explicitly includes .vx or .vxc extension, treat as direct file path
+        if let Some(ref subpath) = submodule_path {
+            if subpath.ends_with(".vx") || subpath.ends_with(".vxc") {
+                let direct_file = module_dir.join(subpath);
+                if direct_file.exists() {
+                    return Ok(direct_file);
+                }
+                return Err(ResolveError::ModuleNotFound(format!(
+                    "File '{}' not found in module '{}'",
+                    subpath, root_module
+                )));
+            }
+        }
+
         let src_dir = module_dir.join("src");
         if !src_dir.exists() {
             return Err(ResolveError::InvalidPath(format!(
@@ -170,6 +184,12 @@ impl StdlibResolver {
                 return Ok(submodule_lib);
             }
 
+            // Try: core/src/vec/lib.vxc (C-interop)
+            let submodule_lib_vxc = src_dir.join(&subpath).join("lib.vxc");
+            if submodule_lib_vxc.exists() {
+                return Ok(submodule_lib_vxc);
+            }
+
             return Err(ResolveError::ModuleNotFound(format!(
                 "Submodule '{}' not found in '{}'",
                 subpath, root_module
@@ -177,15 +197,24 @@ impl StdlibResolver {
         }
 
         // Priority chain: platform.arch > arch > platform > generic
+        // Check both .vx and .vxc extensions
         let candidates = vec![
             format!(
                 "lib.{}.{}.vx",
                 self.target.platform.as_str(),
                 self.target.arch.as_str()
             ),
+            format!(
+                "lib.{}.{}.vxc",
+                self.target.platform.as_str(),
+                self.target.arch.as_str()
+            ),
             format!("lib.{}.vx", self.target.arch.as_str()),
+            format!("lib.{}.vxc", self.target.arch.as_str()),
             format!("lib.{}.vx", self.target.platform.as_str()),
+            format!("lib.{}.vxc", self.target.platform.as_str()),
             "lib.vx".to_string(),
+            "lib.vxc".to_string(),
         ];
 
         for candidate in candidates {

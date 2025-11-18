@@ -1,0 +1,31 @@
+// Test 1: Named import
+import { abs } from "math";
+
+fn test_named_import() {
+    let x: i32 = abs(-5);
+    if x == 5 {
+        print("✅ Named import works\n");
+    } else {
+        print("❌ Named import FAILED\n");
+    }
+}
+
+// Test 2: Module import (all symbols)
+import "math";
+
+fn test_module_import() {
+    // After module import, all exported functions should be available directly
+    let x: i32 = abs(-10);
+    if x == 10 {
+        print("✅ Module import works\n");
+    } else {
+        print("❌ Module import FAILED\n");
+    }
+}
+
+fn main() {
+    print("=== Import/Export System Tests ===\n\n");
+    test_named_import();
+    test_module_import();
+    print("\n=== Tests Complete ===\n");
+}

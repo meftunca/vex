@@ -1,0 +1,69 @@
+
+// ============================================================================
+// Arc<T> - Atomic Reference Counting (Thread-Safe)
+// ============================================================================
+import {
+    vex_arc_new, vex_arc_clone, vex_arc_get, vex_arc_strong_count, 
+    vex_arc_drop, vex_arc_get_mut
+} from "./native.vxc";
+
+// Import standard contracts
+import { SmartPointer, RefCounted, Drop } from "std/contracts";
+
+export struct Arc<T> impl SmartPointer<T>, RefCounted, Drop {
+    _ptr: *T,
+    
+    // SmartPointer contract
+    fn op(value: T): Arc<T> {
+        let size = sizeof<T>();
+        let value_ptr = &value as *T;
+        let ptr = vex_arc_new(value_ptr, size);
+        return Arc { _ptr: ptr };
+    }
+    
+    fn get(self: &Arc<T>): &T {
+        let data = vex_arc_get(self._ptr);
+        return data as &T;
+    }
+    
+    fn get_mut(self: &Arc<T>!): &T! {
+        let data = vex_arc_get_mut(self._ptr);
+        return data as &T!;
+    }
+    
+    // RefCounted contract
+    fn clone(self: &Arc<T>): Arc<T> {
+        let ptr = vex_arc_clone(self._ptr);
+        return Arc { _ptr: ptr };
+    }
+    
+    fn strong_count(self: &Arc<T>): usize {
+        return vex_arc_strong_count(self._ptr) as usize;
+    }
+    
+    // Drop contract
+    fn drop(self: &Arc<T>!) {
+        vex_arc_drop(self._ptr);
+    }
+}
+
+// Legacy function exports for backward compatibility
+export fn arc_new<T>(value: T): Arc<T> {
+    return Arc(value);
+}
+
+export fn arc_clone<T>(self: &Arc<T>): Arc<T> {
+    return self.clone();
+}
+
+export fn arc_get<T>(self: &Arc<T>): &T {
+    return self.get();
+}
+
+export fn arc_strong_count<T>(self: &Arc<T>): i64 {
+    return self.strong_count() as i64;
+}
+
+export fn arc_get_mut<T>(self: &Arc<T>!): &T! {
+    return self.get_mut();
+}

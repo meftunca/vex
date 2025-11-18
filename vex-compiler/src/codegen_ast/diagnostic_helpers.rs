@@ -7,16 +7,14 @@ use vex_diagnostics::{error_codes, Diagnostic, ErrorLevel, Span};
 
 impl<'ctx> ASTCodeGen<'ctx> {
     /// Emit a type mismatch error
-    pub(crate) fn emit_type_mismatch(
-        &mut self,
-        expected: &str,
-        found: &str,
-        span: Span,
-    ) {
+    pub(crate) fn emit_type_mismatch(&mut self, expected: &str, found: &str, span: Span) {
         self.diagnostics.emit(Diagnostic {
             level: ErrorLevel::Error,
             code: error_codes::TYPE_MISMATCH.to_string(),
-            message: format!("mismatched types: expected `{}`, found `{}`", expected, found),
+            message: format!(
+                "mismatched types: expected `{}`, found `{}`",
+                expected, found
+            ),
             span,
             notes: vec![],
             help: Some(self.suggest_type_conversion(expected, found)),
@@ -25,13 +23,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
     }
 
     /// Emit an undefined variable error
-    pub(crate) fn emit_undefined_variable(
-        &mut self,
-        var_name: &str,
-        span: Span,
-    ) {
+    pub(crate) fn emit_undefined_variable(&mut self, var_name: &str, span: Span) {
         let similar = self.find_similar_variable_names(var_name);
-        
+
         self.diagnostics.emit(Diagnostic {
             level: ErrorLevel::Error,
             code: error_codes::UNDEFINED_VARIABLE.to_string(),
@@ -74,11 +68,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
     }
 
     /// Emit an undefined function error
-    pub(crate) fn emit_undefined_function(
-        &mut self,
-        fn_name: &str,
-        span: Span,
-    ) {
+    pub(crate) fn emit_undefined_function(&mut self, fn_name: &str, span: Span) {
         self.diagnostics.emit(Diagnostic {
             level: ErrorLevel::Error,
             code: "E0425".to_string(),
@@ -91,11 +81,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
     }
 
     /// Emit an undefined type error
-    pub(crate) fn emit_undefined_type(
-        &mut self,
-        type_name: &str,
-        span: Span,
-    ) {
+    pub(crate) fn emit_undefined_type(&mut self, type_name: &str, span: Span) {
         self.diagnostics.emit(Diagnostic {
             level: ErrorLevel::Error,
             code: "E0412".to_string(),
@@ -108,16 +94,14 @@ impl<'ctx> ASTCodeGen<'ctx> {
     }
 
     /// Emit invalid operation error
-    pub(crate) fn emit_invalid_operation(
-        &mut self,
-        op: &str,
-        type_name: &str,
-        span: Span,
-    ) {
+    pub(crate) fn emit_invalid_operation(&mut self, op: &str, type_name: &str, span: Span) {
         self.diagnostics.emit(Diagnostic {
             level: ErrorLevel::Error,
             code: "E0369".to_string(),
-            message: format!("cannot apply binary operator `{}` to type `{}`", op, type_name),
+            message: format!(
+                "cannot apply binary operator `{}` to type `{}`",
+                op, type_name
+            ),
             span,
             notes: vec![],
             help: None,
@@ -148,7 +132,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
     fn find_similar_variable_names(&self, target: &str) -> Vec<String> {
         let mut candidates: Vec<String> = self.variables.keys().cloned().collect();
         candidates.extend(self.variable_types.keys().cloned());
-        
+
         vex_diagnostics::fuzzy::find_similar_names(target, &candidates, 0.6, 3)
     }
 
@@ -168,7 +152,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
     /// Check if we should continue compilation despite errors
     /// Returns true if we hit too many errors
     pub(crate) fn should_abort_compilation(&self) -> bool {
-        self.diagnostics.diagnostics().iter().filter(|d| d.level == ErrorLevel::Error).count() > 100
+        self.diagnostics
+            .diagnostics()
+            .iter()
+            .filter(|d| d.level == ErrorLevel::Error)
+            .count()
+            > 100
     }
 
     /// Helper: Emit error and return Err for backward compatibility
@@ -185,13 +174,17 @@ impl<'ctx> ASTCodeGen<'ctx> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_type_conversion_suggestions() {
         let ctx = inkwell::context::Context::create();
         let codegen = ASTCodeGen::new(&ctx, "test");
-        
-        assert!(codegen.suggest_type_conversion("i32", "f64").contains("round"));
-        assert!(codegen.suggest_type_conversion("String", "&str").contains("to_string"));
+
+        assert!(codegen
+            .suggest_type_conversion("i32", "f64")
+            .contains("round"));
+        assert!(codegen
+            .suggest_type_conversion("String", "&str")
+            .contains("to_string"));
     }
 }

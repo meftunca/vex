@@ -1,0 +1,10 @@
+fn test_func(): i32 {
+    return 0;
+}
+
+fn main() {
+    println("Calling test function...");
+    let result: i32 = test_func();
+    println("Result: ");
+    println(result);
+}

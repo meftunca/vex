@@ -46,7 +46,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Prefer user-defined/static stdlib implementations before compiler builtins
         if let Some(fn_val) = self.functions.get(&base_method_name).copied() {
-            eprintln!("🔍 Static lookup (lowercase): {} -> found function? {}", base_method_name, true);
+            eprintln!(
+                "🔍 Static lookup (lowercase): {} -> found function? {}",
+                base_method_name, true
+            );
             // If the function is actually an inline/instance method (has a receiver),
             // don't treat it as a static method. This allows calling instance methods
             // on variables while still supporting Type.method() for true static functions.
@@ -82,7 +85,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 return Ok(call_site.try_as_basic_value().unwrap_basic());
             }
         } else if let Some(fn_val) = self.functions.get(&pascal_method_name).copied() {
-            eprintln!("🔍 Static lookup (pascal): {} -> found function? {}", pascal_method_name, true);
+            eprintln!(
+                "🔍 Static lookup (pascal): {} -> found function? {}",
+                pascal_method_name, true
+            );
             if let Some(func_def) = self.function_defs.get(&pascal_method_name) {
                 if func_def.receiver.is_some() {
                     // It's an instance method. Allow a special-case where the
@@ -98,9 +104,15 @@ impl<'ctx> ASTCodeGen<'ctx> {
                             if let Some(receiver_param) = &func_def.receiver {
                                 // Build a zero-sized or typed receiver on stack as pointer
                                 let receiver_llvm_ty = self.ast_type_to_llvm(&receiver_param.ty);
-                                let receiver_ptr = self.builder
+                                let receiver_ptr = self
+                                    .builder
                                     .build_alloca(receiver_llvm_ty, "static_self")
-                                    .map_err(|e| format!("Failed to allocate receiver for static call: {}", e))?;
+                                    .map_err(|e| {
+                                        format!(
+                                            "Failed to allocate receiver for static call: {}",
+                                            e
+                                        )
+                                    })?;
 
                                 let mut arg_vals: Vec<BasicMetadataValueEnum> = vec![];
                                 // Pass receiver first, then other args
@@ -113,7 +125,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                 let call_site = self
                                     .builder
                                     .build_call(fn_val, &arg_vals, "static_method_call")
-                                    .map_err(|e| format!("Failed to build static method call: {}", e))?;
+                                    .map_err(|e| {
+                                        format!("Failed to build static method call: {}", e)
+                                    })?;
 
                                 // ⭐ CRITICAL FIX: Handle struct return values properly
                                 // If function returns a struct by value, the call returns a struct value
@@ -122,22 +136,32 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                     if return_val.is_struct_value() {
                                         // Allocate space for the returned struct
                                         let struct_ty = return_val.get_type();
-                                        let result_ptr = self.builder
+                                        let result_ptr = self
+                                            .builder
                                             .build_alloca(struct_ty, "constructor_result")
-                                            .map_err(|e| format!("Failed to allocate constructor result: {}", e))?;
-                                        
+                                            .map_err(|e| {
+                                                format!(
+                                                    "Failed to allocate constructor result: {}",
+                                                    e
+                                                )
+                                            })?;
+
                                         // Store the returned struct value
-                                        self.builder
-                                            .build_store(result_ptr, return_val)
-                                            .map_err(|e| format!("Failed to store constructor result: {}", e))?;
-                                        
+                                        self.builder.build_store(result_ptr, return_val).map_err(
+                                            |e| {
+                                                format!("Failed to store constructor result: {}", e)
+                                            },
+                                        )?;
+
                                         // Return the pointer to the struct
                                         return Ok(result_ptr.into());
                                     } else {
                                         return Ok(return_val);
                                     }
                                 } else {
-                                    return Err("Constructor method must return a value".to_string());
+                                    return Err(
+                                        "Constructor method must return a value".to_string()
+                                    );
                                 }
                             }
                         }

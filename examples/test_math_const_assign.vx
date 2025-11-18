@@ -1,0 +1,8 @@
+import * as math from "math";
+
+fn main() {
+    let pi: f64 = math.PI;
+    let e: f64 = math.E;
+    println(pi);
+    println(e);
+}

@@ -37,6 +37,39 @@ impl Program {
             self.imports.insert(0, import);
         }
     }
+    
+    /// Auto-import standard contracts (Phase 2: Contract-based prelude)
+    /// Injects common contracts like Collection, Stack, Drop, Clone, etc.
+    /// These are available globally without explicit import
+    pub fn inject_contract_prelude(&mut self) {
+        // Standard contracts - auto-imported for convenience
+        let contract_import = Import {
+            kind: ImportKind::Named,
+            items: vec![
+                "Collection".to_string(),
+                "Stack".to_string(),
+                "Queue".to_string(),
+                "Indexable".to_string(),
+                "SmartPointer".to_string(),
+                "RefCounted".to_string(),
+                "Drop".to_string(),
+                "Clone".to_string(),
+                "Display".to_string(),
+                "Debug".to_string(),
+                "Default".to_string(),
+                "From".to_string(),
+                "Into".to_string(),
+                "Eq".to_string(),
+                "Ord".to_string(),
+                "Hash".to_string(),
+            ],
+            module: "std/contracts".to_string(),
+            alias: None,
+        };
+        
+        // Insert after core prelude (5 core modules)
+        self.imports.insert(5, contract_import);
+    }
 }
 
 /// File is an alias for Program (used in parser)
@@ -139,10 +172,12 @@ pub struct Import {
     pub alias: Option<String>, // For namespace imports or renaming
 }
 
-/// Export statement: export { io, net }; or export fn foo() {}
+/// Export statement: export { io, net }; or export fn foo() {} or export { Arc } from "./arc.vx";
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Export {
-    pub items: Vec<String>, // For export { io, net };
+    pub items: Vec<String>,      // For export { io, net };
+    pub from_module: Option<String>, // For re-export: export { Arc } from "./arc.vx"
+    pub is_wildcard: bool,       // For export * from "./module.vx"
 }
 
 /// Policy declaration: policy APIModel { id `json:"id"`, name `json:"name"` }
@@ -313,6 +348,7 @@ pub struct ExternFunction {
     pub return_type: Option<Type>,
     pub is_variadic: bool,
     pub variadic_type: Option<Type>, // Type for variadic params: ...any, ...string
+    pub is_exported: bool,           // Whether this extern function is exported (for .vxc files)
 }
 
 /// Trait definition (Vex v1.3: Required + default methods)

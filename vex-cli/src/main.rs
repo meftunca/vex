@@ -344,6 +344,19 @@ fn main() -> Result<()> {
 
             println!("   ✅ Parsed {} successfully", filename);
 
+            // 🔍 Phase 0: Contract enforcement check
+            println!("   🔍 Checking contract enforcement...");
+            let mut visibility_checker = vex_compiler::VisibilityChecker::new();
+            if let Err(contract_errors) = visibility_checker.check_program(&ast) {
+                for error in contract_errors {
+                    eprintln!("\n⚠️  Contract Violation:\n{}", error);
+                }
+                eprintln!("\n💡 Tip: All public methods must be declared in a contract.");
+                eprintln!("   See stdlib/contracts for standard contracts you can implement.");
+                // For now, just warn - don't fail compilation
+                // return Err(anyhow::anyhow!("Contract enforcement failed"));
+            }
+
             let mut borrow_checker = vex_compiler::BorrowChecker::new();
             if let Err(borrow_error) = borrow_checker.check_program(&mut ast) {
                 // Convert borrow error to diagnostic
@@ -405,9 +418,8 @@ fn main() -> Result<()> {
                 &context, filename, span_map, input_str,
             );
 
-            eprintln!("🔍 About to call compile_program");
+            // Compile the program
             let compile_result = codegen.compile_program(&ast);
-            eprintln!("🔍 compile_program returned: {:?}", compile_result.is_ok());
 
             // Print diagnostics based on output format
             if codegen.has_diagnostics() {
@@ -677,21 +689,69 @@ fn main() -> Result<()> {
                 let mut std_resolver = vex_compiler::ModuleResolver::new(PathBuf::from("vex-libs/std"));
                 let mut prelude_resolver = vex_compiler::ModuleResolver::new(PathBuf::from("stdlib"));
 
-                for import in &ast.imports {
+                // Collect sub-imports to add after iteration
+                let mut sub_imports_to_add: Vec<vex_ast::Import> = Vec::new();
+
+                // ⭐ ITERATIVE import resolution loop
+                // Keep processing imports until no new sub-imports are queued
+                let mut processed_imports: std::collections::HashSet<String> = std::collections::HashSet::new();
+                
+                // ⭐ NEW: Circular dependency detection
+                // Track import chain to detect cycles: A → B → C → A
+                let mut import_stack: Vec<String> = Vec::new();
+                
+                let mut import_index = 0;
+
+                while import_index < ast.imports.len() {
+                    // Clone the import to avoid borrow conflicts
+                    let import = ast.imports[import_index].clone();
+                    import_index += 1;
+                    
                     let module_path = &import.module;
+                    
+                    // Skip if already processed
+                    if processed_imports.contains(module_path) {
+                        continue;
+                    }
+                    
+                    // ⭐ CRITICAL: Check for circular dependency BEFORE adding to stack
+                    if import_stack.contains(module_path) {
+                        // Build the cycle chain for error message
+                        let cycle_start = import_stack.iter().position(|m| m == module_path).unwrap();
+                        let cycle_chain: Vec<String> = import_stack[cycle_start..].to_vec();
+                        let cycle_path = cycle_chain.join(" → ");
+                        anyhow::bail!(
+                            "⚠️  Circular import detected: {} → {}\n   Import chain: {}",
+                            cycle_path,
+                            module_path,
+                            import_stack.join(" → ")
+                        );
+                    }
+                    
+                    import_stack.push(module_path.clone());
+                    processed_imports.insert(module_path.clone());
+                    
                     eprintln!("🔄 Resolving import: '{}'", module_path);
 
+                    // Handle @relative: markers from sub-imports
+                    // Format: "@relative:math/./native.vxc" → resolve as "math/native.vxc"
+                    let actual_module_path = if module_path.starts_with("@relative:") {
+                        let without_prefix = &module_path["@relative:".len()..];
+                        // Remove ./ and ../ markers, resolve path
+                        let resolved = without_prefix.replace("/./", "/");
+                        resolved
+                    } else {
+                        module_path.clone()
+                    };
+
                     // Try standard library first (vex-libs/std), then prelude (stdlib)
-                    let module_ast = match std_resolver.load_module(module_path, Some(&parser_file)) {
+                    let module_ast = match std_resolver.load_module(&actual_module_path, Some(&parser_file)) {
                         Ok(module) => {
-                            eprintln!("   ✅ Loaded from vex-libs/std: {}", module_path);
                             module
                         }
                         Err(_) => {
-                            eprintln!("   ⏭️  Not in vex-libs/std, trying stdlib (prelude): {}", module_path);
-                            match prelude_resolver.load_module(module_path, Some(&parser_file)) {
+                            match prelude_resolver.load_module(&actual_module_path, Some(&parser_file)) {
                                 Ok(module) => {
-                                    eprintln!("   ✅ Loaded from stdlib: {}", module_path);
                                     module
                                 }
                                 Err(e) => {
@@ -700,6 +760,65 @@ fn main() -> Result<()> {
                             }
                         }
                     };
+
+                    // ⭐ CRITICAL: Add sub-imports from loaded module to queue
+                    // Example: math/src/lib.vx has "import { fabs } from './native.vxc'" 
+                    // We need to queue native.vxc for processing too (JavaScript semantics)
+                    for sub_import in &module_ast.imports {
+                        // Convert relative imports to absolute path
+                        let sub_module_path = if sub_import.module.starts_with("./") || sub_import.module.starts_with("../") {
+                            // Resolve ./ relative to parent package
+                            // If actual_module_path is "math" (package), resolve relative to package/src/
+                            // Example: math → math/src/lib.vx (via vex.json main field)
+                            //          math/src/lib.vx imports "./native.vxc" → "math/src/native.vxc"
+                            
+                            // Check if this is a package import (no .vx/.vxc extension)
+                            let is_package_import = !actual_module_path.ends_with(".vx") && !actual_module_path.ends_with(".vxc");
+                            
+                            let base_dir = if is_package_import {
+                                // Package import uses main field, default to <package>/src/
+                                format!("{}/src", actual_module_path)
+                            } else {
+                                // Direct file import, use its directory
+                                if actual_module_path.contains('/') {
+                                    let parts: Vec<&str> = actual_module_path.rsplitn(2, '/').collect();
+                                    if parts.len() == 2 {
+                                        parts[1].to_string() // Everything before the last /
+                                    } else {
+                                        "".to_string()
+                                    }
+                                } else {
+                                    "".to_string() // No directory, root level
+                                }
+                            };
+                            
+                            let relative_cleaned = sub_import.module.trim_start_matches("./");
+                            if base_dir.is_empty() {
+                                relative_cleaned.to_string()
+                            } else {
+                                format!("{}/{}", base_dir, relative_cleaned)
+                            }
+                        } else {
+                            sub_import.module.clone()
+                        };
+
+                        // Check if already queued or processed
+                        let already_imported = ast.imports.iter().any(|i| i.module == sub_module_path) 
+                            || processed_imports.contains(&sub_module_path)
+                            || sub_imports_to_add.iter().any(|i| i.module == sub_module_path);
+                        if !already_imported {
+                            
+                            // Collect in temporary list (will be added after loop iteration)
+                            let mut new_import = sub_import.clone();
+                            new_import.module = sub_module_path;
+                            sub_imports_to_add.push(new_import);
+                        }
+                    }
+
+                    // Add queued sub-imports to ast.imports for next iteration
+                    if !sub_imports_to_add.is_empty() {
+                        ast.imports.extend(sub_imports_to_add.drain(..));
+                    }
 
                     match &import.kind {
                         vex_ast::ImportKind::Named => {
@@ -871,6 +990,24 @@ fn main() -> Result<()> {
                             break; // Found vex.json, stop searching
                         }
                     }
+                    
+                    // ⭐ Pop from import stack after processing module
+                    // This allows sibling imports without false circular detection
+                    import_stack.pop();
+                }
+
+                // ⭐ Add all queued sub-imports to ast.imports for next iteration
+                // This allows recursive import resolution (math → lib.vx → native.vxc)
+                ast.imports.extend(sub_imports_to_add);
+            }
+
+            // ⭐ CRITICAL: Resolve and merge imports BEFORE borrow checker
+            // This ensures all imported symbols (including ExternBlocks) are in AST
+            if !ast.imports.is_empty() {
+                let context_temp = inkwell::context::Context::create();
+                let mut temp_codegen = vex_compiler::ASTCodeGen::new(&context_temp, &filename);
+                if let Err(e) = temp_codegen.resolve_and_merge_imports(&mut ast) {
+                    anyhow::bail!("Import resolution failed: {}", e);
                 }
             }
 
@@ -878,6 +1015,21 @@ fn main() -> Result<()> {
             if !json {
                 println!("   🔍 Running borrow checker...");
             }
+            
+            // 🔍 Phase 0: Contract enforcement check
+            let mut visibility_checker = vex_compiler::VisibilityChecker::new();
+            if let Err(contract_errors) = visibility_checker.check_program(&ast) {
+                if !json {
+                    for error in contract_errors {
+                        eprintln!("\n⚠️  Contract Violation:\n{}", error);
+                    }
+                    eprintln!("\n💡 Tip: All public methods must be declared in a contract.");
+                    eprintln!("   See stdlib/contracts for standard contracts you can implement.");
+                }
+                // For now, just warn - don't fail compilation
+                // return Err(anyhow::anyhow!("Contract enforcement failed"));
+            }
+            
             let mut borrow_checker = vex_compiler::BorrowChecker::new();
             if let Err(borrow_error) = borrow_checker.check_program(&mut ast) {
                 // Convert borrow error to diagnostic

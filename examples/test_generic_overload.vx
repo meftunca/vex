@@ -1,0 +1,27 @@
+// Test generic functions with type constraints
+
+type NUMERIC = i32 | i64 | f32 | f64;
+
+export fn min<T=NUMERIC>(a: T, b: T): T {
+    if a < b {
+        return a;
+    }
+    return b;
+}
+
+export fn max<T=NUMERIC>(a: T, b: T): T {
+    if a > b {
+        return a;
+    }
+    return b;
+}
+
+fn main() {
+    let a: i32 = min(5, 10);
+    let b: f64 = max(3.14, 2.71);
+    
+    println("min(5, 10) = ");
+    println(a);
+    println("max(3.14, 2.71) = ");
+    println(b);
+}

@@ -1759,6 +1759,13 @@ extern "C"
    */
   void __vex_runtime_init(int argc, char **argv);
 
+  // ============================================================================
+  // SYNC PRIMITIVES (vex_sync.h)
+  // ============================================================================
+
+  // Include sync primitives from vex_sync.h
+  #include "vex_sync.h"
+
 #ifdef __cplusplus
 }
 #endif

@@ -1,0 +1,7 @@
+export fn my_func(): i32 {
+    return 42;
+}
+
+fn main() {
+    let result: i32 = my_func();
+}

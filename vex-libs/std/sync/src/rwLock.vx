@@ -1,0 +1,80 @@
+
+
+// ============================================================================
+// RwLock<T> - Read-Write Lock
+// ============================================================================
+import {
+    vex_rwlock_new, vex_rwlock_read, vex_rwlock_write,
+    vex_rwlock_try_read, vex_rwlock_try_write, vex_rwlock_guard_drop,
+    vex_rwlock_guard_get, vex_rwlock_guard_get_mut, vex_rwlock_drop
+} from "./native.vxc";
+export struct RwLock<T> impl Drop {
+    _ptr: *u8
+}
+
+export struct RwLockReadGuard<T> impl Drop {
+    _ptr: *u8
+}
+
+export struct RwLockWriteGuard<T> impl Drop {
+    _ptr: *u8
+}
+
+export fn rwlock_new<T>(value: T): RwLock<T> {
+    let size = sizeof<T>();
+    let value_ptr = &value as *u8;
+    let ptr = vex_rwlock_new(value_ptr, size);
+    return RwLock { _ptr: ptr };
+}
+
+export fn rwlock_read<T>(self: &RwLock<T>): RwLockReadGuard<T> {
+    let guard_ptr = vex_rwlock_read(self._ptr);
+    return RwLockReadGuard { _ptr: guard_ptr };
+}
+
+export fn rwlock_write<T>(self: &RwLock<T>): RwLockWriteGuard<T> {
+    let guard_ptr = vex_rwlock_write(self._ptr);
+    return RwLockWriteGuard { _ptr: guard_ptr };
+}
+
+export fn rwlock_try_read<T>(self: &RwLock<T>): Option<RwLockReadGuard<T>> {
+    let! guard_ptr: *u8 = 0 as *u8;
+    let success = vex_rwlock_try_read(self._ptr, &guard_ptr as *u8);
+    if success == 1 {
+        return Option.Some(RwLockReadGuard { _ptr: guard_ptr });
+    } else {
+        return Option.None;
+    }
+}
+
+export fn rwlock_try_write<T>(self: &RwLock<T>): Option<RwLockWriteGuard<T>> {
+    let! guard_ptr: *u8 = 0 as *u8;
+    let success = vex_rwlock_try_write(self._ptr, &guard_ptr as *u8);
+    if success == 1 {
+        return Option.Some(RwLockWriteGuard { _ptr: guard_ptr });
+    } else {
+        return Option.None;
+    }
+}
+
+export fn rwlock_read_guard_get<T>(self: &RwLockReadGuard<T>): &T {
+    let data = vex_rwlock_guard_get(self._ptr);
+    return data as &T;
+}
+
+export fn rwlock_write_guard_get_mut<T>(self: &RwLockWriteGuard<T>!): &T! {
+    let data = vex_rwlock_guard_get_mut(self._ptr);
+    return data as &T!;
+}
+
+fn (self: &RwLockReadGuard<T>) drop() {
+    vex_rwlock_guard_drop(self._ptr);
+}
+
+fn (self: &RwLockWriteGuard<T>) drop() {
+    vex_rwlock_guard_drop(self._ptr);
+}
+
+fn (self: &RwLock<T>) drop() {
+    vex_rwlock_drop(self._ptr);
+}

@@ -1,0 +1,91 @@
+// Native C Sync Library Bindings
+// Thread-safe primitives and atomic operations
+// ⚠️ Only .vxc files are allowed to contain extern "C" blocks
+
+extern "C" {
+    // Arc<T> - Atomic Reference Counting
+   export fn vex_arc_new(value: *u8, size: i64): *u8;
+   export fn vex_arc_clone(arc: *u8): *u8;
+   export fn vex_arc_get(arc: *u8): *u8;
+   export fn vex_arc_strong_count(arc: *u8): i64;
+   export fn vex_arc_drop(arc: *u8);
+   export fn vex_arc_get_mut(arc: *u8): *u8;
+    
+    // Rc<T> - Reference Counting (single-threaded)
+   export fn vex_rc_new(value: *u8, size: i64): *u8;
+   export fn vex_rc_clone(rc: *u8): *u8;
+   export fn vex_rc_get(rc: *u8): *u8;
+   export fn vex_rc_strong_count(rc: *u8): i64;
+   export fn vex_rc_drop(rc: *u8);
+   export fn vex_rc_get_mut(rc: *u8): *u8;
+    
+    // Mutex<T> - Mutual Exclusion Lock
+   export fn vex_mutex_new(value: *u8, size: i64): *u8;
+   export fn vex_mutex_lock(mutex: *u8): *u8;
+   export fn vex_mutex_try_lock(mutex: *u8, out_guard: *u8): i32;
+   export fn vex_mutex_guard_drop(guard: *u8);
+   export fn vex_mutex_guard_get_mut(guard: *u8): *u8;
+   export fn vex_mutex_drop(mutex: *u8);
+    
+    // RwLock<T> - Read-Write Lock
+   export fn vex_rwlock_new(value: *u8, size: i64): *u8;
+   export fn vex_rwlock_read(lock: *u8): *u8;
+   export fn vex_rwlock_write(lock: *u8): *u8;
+   export fn vex_rwlock_try_read(lock: *u8, out_guard: *u8): i32;
+   export fn vex_rwlock_try_write(lock: *u8, out_guard: *u8): i32;
+   export fn vex_rwlock_guard_drop(guard: *u8);
+   export fn vex_rwlock_guard_get(guard: *u8): *u8;
+   export fn vex_rwlock_guard_get_mut(guard: *u8): *u8;
+   export fn vex_rwlock_drop(lock: *u8);
+    
+    // Atomic<i32>
+   export fn vex_atomic_i32_new(value: i32): *u8;
+   export fn vex_atomic_i32_load(atomic: *u8, order: i32): i32;
+   export fn vex_atomic_i32_store(atomic: *u8, value: i32, order: i32);
+   export fn vex_atomic_i32_swap(atomic: *u8, value: i32, order: i32): i32;
+   export fn vex_atomic_i32_compare_exchange(atomic: *u8, expected: *i32, desired: i32, order: i32): i32;
+   export fn vex_atomic_i32_fetch_add(atomic: *u8, value: i32, order: i32): i32;
+   export fn vex_atomic_i32_fetch_sub(atomic: *u8, value: i32, order: i32): i32;
+   export fn vex_atomic_i32_drop(atomic: *u8);
+    
+    // Atomic<i64>
+   export fn vex_atomic_i64_new(value: i64): *u8;
+   export fn vex_atomic_i64_load(atomic: *u8, order: i32): i64;
+   export fn vex_atomic_i64_store(atomic: *u8, value: i64, order: i32);
+   export fn vex_atomic_i64_swap(atomic: *u8, value: i64, order: i32): i64;
+   export fn vex_atomic_i64_compare_exchange(atomic: *u8, expected: *i64, desired: i64, order: i32): i32;
+   export fn vex_atomic_i64_fetch_add(atomic: *u8, value: i64, order: i32): i64;
+   export fn vex_atomic_i64_fetch_sub(atomic: *u8, value: i64, order: i32): i64;
+   export fn vex_atomic_i64_drop(atomic: *u8);
+    
+    // Atomic<bool>
+   export fn vex_atomic_bool_new(value: i32): *u8;
+   export fn vex_atomic_bool_load(atomic: *u8, order: i32): i32;
+   export fn vex_atomic_bool_store(atomic: *u8, value: i32, order: i32);
+   export fn vex_atomic_bool_swap(atomic: *u8, value: i32, order: i32): i32;
+   export fn vex_atomic_bool_compare_exchange(atomic: *u8, expected: *i32, desired: i32, order: i32): i32;
+   export fn vex_atomic_bool_drop(atomic: *u8);
+    
+    // Barrier
+   export fn vex_barrier_new(count: i64): *u8;
+   export fn vex_barrier_wait(barrier: *u8);
+   export fn vex_barrier_drop(barrier: *u8);
+    
+    // Once
+   export fn vex_once_new(): *u8;
+   export fn vex_once_call(once: *u8, func: *u8, arg: *u8);
+   export fn vex_once_drop(once: *u8);
+    
+    // Condvar
+   export fn vex_condvar_new(): *u8;
+   export fn vex_condvar_wait(cv: *u8, guard: *u8);
+   export fn vex_condvar_wait_timeout(cv: *u8, guard: *u8, timeout_ms: u64): i32;
+   export fn vex_condvar_notify_one(cv: *u8);
+   export fn vex_condvar_notify_all(cv: *u8);
+   export fn vex_condvar_drop(cv: *u8);
+    
+    // Utilities
+   export fn vex_fence(order: i32);
+   export fn vex_spin_loop_hint();
+   export fn vex_memcpy(dest: *u8, src: *u8, size: i64): *u8;
+}

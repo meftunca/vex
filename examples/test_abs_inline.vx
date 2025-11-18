@@ -1,0 +1,30 @@
+fn abs(x: i32): i32 {
+    if x < 0 {
+        return 0 - x;
+    }
+    return x;
+}
+
+fn main() {
+    let a: i32 = abs(-5);
+    let b: i32 = abs(7);
+    let c: i32 = abs(0);
+    
+    if a == 5 {
+        print("PASS: abs(-5) = 5\n");
+    } else {
+        print("FAIL: abs(-5) != 5\n");
+    }
+    
+    if b == 7 {
+        print("PASS: abs(7) = 7\n");
+    } else {
+        print("FAIL: abs(7) != 7\n");
+    }
+    
+    if c == 0 {
+        print("PASS: abs(0) = 0\n");
+    } else {
+        print("FAIL: abs(0) != 0\n");
+    }
+}

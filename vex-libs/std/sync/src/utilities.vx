@@ -1,0 +1,17 @@
+
+import {
+    vex_fence, vex_spin_loop_hint, vex_memcpy
+} from "./native.vxc";
+
+
+// ============================================================================
+// Utility Functions
+// ============================================================================
+
+export fn fence(order: i32) {
+    vex_fence(order);
+}
+
+export fn spin_loop_hint() {
+    vex_spin_loop_hint();
+}

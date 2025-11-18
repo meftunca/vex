@@ -20,7 +20,8 @@ impl VexBackend {
             // Get AST for this document
             if let Some(ast) = self.ast_cache.get(&uri_str) {
                 // Extract symbols from AST
-                if let Err(e) = self.extract_workspace_symbols(&ast, &uri_str, &query, &mut symbols) {
+                if let Err(e) = self.extract_workspace_symbols(&ast, &uri_str, &query, &mut symbols)
+                {
                     eprintln!("Error extracting workspace symbols for {}: {}", uri_str, e);
                     // Continue with other documents
                 }
@@ -41,8 +42,8 @@ impl VexBackend {
             match item {
                 vex_ast::Item::Struct(struct_def) => {
                     if query.is_empty() || struct_def.name.contains(query) {
-                        let parsed_uri = Url::parse(uri)
-                            .map_err(|e| format!("Invalid URI '{}': {}", uri, e))?;
+                        let parsed_uri =
+                            Url::parse(uri).map_err(|e| format!("Invalid URI '{}': {}", uri, e))?;
                         symbols.push(SymbolInformation {
                             name: struct_def.name.clone(),
                             kind: SymbolKind::STRUCT,
@@ -68,8 +69,8 @@ impl VexBackend {
                 }
                 vex_ast::Item::Enum(enum_def) => {
                     if query.is_empty() || enum_def.name.contains(query) {
-                        let parsed_uri = Url::parse(uri)
-                            .map_err(|e| format!("Invalid URI '{}': {}", uri, e))?;
+                        let parsed_uri =
+                            Url::parse(uri).map_err(|e| format!("Invalid URI '{}': {}", uri, e))?;
                         symbols.push(SymbolInformation {
                             name: enum_def.name.clone(),
                             kind: SymbolKind::ENUM,
@@ -94,8 +95,8 @@ impl VexBackend {
                 }
                 vex_ast::Item::Function(func_def) => {
                     if query.is_empty() || func_def.name.contains(query) {
-                        let parsed_uri = Url::parse(uri)
-                            .map_err(|e| format!("Invalid URI '{}': {}", uri, e))?;
+                        let parsed_uri =
+                            Url::parse(uri).map_err(|e| format!("Invalid URI '{}': {}", uri, e))?;
                         symbols.push(SymbolInformation {
                             name: func_def.name.clone(),
                             kind: SymbolKind::FUNCTION,
@@ -120,8 +121,8 @@ impl VexBackend {
                 }
                 vex_ast::Item::Contract(contract_def) => {
                     if query.is_empty() || contract_def.name.contains(query) {
-                        let parsed_uri = Url::parse(uri)
-                            .map_err(|e| format!("Invalid URI '{}': {}", uri, e))?;
+                        let parsed_uri =
+                            Url::parse(uri).map_err(|e| format!("Invalid URI '{}': {}", uri, e))?;
                         symbols.push(SymbolInformation {
                             name: contract_def.name.clone(),
                             kind: SymbolKind::INTERFACE,

@@ -60,7 +60,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
                             .ok_or_else(|| format!("Missing parameter {}", i))?;
                         tuple_val = self
                             .builder
-                            .build_insert_value(tuple_val, param, param_idx, &format!("field_{}", i))
+                            .build_insert_value(
+                                tuple_val,
+                                param,
+                                param_idx,
+                                &format!("field_{}", i),
+                            )
                             .map_err(|e| format!("Failed to insert tuple field: {}", e))?
                             .into_struct_value();
                     }

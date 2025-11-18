@@ -22,8 +22,12 @@ impl VexBackend {
         let old_name = get_token_at_position(&text, position);
         // Detect receiver for dotted calls (Type.method)
         let receiver = get_receiver_at_position(&text, position);
-        let free_fn_old = receiver.as_ref().map(|recv| format!("{}_{}", recv.to_lowercase(), old_name));
-        let free_fn_new = receiver.as_ref().map(|recv| format!("{}_{}", recv.to_lowercase(), new_name.clone()));
+        let free_fn_old = receiver
+            .as_ref()
+            .map(|recv| format!("{}_{}", recv.to_lowercase(), old_name));
+        let free_fn_new = receiver
+            .as_ref()
+            .map(|recv| format!("{}_{}", recv.to_lowercase(), new_name.clone()));
         if old_name.is_empty() {
             return Ok(None);
         }

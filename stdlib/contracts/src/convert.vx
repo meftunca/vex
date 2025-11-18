@@ -1,0 +1,57 @@
+// ============================================================================
+// Conversion Contracts
+// ============================================================================
+
+/// Infallible conversion from T into Self
+export contract From<T> {
+    /// Creates Self from a value of type T
+    fn from(value: T): Self;
+}
+
+/// Infallible conversion from Self into T
+export contract Into<T> {
+    /// Converts self into type T
+    fn into(self: Self): T;
+}
+
+/// Fallible conversion from T into Self
+export contract TryFrom<T> {
+    /// Error type returned on conversion failure
+    type Error;
+    
+    /// Attempts to create Self from a value of type T
+    fn try_from(value: T): Result<Self, Self.Error>;
+}
+
+/// Fallible conversion from Self into T
+export contract TryInto<T> {
+    /// Error type returned on conversion failure
+    type Error;
+    
+    /// Attempts to convert self into type T
+    fn try_into(self: Self): Result<T, Self.Error>;
+}
+
+/// Conversion to string representation
+export contract Display {
+    /// Returns a string representation of the value
+    fn to_string(self: &Self): string;
+}
+
+/// Debug representation
+export contract Debug {
+    /// Returns a debug string representation
+    fn debug(self: &Self): string;
+}
+
+/// Deep copy
+export contract Clone {
+    /// Creates a deep copy of the value
+    fn clone(self: &Self): Self;
+}
+
+/// Default value construction
+export contract Default {
+    /// Creates a default value
+    fn default(): Self;
+}

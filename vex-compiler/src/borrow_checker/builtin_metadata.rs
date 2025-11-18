@@ -350,17 +350,20 @@ mod tests {
         let registry = BuiltinBorrowRegistry::new();
 
         // Test read-only builtins
-        let typeof_meta = registry.get("typeof")
+        let typeof_meta = registry
+            .get("typeof")
             .unwrap_or_else(|| panic!("typeof builtin not found"));
         assert_eq!(typeof_meta.param_effects[0], ParamEffect::ReadOnly);
 
         // Test mutating builtins
-        let array_append = registry.get("array_append")
+        let array_append = registry
+            .get("array_append")
             .unwrap_or_else(|| panic!("array_append builtin not found"));
         assert_eq!(array_append.param_effects[0], ParamEffect::BorrowsMut);
 
         // Test move builtins
-        let free_meta = registry.get("free")
+        let free_meta = registry
+            .get("free")
             .unwrap_or_else(|| panic!("free builtin not found"));
         assert_eq!(free_meta.param_effects[0], ParamEffect::Moves);
     }
@@ -370,12 +373,14 @@ mod tests {
         let registry = BuiltinBorrowRegistry::new();
 
         // hashmap_insert should mutate map
-        let insert = registry.get("hashmap_insert")
+        let insert = registry
+            .get("hashmap_insert")
             .unwrap_or_else(|| panic!("hashmap_insert builtin not found"));
         assert_eq!(insert.param_effects[0], ParamEffect::BorrowsMut);
 
         // hashmap_get should borrow immutably
-        let get = registry.get("hashmap_get")
+        let get = registry
+            .get("hashmap_get")
             .unwrap_or_else(|| panic!("hashmap_get builtin not found"));
         assert_eq!(get.param_effects[0], ParamEffect::BorrowsImmut);
     }

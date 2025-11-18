@@ -4,8 +4,10 @@
 use tower_lsp::{LspService, Server};
 
 mod backend;
+mod module_resolver;
 
 pub use backend::VexBackend;
+pub use module_resolver::ModuleResolver;
 
 #[tokio::main]
 async fn main() {

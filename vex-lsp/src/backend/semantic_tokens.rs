@@ -231,11 +231,45 @@ impl VexBackend {
 
     fn add_import_tokens(
         &self,
-        _import: &vex_ast::Import,
-        _source: &str,
-        _tokens: &mut Vec<SemanticToken>,
+        import: &vex_ast::Import,
+        source: &str,
+        tokens: &mut Vec<SemanticToken>,
     ) {
-        // TODO: Implement import semantic tokens
+        // Highlight import keyword
+        if let Some(range) = self.find_token_range(source, "import") {
+            tokens.push(SemanticToken {
+                delta_line: range.start.line,
+                delta_start: range.start.character,
+                length: 6, // "import".len()
+                token_type: self.token_type_to_index(SemanticTokenType::KEYWORD),
+                token_modifiers_bitset: 0,
+            });
+        }
+
+        // Highlight module path as namespace
+        let module_path = &import.module;
+        if let Some(range) = self.find_token_range(source, module_path) {
+            tokens.push(SemanticToken {
+                delta_line: range.start.line,
+                delta_start: range.start.character,
+                length: module_path.len() as u32,
+                token_type: self.token_type_to_index(SemanticTokenType::NAMESPACE),
+                token_modifiers_bitset: 0,
+            });
+        }
+
+        // Highlight imported items (if any)
+        for item in &import.items {
+            if let Some(range) = self.find_token_range(source, item) {
+                tokens.push(SemanticToken {
+                    delta_line: range.start.line,
+                    delta_start: range.start.character,
+                    length: item.len() as u32,
+                    token_type: self.token_type_to_index(SemanticTokenType::FUNCTION),
+                    token_modifiers_bitset: 0,
+                });
+            }
+        }
     }
 
     fn add_type_alias_tokens(

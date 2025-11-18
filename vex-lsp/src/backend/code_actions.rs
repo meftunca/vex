@@ -1,5 +1,6 @@
 // LSP Code Actions features
 
+use std::sync::Arc;
 use tower_lsp::lsp_types::*;
 
 use super::VexBackend;
@@ -9,22 +10,20 @@ impl VexBackend {
         &self,
         params: CodeActionParams,
     ) -> tower_lsp::jsonrpc::Result<Option<CodeActionResponse>> {
-        let uri = params.text_document.uri.to_string();
-
-        // Get document text
-        let text = match self.documents.get(&uri) {
-            Some(doc) => doc.clone(),
+        let uri_str = params.text_document.uri.to_string();
+        let doc = match self.documents.get(&uri_str) {
+            Some(doc) => Arc::clone(doc.value()),
             None => return Ok(None),
         };
 
         let mut actions = Vec::new();
 
         // Parse the document to get AST
-        match vex_parser::Parser::new(&text) {
+        match vex_parser::Parser::new(&doc) {
             Ok(mut parser) => match parser.parse() {
                 Ok(ast) => {
                     // Extract code actions from AST
-                    self.extract_code_actions(&ast, &params, &text, &mut actions);
+                    self.extract_code_actions(&ast, &params, &doc, &mut actions);
                 }
                 Err(_) => {
                     // If parsing fails, still provide basic actions
@@ -268,7 +267,11 @@ impl VexBackend {
     ) {
         // Get document text for context
         let uri_str = params.text_document.uri.to_string();
-        let text = self.documents.get(&uri_str).map(|r| r.value().clone()).unwrap_or_default();
+        let text = self
+            .documents
+            .get(&uri_str)
+            .map(|r| r.value().clone())
+            .unwrap_or_default();
         let lines: Vec<&str> = text.lines().collect();
 
         // Quick fixes based on diagnostic codes
@@ -277,9 +280,11 @@ impl VexBackend {
                 NumberOrString::String(code_str) => match code_str.as_str() {
                     "W0001" => {
                         // Unused variable - suggest prefixing with underscore
-                        if let Some(var_name) = Self::extract_variable_from_message(&diagnostic.message) {
+                        if let Some(var_name) =
+                            Self::extract_variable_from_message(&diagnostic.message)
+                        {
                             let new_name = format!("_{}", var_name);
-                            
+
                             actions.push(CodeActionOrCommand::CodeAction(CodeAction {
                                 title: format!("Rename to `{}`", new_name),
                                 kind: Some(CodeActionKind::QUICKFIX),
@@ -341,7 +346,9 @@ impl VexBackend {
                     }
                     "E0594" | "E0101" | "E0102" => {
                         // Cannot assign to immutable - suggest making mutable
-                        if let Some(var_name) = Self::extract_variable_from_message(&diagnostic.message) {
+                        if let Some(var_name) =
+                            Self::extract_variable_from_message(&diagnostic.message)
+                        {
                             let line_idx = diagnostic.range.start.line as usize;
                             if line_idx < lines.len() {
                                 let line = lines[line_idx];

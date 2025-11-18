@@ -1,0 +1,16 @@
+// Import from wildcard re-export module
+
+import { VALUE_A, VALUE_B, helper_a, helper_b, local_func } from "./test_wildcard_reexport.vx";
+
+fn main() {
+    println(VALUE_A);
+    println(VALUE_B);
+    
+    let x: i32 = helper_a(10);
+    let y: i32 = helper_b(20);
+    let z: i32 = local_func();
+    
+    println(x);
+    println(y);
+    println(z);
+}

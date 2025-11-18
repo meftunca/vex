@@ -151,7 +151,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     op_symbol, contract, contract, op_symbol
                 ))
             }
-            BinaryOp::BitAnd | BinaryOp::BitOr | BinaryOp::BitXor | BinaryOp::Shl | BinaryOp::Shr => {
+            BinaryOp::BitAnd
+            | BinaryOp::BitOr
+            | BinaryOp::BitXor
+            | BinaryOp::Shl
+            | BinaryOp::Shr => {
                 let op_symbol = match op {
                     BinaryOp::BitAnd => "&",
                     BinaryOp::BitOr => "|",
@@ -166,7 +170,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     op_symbol
                 ))
             }
-            _ => Err(format!("Operator '{:?}' is not supported for struct types", op)),
+            _ => Err(format!(
+                "Operator '{:?}' is not supported for struct types",
+                op
+            )),
         }
     }
 }

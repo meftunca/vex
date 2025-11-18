@@ -9,9 +9,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             vex_ast::Type::Named(name) if name == "Self" => {
                 vex_ast::Type::Named(concrete_type.to_string())
             }
-            vex_ast::Type::SelfType => {
-                vex_ast::Type::Named(concrete_type.to_string())
-            }
+            vex_ast::Type::SelfType => vex_ast::Type::Named(concrete_type.to_string()),
             vex_ast::Type::Reference(inner, is_mut) => vex_ast::Type::Reference(
                 Box::new(Self::replace_self_in_type(inner, concrete_type)),
                 *is_mut,
@@ -86,11 +84,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
     /// ⚠️ CRITICAL: Centralized method name generation
     /// Ensures consistent naming between declaration (program.rs, functions/compile.rs) and lookup (trait_methods.rs)
-    /// 
+    ///
     /// # Parameter Counting Rules (STANDARDIZED):
     /// - **External methods** (declared in program.rs): param_count = params.len() (EXCLUDES receiver)
     /// - **Inline methods** (declared in methods.rs): param_count = params.len() + 1 (INCLUDES receiver)
-    /// 
+    ///
     /// # Naming Patterns:
     /// - Non-operator: `StructName_methodname` or `StructName_methodname_paramcount`
     /// - Operator: `StructName_opXXX_paramcount` (always includes count)
@@ -106,10 +104,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
     ) -> String {
         let method_encoded = Self::encode_operator_name(method_name);
         let base_name = format!("{}_{}", struct_name, method_encoded);
-        
+
         // For operators, always include param count
         let is_operator = method_name.starts_with("op");
-        
+
         if is_operator {
             // Try to add type suffix for overloading if first param type is known
             if let Some(first_ty) = first_param_type {
@@ -176,10 +174,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     if matches {
                         // Mangle: StructName_method_TypeArg_paramCount
                         let type_suffix = self.generate_type_suffix(first_param_ty);
-                        found_match = Some(format!(
-                            "{}{}",
-                            base_name, type_suffix
-                        ));
+                        found_match = Some(format!("{}{}", base_name, type_suffix));
                         break;
                     }
                 }
@@ -315,11 +310,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
                     if matches {
                         let type_suffix = self.generate_type_suffix(first_param_ty);
-                        eprintln!("  🔍 compile_struct_method found match, type_suffix={}", type_suffix);
-                        found_match = Some(format!(
-                            "{}{}",
-                            base_name, type_suffix
-                        ));
+                        eprintln!(
+                            "  🔍 compile_struct_method found match, type_suffix={}",
+                            type_suffix
+                        );
+                        found_match = Some(format!("{}{}", base_name, type_suffix));
                         break;
                     }
                 }
@@ -511,7 +506,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 if let Statement::Expression(expr) = stmt {
                     // Check if return type is void/nil
                     let is_void_return = matches!(method.return_type.as_ref(), Some(Type::Nil));
-                    
+
                     if is_void_return {
                         // Void/nil function: compile expression as statement (for side effects)
                         self.compile_statement(stmt)?;
@@ -554,8 +549,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
             let is_void_or_nil = method.return_type.is_none()
                 || matches!(method.return_type.as_ref(), Some(Type::Nil));
 
-            eprintln!("📍 Method {} terminator check: return_type={:?}, is_void_or_nil={}", 
-                mangled_name, method.return_type, is_void_or_nil);
+            eprintln!(
+                "📍 Method {} terminator check: return_type={:?}, is_void_or_nil={}",
+                mangled_name, method.return_type, is_void_or_nil
+            );
 
             if is_void_or_nil {
                 // Void/nil function - add implicit void return

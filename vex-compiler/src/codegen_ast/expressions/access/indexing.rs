@@ -617,7 +617,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 .variables
                 .get(name)
                 .ok_or_else(|| format!("Variable {} not found", name))?;
-            
+
             // ⭐ CRITICAL FIX: Check if receiver expects reference vs value
             // Get function definition to check receiver type
             let func_def = self.function_defs.get(&method_name);
@@ -625,7 +625,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 .and_then(|def| def.receiver.as_ref())
                 .map(|recv| matches!(recv.ty, Type::Reference(_, _)))
                 .unwrap_or(false);
-            
+
             if expects_reference {
                 // Receiver expects reference (&self) - pass pointer directly
                 var_ptr.into()

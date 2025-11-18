@@ -1,178 +1,150 @@
-// Encoding Module
-// Base64, Base32, Hex, UUID encoding/decoding (vex_fastenc)
-//
-// Usage:
-//   import { base64_encode, hex_decode, uuid_v4, uuid_v7 } from "encoding";
+// encoding/src/lib.vx - High-performance encoding utilities
+// Provides Base16 (Hex), Base64, and UUID generation/parsing
 
-// External C functions from vex-runtime/c/vex_fastenc/
-    // UUID type
-    struct vex_uuid {
-        bytes: [u8; 16],
-    }
-    
-    // Base64 config
-    struct vex_b64_cfg {
-        alpha: i32,  // 0=std, 1=urlsafe
-        pad: i32,    // padding enabled
-        wrap: i32,   // wrap column
-    }
-    
-    // Base32 config
-    struct vex_b32_cfg {
-        alpha: i32,  // 0=RFC, 1=HEX, 2=Crockford
-        pad: i32,    // padding
-    }
-extern "C" {
+import { 
+    vex_hex_encoded_len, vex_hex_encode, vex_hex_decode,
+    vex_base64_encoded_len, vex_base64_encode, vex_base64_decode,
+    vex_uuid_v4, vex_uuid_format, vex_uuid_parse
+} from "./extern.vxc";
 
+// ===== Hex Encoding =====
+
+export fn hex_encode(data: String, uppercase: bool) : String {
+    let bytes = data.as_bytes();
+    let len = data.len();
+    let encoded_len = vex_hex_encoded_len(len);
     
-    // Hex
-    fn vex_hex_encode(src: *u8, n: u64, dst: *u8!, uppercase: i32): u64;
-    fn vex_hex_decode(src: *u8, n: u64, dst: *u8!): i64;
-    fn vex_hex_encoded_len(nbytes: u64): u64;
-    fn vex_hex_decoded_len(nchars: u64): u64;
+    // Allocate output buffer
+    let out_buf = Vec<u8>.with_capacity(encoded_len);
+    let out_ptr = out_buf.as_mut_ptr();
     
-    // Base64
-    fn vex_base64_encode(src: *u8, n: u64, dst: *u8!, cfg: vex_b64_cfg): u64;
-    fn vex_base64_decode(src: *u8, n: u64, dst: *u8!, alpha: i32): i64;
-    fn vex_base64_encoded_len(nbytes: u64, cfg: vex_b64_cfg): u64;
-    fn vex_base64_max_decoded_len(nchars: u64): u64;
+    // Encode
+    let upper_flag = if uppercase { 1 } else { 0 };
+    let actual_len = vex_hex_encode(bytes, len, out_ptr, upper_flag);
     
-    // Base32
-    fn vex_base32_encode(src: *u8, n: u64, dst: *u8!, cfg: vex_b32_cfg): u64;
-    fn vex_base32_decode(src: *u8, n: u64, dst: *u8!, alpha: i32): i64;
-    fn vex_base32_encoded_len(nbytes: u64, cfg: vex_b32_cfg): u64;
-    fn vex_base32_max_decoded_len(nchars: u64): u64;
-    
-    // UUID
-    fn vex_uuid_v1(out: *vex_uuid): i32;
-    fn vex_uuid_v3(out: *vex_uuid, ns: *vex_uuid, name: *u8, len: u64): i32;
-    fn vex_uuid_v4(out: *vex_uuid): i32;
-    fn vex_uuid_v5(out: *vex_uuid, ns: *vex_uuid, name: *u8, len: u64): i32;
-    fn vex_uuid_v6(out: *vex_uuid): i32;
-    fn vex_uuid_v7(out: *vex_uuid): i32;
-    fn vex_uuid_v8(out: *vex_uuid, custom: *u8): i32;
-    fn vex_uuid_format(out: *u8!, u: *vex_uuid): i32;  // 37 bytes (36 + null)
-    fn vex_uuid_parse(s: *u8, out: *vex_uuid): i32;
+    // Create string from buffer
+    out_buf.set_len(actual_len);
+    return String.from_utf8_unchecked(out_buf);
 }
 
-// UUID wrapper
+export fn hex_decode(encoded: String) : Result<String, String> {
+    let bytes = encoded.as_bytes();
+    let len = encoded.len();
+    let decoded_len = vex_hex_decoded_len(len);
+    
+    // Allocate output buffer
+    let out_buf = Vec<u8>.with_capacity(decoded_len);
+    let out_ptr = out_buf.as_mut_ptr();
+    
+    // Decode
+    let actual_len = vex_hex_decode(bytes, len, out_ptr);
+    
+    if actual_len < 0 {
+        return Err("Invalid hex encoding");
+    }
+    
+    out_buf.set_len(actual_len);
+    return Ok(String.from_utf8_unchecked(out_buf));
+}
+
+// ===== Base64 Encoding =====
+
+export enum Base64Alphabet {
+    Standard,    // A-Z a-z 0-9 + /
+    UrlSafe      // A-Z a-z 0-9 - _
+}
+
+export struct Base64Config {
+    alphabet: Base64Alphabet,
+    padding: bool,
+    wrap: i64    // 0 = no wrap, 76 = MIME wrap
+}
+
+export fn base64_encode(data: String, config: Base64Config) : String {
+    let bytes = data.as_bytes();
+    let len = data.len();
+    
+    let alpha_int = match config.alphabet {
+        Base64Alphabet.Standard => 0,
+        Base64Alphabet.UrlSafe => 1
+    };
+    let pad_int = if config.padding { 1 } else { 0 };
+    
+    let encoded_len = vex_base64_encoded_len(len, alpha_int, pad_int, config.wrap);
+    
+    let out_buf = Vec<u8>.with_capacity(encoded_len);
+    let out_ptr = out_buf.as_mut_ptr();
+    
+    let actual_len = vex_base64_encode(bytes, len, out_ptr, alpha_int, pad_int, config.wrap);
+    
+    out_buf.set_len(actual_len);
+    return String.from_utf8_unchecked(out_buf);
+}
+
+export fn base64_decode(encoded: String, alphabet: Base64Alphabet) : Result<String, String> {
+    let bytes = encoded.as_bytes();
+    let len = encoded.len();
+    
+    let alpha_int = match alphabet {
+        Base64Alphabet.Standard => 0,
+        Base64Alphabet.UrlSafe => 1
+    };
+    
+    let max_len = vex_base64_max_decoded_len(len);
+    
+    let out_buf = Vec<u8>.with_capacity(max_len);
+    let out_ptr = out_buf.as_mut_ptr();
+    
+    let actual_len = vex_base64_decode(bytes, len, out_ptr, alpha_int);
+    
+    if actual_len < 0 {
+        return Err("Invalid base64 encoding");
+    }
+    
+    out_buf.set_len(actual_len);
+    return Ok(String.from_utf8_unchecked(out_buf));
+}
+
+// ===== UUID =====
+
 export struct UUID {
-    bytes: [u8; 16],
+    bytes: [u8; 16]
 }
 
-// Hex encode
-export fn hex_encode(data: &[u8], uppercase: bool): string {
-    let out_len = unsafe { vex_hex_encoded_len(data.len()) };
-    let! buf: Vec<u8> = Vec.with_capacity(out_len);
-    unsafe {
-        vex_hex_encode(data.as_ptr(), data.len(), buf.as_mut_ptr(), if uppercase { 1 } else { 0 });
-        buf.set_len(out_len);
+export fn uuid_v4() : Result<UUID, String> {
+    let mut uuid = UUID { bytes: [0; 16] };
+    let result = vex_uuid_v4(&mut uuid.bytes as *u8);
+    if result != 0 {
+        return Err("Failed to generate UUID v4");
     }
-    return string.from_utf8_unchecked(buf);
+    return Ok(uuid);
 }
 
-// Hex decode
-export fn hex_decode(s: string): Vec<u8> {
-    let out_len = unsafe { vex_hex_decoded_len(s.len()) };
-    let! buf: Vec<u8> = Vec.with_capacity(out_len);
-    unsafe {
-        let written = vex_hex_decode(s.as_ptr(), s.len(), buf.as_mut_ptr());
-        if written < 0 {
-            panic("Invalid hex string");
-        }
-        buf.set_len(written as u64);
+export fn uuid_format(uuid: UUID) : String {
+    let mut out_buf: [u8; 37] = [0; 37];
+    vex_uuid_format(&mut out_buf as *u8, &uuid.bytes as *u8);
+    
+    // Convert to string (36 chars + null terminator)
+    let result = Vec<u8>.with_capacity(36);
+    let result_ptr = result.as_mut_ptr();
+    
+    // Copy 36 bytes (exclude null terminator)
+    for i in 0..36 {
+        *((result_ptr as i64 + i) as *u8) = out_buf[i];
     }
-    return buf;
+    
+    result.set_len(36);
+    return String.from_utf8_unchecked(result);
 }
 
-// Base64 encode (standard)
-export fn base64_encode(data: &[u8]): string {
-    let cfg = vex_b64_cfg { alpha: 0, pad: 1, wrap: 0 };
-    let out_len = unsafe { vex_base64_encoded_len(data.len(), cfg) };
-    let! buf: Vec<u8> = Vec.with_capacity(out_len);
-    unsafe {
-        vex_base64_encode(data.as_ptr(), data.len(), buf.as_mut_ptr(), cfg);
-        buf.set_len(out_len);
+export fn uuid_parse(s: String) : Result<UUID, String> {
+    let mut uuid = UUID { bytes: [0; 16] };
+    let bytes = s.as_bytes();
+    let result = vex_uuid_parse(bytes, &mut uuid.bytes as *u8);
+    if result != 0 {
+        return Err("Invalid UUID format");
     }
-    return string.from_utf8_unchecked(buf);
+    return Ok(uuid);
 }
 
-// Base64 decode
-export fn base64_decode(s: string): Vec<u8> {
-    let out_len = unsafe { vex_base64_max_decoded_len(s.len()) };
-    let! buf: Vec<u8> = Vec.with_capacity(out_len);
-    unsafe {
-        let written = vex_base64_decode(s.as_ptr(), s.len(), buf.as_mut_ptr(), 0);
-        if written < 0 {
-            panic("Invalid base64 string");
-        }
-        buf.set_len(written as u64);
-    }
-    return buf;
-}
-
-// Base32 encode (RFC 4648)
-export fn base32_encode(data: &[u8]): string {
-    let cfg = vex_b32_cfg { alpha: 0, pad: 1 };
-    let out_len = unsafe { vex_base32_encoded_len(data.len(), cfg) };
-    let! buf: Vec<u8> = Vec.with_capacity(out_len);
-    unsafe {
-        vex_base32_encode(data.as_ptr(), data.len(), buf.as_mut_ptr(), cfg);
-        buf.set_len(out_len);
-    }
-    return string.from_utf8_unchecked(buf);
-}
-
-// Base32 decode
-export fn base32_decode(s: string): Vec<u8> {
-    let out_len = unsafe { vex_base32_max_decoded_len(s.len()) };
-    let! buf: Vec<u8> = Vec.with_capacity(out_len);
-    unsafe {
-        let written = vex_base32_decode(s.as_ptr(), s.len(), buf.as_mut_ptr(), 0);
-        if written < 0 {
-            panic("Invalid base32 string");
-        }
-        buf.set_len(written as u64);
-    }
-    return buf;
-}
-
-// Generate UUID v4 (random)
-export fn uuid_v4(): UUID {
-    let! u: vex_uuid;
-    unsafe {
-        vex_uuid_v4(&u);
-    }
-    return UUID { bytes: u.bytes };
-}
-
-// Generate UUID v7 (time-based, sortable)
-export fn uuid_v7(): UUID {
-    let! u: vex_uuid;
-    unsafe {
-        vex_uuid_v7(&u);
-    }
-    return UUID { bytes: u.bytes };
-}
-
-// Format UUID to string
-export fn uuid_format(u: UUID): string {
-    let! buf: [u8; 37];
-    unsafe {
-        vex_uuid_format(buf.as_mut_ptr(), &u as *vex_uuid);
-        return string.from_utf8_unchecked(&buf[0..36]);
-    }
-}
-
-// Parse UUID from string
-export fn uuid_parse(s: string): UUID {
-    let! u: vex_uuid;
-    unsafe {
-        let result = vex_uuid_parse(s.as_ptr(), &u);
-        if result != 0 {
-            panic("Invalid UUID string");
-        }
-    }
-    return UUID { bytes: u.bytes };
-}
 

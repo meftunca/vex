@@ -21,12 +21,18 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Check if this is a module-level function call (io.print, log.info, etc.)
         if let Expression::Ident(module_name) = receiver {
-            eprintln!("🔍 module_namespaces keys: {:?}", self.module_namespaces.keys().collect::<Vec<_>>());
+            eprintln!(
+                "🔍 module_namespaces keys: {:?}",
+                self.module_namespaces.keys().collect::<Vec<_>>()
+            );
             // Check if this is a known module namespace
             if let Some(module_funcs) = self.module_namespaces.get(module_name) {
                 // This is a module namespace, check if the method exists
                 if module_funcs.contains(&method.to_string()) {
-                    eprintln!("🔍 Module call: {}.{} -> calling global function {}", module_name, method, method);
+                    eprintln!(
+                        "🔍 Module call: {}.{} -> calling global function {}",
+                        module_name, method, method
+                    );
                     // Found! Call the function directly
                     let mut arg_vals: Vec<BasicMetadataValueEnum> = vec![];
                     for arg in args {
@@ -53,10 +59,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
             let module_func_name = format!("{}_{}", module_name, method);
             if self.functions.contains_key(&module_func_name) {
                 // Check if this is actually a method (has receiver) - if so, skip module call path
-                let is_method = self.function_defs.get(&module_func_name)
+                let is_method = self
+                    .function_defs
+                    .get(&module_func_name)
                     .map(|def| def.receiver.is_some())
                     .unwrap_or(false);
-                
+
                 if !is_method {
                     // It's a true module function, call it directly
                     let mut arg_vals: Vec<BasicMetadataValueEnum> = vec![];
@@ -86,7 +94,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 .next()
                 .map(|c| c.is_uppercase())
                 .unwrap_or(false);
-            eprintln!("🔍 Potential type name: {} (is_type_name={})", potential_type_name, is_type_name);
+            eprintln!(
+                "🔍 Potential type name: {} (is_type_name={})",
+                potential_type_name, is_type_name
+            );
 
             // Check if this is NOT a variable (static methods called on types, not instances)
             let is_not_variable = !self.variables.contains_key(potential_type_name);
@@ -96,12 +107,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 // This is a static method call: Type.method(args) or Vec<i32>.new()
                 // Try static method first; if not found, fall through to instance method
                 // resolution so that inline/instance methods are not shadowed by type name.
-                if let Ok(val) = self.compile_static_method_call(
-                    potential_type_name,
-                    method,
-                    type_args,
-                    args,
-                ) {
+                if let Ok(val) =
+                    self.compile_static_method_call(potential_type_name, method, type_args, args)
+                {
                     return Ok(val);
                 }
 
@@ -117,11 +125,17 @@ impl<'ctx> ASTCodeGen<'ctx> {
                             if is_constructor {
                                 // Build a temporary receiver pointer and call the method
                                 if let Some(receiver_param) = &func_def.receiver {
-                                    let receiver_llvm_ty = self.ast_type_to_llvm(&receiver_param.ty);
+                                    let receiver_llvm_ty =
+                                        self.ast_type_to_llvm(&receiver_param.ty);
                                     let receiver_ptr = self
                                         .builder
                                         .build_alloca(receiver_llvm_ty, "static_self")
-                                        .map_err(|e| format!("Failed to allocate receiver for static call: {}", e))?;
+                                        .map_err(|e| {
+                                            format!(
+                                                "Failed to allocate receiver for static call: {}",
+                                                e
+                                            )
+                                        })?;
 
                                     let mut arg_vals: Vec<BasicMetadataValueEnum> = vec![];
                                     arg_vals.push(receiver_ptr.into());
@@ -130,15 +144,17 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                         arg_vals.push(val.into());
                                     }
 
-                                    let fn_val = *self
-                                        .functions
-                                        .get(&pascal_method_name)
-                                        .ok_or_else(|| format!("Method {} not found", pascal_method_name))?;
+                                    let fn_val =
+                                        *self.functions.get(&pascal_method_name).ok_or_else(
+                                            || format!("Method {} not found", pascal_method_name),
+                                        )?;
 
                                     let call_site = self
                                         .builder
                                         .build_call(fn_val, &arg_vals, "static_method_call")
-                                        .map_err(|e| format!("Failed to build static method call: {}", e))?;
+                                        .map_err(|e| {
+                                            format!("Failed to build static method call: {}", e)
+                                        })?;
 
                                     return Ok(call_site.try_as_basic_value().unwrap_basic());
                                 }

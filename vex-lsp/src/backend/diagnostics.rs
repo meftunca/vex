@@ -1,5 +1,6 @@
 // LSP Diagnostics and error handling
 
+use std::sync::Arc;
 use tower_lsp::lsp_types::*;
 use vex_compiler::borrow_checker::BorrowChecker;
 use vex_compiler::linter::Linter;
@@ -41,8 +42,8 @@ impl VexBackend {
                 diagnostics.push(self.borrow_error_to_diagnostic(&error, text));
             }
 
-            // Store in legacy cache for compatibility
-            self.ast_cache.insert(uri.to_string(), program);
+            // Store in legacy cache for compatibility (wrap in Arc)
+            self.ast_cache.insert(uri.to_string(), Arc::new(program));
         }
 
         diagnostics

@@ -1,0 +1,67 @@
+// Native C Math Library Bindings
+// This file contains FFI declarations for standard C math functions
+// ⚠️ Only .vxc files are allowed to contain extern "C" blocks
+
+extern "C" {
+    // Trigonometric functions (f64)
+    export fn sin(x: f64): f64;
+    export fn cos(x: f64): f64;
+    export fn tan(x: f64): f64;
+    export fn asin(x: f64): f64;
+    export fn acos(x: f64): f64;
+    export fn atan(x: f64): f64;
+    export fn atan2(y: f64, x: f64): f64;
+    
+    // Hyperbolic functions
+    export fn sinh(x: f64): f64;
+    export fn cosh(x: f64): f64;
+    export fn tanh(x: f64): f64;
+    export fn asinh(x: f64): f64;
+    export fn acosh(x: f64): f64;
+    export fn atanh(x: f64): f64;
+    
+    // Exponential and logarithmic functions
+    export fn exp(x: f64): f64;
+    export fn exp2(x: f64): f64;
+    export fn log(x: f64): f64;
+    export fn log2(x: f64): f64;
+    export fn log10(x: f64): f64;
+    
+    // Power and root functions
+    export fn pow(x: f64, y: f64): f64;
+    export fn sqrt(x: f64): f64;
+    export fn cbrt(x: f64): f64;
+    
+    // Rounding and remainder functions
+    export fn ceil(x: f64): f64;
+    export fn floor(x: f64): f64;
+    export fn round(x: f64): f64;
+    export fn trunc(x: f64): f64;
+    export fn fabs(x: f64): f64;
+    export fn fmod(x: f64, y: f64): f64;
+    
+    // Comparison and utility functions
+    export fn hypot(x: f64, y: f64): f64;
+    export fn copysign(x: f64, y: f64): f64;
+    export fn fmax(x: f64, y: f64): f64;
+    export fn fmin(x: f64, y: f64): f64;
+    export fn isnan(x: f64): i32;
+    export fn isinf(x: f64): i32;
+    
+    // Special functions
+    fn erf(x: f64): f64;
+    fn erfc(x: f64): f64;
+    fn tgamma(x: f64): f64;
+    fn lgamma(x: f64): f64;
+    
+    // Single-precision (f32) variants
+    fn sinf(x: f32): f32;
+    fn cosf(x: f32): f32;
+    fn tanf(x: f32): f32;
+    fn sqrtf(x: f32): f32;
+    fn powf(x: f32, y: f32): f32;
+    fn fabsf(x: f32): f32;
+    fn ceilf(x: f32): f32;
+    fn floorf(x: f32): f32;
+    fn roundf(x: f32): f32;
+}

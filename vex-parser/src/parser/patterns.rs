@@ -148,11 +148,12 @@ impl<'a> Parser<'a> {
 
             // Single element in parens is not a tuple, return the inner pattern
             if patterns.len() == 1 {
-                return Ok(patterns.into_iter().next()
-                    .ok_or_else(|| ParseError::syntax_error(
+                return Ok(patterns.into_iter().next().ok_or_else(|| {
+                    ParseError::syntax_error(
                         "Expected at least one pattern in tuple".to_string(),
-                        self.token_to_diag_span(&self.peek_span().span)
-                    ))?);
+                        self.token_to_diag_span(&self.peek_span().span),
+                    )
+                })?);
             }
 
             return Ok(Pattern::Tuple(patterns));

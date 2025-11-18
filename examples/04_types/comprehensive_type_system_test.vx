@@ -304,8 +304,8 @@ fn test_inference(): i32 {
 // ============================================================
 fn test_closures(): i32 {
     // Simple closures
-    let result = 15;  // add_five(10) -> 10 + 5
-    let product = 42;  // multiply(6, 7) -> 42
+    let result = 15;  // add_five(10): 10 + 5
+    let product = 42;  // multiply(6, 7): 42
     
     return result + product;
 }

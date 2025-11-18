@@ -1,0 +1,159 @@
+
+import {
+    vex_atomic_i32_new, vex_atomic_i32_load, vex_atomic_i32_store,
+    vex_atomic_i32_swap, vex_atomic_i32_compare_exchange,
+    vex_atomic_i32_fetch_add, vex_atomic_i32_fetch_sub, vex_atomic_i32_drop
+} from "./native.vxc";
+
+import {
+    vex_atomic_i64_new, vex_atomic_i64_load, vex_atomic_i64_store,
+    vex_atomic_i64_swap, vex_atomic_i64_compare_exchange,
+    vex_atomic_i64_fetch_add, vex_atomic_i64_fetch_sub, vex_atomic_i64_drop
+} from "./native.vxc";
+
+import {
+    vex_atomic_bool_new, vex_atomic_bool_load, vex_atomic_bool_store,
+    vex_atomic_bool_swap, vex_atomic_bool_compare_exchange, vex_atomic_bool_drop
+} from "./native.vxc";
+
+
+// ============================================================================
+// AtomicI32 - Lock-Free 32-bit Integer
+// ============================================================================
+
+export struct AtomicI32 impl Drop {
+    _ptr: *u8
+}
+
+export fn atomic_i32_new(value: i32): AtomicI32 {
+    let ptr = vex_atomic_i32_new(value);
+    return AtomicI32 { _ptr: ptr };
+}
+
+export fn atomic_i32_load(self: &AtomicI32, order: i32): i32 {
+    return vex_atomic_i32_load(self._ptr, order);
+}
+
+export fn atomic_i32_store(self: &AtomicI32, value: i32, order: i32) {
+    vex_atomic_i32_store(self._ptr, value, order);
+}
+
+export fn atomic_i32_swap(self: &AtomicI32, value: i32, order: i32): i32 {
+    return vex_atomic_i32_swap(self._ptr, value, order);
+}
+
+export fn atomic_i32_compare_exchange(self: &AtomicI32, expected: &i32!, desired: i32, order: i32): bool {
+    let result = vex_atomic_i32_compare_exchange(self._ptr, expected as *i32, desired, order);
+    return result == 1;
+}
+
+export fn atomic_i32_fetch_add(self: &AtomicI32, value: i32, order: i32): i32 {
+    return vex_atomic_i32_fetch_add(self._ptr, value, order);
+}
+
+export fn atomic_i32_fetch_sub(self: &AtomicI32, value: i32, order: i32): i32 {
+    return vex_atomic_i32_fetch_sub(self._ptr, value, order);
+}
+
+fn (self: &AtomicI32) drop() {
+    vex_atomic_i32_drop(self._ptr);
+}
+
+// ============================================================================
+// AtomicI64 - Lock-Free 64-bit Integer
+// ============================================================================
+
+export struct AtomicI64 impl Drop {
+    _ptr: *u8
+}
+
+export fn atomic_i64_new(value: i64): AtomicI64 {
+    let ptr = vex_atomic_i64_new(value);
+    return AtomicI64 { _ptr: ptr };
+}
+
+export fn atomic_i64_load(self: &AtomicI64, order: i32): i64 {
+    return vex_atomic_i64_load(self._ptr, order);
+}
+
+export fn atomic_i64_store(self: &AtomicI64, value: i64, order: i32) {
+    vex_atomic_i64_store(self._ptr, value, order);
+}
+
+export fn atomic_i64_swap(self: &AtomicI64, value: i64, order: i32): i64 {
+    return vex_atomic_i64_swap(self._ptr, value, order);
+}
+
+export fn atomic_i64_compare_exchange(self: &AtomicI64, expected: &i64!, desired: i64, order: i32): bool {
+    let result = vex_atomic_i64_compare_exchange(self._ptr, expected as *i64, desired, order);
+    return result == 1;
+}
+
+export fn atomic_i64_fetch_add(self: &AtomicI64, value: i64, order: i32): i64 {
+    return vex_atomic_i64_fetch_add(self._ptr, value, order);
+}
+
+export fn atomic_i64_fetch_sub(self: &AtomicI64, value: i64, order: i32): i64 {
+    return vex_atomic_i64_fetch_sub(self._ptr, value, order);
+}
+
+fn (self: &AtomicI64) drop() {
+    vex_atomic_i64_drop(self._ptr);
+}
+
+// ============================================================================
+// AtomicBool - Lock-Free Boolean
+// ============================================================================
+
+export struct AtomicBool impl Drop {
+    _ptr: *u8
+}
+
+export fn atomic_bool_new(value: bool): AtomicBool {
+    let! val_i32: i32 = 0;
+    if value {
+        val_i32 = 1;
+    }
+    let ptr = vex_atomic_bool_new(val_i32);
+    return AtomicBool { _ptr: ptr };
+}
+
+export fn atomic_bool_load(self: &AtomicBool, order: i32): bool {
+    let result = vex_atomic_bool_load(self._ptr, order);
+    return result == 1;
+}
+
+export fn atomic_bool_store(self: &AtomicBool, value: bool, order: i32) {
+    let! val_i32: i32 = 0;
+    if value {
+        val_i32 = 1;
+    }
+    vex_atomic_bool_store(self._ptr, val_i32, order);
+}
+
+export fn atomic_bool_swap(self: &AtomicBool, value: bool, order: i32): bool {
+    let! val_i32: i32 = 0;
+    if value {
+        val_i32 = 1;
+    }
+    let result = vex_atomic_bool_swap(self._ptr, val_i32, order);
+    return result == 1;
+}
+
+export fn atomic_bool_compare_exchange(self: &AtomicBool, expected: &bool!, desired: bool, order: i32): bool {
+    let! exp_i32: i32 = 0;
+    if *expected {
+        exp_i32 = 1;
+    }
+    let! des_i32: i32 = 0;
+    if desired {
+        des_i32 = 1;
+    }
+    let result = vex_atomic_bool_compare_exchange(self._ptr, &exp_i32 as *i32, des_i32, order);
+    *expected = exp_i32 == 1;
+    return result == 1;
+}
+
+fn (self: &AtomicBool) drop() {
+    vex_atomic_bool_drop(self._ptr);
+}

@@ -14,8 +14,9 @@ impl super::LifetimeChecker {
                     return Ok(());
                 }
 
-                // Global variables (extern functions) are always in scope
+                // Global variables (extern functions + imported symbols) are always in scope
                 if self.global_vars.contains(name) {
+                    eprintln!("   ✓ {} is a global (registered)", name);
                     return Ok(());
                 }
 
@@ -27,6 +28,11 @@ impl super::LifetimeChecker {
 
                 // Verify variable is in scope
                 if !self.in_scope.contains(name) {
+                    eprintln!("   ✗ {} NOT in scope (in_scope: {:?}, global_vars: {})", 
+                        name, 
+                        self.in_scope.iter().take(5).cloned().collect::<Vec<_>>(),
+                        self.global_vars.contains(name)
+                    );
                     // Collect available names for fuzzy matching
                     let available_names: Vec<String> = self.in_scope.iter().cloned().collect();
 

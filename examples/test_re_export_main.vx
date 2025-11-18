@@ -1,0 +1,11 @@
+// Test importing re-exported symbols
+
+import { MAGIC_NUMBER, double, triple } from "./test_module_b.vx";
+
+fn main() {
+    println(MAGIC_NUMBER);
+    let x: i32 = double(10);
+    let y: i32 = triple(10);
+    println(x);
+    println(y);
+}

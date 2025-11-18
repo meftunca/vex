@@ -1,0 +1,7 @@
+extern "C" {
+    fn sin(x: f64): f64;
+}
+
+export fn sin_f64(x: f64): f64 { return sin(x); }
+
+fn main() {}

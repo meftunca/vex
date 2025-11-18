@@ -1,0 +1,6 @@
+// This would create circular if we artificially inject it
+import { abs } from "math";
+
+fn main() {
+    println(abs(-5));
+}

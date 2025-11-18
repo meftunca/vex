@@ -7,7 +7,7 @@ use crate::Span;
 use std::collections::HashMap;
 
 /// Global span tracker for AST nodes
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct SpanMap {
     /// Maps string IDs to their source spans
     spans: HashMap<String, Span>,

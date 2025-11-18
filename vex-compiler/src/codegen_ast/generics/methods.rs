@@ -156,7 +156,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
         self.functions.insert(mangled_name.clone(), fn_val);
 
         // ⚠️ CRITICAL: Register concrete method in function_defs for argument type checking
-        self.function_defs.insert(mangled_name.clone(), concrete_method.clone());
+        self.function_defs
+            .insert(mangled_name.clone(), concrete_method.clone());
         eprintln!("  ✅ Registered function_def: {}", mangled_name);
 
         // Check trait bounds before compilation
@@ -616,20 +617,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let mut arg_vals: Vec<BasicMetadataValueEnum> = vec![];
 
         // Build mangled method name to look up function definition
-        let type_names: Vec<String> = type_args
-            .iter()
-            .map(|t| self.type_to_string(t))
-            .collect();
-        
+        let type_names: Vec<String> = type_args.iter().map(|t| self.type_to_string(t)).collect();
+
         let mangled_name = if type_args.is_empty() {
             format!("{}_{}", struct_name, method_name)
         } else {
-            format!(
-                "{}_{}_{}",
-                struct_name,
-                type_names.join("_"),
-                method_name
-            )
+            format!("{}_{}_{}", struct_name, type_names.join("_"), method_name)
         };
 
         // First argument is always the receiver (self)
@@ -642,16 +635,27 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 if arg_idx < func_def.params.len() {
                     let expected_ty = &func_def.params[arg_idx].ty;
                     eprintln!("  🔍 Arg {}: expected_ty = {:?}", arg_idx, expected_ty);
-                    
+
                     // For integer literals, compile directly to expected type
                     if matches!(arg, Expression::IntLiteral(_)) {
                         match expected_ty {
-                            Type::I8 | Type::I16 | Type::I32 | Type::I64 | Type::I128 |
-                            Type::U8 | Type::U16 | Type::U32 | Type::U64 | Type::U128 => {
+                            Type::I8
+                            | Type::I16
+                            | Type::I32
+                            | Type::I64
+                            | Type::I128
+                            | Type::U8
+                            | Type::U16
+                            | Type::U32
+                            | Type::U64
+                            | Type::U128 => {
                                 let target_llvm = self.ast_type_to_llvm(expected_ty);
                                 if let BasicTypeEnum::IntType(target_int_type) = target_llvm {
                                     if let Expression::IntLiteral(value) = arg {
-                                        eprintln!("  ✅ Compiling IntLiteral({}) as {:?}", value, expected_ty);
+                                        eprintln!(
+                                            "  ✅ Compiling IntLiteral({}) as {:?}",
+                                            value, expected_ty
+                                        );
                                         target_int_type.const_int(*value as u64, false).into()
                                     } else {
                                         self.compile_expression(arg)?
@@ -660,7 +664,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                     self.compile_expression(arg)?
                                 }
                             }
-                            _ => self.compile_expression(arg)?
+                            _ => self.compile_expression(arg)?,
                         }
                     }
                     // For float literals, compile directly to expected type
@@ -678,7 +682,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                     self.compile_expression(arg)?
                                 }
                             }
-                            _ => self.compile_expression(arg)?
+                            _ => self.compile_expression(arg)?,
                         }
                     } else {
                         self.compile_expression(arg)?
@@ -689,13 +693,13 @@ impl<'ctx> ASTCodeGen<'ctx> {
             } else {
                 self.compile_expression(arg)?
             };
-            
+
             // ⚠️ CRITICAL: Cast argument types to match function signature (for non-literals)
             if let Some(func_def) = self.function_defs.get(&mangled_name) {
                 if arg_idx < func_def.params.len() {
                     let expected_ty = &func_def.params[arg_idx].ty;
                     let source_ty = self.infer_expression_type(arg)?;
-                    
+
                     // Integer width casting
                     if self.is_integer_type(&source_ty) && self.is_integer_type(expected_ty) {
                         if let BasicValueEnum::IntValue(int_val) = val {
@@ -703,25 +707,42 @@ impl<'ctx> ASTCodeGen<'ctx> {
                             if let BasicTypeEnum::IntType(target_int_type) = target_llvm {
                                 let src_bits = int_val.get_type().get_bit_width();
                                 let dst_bits = target_int_type.get_bit_width();
-                                
+
                                 if src_bits != dst_bits {
-                                    let source_is_unsigned = self.is_unsigned_integer_type(&source_ty);
-                                    
+                                    let source_is_unsigned =
+                                        self.is_unsigned_integer_type(&source_ty);
+
                                     val = if src_bits < dst_bits {
                                         if source_is_unsigned {
                                             self.builder
-                                                .build_int_z_extend(int_val, target_int_type, "generic_arg_zext")
-                                                .map_err(|e| format!("Failed to zero-extend: {}", e))?
+                                                .build_int_z_extend(
+                                                    int_val,
+                                                    target_int_type,
+                                                    "generic_arg_zext",
+                                                )
+                                                .map_err(|e| {
+                                                    format!("Failed to zero-extend: {}", e)
+                                                })?
                                                 .into()
                                         } else {
                                             self.builder
-                                                .build_int_s_extend(int_val, target_int_type, "generic_arg_sext")
-                                                .map_err(|e| format!("Failed to sign-extend: {}", e))?
+                                                .build_int_s_extend(
+                                                    int_val,
+                                                    target_int_type,
+                                                    "generic_arg_sext",
+                                                )
+                                                .map_err(|e| {
+                                                    format!("Failed to sign-extend: {}", e)
+                                                })?
                                                 .into()
                                         }
                                     } else {
                                         self.builder
-                                            .build_int_truncate(int_val, target_int_type, "generic_arg_trunc")
+                                            .build_int_truncate(
+                                                int_val,
+                                                target_int_type,
+                                                "generic_arg_trunc",
+                                            )
                                             .map_err(|e| format!("Failed to truncate: {}", e))?
                                             .into()
                                     };
@@ -731,7 +752,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     }
                 }
             }
-            
+
             arg_vals.push(val.into());
         }
 

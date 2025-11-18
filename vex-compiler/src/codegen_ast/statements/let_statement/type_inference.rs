@@ -577,13 +577,14 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 )?;
                 self.compile_array_repeat_into_buffer(value_expr, count_expr, elem_type, alloca)?;
 
-                let llvm_type = self.ast_type_to_llvm(
-                    ty.ok_or("Missing type annotation for array")?,
-                );
+                let llvm_type =
+                    self.ast_type_to_llvm(ty.ok_or("Missing type annotation for array")?);
                 self.variables.insert(name.to_string(), alloca);
                 self.variable_types.insert(name.to_string(), llvm_type);
-                self.variable_ast_types
-                    .insert(name.to_string(), (*ty.ok_or("Missing type for variable")?).clone());
+                self.variable_ast_types.insert(
+                    name.to_string(),
+                    (*ty.ok_or("Missing type for variable")?).clone(),
+                );
 
                 // Return the alloca pointer (already registered)
                 return Ok(alloca.into());
@@ -596,13 +597,14 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     )?;
                     self.compile_array_literal_into_buffer(elements, elem_type, alloca)?;
 
-                    let llvm_type = self.ast_type_to_llvm(
-                        ty.ok_or("Missing type annotation for array")?,
-                    );
+                    let llvm_type =
+                        self.ast_type_to_llvm(ty.ok_or("Missing type annotation for array")?);
                     self.variables.insert(name.to_string(), alloca);
                     self.variable_types.insert(name.to_string(), llvm_type);
-                    self.variable_ast_types
-                        .insert(name.to_string(), (*ty.ok_or("Missing type for variable")?).clone());
+                    self.variable_ast_types.insert(
+                        name.to_string(),
+                        (*ty.ok_or("Missing type for variable")?).clone(),
+                    );
 
                     // Return the alloca pointer (already registered)
                     return Ok(alloca.into());

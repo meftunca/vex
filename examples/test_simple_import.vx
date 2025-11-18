@@ -1,0 +1,13 @@
+// Minimal test - just import and use abs
+import { abs } from "math";
+
+fn main() {
+    let x: i32 = abs(-5);
+    if x == 5 {
+        print("✅ Test PASSED: abs(-5) = 5\n");
+    } else {
+        print("❌ Test FAILED\n");
+    }
+}
+
+

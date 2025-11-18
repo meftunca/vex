@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use dashmap::DashMap;
+use std::sync::Arc;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Type {
@@ -24,7 +24,8 @@ impl TypeInterner {
     }
 
     pub fn intern(&self, ty: Type) -> Arc<Type> {
-        self.cache.entry(ty.clone())
+        self.cache
+            .entry(ty.clone())
             .or_insert_with(|| Arc::new(ty))
             .clone()
     }

@@ -1,0 +1,36 @@
+// ============================================================================
+// Memory Management Contracts
+// ============================================================================
+
+/// Smart pointer interface - Box, Rc, Arc
+export contract SmartPointer<T> {
+    /// Creates a new smart pointer containing the value
+    fn op(value: T): Self;
+    
+    /// Gets an immutable reference to the contained value
+    fn get(self: &Self): &T;
+    
+    /// Gets a mutable reference to the contained value
+    fn get_mut(self: &Self!): &T!;
+}
+
+/// Reference counted pointer - Rc, Arc
+export contract RefCounted {
+    /// Creates a new reference to the same allocation
+    fn clone(self: &Self): Self;
+    
+    /// Returns the number of strong references
+    fn strong_count(self: &Self): usize;
+}
+
+/// Automatic cleanup when value goes out of scope
+export contract Drop {
+    /// Called automatically when value is dropped
+    fn drop(self: &Self!);
+}
+
+/// Manual deallocation (unsafe)
+export contract Dealloc {
+    /// Manually deallocate the resource (use with caution)
+    fn free(self: &Self!);
+}

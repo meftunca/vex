@@ -1,0 +1,7 @@
+extern "C" {
+    fn sin(x: f64): f64;
+}
+
+fn main() {
+    let result: f64 = sin(0.0);
+}

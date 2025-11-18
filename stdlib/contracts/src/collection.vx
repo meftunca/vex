@@ -1,0 +1,69 @@
+// ============================================================================
+// Collection Contracts - Standard interfaces for collections
+// ============================================================================
+
+/// Basic collection interface - implemented by Vec, Set, Map, etc.
+export contract Collection<T> {
+    /// Returns the number of elements in the collection
+    fn len(self: &Self): usize;
+    
+    /// Returns true if the collection is empty
+    fn is_empty(self: &Self): bool;
+    
+    /// Removes all elements from the collection
+    fn clear(self: &Self!);
+}
+
+/// Stack operations - LIFO (Last In, First Out)
+export contract Stack<T> {
+    /// Adds an element to the top of the stack
+    fn push(self: &Self!, value: T);
+    
+    /// Removes and returns the top element, or None if empty
+    fn pop(self: &Self!): Option<T>;
+    
+    /// Returns a reference to the top element without removing it
+    fn peek(self: &Self): Option<&T>;
+}
+
+/// Queue operations - FIFO (First In, First Out)
+export contract Queue<T> {
+    /// Adds an element to the back of the queue
+    fn enqueue(self: &Self!, value: T);
+    
+    /// Removes and returns the front element, or None if empty
+    fn dequeue(self: &Self!): Option<T>;
+    
+    /// Returns a reference to the front element without removing it
+    fn front(self: &Self): Option<&T>;
+}
+
+/// Indexable collection - supports index-based access
+export contract Indexable<T, Idx> {
+    /// Gets element at index, returns None if out of bounds
+    fn get(self: &Self, index: Idx): Option<T>;
+    
+    /// Sets element at index, panics if out of bounds
+    fn set(self: &Self!, index: Idx, value: T);
+}
+
+/// Iterator support
+export contract Iterable<T> {
+    /// Associated type for the iterator
+    type Iterator;
+    
+    /// Returns an iterator over the collection
+    fn iter(self: &Self): Self.Iterator;
+}
+
+/// Growable collection - supports capacity management
+export contract Growable {
+    /// Returns the current capacity
+    fn capacity(self: &Self): usize;
+    
+    /// Reserves capacity for at least `additional` more elements
+    fn reserve(self: &Self!, additional: usize);
+    
+    /// Shrinks capacity to fit current size
+    fn shrink_to_fit(self: &Self!);
+}

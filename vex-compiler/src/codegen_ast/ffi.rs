@@ -7,6 +7,11 @@ use vex_ast::{ExternBlock, ExternFunction};
 impl<'ctx> ASTCodeGen<'ctx> {
     /// Compile all extern types and functions in a block
     pub fn compile_extern_block(&mut self, block: &ExternBlock) -> Result<(), String> {
+        eprintln!(
+            "🔧 Compiling ExternBlock with {} functions",
+            block.functions.len()
+        );
+
         // Register extern types (opaque or aliased)
         for extern_type in &block.types {
             self.register_extern_type(extern_type)?;
@@ -14,6 +19,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Declare extern functions
         for func in &block.functions {
+            eprintln!(
+                "   📌 Declaring extern function: {} (is_exported: {})",
+                func.name, func.is_exported
+            );
             let fn_val = self.declare_extern_function(&block.abi, func)?;
             // Add to function registry (even if already in LLVM module)
             self.functions.insert(func.name.clone(), fn_val);

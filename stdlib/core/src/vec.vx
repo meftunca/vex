@@ -2,11 +2,7 @@
 // Vec<T> - Pure Vex dynamic array implementation
 // Zero-cost abstractions via compile-time monomorphization
 
-extern "C" {
-    fn malloc(size: i64): ptr;
-    fn free(ptr: ptr);
-    fn realloc(ptr: ptr, new_size: i64): ptr;
-}
+import { malloc, free, realloc } from "./native.vxc";
 
 // Type definition - Generic dynamic array
 export struct Vec<T> impl Drop {

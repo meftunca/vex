@@ -17,19 +17,21 @@ impl<'ctx> ASTCodeGen<'ctx> {
     ) -> Result<BasicValueEnum<'ctx>, String> {
         // Infer source type from expression for semantic validation
         let source_type = self.infer_expression_type(expr).ok();
-        
+
         // ⭐ Special case: Array variable cast - use pointer directly without loading
         if let Some(Type::Array(_, _)) = &source_type {
             if let Expression::Ident(var_name) = expr {
                 if matches!(target_type, Type::RawPtr { .. }) {
                     // Get pointer to array variable (don't load)
-                    let array_ptr = self.variables.get(var_name)
+                    let array_ptr = self
+                        .variables
+                        .get(var_name)
                         .ok_or_else(|| format!("Variable {} not found", var_name))?;
                     return Ok((*array_ptr).into());
                 }
             }
         }
-        
+
         let value = self.compile_expression(expr)?;
         let target_llvm = self.ast_type_to_llvm(target_type);
 
@@ -179,7 +181,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                             .builder
                             .build_extract_value(slice_struct, 0, "extract_slice_ptr")
                             .map_err(|e| format!("Failed to extract slice pointer: {}", e))?;
-                        
+
                         if let BasicValueEnum::PointerValue(ptr) = data_ptr {
                             return Ok(ptr.into());
                         }
@@ -187,7 +189,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 }
             }
         }
-        
+
         // ⭐ Handle Array direct -> raw pointer cast (without &)
         // Use cached pointer if available, otherwise allocate
         if let Some(Type::Array(_, _)) = &source_type {
@@ -197,12 +199,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     if let Some(cached_ptr) = self.last_compiled_array_ptr.take() {
                         return Ok(cached_ptr.into());
                     }
-                    
+
                     // Fallback: allocate (shouldn't happen for literals)
                     return Err("Array literal didn't cache pointer".to_string());
                 }
             }
-            
+
             // Also handle if already a pointer (e.g., from variable)
             if let BasicValueEnum::PointerValue(array_ptr) = value {
                 if matches!(target_type, Type::RawPtr { .. }) {
@@ -222,13 +224,13 @@ impl<'ctx> ASTCodeGen<'ctx> {
                             .builder
                             .build_extract_value(struct_val, 0, "extract_vec_data")
                             .map_err(|e| format!("Failed to extract Vec data: {}", e))?;
-                        
+
                         if let BasicValueEnum::PointerValue(ptr) = data_ptr {
                             return Ok(ptr.into());
                         }
                     }
                 }
-                
+
                 // Handle &vec (pointer to Vec struct) -> raw pointer
                 if let BasicValueEnum::PointerValue(vec_ptr) = value {
                     if let inkwell::types::BasicTypeEnum::PointerType(_) = target_llvm {
@@ -236,18 +238,23 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         let field_ptr = unsafe {
                             self.builder
                                 .build_in_bounds_gep(
-                                    self.context.struct_type(&[
-                                        self.context.ptr_type(inkwell::AddressSpace::default()).into(),
-                                        self.context.i64_type().into(),
-                                        self.context.i64_type().into(),
-                                    ], false),
+                                    self.context.struct_type(
+                                        &[
+                                            self.context
+                                                .ptr_type(inkwell::AddressSpace::default())
+                                                .into(),
+                                            self.context.i64_type().into(),
+                                            self.context.i64_type().into(),
+                                        ],
+                                        false,
+                                    ),
                                     vec_ptr,
                                     &[zero, zero],
                                     "gep_vec_data",
                                 )
                                 .map_err(|e| format!("Failed to GEP Vec.data: {}", e))?
                         };
-                        
+
                         let data_ptr = self
                             .builder
                             .build_load(
@@ -256,7 +263,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                 "load_vec_data",
                             )
                             .map_err(|e| format!("Failed to load Vec.data: {}", e))?;
-                        
+
                         if let BasicValueEnum::PointerValue(ptr) = data_ptr {
                             return Ok(ptr.into());
                         }

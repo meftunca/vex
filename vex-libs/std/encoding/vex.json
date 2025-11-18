@@ -6,8 +6,10 @@
   "license": "MIT",
   "main": "src/lib.vx",
   "native": {
-    "libraries": ["vex_runtime"],
-    "search_paths": ["../../../vex-runtime/c"],
-    "include_dirs": ["../../../vex-runtime/c"]
+    "sources": [],
+    "libraries": ["vexfastenc"],
+    "cflags": ["-O3"],
+    "include_dirs": ["native/include", "../../../vex-runtime/c"],
+    "library_dirs": ["native"]
   }
 }

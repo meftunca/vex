@@ -44,7 +44,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         let resume_fn_type =
             coro_status_type.fn_type(&[worker_ctx_ptr.into(), void_ptr.into()], false);
-        let resume_fn_name = if fn_name == "main" { "async_main_resume".to_string() } else { format!("{}_resume", fn_name) };
+        let resume_fn_name = if fn_name == "main" {
+            "async_main_resume".to_string()
+        } else {
+            format!("{}_resume", fn_name)
+        };
         let resume_fn = self
             .module
             .add_function(&resume_fn_name, resume_fn_type, None);
@@ -285,7 +289,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
             self.builder
                 .build_store(param_dest, param_val)
                 .map_err(|e| format!("Failed to store param: {}", e))?;
-        }        if fn_name == "main" {
+        }
+        if fn_name == "main" {
             // For async main, just return the state pointer as the future
             self.builder
                 .build_return(Some(&state_alloc_ptr))
@@ -349,7 +354,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     .build_return(None)
                     .map_err(|e| format!("Failed to build wrapper return: {}", e))?;
             }
-        }        Ok(())
+        }
+        Ok(())
     }
 
     pub(crate) fn get_or_declare_malloc(&mut self) -> FunctionValue<'ctx> {

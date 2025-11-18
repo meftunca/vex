@@ -1,0 +1,6 @@
+import { abs } from "math";
+import { sin } from "math";
+
+fn main() {
+    println(abs(-5));
+}

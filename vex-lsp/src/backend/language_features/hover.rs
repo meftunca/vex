@@ -1,8 +1,9 @@
 //! This module contains the implementation of the `hover` language feature.
+use std::fs;
+use std::sync::Arc;
 use tower_lsp::lsp_types::*;
 
 use crate::backend::{language_features::helpers::*, VexBackend};
-use std::fs;
 
 impl VexBackend {
     pub async fn hover(&self, params: HoverParams) -> tower_lsp::jsonrpc::Result<Option<Hover>> {
@@ -15,13 +16,13 @@ impl VexBackend {
 
         // Get the AST for this document
         let ast = match self.ast_cache.get(&uri) {
-            Some(ast) => ast.clone(),
-            None => return Ok(None), // Document not parsed yet
+            Some(ast) => Arc::clone(ast.value()),
+            None => return Ok(None),
         };
 
         // Get document text for word extraction
         let text = match self.documents.get(&uri) {
-            Some(t) => t.clone(),
+            Some(t) => Arc::clone(t.value()),
             None => return Ok(None),
         };
 
@@ -72,12 +73,12 @@ impl VexBackend {
                         if let Ok(text) = fs::read_to_string(&lib_vx) {
                             if let Ok(mut parser) = vex_parser::Parser::new(&text) {
                                 if let Ok(parsed) = parser.parse() {
-                                    // Cache AST for future lookups
+                                    // Cache AST for future lookups (wrap in Arc)
                                     let uri = match lib_vx.canonicalize() {
                                         Ok(abs) => format!("file://{}", abs.to_string_lossy()),
                                         Err(_) => format!("file://{}", lib_vx.to_string_lossy()),
                                     };
-                                    self.ast_cache.insert(uri.clone(), parsed.clone());
+                                    self.ast_cache.insert(uri.clone(), Arc::new(parsed.clone()));
                                     if let Some(hover_info) =
                                         self.find_symbol_hover_info(&parsed, &word)
                                     {

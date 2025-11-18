@@ -1,0 +1,7 @@
+import { foo } from "./b.vx";
+
+fn bar() -> i32 {
+    foo()
+}
+
+export { bar };

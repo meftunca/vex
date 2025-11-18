@@ -31,10 +31,10 @@ impl From<ArithmeticError> for String {
 pub trait CheckedArithmetic: Sized {
     /// Safely add two values, returning error on overflow
     fn safe_add(&self, rhs: Self) -> Result<Self, ArithmeticError>;
-    
+
     /// Safely multiply two values, returning error on overflow
     fn safe_mul(&self, rhs: Self) -> Result<Self, ArithmeticError>;
-    
+
     /// Safely subtract two values, returning error on overflow
     fn safe_sub(&self, rhs: Self) -> Result<Self, ArithmeticError>;
 }
@@ -52,13 +52,13 @@ impl CheckedArithmetic for usize {
             message: format!("Overflow in addition: {} + {}", self, rhs),
         })
     }
-    
+
     fn safe_mul(&self, rhs: Self) -> Result<Self, ArithmeticError> {
         self.checked_mul(rhs).ok_or_else(|| ArithmeticError {
             message: format!("Overflow in multiplication: {} * {}", self, rhs),
         })
     }
-    
+
     fn safe_sub(&self, rhs: Self) -> Result<Self, ArithmeticError> {
         self.checked_sub(rhs).ok_or_else(|| ArithmeticError {
             message: format!("Overflow in subtraction: {} - {}", self, rhs),
@@ -89,13 +89,13 @@ impl CheckedArithmetic for u32 {
             message: format!("Overflow in addition: {} + {}", self, rhs),
         })
     }
-    
+
     fn safe_mul(&self, rhs: Self) -> Result<Self, ArithmeticError> {
         self.checked_mul(rhs).ok_or_else(|| ArithmeticError {
             message: format!("Overflow in multiplication: {} * {}", self, rhs),
         })
     }
-    
+
     fn safe_sub(&self, rhs: Self) -> Result<Self, ArithmeticError> {
         self.checked_sub(rhs).ok_or_else(|| ArithmeticError {
             message: format!("Overflow in subtraction: {} - {}", self, rhs),

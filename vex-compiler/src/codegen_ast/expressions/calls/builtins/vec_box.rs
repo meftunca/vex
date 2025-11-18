@@ -14,7 +14,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
         match method {
             "push" => {
                 if args.len() != 1 {
-                    self.emit_argument_count_mismatch("Vec.push", 1, args.len(), vex_diagnostics::Span::unknown());
+                    self.emit_argument_count_mismatch(
+                        "Vec.push",
+                        1,
+                        args.len(),
+                        vex_diagnostics::Span::unknown(),
+                    );
                     return Err("Vec.push() requires exactly 1 argument".to_string());
                 }
 
@@ -57,7 +62,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }
             "len" => {
                 if !args.is_empty() {
-                    self.emit_argument_count_mismatch("Vec.len", 0, args.len(), vex_diagnostics::Span::unknown());
+                    self.emit_argument_count_mismatch(
+                        "Vec.len",
+                        0,
+                        args.len(),
+                        vex_diagnostics::Span::unknown(),
+                    );
                     return Err("Vec.len() takes no arguments".to_string());
                 }
 
@@ -83,7 +93,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }
             "get" => {
                 if args.len() != 1 {
-                    self.emit_argument_count_mismatch("Vec.get", 1, args.len(), vex_diagnostics::Span::unknown());
+                    self.emit_argument_count_mismatch(
+                        "Vec.get",
+                        1,
+                        args.len(),
+                        vex_diagnostics::Span::unknown(),
+                    );
                     return Err("Vec.get() requires exactly 1 argument (index)".to_string());
                 }
 

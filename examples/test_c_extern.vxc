@@ -1,0 +1,32 @@
+// C Extern Test File
+// This file demonstrates .vxc file format for C FFI bindings
+
+// External C function declarations
+extern "C" {
+    fn malloc(size: u64): *u8
+    fn free(ptr: *u8): void
+    fn printf(format: *u8, ...): i32
+    fn strlen(s: *u8): u64
+}
+
+// C struct bindings
+extern "C" {
+    struct FILE {
+        // Opaque C struct
+    }
+    
+    fn fopen(path: *u8, mode: *u8): *FILE
+    fn fclose(file: *FILE): i32
+    fn fwrite(ptr: *u8, size: u64, count: u64, file: *FILE): u64
+}
+
+// Example usage
+fn main() {
+    unsafe {
+        let ptr = malloc(1024)
+        if ptr != nil {
+            printf("Allocated %d bytes\n", 1024)
+            free(ptr)
+        }
+    }
+}

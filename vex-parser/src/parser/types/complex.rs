@@ -69,11 +69,12 @@ impl<'a> Parser<'a> {
 
         // A single type in parens is just that type, not a tuple
         if types.len() == 1 {
-            return Ok(types.into_iter().next()
-                .ok_or_else(|| ParseError::syntax_error(
+            return Ok(types.into_iter().next().ok_or_else(|| {
+                ParseError::syntax_error(
                     "Expected at least one type in tuple".to_string(),
-                    self.token_to_diag_span(&self.peek_span().span)
-                ))?);
+                    self.token_to_diag_span(&self.peek_span().span),
+                )
+            })?);
         }
 
         Ok(Type::Tuple(types))

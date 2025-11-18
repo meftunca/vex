@@ -1,0 +1,25 @@
+import {
+    vex_once_new, vex_once_call, vex_once_drop
+} from "./native.vxc";
+
+
+// ============================================================================
+// Once - One-Time Initialization
+// ============================================================================
+
+export struct Once impl Drop {
+    _ptr: *u8
+}
+
+export fn once_new(): Once {
+    let ptr = vex_once_new();
+    return Once { _ptr: ptr };
+}
+
+export fn once_call(self: &Once, func: *u8, arg: *u8) {
+    vex_once_call(self._ptr, func, arg);
+}
+
+fn (self: &Once) drop() {
+    vex_once_drop(self._ptr);
+}

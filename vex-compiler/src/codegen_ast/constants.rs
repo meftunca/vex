@@ -27,6 +27,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
             .insert(const_decl.name.clone(), global.as_pointer_value());
         self.global_constant_types
             .insert(const_decl.name.clone(), llvm_type);
+        
+        // ⭐ NEW: Also store constant value for namespace access (math.PI)
+        // This allows field_access to resolve math.PI without loading from global
+        self.module_constants.insert(const_decl.name.clone(), value);
 
         Ok(())
     }

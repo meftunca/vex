@@ -1,8 +1,7 @@
 /// Build script for vex-compiler
-/// 
+///
 /// Ensures embedded prelude files exist and are valid at compile time.
 /// This prevents compilation if prelude files are missing or empty.
-
 use std::path::Path;
 
 fn main() {
@@ -10,7 +9,6 @@ fn main() {
 
     // Verify all prelude files exist and are not empty
     let prelude_files = [
-        "src/prelude/lib.vx",
         "src/prelude/vec.vx",
         "src/prelude/option.vx",
         "src/prelude/result.vx",
@@ -21,7 +19,7 @@ fn main() {
 
     for file in &prelude_files {
         let path = Path::new(file);
-        
+
         if !path.exists() {
             panic!(
                 "❌ PRELUDE FILE MISSING: {}\n\
@@ -43,7 +41,11 @@ fn main() {
             );
         }
 
-        println!("   ✅ Verified prelude file: {} ({} bytes)", file, metadata.len());
+        println!(
+            "   ✅ Verified prelude file: {} ({} bytes)",
+            file,
+            metadata.len()
+        );
     }
 
     println!("✅ All prelude files verified - Layer 1 embedding ready");

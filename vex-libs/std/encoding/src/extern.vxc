@@ -1,0 +1,14 @@
+// C extern declarations for encoding library
+extern "C" {
+    fn vex_hex_encoded_len(nbytes: i64) : i64;
+    fn vex_hex_encode(src: *u8, n: i64, dst: *u8, uppercase: i32) : i64;
+    fn vex_hex_decode(src: *u8, n: i64, dst: *u8) : i64;
+    
+    fn vex_base64_encoded_len(nbytes: i64, cfg_alpha: i32, cfg_pad: i32, cfg_wrap: i32) : i64;
+    fn vex_base64_encode(src: *u8, n: i64, dst: *u8, cfg_alpha: i32, cfg_pad: i32, cfg_wrap: i32) : i64;
+    fn vex_base64_decode(src: *u8, n: i64, dst: *u8, alpha: i32) : i64;
+    
+    fn vex_uuid_v4(out: *u8) : i32;
+    fn vex_uuid_format(out: *u8, uuid: *u8) : i32;
+    fn vex_uuid_parse(s: *u8, out: *u8) : i32;
+}

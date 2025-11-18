@@ -20,9 +20,9 @@ export contract Format {
 // These are implemented in the compiler's builtin_contracts module
 
 // Built-in Default implementations
-// i32::default() -> 0
-// i64::default() -> 0
-// f32::default() -> 0.0
-// f64::default() -> 0.0
-// bool::default() -> false
-// str::default() -> ""
+// i32::default(): 0
+// i64::default(): 0
+// f32::default(): 0.0
+// f64::default(): 0.0
+// bool::default(): false
+// str::default(): ""

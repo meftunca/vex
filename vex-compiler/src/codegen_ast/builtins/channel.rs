@@ -27,7 +27,7 @@ pub fn builtin_channel_new<'ctx>(
         ));
     }
     let capacity = args[0].into_int_value();
-    
+
     // ⭐ CRITICAL FIX: Cast capacity to i64 if needed (vex_channel_create expects i64)
     let capacity_i64 = if capacity.get_type().get_bit_width() != 64 {
         let i64_type = codegen.context.i64_type();
@@ -38,7 +38,7 @@ pub fn builtin_channel_new<'ctx>(
     } else {
         capacity
     };
-    
+
     let create_fn = codegen.get_or_declare_vex_channel_create();
     let call_site_value = codegen
         .builder

@@ -1,0 +1,5 @@
+import { bar } from "./a.vx";
+
+fn main() {
+    println(bar());
+}

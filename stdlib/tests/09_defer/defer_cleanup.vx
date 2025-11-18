@@ -26,7 +26,7 @@ fn main(): i32 {
     // defer result = result + 2  -> result = 7
     // defer result = result + 1  -> result = 8
     // defer result = result + x  -> result = 18
-    // defer cleanup() -> returns 100 but doesn't affect result
+    // defer cleanup(): returns 100 but doesn't affect result
     
     return result;  // Should be 18
 }

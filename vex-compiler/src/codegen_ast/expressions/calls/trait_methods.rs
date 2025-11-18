@@ -106,7 +106,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
         {
             // For operators with type suffix (overloaded methods), use it
             if !first_arg_type_suffix.is_empty() {
-                format!("{}{}_{}", base_method_name, first_arg_type_suffix, encoded_param_count)
+                format!(
+                    "{}{}_{}",
+                    base_method_name, first_arg_type_suffix, encoded_param_count
+                )
             } else {
                 format!("{}_{}", base_method_name, encoded_param_count)
             }

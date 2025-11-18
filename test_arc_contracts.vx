@@ -1,0 +1,24 @@
+// Test Arc with contract-based API
+
+import { Arc } from "std/sync";
+
+fn main() {
+    // New constructor syntax using op()
+    let arc1 = Arc(42);
+    
+    // Clone using contract method
+    let arc2 = arc1.clone();
+    
+    // Access value
+    let val = arc1.get();
+    println(*val);
+    
+    // Check reference count
+    let count = arc1.strong_count();
+    println(count);  // Should be 2
+    
+    // Backward compatibility - old function syntax still works
+    let arc3 = arc_new(100);
+    let val2 = arc_get(&arc3);
+    println(*val2);
+}

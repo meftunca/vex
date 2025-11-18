@@ -1,0 +1,42 @@
+
+// ============================================================================
+// Rc<T> - Reference Counting (Single-Threaded)
+// ============================================================================
+import {
+    vex_rc_new, vex_rc_clone, vex_rc_get, vex_rc_strong_count,
+    vex_rc_drop, vex_rc_get_mut
+} from "./native.vxc";
+export struct Rc<T> impl Drop {
+    _ptr: *u8
+}
+
+export fn rc_new<T>(value: T): Rc<T> {
+    let size = sizeof<T>();
+    let value_ptr = &value as *u8;
+    let ptr = vex_rc_new(value_ptr, size);
+    return Rc { _ptr: ptr };
+}
+
+export fn rc_clone<T>(self: &Rc<T>): Rc<T> {
+    let ptr = vex_rc_clone(self._ptr);
+    return Rc { _ptr: ptr };
+}
+
+export fn rc_get<T>(self: &Rc<T>): &T {
+    let data = vex_rc_get(self._ptr);
+    return data as &T;
+}
+
+export fn rc_strong_count<T>(self: &Rc<T>): i64 {
+    return vex_rc_strong_count(self._ptr);
+}
+
+export fn rc_get_mut<T>(self: &Rc<T>!): &T! {
+    let data = vex_rc_get_mut(self._ptr);
+    return data as &T!;
+}
+
+fn (self: &Rc<T>) drop() {
+    vex_rc_drop(self._ptr);
+}
+

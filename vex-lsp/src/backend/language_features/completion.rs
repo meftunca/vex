@@ -21,6 +21,13 @@ impl VexBackend {
 
         let context = params.context;
 
+        // Check if we're in an import statement
+        let line_text = text.lines().nth(position.line as usize).unwrap_or("");
+        if line_text.trim().starts_with("import ") || line_text.trim().starts_with("from ") {
+            // Provide module path completions
+            return self.provide_import_completions(line_text).await;
+        }
+
         // Only provide struct field suggestions if the trigger was `.`
         let after_dot = context.map_or(false, |ctx| {
             ctx.trigger_kind == CompletionTriggerKind::TRIGGER_CHARACTER
@@ -41,6 +48,7 @@ impl VexBackend {
                 "contract definition",
             ),
             ("impl", CompletionItemKind::KEYWORD, "implementation block"),
+            ("extends", CompletionItemKind::KEYWORD, "struct inheritance"),
             ("type", CompletionItemKind::KEYWORD, "type alias"),
             (
                 "extern",
@@ -205,6 +213,42 @@ impl VexBackend {
                     _ => {}
                 }
             }
+        }
+
+        Ok(Some(CompletionResponse::Array(items)))
+    }
+
+    /// Provide import path completions
+    async fn provide_import_completions(
+        &self,
+        line: &str,
+    ) -> tower_lsp::jsonrpc::Result<Option<CompletionResponse>> {
+        let mut items = Vec::new();
+
+        // Get all available modules
+        let stdlib_modules = self.module_resolver.list_stdlib_modules();
+        let workspace_modules = self.module_resolver.list_workspace_modules();
+
+        // Add standard library modules
+        for module in stdlib_modules {
+            items.push(CompletionItem {
+                label: module.clone(),
+                kind: Some(CompletionItemKind::MODULE),
+                detail: Some("Standard library module".to_string()),
+                documentation: None,
+                ..Default::default()
+            });
+        }
+
+        // Add workspace modules
+        for module in workspace_modules {
+            items.push(CompletionItem {
+                label: module.clone(),
+                kind: Some(CompletionItemKind::MODULE),
+                detail: Some("Workspace module".to_string()),
+                documentation: None,
+                ..Default::default()
+            });
         }
 
         Ok(Some(CompletionResponse::Array(items)))

@@ -2,9 +2,9 @@
 // This helps catch typos and improve code quality
 
 use super::LintRule;
-use vex_ast::{Item, Program, Statement, Expression, Function, Pattern};
+use std::collections::{HashMap, HashSet};
+use vex_ast::{Expression, Function, Item, Pattern, Program, Statement};
 use vex_diagnostics::Diagnostic;
-use std::collections::{HashSet, HashMap};
 
 /// Lint rule for detecting unused variables
 pub struct UnusedVariableRule {
@@ -18,15 +18,15 @@ impl UnusedVariableRule {
             ignore_underscore: true,
         }
     }
-    
+
     /// Check a function for unused variables
     fn check_function(&self, func: &Function) -> Vec<Diagnostic> {
         let mut diagnostics = Vec::new();
-        
+
         // Track declared and used variables
         let mut declared: HashMap<String, usize> = HashMap::new(); // name -> declaration count
         let mut used: HashSet<String> = HashSet::new();
-        
+
         // Collect parameter names as declared
         for param in &func.params {
             let name = &param.name;
@@ -36,11 +36,11 @@ impl UnusedVariableRule {
             }
             *declared.entry(name.clone()).or_insert(0) += 1;
         }
-        
+
         // Analyze function body
         self.collect_declarations(&func.body.statements, &mut declared);
         self.collect_usages(&func.body.statements, &mut used);
-        
+
         // Find unused variables
         for (var_name, _) in declared {
             if !used.contains(&var_name) {
@@ -48,7 +48,7 @@ impl UnusedVariableRule {
                 if self.ignore_underscore && var_name.starts_with('_') {
                     continue;
                 }
-                
+
                 diagnostics.push(Diagnostic::warning(
                     "W0001",
                     format!("unused variable: `{}`", var_name),
@@ -56,10 +56,10 @@ impl UnusedVariableRule {
                 ));
             }
         }
-        
+
         diagnostics
     }
-    
+
     /// Extract variable name from pattern
     fn extract_pattern_name(&self, pattern: &Pattern) -> Option<String> {
         match pattern {
@@ -67,9 +67,13 @@ impl UnusedVariableRule {
             _ => None,
         }
     }
-    
+
     /// Collect all variable declarations in statements
-    fn collect_declarations(&self, statements: &[Statement], declared: &mut HashMap<String, usize>) {
+    fn collect_declarations(
+        &self,
+        statements: &[Statement],
+        declared: &mut HashMap<String, usize>,
+    ) {
         for stmt in statements {
             match stmt {
                 Statement::Let { name, .. } => {
@@ -96,7 +100,12 @@ impl UnusedVariableRule {
                 Statement::While { body, .. } => {
                     self.collect_declarations(&body.statements, declared);
                 }
-                Statement::If { then_block, elif_branches, else_block, .. } => {
+                Statement::If {
+                    then_block,
+                    elif_branches,
+                    else_block,
+                    ..
+                } => {
                     self.collect_declarations(&then_block.statements, declared);
                     for (_cond, block) in elif_branches {
                         self.collect_declarations(&block.statements, declared);
@@ -109,7 +118,7 @@ impl UnusedVariableRule {
             }
         }
     }
-    
+
     /// Collect all variable usages in statements
     fn collect_usages(&self, statements: &[Statement], used: &mut HashSet<String>) {
         for stmt in statements {
@@ -131,7 +140,13 @@ impl UnusedVariableRule {
                     self.collect_usages_expr(target, used);
                     self.collect_usages_expr(value, used);
                 }
-                Statement::If { condition, then_block, elif_branches, else_block, .. } => {
+                Statement::If {
+                    condition,
+                    then_block,
+                    elif_branches,
+                    else_block,
+                    ..
+                } => {
                     self.collect_usages_expr(condition, used);
                     self.collect_usages(&then_block.statements, used);
                     for (elif_cond, elif_block) in elif_branches {
@@ -142,11 +157,19 @@ impl UnusedVariableRule {
                         self.collect_usages(&else_blk.statements, used);
                     }
                 }
-                Statement::While { condition, body, .. } => {
+                Statement::While {
+                    condition, body, ..
+                } => {
                     self.collect_usages_expr(condition, used);
                     self.collect_usages(&body.statements, used);
                 }
-                Statement::For { init, condition, post, body, .. } => {
+                Statement::For {
+                    init,
+                    condition,
+                    post,
+                    body,
+                    ..
+                } => {
                     if let Some(init_stmt) = init {
                         self.collect_usages(&[*init_stmt.clone()], used);
                     }
@@ -165,7 +188,7 @@ impl UnusedVariableRule {
             }
         }
     }
-    
+
     /// Collect variable usages in an expression
     fn collect_usages_expr(&self, expr: &Expression, used: &mut HashSet<String>) {
         match expr {
@@ -282,7 +305,7 @@ impl UnusedVariableRule {
 impl LintRule for UnusedVariableRule {
     fn check(&self, program: &Program) -> Vec<Diagnostic> {
         let mut diagnostics = Vec::new();
-        
+
         for item in &program.items {
             match item {
                 Item::Function(func) => {
@@ -297,10 +320,10 @@ impl LintRule for UnusedVariableRule {
                 _ => {}
             }
         }
-        
+
         diagnostics
     }
-    
+
     fn name(&self) -> &str {
         "unused_variables"
     }
@@ -315,7 +338,7 @@ impl Default for UnusedVariableRule {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_rule_name() {
         let rule = UnusedVariableRule::new();

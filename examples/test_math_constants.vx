@@ -1,0 +1,9 @@
+import * as math from "math";
+
+fn main() {
+    println(math.PI);
+    println(math.E);
+    println(math.TAU);
+    println(math.PHI);
+    println(math.SQRT2);
+}

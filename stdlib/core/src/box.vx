@@ -2,12 +2,7 @@
 // Box<T> - Heap-allocated value (self-hosted Vex implementation)
 // Wraps C runtime vex_box_* functions
 
-extern "C" {
-    fn vex_box_new(elem_size: i64): ptr;
-    fn vex_box_get(box: ptr): ptr;
-    fn vex_box_free(box: ptr);
-    fn vex_memcpy(dest: ptr, src: ptr, size: i64): ptr;
-}
+import { vex_box_new, vex_box_get, vex_box_free, vex_memcpy } from "./native.vxc";
 
 export struct Box<T> impl Drop {
     _ptr: ptr

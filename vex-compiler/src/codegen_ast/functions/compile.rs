@@ -109,13 +109,26 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 name
             }
         } else {
-            func.name.clone()
+            // ⭐ CRITICAL FIX: For function overloading, use mangled name
+            let mangled_name = if !func.params.is_empty() && func.type_params.is_empty() {
+                // Non-generic function with parameters - generate mangled name
+                let mut param_suffix = String::new();
+                for param in &func.params {
+                    param_suffix.push_str(&self.generate_type_suffix(&param.ty));
+                }
+                let mangled = format!("{}{}", func.name, param_suffix);
+                eprintln!("🔧 Compiling overload: {} → {}", func.name, mangled);
+                mangled
+            } else {
+                func.name.clone()
+            };
+            mangled_name
         };
 
         let fn_val = *self
             .functions
             .get(&fn_name)
-            .ok_or_else(|| format!("Function {} not declared", fn_name))?;
+            .ok_or_else(|| format!("Function {} not declared (tried: {})", func.name, fn_name))?;
         self.current_function = Some(fn_val);
 
         let entry = self.context.append_basic_block(fn_val, "entry");
@@ -138,7 +151,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
             let i32_type = self.context.i32_type();
             let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
             let init_type = void_type.fn_type(&[i32_type.into(), ptr_type.into()], false);
-            let init_fn = self.module.add_function("__vex_runtime_init", init_type, None);
+            let init_fn = self
+                .module
+                .add_function("__vex_runtime_init", init_type, None);
 
             // Call it
             self.builder
@@ -179,6 +194,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
         self.variables.clear();
         self.variable_types.clear();
         self.variable_struct_names.clear();
+        self.variable_ast_types.clear(); // ⭐ CRITICAL: Clear AST types from previous function
+        self.variable_concrete_types.clear(); // ⭐ CRITICAL: Clear concrete types too
         self.function_params.clear();
         self.function_param_types.clear();
 
@@ -382,7 +399,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
             if current_block.get_terminator().is_none() {
                 // ⭐ ASYNC: Skip implicit terminator for async functions - handled in compile_async_function
                 if self.async_context.is_some() {
-                    eprintln!("📍 Skipping implicit terminator for async function {}", func.name);
+                    eprintln!(
+                        "📍 Skipping implicit terminator for async function {}",
+                        func.name
+                    );
                 } else {
                     // ⭐ ASYNC: If this is main() with runtime, add runtime_run() and runtime_destroy()
                     if func.name == "main" && self.global_runtime.is_some() {
@@ -409,12 +429,18 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     let is_void_function = func.return_type.is_none()
                         || matches!(func.return_type.as_ref(), Some(Type::Nil));
 
-                    eprintln!("📍 Function {} implicit terminator: is_void={}, current_block={:?}", func.name, is_void_function, current_block.get_name().to_str());
+                    eprintln!(
+                        "📍 Function {} implicit terminator: is_void={}, current_block={:?}",
+                        func.name,
+                        is_void_function,
+                        current_block.get_name().to_str()
+                    );
 
                     if is_void_function {
                         // Void/nil function - add implicit return
                         eprintln!("   → Adding void return");
-                        self.builder.build_return(None)
+                        self.builder
+                            .build_return(None)
                             .map_err(|e| format!("Failed to build void return: {}", e))?;
                     } else {
                         // Non-void function - check if entry block
@@ -433,7 +459,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
                             match ret_type {
                                 BasicTypeEnum::IntType(int_ty) => {
                                     let zero = int_ty.const_int(0, false);
-                                    self.builder.build_return(Some(&zero))
+                                    self.builder
+                                        .build_return(Some(&zero))
                                         .map_err(|e| format!("Failed to build return: {}", e))?;
                                 }
                                 _ => {
@@ -444,7 +471,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
                             }
                         } else {
                             // Non-entry block without terminator in non-void function = unreachable
-                            self.builder.build_unreachable()
+                            self.builder
+                                .build_unreachable()
                                 .map_err(|e| format!("Failed to build unreachable: {}", e))?;
                         }
                     }
@@ -457,25 +485,33 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
     pub(crate) fn create_sync_main_wrapper(&mut self) -> Result<(), String> {
         eprintln!("🔧 Creating synchronous wrapper for async main");
-        
+
         // The async main wrapper function (that returns Future*) is already named "main"
         // We'll call it by retrieving it from functions map, then create a new "main"
-        
+
         // Get the async main wrapper (currently named "main")
-        let async_main_fn = *self.functions.get("main").ok_or("async main function not found")?;
-        
+        let async_main_fn = *self
+            .functions
+            .get("main")
+            .ok_or("async main function not found")?;
+
         // Create NEW synchronous main that will be the program entry point
         let sync_main_fn_type = self.context.i32_type().fn_type(
             &[
                 self.context.i32_type().into(), // argc
-                self.context.ptr_type(inkwell::AddressSpace::default()).into(), // argv
+                self.context
+                    .ptr_type(inkwell::AddressSpace::default())
+                    .into(), // argv
             ],
             false,
         );
-        let sync_main_fn = self.module.add_function("__vex_sync_main", sync_main_fn_type, None);
-        
+        let sync_main_fn = self
+            .module
+            .add_function("__vex_sync_main", sync_main_fn_type, None);
+
         // Update functions map: keep async main as "main" but track sync wrapper
-        self.functions.insert("__vex_sync_main".to_string(), sync_main_fn);
+        self.functions
+            .insert("__vex_sync_main".to_string(), sync_main_fn);
 
         // Build synchronous wrapper
         let sync_entry = self.context.append_basic_block(sync_main_fn, "entry");
@@ -489,7 +525,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let i32_type = self.context.i32_type();
         let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
         let init_type = void_type.fn_type(&[i32_type.into(), ptr_type.into()], false);
-        let init_fn = self.module.add_function("__vex_runtime_init", init_type, None);
+        let init_fn = self
+            .module
+            .add_function("__vex_runtime_init", init_type, None);
 
         self.builder
             .build_call(init_fn, &[argc_param.into(), argv_param.into()], "")
@@ -517,7 +555,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
             .map_err(|e| format!("Failed to store runtime: {}", e))?;
 
         // Call the async main function wrapper to get future
-        let future_ptr = self.builder
+        let future_ptr = self
+            .builder
             .build_call(async_main_fn, &[], "future")
             .map_err(|e| format!("Failed to call async main: {}", e))?
             .try_as_basic_value()
@@ -526,14 +565,21 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Spawn the async main coroutine
         let spawn_fn = self.get_or_declare_runtime_spawn();
-        
-        let main_resume_fn = self.functions.get("async_main_resume").ok_or("async_main_resume function not found")?;
+
+        let main_resume_fn = self
+            .functions
+            .get("async_main_resume")
+            .ok_or("async_main_resume function not found")?;
         let main_resume_ptr = main_resume_fn.as_global_value().as_pointer_value();
 
         self.builder
             .build_call(
                 spawn_fn,
-                &[runtime_ptr.into(), main_resume_ptr.into(), future_ptr.into()],
+                &[
+                    runtime_ptr.into(),
+                    main_resume_ptr.into(),
+                    future_ptr.into(),
+                ],
                 "spawn_main",
             )
             .map_err(|e| format!("Failed to spawn async main: {}", e))?;

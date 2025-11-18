@@ -7,7 +7,7 @@ struct Container<T> {
 
 fn main(): i32 {
     // Depth 10
-    let deep: Container<Container<Container<Container<Container<Container<Container<Container<Container<Container<i32>>>>>>>>>> = Box { value: Box { value: Box { value: Box { value: Box { value: Box { value: Box { value: Box { value: Box { value: Box { value: 42 } } } } } } } } } };
+    let deep: Container<Container<Container<Container<Container<Container<Container<Container<Container<Container<i32>>>>>>>>>> = Container { value: Container { value: Container { value: Container { value: Container { value: Container { value: Container { value: Container { value: Container { value: Container { value: 42 } } } } } } } } } };
     
     return 0;
 }

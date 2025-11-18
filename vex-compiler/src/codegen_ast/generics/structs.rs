@@ -94,10 +94,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
             .type_params
             .iter()
             .map(|p| {
-                type_subst
-                    .get(&p.name)
-                    .cloned()
-                    .ok_or_else(|| format!("Missing type argument for parameter '{}' in struct '{}'", p.name, struct_name))
+                type_subst.get(&p.name).cloned().ok_or_else(|| {
+                    format!(
+                        "Missing type argument for parameter '{}' in struct '{}'",
+                        p.name, struct_name
+                    )
+                })
             })
             .collect::<Result<_, _>>()?;
         let all_type_arg_strings: Vec<String> = all_type_args

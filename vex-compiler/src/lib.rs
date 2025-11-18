@@ -10,6 +10,7 @@ pub mod trait_bounds_checker; // Trait bounds verification
 pub mod type_registry; // Builtin type name registry for O(1) lookup
 pub mod types; // Type interning and utilities
 pub mod utils; // Utility modules (safe arithmetic, etc.)
+pub mod visibility; // Contract enforcement and visibility checks
 
 // Re-export diagnostics from vex-diagnostics crate
 pub use vex_diagnostics as diagnostics;
@@ -29,3 +30,4 @@ pub use utils::llvm_safety::{
 pub use utils::safe_arithmetic::{
     safe_array_size, safe_field_index, safe_param_index, CheckedArithmetic, SafeCast,
 };
+pub use visibility::VisibilityChecker;

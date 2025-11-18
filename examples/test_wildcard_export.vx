@@ -1,0 +1,14 @@
+// Test wildcard re-export
+
+const VALUE_A: i32 = 100;
+const VALUE_B: i32 = 200;
+
+fn helper_a(x: i32): i32 {
+    return x + VALUE_A;
+}
+
+fn helper_b(x: i32): i32 {
+    return x + VALUE_B;
+}
+
+export { VALUE_A, VALUE_B, helper_a, helper_b };

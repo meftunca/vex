@@ -1,10 +1,15 @@
 // Core LSP Backend structures and initialization
 
 use dashmap::DashMap;
+use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::Arc;
+use tokio::sync::RwLock;
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer};
+
+use crate::module_resolver::ModuleResolver;
 
 // Simple document cache for incremental parsing
 #[derive(Debug)]
@@ -40,26 +45,57 @@ pub struct VexBackend {
     pub client: Client,
     /// Document cache with incremental parsing
     pub document_cache: Arc<DocumentCache>,
-    /// Legacy: Document text cache (kept for compatibility)
-    pub documents: Arc<DashMap<String, String>>,
-    /// Legacy: Parsed AST cache (migrating to DocumentCache)
-    pub ast_cache: Arc<DashMap<String, vex_ast::Program>>,
+    /// Document text cache (Arc for cheap cloning)
+    pub documents: Arc<DashMap<String, Arc<String>>>,
+    /// Parsed AST cache (Arc for cheap cloning)
+    pub ast_cache: Arc<DashMap<String, Arc<vex_ast::Program>>>,
+    /// Debounce tasks for did_change events (prevents UI freezing)
+    pub debounce_tasks: Arc<RwLock<HashMap<String, tokio::task::JoinHandle<()>>>>,
+    /// Module resolver for import path resolution
+    pub module_resolver: Arc<ModuleResolver>,
+    /// Workspace root path
+    pub workspace_root: Option<PathBuf>,
 }
 
 impl VexBackend {
     pub fn new(client: Client) -> Self {
+        // Default workspace root to current directory
+        let workspace_root = std::env::current_dir().ok();
+        let resolver = workspace_root
+            .as_ref()
+            .map(|root| ModuleResolver::new(root.clone()))
+            .unwrap_or_else(|| ModuleResolver::new(PathBuf::from(".")));
+
         Self {
             client,
             document_cache: Arc::new(DocumentCache::new()),
             documents: Arc::new(DashMap::new()),
             ast_cache: Arc::new(DashMap::new()),
+            debounce_tasks: Arc::new(RwLock::new(HashMap::new())),
+            module_resolver: Arc::new(resolver),
+            workspace_root,
         }
+    }
+
+    /// Set workspace root (called from initialize)
+    pub fn set_workspace_root(&mut self, root: PathBuf) {
+        self.workspace_root = Some(root.clone());
+        self.module_resolver = Arc::new(ModuleResolver::new(root));
     }
 }
 
 #[tower_lsp::async_trait]
 impl LanguageServer for VexBackend {
-    async fn initialize(&self, _params: InitializeParams) -> Result<InitializeResult> {
+    async fn initialize(&self, params: InitializeParams) -> Result<InitializeResult> {
+        // Extract workspace root from initialization params
+        if let Some(root_uri) = params.root_uri {
+            if let Ok(root_path) = root_uri.to_file_path() {
+                tracing::info!("Workspace root: {:?}", root_path);
+                // Note: Can't mutate self here, will need refactoring to use interior mutability
+                // For now, resolver is created in new() with current_dir
+            }
+        }
+
         Ok(InitializeResult {
             server_info: Some(ServerInfo {
                 name: "vex-language-server".to_string(),
@@ -149,13 +185,29 @@ impl LanguageServer for VexBackend {
         })
     }
 
-    async fn initialized(&self, params: InitializedParams) {
+    async fn initialized(&self, _params: InitializedParams) {
         self.client
             .log_message(MessageType::INFO, "Vex Language Server initialized!")
             .await;
     }
 
     async fn shutdown(&self) -> Result<()> {
+        tracing::info!("LSP server shutting down");
+
+        // Abort all pending debounce tasks to prevent hanging
+        let tasks = self.debounce_tasks.write().await;
+        for (uri, task) in tasks.iter() {
+            tracing::debug!("Aborting debounce task for: {}", uri);
+            task.abort();
+        }
+        drop(tasks);
+
+        // Clear all caches
+        self.documents.clear();
+        self.ast_cache.clear();
+        self.module_resolver.clear_cache();
+
+        tracing::info!("LSP server shutdown complete");
         Ok(())
     }
 

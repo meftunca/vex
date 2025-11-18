@@ -53,9 +53,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     }
                 };
                 match elem_llvm {
-                    BasicTypeEnum::IntType(it) => {
-                        BasicTypeEnum::ArrayType(it.array_type(size_u32))
-                    }
+                    BasicTypeEnum::IntType(it) => BasicTypeEnum::ArrayType(it.array_type(size_u32)),
                     BasicTypeEnum::FloatType(ft) => {
                         BasicTypeEnum::ArrayType(ft.array_type(size_u32))
                     }

@@ -1,6 +1,9 @@
 // Math Module Tests
 // Tests for mathematical functions
 
+// Import native C functions (temporary - until recursive imports work)
+import { sin, cos, tan, sqrt, pow, fabs, fabsf } from "../src/native.vxc";
+
 import { 
     sin_f64, cos_f64, tan_f64,
     sqrt_f64, pow_f64,

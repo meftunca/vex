@@ -1,0 +1,14 @@
+// Test async main function
+async fn main(): i32 {
+    println("Starting async main");
+
+    // Test await in main
+    await async_delay(50);
+
+    println("Async main completed");
+    return 0;
+}
+
+async fn async_delay(ms: i64): void {
+    println("Delaying...");
+}

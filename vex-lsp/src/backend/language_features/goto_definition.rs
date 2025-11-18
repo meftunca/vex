@@ -1,4 +1,5 @@
 //! This module contains the implementation of the `goto_definition` language feature.
+use std::sync::Arc;
 use tower_lsp::lsp_types::*;
 
 use crate::backend::{language_features::helpers::*, VexBackend};
@@ -10,10 +11,11 @@ impl VexBackend {
     ) -> tower_lsp::jsonrpc::Result<Option<GotoDefinitionResponse>> {
         let uri = params.text_document_position_params.text_document.uri;
         let position = params.text_document_position_params.position;
+        let uri_str = uri.to_string();
 
         // Get document text
-        let text = match self.documents.get(&uri.to_string()) {
-            Some(t) => t.clone(),
+        let text = match self.documents.get(&uri_str) {
+            Some(t) => Arc::clone(t.value()),
             None => return Ok(None),
         };
 
@@ -25,9 +27,14 @@ impl VexBackend {
             return Ok(None);
         }
 
+        // Check if cursor is on an import statement
+        if let Some(import_location) = self.resolve_import_at_position(&uri, &text, position) {
+            return Ok(Some(GotoDefinitionResponse::Scalar(import_location)));
+        }
+
         // Get the AST
-        let ast = match self.ast_cache.get(&uri.to_string()) {
-            Some(ast) => ast.clone(),
+        let ast = match self.ast_cache.get(&uri_str) {
+            Some(ast) => Arc::clone(ast.value()),
             None => return Ok(None),
         };
 
@@ -240,5 +247,55 @@ impl VexBackend {
             }
         }
         None
+    }
+
+    /// Resolve import statement at cursor position
+    fn resolve_import_at_position(
+        &self,
+        uri: &tower_lsp::lsp_types::Url,
+        text: &str,
+        position: Position,
+    ) -> Option<Location> {
+        let line_idx = position.line as usize;
+        let lines: Vec<&str> = text.lines().collect();
+
+        if line_idx >= lines.len() {
+            return None;
+        }
+
+        let line = lines[line_idx];
+
+        // Check if line contains import statement
+        if !line.trim().starts_with("import ") && !line.trim().starts_with("from ") {
+            return None;
+        }
+
+        // Extract import path from line
+        // Examples: "import std.io", "from std.collections import Vec"
+        let import_path = if line.contains("import ") {
+            line.split("import ")
+                .nth(1)?
+                .split_whitespace()
+                .next()?
+                .trim_end_matches(';')
+        } else {
+            return None;
+        };
+
+        // Get current file path for relative imports
+        let current_file = uri.to_file_path().ok();
+
+        // Resolve import path to file
+        let resolved_path = self
+            .module_resolver
+            .resolve_import(import_path, current_file.as_deref())?;
+
+        // Convert to file URI
+        let file_uri = tower_lsp::lsp_types::Url::from_file_path(&resolved_path).ok()?;
+
+        Some(Location {
+            uri: file_uri,
+            range: Range::default(), // Jump to start of file
+        })
     }
 }

@@ -18,11 +18,27 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let (var_type, llvm_type) = if let Some(t) = ty {
             let target_llvm_type = self.ast_type_to_llvm(t);
 
+            // ⭐ CRITICAL: Check for cross-type casts (float <-> int)
+            // These require explicit casting and should not be implicit
+            if let BasicValueEnum::FloatValue(_) = val {
+                if matches!(target_llvm_type, BasicTypeEnum::IntType(_)) {
+                    return Err(
+                        "cannot implicitly cast float to integer: truncation may occur\n\nhelp: use an explicit cast: `value as i32`".to_string()
+                    );
+                }
+            }
+            if let BasicValueEnum::IntValue(_) = val {
+                if matches!(target_llvm_type, BasicTypeEnum::FloatType(_)) {
+                    // Note: int -> float is usually safe but can lose precision for large integers
+                    // For now we allow it, but we could make it explicit too
+                }
+            }
+
             // Cast integer literal to match target integer type width
-            val = self.cast_integer_if_needed(val, t, target_llvm_type)?;
+            val = self.cast_integer_if_needed(val, t, target_llvm_type, value)?;
 
             // Cast float literals to match target float type
-            val = self.cast_float_if_needed(val, target_llvm_type)?;
+            val = self.cast_float_if_needed(val, target_llvm_type, value)?;
 
             (t.clone(), target_llvm_type)
         } else {
@@ -50,7 +66,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         eprintln!("  ⚠️  MethodCall type inference failed: {}", e);
                         // Fallback to LLVM inference
                         let inferred_llvm_type = val.get_type();
-                        let inferred_ast_type = self.infer_ast_type_from_llvm(inferred_llvm_type)?;
+                        let inferred_ast_type =
+                            self.infer_ast_type_from_llvm(inferred_llvm_type)?;
                         (inferred_ast_type, inferred_llvm_type)
                     }
                 }
@@ -85,11 +102,16 @@ impl<'ctx> ASTCodeGen<'ctx> {
         val: BasicValueEnum<'ctx>,
         target_type: &Type,
         target_llvm_type: BasicTypeEnum<'ctx>,
+        value_expr: &Expression,
     ) -> Result<BasicValueEnum<'ctx>, String> {
         if let BasicValueEnum::IntValue(int_val) = val {
             if let BasicTypeEnum::IntType(target_int_type) = target_llvm_type {
-                if int_val.get_type().get_bit_width() != target_int_type.get_bit_width() {
-                    if int_val.get_type().get_bit_width() < target_int_type.get_bit_width() {
+                let current_width = int_val.get_type().get_bit_width();
+                let target_width = target_int_type.get_bit_width();
+
+                if current_width != target_width {
+                    if current_width < target_width {
+                        // ✅ UPCAST: Safe widening conversion
                         let is_unsigned = matches!(
                             target_type,
                             Type::U8 | Type::U16 | Type::U32 | Type::U64 | Type::U128
@@ -106,11 +128,28 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                 .map(|v| v.into())
                         };
                     } else {
-                        return self
-                            .builder
-                            .build_int_truncate(int_val, target_int_type, "lit_trunc")
-                            .map_err(|e| format!("Failed to truncate literal: {}", e))
-                            .map(|v| v.into());
+                        // ❌ DOWNCAST: Check if this is a literal or variable
+                        // Literals are safe to narrow (programmer knows the value)
+                        // Variables are unsafe (runtime value unknown)
+                        let is_literal = matches!(
+                            value_expr,
+                            Expression::IntLiteral(_) | Expression::BigIntLiteral(_)
+                        );
+
+                        if is_literal {
+                            // ✅ LITERAL: Safe to truncate (value is known at compile time)
+                            return self
+                                .builder
+                                .build_int_truncate(int_val, target_int_type, "lit_trunc")
+                                .map_err(|e| format!("Failed to truncate literal: {}", e))
+                                .map(|v| v.into());
+                        } else {
+                            // ❌ VARIABLE: Unsafe - REJECT!
+                            return Err(format!(
+                                "cannot implicitly cast `i{}` to `i{}`: potential data loss\n\nhelp: use an explicit cast: `value as i{}`",
+                                current_width, target_width, target_width
+                            ));
+                        }
                     }
                 }
             }
@@ -122,15 +161,39 @@ impl<'ctx> ASTCodeGen<'ctx> {
         &self,
         val: BasicValueEnum<'ctx>,
         target_llvm_type: BasicTypeEnum<'ctx>,
+        value_expr: &Expression,
     ) -> Result<BasicValueEnum<'ctx>, String> {
         if let BasicValueEnum::FloatValue(float_val) = val {
             if let BasicTypeEnum::FloatType(target_float_type) = target_llvm_type {
                 if float_val.get_type() != target_float_type {
-                    return self
-                        .builder
-                        .build_float_cast(float_val, target_float_type, "float_cast")
-                        .map_err(|e| format!("Failed to cast float: {}", e))
-                        .map(|v| v.into());
+                    let is_source_double = float_val.get_type() == self.context.f64_type();
+                    let is_target_double = target_float_type == self.context.f64_type();
+
+                    if is_source_double && !is_target_double {
+                        // ❌ f64 -> f32: Check if literal or variable
+                        let is_literal = matches!(value_expr, Expression::FloatLiteral(_));
+
+                        if is_literal {
+                            // ✅ LITERAL: Safe to truncate (value known)
+                            return self
+                                .builder
+                                .build_float_trunc(float_val, target_float_type, "lit_ftrunc")
+                                .map_err(|e| format!("Failed to truncate float literal: {}", e))
+                                .map(|v| v.into());
+                        } else {
+                            // ❌ VARIABLE: Precision loss - REJECT!
+                            return Err(
+                                "cannot implicitly cast `f64` to `f32`: potential precision loss\n\nhelp: use an explicit cast: `value as f32`".to_string()
+                            );
+                        }
+                    } else if !is_source_double && is_target_double {
+                        // ✅ f32 -> f64: Safe upcast
+                        return self
+                            .builder
+                            .build_float_ext(float_val, target_float_type, "float_ext")
+                            .map_err(|e| format!("Failed to extend float: {}", e))
+                            .map(|v| v.into());
+                    }
                 }
             }
         }
@@ -723,7 +786,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 self.build_store_aligned(alloca, val)?;
                 alloca
             };
-            
+
             self.variables.insert(name.to_string(), alloca);
             self.variable_types
                 .insert(name.to_string(), final_llvm_type);

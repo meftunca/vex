@@ -235,10 +235,27 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
                 // Try to get type from variable
                 if let Some(llvm_type) = self.variable_types.get(name) {
-                    // Convert LLVM type back to AST type (simplified)
+                    // Convert LLVM type back to AST type (check bit width for integers)
                     match llvm_type {
-                        BasicTypeEnum::IntType(_) => Ok(Type::I32),
-                        BasicTypeEnum::FloatType(_) => Ok(Type::F64),
+                        BasicTypeEnum::IntType(int_type) => {
+                            match int_type.get_bit_width() {
+                                1 => Ok(Type::Bool),
+                                8 => Ok(Type::I8),
+                                16 => Ok(Type::I16),
+                                32 => Ok(Type::I32),
+                                64 => Ok(Type::I64),
+                                128 => Ok(Type::I128),
+                                _ => Ok(Type::I32), // Fallback for unknown widths
+                            }
+                        }
+                        BasicTypeEnum::FloatType(float_type) => {
+                            // Check float vs double
+                            if float_type == &self.context.f32_type() {
+                                Ok(Type::F32)
+                            } else {
+                                Ok(Type::F64)
+                            }
+                        }
                         _ => Ok(Type::I32), // Fallback
                     }
                 } else {
@@ -315,7 +332,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 receiver, method, ..
             } => {
                 // Infer return type of method call
-                
+
                 // Check if this is a static method call: Type.method()
                 // Receiver is Ident with uppercase first letter = static call
                 let is_static_call = matches!(**receiver, Expression::Ident(ref name) if name.chars().next().unwrap_or('_').is_uppercase());
@@ -396,10 +413,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         eprintln!("🔍 Found function_def for {}", pattern);
                         eprintln!("   func_def.return_type = {:?}", func_def.return_type);
                         if let Some(ret_ty) = &func_def.return_type {
-                            eprintln!(
-                                "✅ Method {} original return type: {:?}",
-                                pattern, ret_ty
-                            );
+                            eprintln!("✅ Method {} original return type: {:?}", pattern, ret_ty);
 
                             // ⭐ Substitute generic type parameters: T -> i32 for Vec<i32>
                             let concrete_ret_ty =

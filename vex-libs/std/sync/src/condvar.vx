@@ -1,0 +1,39 @@
+
+// ============================================================================
+// Condvar - Condition Variable
+// ============================================================================
+
+import {
+    vex_condvar_new, vex_condvar_wait, vex_condvar_wait_timeout,
+    vex_condvar_notify_one, vex_condvar_notify_all, vex_condvar_drop
+} from "./native.vxc";
+
+export struct Condvar impl Drop {
+    _ptr: *u8
+}
+
+export fn condvar_new(): Condvar {
+    let ptr = vex_condvar_new();
+    return Condvar { _ptr: ptr };
+}
+
+export fn condvar_wait<T>(self: &Condvar, guard: &MutexGuard<T>) {
+    vex_condvar_wait(self._ptr, guard._ptr);
+}
+
+export fn condvar_wait_timeout<T>(self: &Condvar, guard: &MutexGuard<T>, timeout_ms: u64): bool {
+    let result = vex_condvar_wait_timeout(self._ptr, guard._ptr, timeout_ms);
+    return result == 1;
+}
+
+export fn condvar_notify_one(self: &Condvar) {
+    vex_condvar_notify_one(self._ptr);
+}
+
+export fn condvar_notify_all(self: &Condvar) {
+    vex_condvar_notify_all(self._ptr);
+}
+
+fn (self: &Condvar) drop() {
+    vex_condvar_drop(self._ptr);
+}

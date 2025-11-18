@@ -1,0 +1,23 @@
+// ============================================================================
+// Barrier - Thread Synchronization Point
+// ============================================================================
+import {
+    vex_barrier_new, vex_barrier_wait, vex_barrier_drop
+} from "./native.vxc";
+
+export struct Barrier impl Drop {
+    _ptr: *u8
+}
+
+export fn barrier_new(count: i64): Barrier {
+    let ptr = vex_barrier_new(count);
+    return Barrier { _ptr: ptr };
+}
+
+export fn barrier_wait(self: &Barrier) {
+    vex_barrier_wait(self._ptr);
+}
+
+fn (self: &Barrier) drop() {
+    vex_barrier_drop(self._ptr);
+}

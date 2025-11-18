@@ -1,0 +1,19 @@
+fn takes_i32(x: i32) {
+    print("Received i32\n");
+}
+
+fn takes_f32(x: f32) {
+    print("Received f32\n");
+}
+
+fn main() {
+    // Test 1: Upcast in function call - should work
+    let small: i32 = 42;
+    let big_param: i64 = 100;
+    
+    // Test 2: Downcast in function call - should error
+    let big_val: i64 = 1000;
+    takes_i32(big_val);  // Should error!
+    
+    print("Should not reach here!\n");
+}

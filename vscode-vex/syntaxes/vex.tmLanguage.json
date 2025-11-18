@@ -1,7 +1,7 @@
 {
   "name": "Vex",
   "scopeName": "source.vex",
-  "fileTypes": ["vx"],
+  "fileTypes": ["vx", "vxc"],
   "patterns": [
     { "include": "#comments" },
     { "include": "#strings" },
@@ -115,7 +115,7 @@
         },
         {
           "name": "keyword.declaration.vex",
-          "match": "\\b(fn|struct|enum|contract|impl|type|const|let!|let|policy|extern)\\b"
+          "match": "\\b(fn|struct|enum|contract|impl|type|const|let!|let|policy|extern|extends)\\b"
         },
         {
           "name": "storage.modifier.vex",

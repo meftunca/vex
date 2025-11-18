@@ -99,6 +99,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
             policy_defs: HashMap::new(),
             struct_metadata: HashMap::new(),
             module_namespaces: HashMap::new(),
+            namespace_imports: HashMap::new(),     // ⭐ NEW: Namespace import aliases
+            module_constants: HashMap::new(),      // ⭐ NEW: Module constant registry
             builtins: BuiltinRegistry::new(),
             current_function: None,
             current_function_return_type: None,
@@ -117,13 +119,13 @@ impl<'ctx> ASTCodeGen<'ctx> {
             trait_bounds_checker: None,       // ⭐ NEW: Initialized in compile_program
             source_file: source_file.to_string(), // ⭐ NEW: Store source file path
             type_interner: crate::types::interner::TypeInterner::new(), // ⭐ NEW: Type interning for performance
-            global_runtime: None,             // ⭐ ASYNC: Initialize runtime handle as None
-            async_block_counter: 0,           // ⭐ ASYNC BLOCKS: Counter for unique names
-            async_state_stack: Vec::new(),    // ⭐ ASYNC STATE MACHINE: State tracking
-            async_state_counter: 0,           // ⭐ ASYNC STATE MACHINE: State ID counter
-            current_async_resume_fn: None,    // ⭐ ASYNC STATE MACHINE: Resume function
-            async_resume_blocks: Vec::new(),  // ⭐ ASYNC STATE MACHINE: Pre-allocated resume blocks
-            async_context: None,             // ⭐ ASYNC: Current async context
+            global_runtime: None, // ⭐ ASYNC: Initialize runtime handle as None
+            async_block_counter: 0, // ⭐ ASYNC BLOCKS: Counter for unique names
+            async_state_stack: Vec::new(), // ⭐ ASYNC STATE MACHINE: State tracking
+            async_state_counter: 0, // ⭐ ASYNC STATE MACHINE: State ID counter
+            current_async_resume_fn: None, // ⭐ ASYNC STATE MACHINE: Resume function
+            async_resume_blocks: Vec::new(), // ⭐ ASYNC STATE MACHINE: Pre-allocated resume blocks
+            async_context: None,  // ⭐ ASYNC: Current async context
         };
 
         // Register Phase 0 builtin types (Vec, Option, Result, Box)
