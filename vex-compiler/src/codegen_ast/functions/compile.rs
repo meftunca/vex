@@ -1,6 +1,6 @@
 // src/codegen/functions/compile.rs
-use crate::{debug_log, debug_println};
 use super::super::*;
+use crate::{debug_log, debug_println};
 use inkwell::values::BasicValueEnum;
 
 impl<'ctx> ASTCodeGen<'ctx> {
@@ -53,10 +53,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
         // ⭐ NEW: Handle static methods (fn Type.method())
         let fn_name = if func.is_static {
             // Static method: fn Vec<T>.new()
-            let type_name = func.static_type.as_ref().ok_or_else(|| {
-                "Static method missing type name".to_string()
-            })?;
-            
+            let type_name = func
+                .static_type
+                .as_ref()
+                .ok_or_else(|| "Static method missing type name".to_string())?;
+
             // Mangle as Type_method
             let encoded_method_name = Self::encode_operator_name(&func.name);
             format!("{}_{}", type_name, encoded_method_name)
@@ -450,10 +451,18 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
                     if is_void_function {
                         // Void/nil function - add implicit return
-                        eprintln!("   → Adding void return");
-                        self.builder
-                            .build_return(None)
-                            .map_err(|e| format!("Failed to build void return: {}", e))?;
+                        if func.name == "main" && !func.is_async {
+                            eprintln!("   → Adding implicit return 0 for main");
+                            let zero = self.context.i32_type().const_int(0, false);
+                            self.builder
+                                .build_return(Some(&zero))
+                                .map_err(|e| format!("Failed to build main return 0: {}", e))?;
+                        } else {
+                            eprintln!("   → Adding void return");
+                            self.builder
+                                .build_return(None)
+                                .map_err(|e| format!("Failed to build void return: {}", e))?;
+                        }
                     } else {
                         // Non-void function - check if entry block
                         let is_entry_block = current_block

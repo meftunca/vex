@@ -3,15 +3,15 @@
 
 contract Iterator {
     type Item;
-    fn next(): Option<Self.Item>;
+    next(): Option<Self.Item>;
 }
 
 contract Display {
-    fn show(): i32;
+    show(): i32;
 }
 
 contract Clone {
-    fn clone(): Self;
+    clone(): Self;
 }
 
 // Mixed: type bounds and associated type bounds

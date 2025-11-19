@@ -17,6 +17,11 @@ impl<'a> Parser<'a> {
 
         self.consume(&Token::Semicolon, "Expected ';' after const value")?;
 
-        Ok(Item::Const(Const { name, ty, value }))
+        Ok(Item::Const(Const {
+            is_exported: false, // Default to false
+            name,
+            ty,
+            value,
+        }))
     }
 }

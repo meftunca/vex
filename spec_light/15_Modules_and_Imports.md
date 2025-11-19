@@ -1,6 +1,6 @@
 # Modules and Imports
 
-Version: 0.1.2 
+Version: 0.1.2
 Last Updated: November 2025
 
 This document defines the module system and import/export mechanism in Vex.
@@ -237,7 +237,7 @@ fn resolve_import(path: &str) -> Result<Program, String> {
 
 ## Standard Library Modules
 
-### Layer 0: Vex Runtime (Rust)
+### Layer 0: Vex Runtime
 
 Core runtime written in Rust:
 
@@ -450,5 +450,5 @@ import "std::json";  // ❌ Wrong!
 
 ---
 
-Previous: 13_Concurrency.md 
+Previous: 13_Concurrency.md
 Next: 15StandardLibrary.md

@@ -2,11 +2,11 @@
 // Expected: Compile successfully with contract bound validation
 
 contract Display {
-    fn show(): string;
+   show(): string;
 }
 
 contract Clone {
-    fn clone(): Self;
+    clone(): Self;
 }
 
 struct Point impl Display, Clone {

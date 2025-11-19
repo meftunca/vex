@@ -214,6 +214,73 @@ enum Commands {
     },
 }
 
+// Helper to recursively expand re-exports (export * from "...")
+fn expand_reexports(
+    ast: &mut vex_ast::Program,
+    file_path: &str,
+    resolver: &mut vex_compiler::ModuleResolver,
+    depth: usize,
+) -> anyhow::Result<()> {
+    if depth > 10 {
+        return Ok(()); // Prevent infinite recursion
+    }
+
+    let mut items_to_merge = Vec::new();
+
+    for item in &ast.items {
+        if let vex_ast::Item::Export(export) = item {
+            if let Some(from_path) = &export.from_module {
+                // Load re-exported module
+                // Use load_module_with_path to get the file path for recursive resolution
+                // Note: We use file_path as parent for relative resolution
+
+                // Clone AST to avoid holding borrow on resolver
+                let (mut sub_ast, sub_file) = if let Ok((ast_ref, file)) =
+                    resolver.load_module_with_path(from_path, Some(file_path))
+                {
+                    (ast_ref.clone(), file)
+                } else {
+                    continue;
+                };
+
+                // Recursively expand its re-exports first
+                expand_reexports(&mut sub_ast, &sub_file, resolver, depth + 1)?;
+
+                if export.is_wildcard {
+                    // export * from "..."
+                    items_to_merge.extend(sub_ast.items);
+                } else {
+                    // export { x, y } from "..."
+                    for sub_item in sub_ast.items {
+                        let name = match &sub_item {
+                            vex_ast::Item::Function(f) => Some(&f.name),
+                            vex_ast::Item::Struct(s) => Some(&s.name),
+                            vex_ast::Item::Const(c) => Some(&c.name),
+                            vex_ast::Item::Enum(e) => Some(&e.name),
+                            vex_ast::Item::Contract(t) => Some(&t.name),
+                            vex_ast::Item::TypeAlias(t) => Some(&t.name),
+                            vex_ast::Item::Policy(p) => Some(&p.name),
+                            _ => None,
+                        };
+
+                        if let Some(name) = name {
+                            if let Some(_export_item) =
+                                export.items.iter().find(|i| i.name == *name)
+                            {
+                                // TODO: Handle alias if needed
+                                items_to_merge.push(sub_item);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    ast.items.extend(items_to_merge);
+    Ok(())
+}
+
 fn main() -> Result<()> {
     env_logger::init();
 
@@ -300,7 +367,7 @@ fn main() -> Result<()> {
 
             // Use error recovery to collect all parse errors
             let (ast_opt, parse_diagnostics) = parser.parse_with_recovery();
-            
+
             // Display all parse diagnostics
             if !parse_diagnostics.is_empty() {
                 if json {
@@ -327,13 +394,16 @@ fn main() -> Result<()> {
                         eprintln!(); // Blank line between errors
                     }
                 }
-                
+
                 // If parsing failed completely, abort
                 if ast_opt.is_none() {
-                    return Err(anyhow::anyhow!("Parse failed with {} error(s)", parse_diagnostics.len()));
+                    return Err(anyhow::anyhow!(
+                        "Parse failed with {} error(s)",
+                        parse_diagnostics.len()
+                    ));
                 }
             }
-            
+
             let mut ast = ast_opt.unwrap();
 
             // ⭐ INJECT EMBEDDED PRELUDE (Layer 1 - Self-hosted)
@@ -344,6 +414,315 @@ fn main() -> Result<()> {
             let span_map = parser.take_span_map();
 
             println!("   ✅ Parsed {} successfully", filename);
+
+            // Convert to absolute path for proper import resolution
+            let abs_path = std::fs::canonicalize(&input)?;
+            let parser_file = abs_path.to_str().unwrap_or("unknown.vx").to_string();
+
+            // CRITICAL: Resolve imports BEFORE borrow checker
+            // This ensures imported functions are registered as valid global symbols
+            let mut module_namespaces: Vec<(String, Vec<String>)> = Vec::new();
+            let mut native_linker_args: Vec<String> = Vec::new();
+
+            if !ast.imports.is_empty() {
+                // Module resolution: vex-libs/std - Standard library packages (import "conv", "http", etc.)
+                // Note: Prelude (Vec, Box, Option, Result) is now auto-injected by compiler
+                let mut std_resolver =
+                    vex_compiler::ModuleResolver::new(PathBuf::from("vex-libs/std"));
+
+                // Collect sub-imports to add after iteration
+                let mut sub_imports_to_add: Vec<vex_ast::Import> = Vec::new();
+
+                // ⭐ ITERATIVE import resolution loop
+                // Keep processing imports until no new sub-imports are queued
+                let mut processed_imports: std::collections::HashSet<String> =
+                    std::collections::HashSet::new();
+
+                // ⭐ NEW: Circular dependency detection
+                // Track import chain to detect cycles: A → B → C → A
+                let mut import_stack: Vec<String> = Vec::new();
+
+                // Track parent file path for each import (for relative import resolution)
+                // module_path -> parent_file_path
+                let mut import_parent_files: std::collections::HashMap<String, String> =
+                    std::collections::HashMap::new();
+
+                // Initial imports are relative to parser_file
+                for import in &ast.imports {
+                    import_parent_files.insert(import.module.clone(), parser_file.clone());
+                }
+
+                let mut import_index = 0;
+
+                while import_index < ast.imports.len() {
+                    // Clone the import to avoid borrow conflicts
+                    let import = ast.imports[import_index].clone();
+                    import_index += 1;
+
+                    let module_path = &import.module;
+
+                    // Skip if already processed
+                    if processed_imports.contains(module_path) {
+                        continue;
+                    }
+
+                    // ⭐ CRITICAL: Check for circular dependency BEFORE adding to stack
+                    if import_stack.contains(module_path) {
+                        // Build the cycle chain for error message
+                        let cycle_start =
+                            import_stack.iter().position(|m| m == module_path).unwrap();
+                        let cycle_chain: Vec<String> = import_stack[cycle_start..].to_vec();
+                        let cycle_path = cycle_chain.join(" → ");
+                        anyhow::bail!(
+                            "⚠️  Circular import detected: {} → {}\n   Import chain: {}",
+                            cycle_path,
+                            module_path,
+                            import_stack.join(" → ")
+                        );
+                    }
+
+                    import_stack.push(module_path.clone());
+                    processed_imports.insert(module_path.clone());
+
+                    eprintln!("🔄 Resolving import: '{}'", module_path);
+
+                    // Get parent file path for relative import resolution
+                    let parent_file = import_parent_files
+                        .get(module_path)
+                        .map(|s| s.as_str())
+                        .unwrap_or(&parser_file);
+
+                    // Handle @relative: markers from sub-imports
+                    // Format: "@relative:math/./native.vxc" → resolve as "math/native.vxc"
+                    let actual_module_path = if module_path.starts_with("@relative:") {
+                        let without_prefix = &module_path["@relative:".len()..];
+                        // Remove ./ and ../ markers, resolve path
+                        let resolved = without_prefix.replace("/./", "/");
+                        resolved
+                    } else {
+                        module_path.clone()
+                    };
+
+                    // Load from standard library with parent file path for relative resolution
+                    // Clone AST to avoid holding borrow on resolver
+                    let (mut module_ast, loaded_module_file) = match std_resolver
+                        .load_module_with_path(&actual_module_path, Some(parent_file))
+                    {
+                        Ok((ast_ref, file)) => (ast_ref.clone(), file),
+                        Err(e) => {
+                            anyhow::bail!("⚠️  Import error for '{}': {}", module_path, e);
+                        }
+                    };
+
+                    // ⭐ NEW: Expand re-exports recursively
+                    if let Err(e) =
+                        expand_reexports(&mut module_ast, &loaded_module_file, &mut std_resolver, 0)
+                    {
+                        eprintln!(
+                            "⚠️  Warning: Failed to expand re-exports for '{}': {}",
+                            module_path, e
+                        );
+                    }
+
+                    // ⭐ CRITICAL: Add sub-imports from loaded module to queue
+                    // Example: math/src/lib.vx has "import { fabs } from './native.vxc'"
+                    // We need to queue native.vxc for processing too (JavaScript semantics)
+                    // Use the loaded module's file path for relative import resolution
+                    for sub_import in &module_ast.imports {
+                        let sub_module_path = sub_import.module.clone();
+
+                        // Check if already queued or processed
+                        let already_imported =
+                            ast.imports.iter().any(|i| i.module == sub_module_path)
+                                || processed_imports.contains(&sub_module_path)
+                                || sub_imports_to_add
+                                    .iter()
+                                    .any(|i| i.module == sub_module_path);
+                        if !already_imported {
+                            // Sub-imports will be resolved relative to loaded_module_file
+                            // Store the parent file path for this import
+                            import_parent_files
+                                .insert(sub_module_path.clone(), loaded_module_file.clone());
+                            sub_imports_to_add.push(sub_import.clone());
+                        }
+                    }
+
+                    // Add queued sub-imports to ast.imports for next iteration
+                    if !sub_imports_to_add.is_empty() {
+                        ast.imports.extend(sub_imports_to_add.drain(..));
+                    }
+
+                    match &import.kind {
+                        vex_ast::ImportKind::Named => {
+                            // Named import: only import requested items
+                            if import.items.is_empty() {
+                                // If no specific items, import all
+                                for item in &module_ast.items {
+                                    match item {
+                                        vex_ast::Item::Function(func) => {
+                                            ast.items.push(vex_ast::Item::Function(func.clone()));
+                                        }
+                                        vex_ast::Item::Struct(struct_def) => {
+                                            ast.items
+                                                .push(vex_ast::Item::Struct(struct_def.clone()));
+                                        }
+                                        vex_ast::Item::Const(const_decl) => {
+                                            ast.items
+                                                .push(vex_ast::Item::Const(const_decl.clone()));
+                                        }
+                                        vex_ast::Item::ExternBlock(extern_block) => {
+                                            // Import extern declarations (for FFI)
+                                            ast.items.push(vex_ast::Item::ExternBlock(
+                                                extern_block.clone(),
+                                            ));
+                                        }
+                                        _ => {}
+                                    }
+                                }
+                            } else {
+                                // Import only specific items
+                                // BUT: always import extern blocks (for FFI dependencies)
+                                for item in &module_ast.items {
+                                    if let vex_ast::Item::ExternBlock(extern_block) = item {
+                                        ast.items
+                                            .push(vex_ast::Item::ExternBlock(extern_block.clone()));
+                                    }
+                                }
+
+                                for requested in &import.items {
+                                    for item in &module_ast.items {
+                                        match item {
+                                            vex_ast::Item::Function(func)
+                                                if func.name == *requested.name =>
+                                            {
+                                                ast.items
+                                                    .push(vex_ast::Item::Function(func.clone()));
+                                            }
+                                            vex_ast::Item::Struct(s)
+                                                if s.name == *requested.name =>
+                                            {
+                                                ast.items.push(vex_ast::Item::Struct(s.clone()));
+                                            }
+                                            vex_ast::Item::Const(c)
+                                                if c.name == *requested.name =>
+                                            {
+                                                ast.items.push(vex_ast::Item::Const(c.clone()));
+                                            }
+                                            _ => {}
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        vex_ast::ImportKind::Module => {
+                            // Module import: import all and track namespace
+                            let module_name = module_path
+                                .split(&['/', ':'][..])
+                                .last()
+                                .unwrap_or(module_path);
+
+                            let mut imported_funcs = Vec::new();
+                            for item in &module_ast.items {
+                                match item {
+                                    vex_ast::Item::Function(func) => {
+                                        ast.items.push(vex_ast::Item::Function(func.clone()));
+                                        imported_funcs.push(func.name.clone());
+                                    }
+                                    vex_ast::Item::Struct(struct_def) => {
+                                        ast.items.push(vex_ast::Item::Struct(struct_def.clone()));
+                                    }
+                                    vex_ast::Item::Const(const_decl) => {
+                                        ast.items.push(vex_ast::Item::Const(const_decl.clone()));
+                                    }
+                                    vex_ast::Item::ExternBlock(extern_block) => {
+                                        // Import extern declarations
+                                        ast.items
+                                            .push(vex_ast::Item::ExternBlock(extern_block.clone()));
+                                    }
+                                    _ => {}
+                                }
+                            }
+                            // Save for later codegen registration
+                            module_namespaces.push((module_name.to_string(), imported_funcs));
+                        }
+                        vex_ast::ImportKind::Namespace(alias) => {
+                            // Namespace import: import all with alias
+                            let mut imported_funcs = Vec::new();
+                            for item in &module_ast.items {
+                                match item {
+                                    vex_ast::Item::Function(func) => {
+                                        ast.items.push(vex_ast::Item::Function(func.clone()));
+                                        imported_funcs.push(func.name.clone());
+                                    }
+                                    vex_ast::Item::Struct(struct_def) => {
+                                        ast.items.push(vex_ast::Item::Struct(struct_def.clone()));
+                                    }
+                                    vex_ast::Item::Const(const_decl) => {
+                                        ast.items.push(vex_ast::Item::Const(const_decl.clone()));
+                                    }
+                                    vex_ast::Item::ExternBlock(extern_block) => {
+                                        // Import extern declarations
+                                        ast.items
+                                            .push(vex_ast::Item::ExternBlock(extern_block.clone()));
+                                    }
+                                    _ => {}
+                                }
+                            }
+                            // Save for later codegen registration
+                            module_namespaces.push((alias.clone(), imported_funcs));
+                        }
+                    }
+
+                    // Check for native dependencies in imported module's vex.json
+                    // Try both vex-libs/std and stdlib paths
+                    for base_path in ["vex-libs/std", "stdlib"] {
+                        let module_dir = PathBuf::from(base_path).join(module_path);
+                        let vex_json_path = module_dir.join("vex.json");
+                        if vex_json_path.exists() {
+                            if let Ok(manifest) = vex_pm::Manifest::from_file(&vex_json_path) {
+                                if let Some(native_config) = manifest.get_native() {
+                                    let linker = vex_pm::NativeLinker::new(&module_dir);
+                                    match linker.process(native_config) {
+                                        Ok(native_args_str) if !native_args_str.is_empty() => {
+                                            eprintln!(
+                                                "   🔗 Native libs for '{}': {}",
+                                                module_path, native_args_str
+                                            );
+                                            // Store native args for later use
+                                            for arg in native_args_str.split_whitespace() {
+                                                native_linker_args.push(arg.to_string());
+                                            }
+                                        }
+                                        Ok(_) => {} // No native args
+                                        Err(e) => {
+                                            eprintln!("   ⚠️  Warning: Failed to process native config for '{}': {}", module_path, e);
+                                        }
+                                    }
+                                }
+                            }
+                            break; // Found vex.json, stop searching
+                        }
+                    }
+
+                    // ⭐ Pop from import stack after processing module
+                    // This allows sibling imports without false circular detection
+                    import_stack.pop();
+                }
+
+                // ⭐ Add all queued sub-imports to ast.imports for next iteration
+                // This allows recursive import resolution (math → lib.vx → native.vxc)
+                ast.imports.extend(sub_imports_to_add);
+            }
+
+            // ⭐ CRITICAL: Resolve and merge imports BEFORE borrow checker
+            // This ensures all imported symbols (including ExternBlocks) are in AST
+            if !ast.imports.is_empty() {
+                let context_temp = inkwell::context::Context::create();
+                let mut temp_codegen = vex_compiler::ASTCodeGen::new(&context_temp, &filename);
+                if let Err(e) = temp_codegen.resolve_and_merge_imports(&mut ast) {
+                    anyhow::bail!("Import resolution failed: {}", e);
+                }
+            }
 
             // 🔍 Phase 0: Contract enforcement check
             println!("   🔍 Checking contract enforcement...");
@@ -386,7 +765,7 @@ fn main() -> Result<()> {
             // Run linter for warnings
             let mut linter = vex_compiler::Linter::new();
             let lint_warnings = linter.lint(&ast);
-            
+
             if !lint_warnings.is_empty() {
                 if json {
                     // Append warnings to JSON output
@@ -398,7 +777,10 @@ fn main() -> Result<()> {
                         println!("  {{");
                         println!("    \"level\":\"warning\",");
                         println!("    \"code\":\"{}\",", warning.code);
-                        println!("    \"message\":\"{}\",", warning.message.replace('"', "\\\""));
+                        println!(
+                            "    \"message\":\"{}\",",
+                            warning.message.replace('"', "\\\"")
+                        );
                         println!("    \"file\":\"{}\",", warning.span.file);
                         println!("    \"line\":{},", warning.span.line);
                         println!("    \"column\":{}", warning.span.column);
@@ -446,13 +828,19 @@ fn main() -> Result<()> {
             }
 
             // Print error/warning summary
-            let error_count = parse_diagnostics.iter().filter(|d| d.level == vex_compiler::ErrorLevel::Error).count();
+            let error_count = parse_diagnostics
+                .iter()
+                .filter(|d| d.level == vex_compiler::ErrorLevel::Error)
+                .count();
             let warning_count = lint_warnings.len();
-            
+
             if !json && (error_count > 0 || warning_count > 0) {
                 eprintln!();
                 if error_count > 0 && warning_count > 0 {
-                    eprintln!("error: aborting due to {} previous error(s); {} warning(s) emitted", error_count, warning_count);
+                    eprintln!(
+                        "error: aborting due to {} previous error(s); {} warning(s) emitted",
+                        error_count, warning_count
+                    );
                 } else if error_count > 0 {
                     eprintln!("error: aborting due to {} previous error(s)", error_count);
                 } else {
@@ -519,7 +907,7 @@ fn main() -> Result<()> {
                 }
 
                 let spirv_path = output_path.with_extension("spv");
-                
+
                 // TODO: Implement actual SPIR-V emission via LLVM SPIR-V backend
                 // For now, emit LLVM IR with SPIR-V target triple
                 let spirv_ll = output_path.with_extension("spirv.ll");
@@ -527,7 +915,7 @@ fn main() -> Result<()> {
                     .module
                     .print_to_file(&spirv_ll)
                     .map_err(|e| anyhow::anyhow!(e.to_string()))?;
-                
+
                 if json {
                     println!("{{\"spirv_ir\":\"{}\"}}", spirv_ll.display());
                 } else {
@@ -535,7 +923,11 @@ fn main() -> Result<()> {
                     println!("  Output: {}", spirv_ll.display());
                     println!("\n⚠️  Note: Full SPIR-V binary emission is not yet implemented");
                     println!("   Generated LLVM IR with GPU annotations instead");
-                    println!("\n▶️  Convert with: llvm-spirv {} -o {}", spirv_ll.display(), spirv_path.display());
+                    println!(
+                        "\n▶️  Convert with: llvm-spirv {} -o {}",
+                        spirv_ll.display(),
+                        spirv_path.display()
+                    );
                 }
                 return Ok(());
             }
@@ -686,37 +1078,50 @@ fn main() -> Result<()> {
             if !ast.imports.is_empty() {
                 // Module resolution: vex-libs/std - Standard library packages (import "conv", "http", etc.)
                 // Note: Prelude (Vec, Box, Option, Result) is now auto-injected by compiler
-                let mut std_resolver = vex_compiler::ModuleResolver::new(PathBuf::from("vex-libs/std"));
+                let mut std_resolver =
+                    vex_compiler::ModuleResolver::new(PathBuf::from("vex-libs/std"));
 
                 // Collect sub-imports to add after iteration
                 let mut sub_imports_to_add: Vec<vex_ast::Import> = Vec::new();
 
                 // ⭐ ITERATIVE import resolution loop
                 // Keep processing imports until no new sub-imports are queued
-                let mut processed_imports: std::collections::HashSet<String> = std::collections::HashSet::new();
-                
+                let mut processed_imports: std::collections::HashSet<String> =
+                    std::collections::HashSet::new();
+
                 // ⭐ NEW: Circular dependency detection
                 // Track import chain to detect cycles: A → B → C → A
                 let mut import_stack: Vec<String> = Vec::new();
-                
+
+                // Track parent file path for each import (for relative import resolution)
+                // module_path -> parent_file_path
+                let mut import_parent_files: std::collections::HashMap<String, String> =
+                    std::collections::HashMap::new();
+
+                // Initial imports are relative to parser_file
+                for import in &ast.imports {
+                    import_parent_files.insert(import.module.clone(), parser_file.clone());
+                }
+
                 let mut import_index = 0;
 
                 while import_index < ast.imports.len() {
                     // Clone the import to avoid borrow conflicts
                     let import = ast.imports[import_index].clone();
                     import_index += 1;
-                    
+
                     let module_path = &import.module;
-                    
+
                     // Skip if already processed
                     if processed_imports.contains(module_path) {
                         continue;
                     }
-                    
+
                     // ⭐ CRITICAL: Check for circular dependency BEFORE adding to stack
                     if import_stack.contains(module_path) {
                         // Build the cycle chain for error message
-                        let cycle_start = import_stack.iter().position(|m| m == module_path).unwrap();
+                        let cycle_start =
+                            import_stack.iter().position(|m| m == module_path).unwrap();
                         let cycle_chain: Vec<String> = import_stack[cycle_start..].to_vec();
                         let cycle_path = cycle_chain.join(" → ");
                         anyhow::bail!(
@@ -726,11 +1131,17 @@ fn main() -> Result<()> {
                             import_stack.join(" → ")
                         );
                     }
-                    
+
                     import_stack.push(module_path.clone());
                     processed_imports.insert(module_path.clone());
-                    
+
                     eprintln!("🔄 Resolving import: '{}'", module_path);
+
+                    // Get parent file path for relative import resolution
+                    let parent_file = import_parent_files
+                        .get(module_path)
+                        .map(|s| s.as_str())
+                        .unwrap_or(&parser_file);
 
                     // Handle @relative: markers from sub-imports
                     // Format: "@relative:math/./native.vxc" → resolve as "math/native.vxc"
@@ -743,82 +1154,47 @@ fn main() -> Result<()> {
                         module_path.clone()
                     };
 
-                    // Load from standard library (vex-libs/std)
-                    let module_ast = match std_resolver.load_module(&actual_module_path, Some(&parser_file)) {
-                        Ok(module) => module,
+                    // Load from standard library with parent file path for relative resolution
+                    // Clone AST to avoid holding borrow on resolver
+                    let (mut module_ast, loaded_module_file) = match std_resolver
+                        .load_module_with_path(&actual_module_path, Some(parent_file))
+                    {
+                        Ok((ast_ref, file)) => (ast_ref.clone(), file),
                         Err(e) => {
                             anyhow::bail!("⚠️  Import error for '{}': {}", module_path, e);
                         }
                     };
 
+                    // ⭐ NEW: Expand re-exports recursively
+                    if let Err(e) =
+                        expand_reexports(&mut module_ast, &loaded_module_file, &mut std_resolver, 0)
+                    {
+                        eprintln!(
+                            "⚠️  Warning: Failed to expand re-exports for '{}': {}",
+                            module_path, e
+                        );
+                    }
+
                     // ⭐ CRITICAL: Add sub-imports from loaded module to queue
-                    // Example: math/src/lib.vx has "import { fabs } from './native.vxc'" 
+                    // Example: math/src/lib.vx has "import { fabs } from './native.vxc'"
                     // We need to queue native.vxc for processing too (JavaScript semantics)
+                    // Use the loaded module's file path for relative import resolution
                     for sub_import in &module_ast.imports {
-                        // Convert relative imports to absolute path
-                        let sub_module_path = if sub_import.module.starts_with("./") || sub_import.module.starts_with("../") {
-                            // Resolve ./ relative to the ACTUAL loaded file
-                            // Example: "collections" → loads "collections/src/lib.vx" (via vex.json)
-                            //          lib.vx imports "./hashmap" → resolve to "collections/src/hashmap"
-                            // Example: "collections/src/hashmap" → loads "collections/src/hashmap.vx"
-                            //          hashmap.vx imports "./hashmap.vxc" → resolve to "collections/src/hashmap.vxc"
-                            
-                            // Determine base directory: if actual_module_path is already resolved,
-                            // just use its directory (don't assume src/ again)
-                            let base_dir = if actual_module_path.contains('/') {
-                                let parts: Vec<&str> = actual_module_path.rsplitn(2, '/').collect();
-                                if parts.len() == 2 {
-                                    parts[1].to_string() // Everything before the last /
-                                } else {
-                                    "".to_string()
-                                }
-                            } else if !actual_module_path.ends_with(".vx") && !actual_module_path.ends_with(".vxc") {
-                                // Package import with no slashes - assume src/
-                                format!("{}/src", actual_module_path)
-                            } else {
-                                "".to_string() // No directory, root level
-                            };
-                            
-                            // Handle both ./ and ../ prefixes
-                            let relative_cleaned = if sub_import.module.starts_with("../") {
-                                // For ../, go up one directory level
-                                let without_prefix = sub_import.module.trim_start_matches("../");
-                                if base_dir.contains('/') {
-                                    let parent_parts: Vec<&str> = base_dir.rsplitn(2, '/').collect();
-                                    if parent_parts.len() == 2 {
-                                        format!("{}/{}", parent_parts[1], without_prefix)
-                                    } else {
-                                        without_prefix.to_string()
-                                    }
-                                } else {
-                                    without_prefix.to_string()
-                                }
-                            } else {
-                                sub_import.module.trim_start_matches("./").to_string()
-                            };
-                            
-                            if base_dir.is_empty() {
-                                relative_cleaned
-                            } else if relative_cleaned.starts_with(&base_dir) {
-                                // Avoid double-adding base_dir
-                                relative_cleaned
-                            } else {
-                                format!("{}/{}", base_dir, relative_cleaned)
-                            }
-                        } else {
-                            sub_import.module.clone()
-                        };
+                        let sub_module_path = sub_import.module.clone();
 
                         // Check if already queued or processed
-                        let already_imported = ast.imports.iter().any(|i| i.module == sub_module_path) 
-                            || processed_imports.contains(&sub_module_path)
-                            || sub_imports_to_add.iter().any(|i| i.module == sub_module_path);
+                        let already_imported =
+                            ast.imports.iter().any(|i| i.module == sub_module_path)
+                                || processed_imports.contains(&sub_module_path)
+                                || sub_imports_to_add
+                                    .iter()
+                                    .any(|i| i.module == sub_module_path);
                         if !already_imported {
-                            
-                            // Collect in temporary list (will be added after loop iteration)
-                            let mut new_import = sub_import.clone();
-                            new_import.module = sub_module_path;
-                            sub_imports_to_add.push(new_import);
+                            // Sub-imports will be resolved relative to loaded_module_file
+                            // Store the parent file path for this import
+                            import_parent_files
+                                .insert(sub_module_path.clone(), loaded_module_file.clone());
+                            sub_imports_to_add.push(sub_import.clone());
                         }
                     }
 
@@ -835,19 +1211,15 @@ fn main() -> Result<()> {
                                 for item in &module_ast.items {
                                     match item {
                                         vex_ast::Item::Function(func) => {
-                                            ast.items.push(vex_ast::Item::Function(
-                                                func.clone(),
-                                            ));
+                                            ast.items.push(vex_ast::Item::Function(func.clone()));
                                         }
                                         vex_ast::Item::Struct(struct_def) => {
-                                            ast.items.push(vex_ast::Item::Struct(
-                                                struct_def.clone(),
-                                            ));
+                                            ast.items
+                                                .push(vex_ast::Item::Struct(struct_def.clone()));
                                         }
                                         vex_ast::Item::Const(const_decl) => {
-                                            ast.items.push(vex_ast::Item::Const(
-                                                const_decl.clone(),
-                                            ));
+                                            ast.items
+                                                .push(vex_ast::Item::Const(const_decl.clone()));
                                         }
                                         vex_ast::Item::ExternBlock(extern_block) => {
                                             // Import extern declarations (for FFI)
@@ -863,9 +1235,8 @@ fn main() -> Result<()> {
                                 // BUT: always import extern blocks (for FFI dependencies)
                                 for item in &module_ast.items {
                                     if let vex_ast::Item::ExternBlock(extern_block) = item {
-                                        ast.items.push(vex_ast::Item::ExternBlock(
-                                            extern_block.clone(),
-                                        ));
+                                        ast.items
+                                            .push(vex_ast::Item::ExternBlock(extern_block.clone()));
                                     }
                                 }
 
@@ -873,23 +1244,20 @@ fn main() -> Result<()> {
                                     for item in &module_ast.items {
                                         match item {
                                             vex_ast::Item::Function(func)
-                                                if func.name == *requested =>
+                                                if func.name == *requested.name =>
                                             {
-                                                ast.items.push(vex_ast::Item::Function(
-                                                    func.clone(),
-                                                ));
+                                                ast.items
+                                                    .push(vex_ast::Item::Function(func.clone()));
                                             }
                                             vex_ast::Item::Struct(s)
-                                                if s.name == *requested =>
+                                                if s.name == *requested.name =>
                                             {
-                                                ast.items
-                                                    .push(vex_ast::Item::Struct(s.clone()));
+                                                ast.items.push(vex_ast::Item::Struct(s.clone()));
                                             }
                                             vex_ast::Item::Const(c)
-                                                if c.name == *requested =>
+                                                if c.name == *requested.name =>
                                             {
-                                                ast.items
-                                                    .push(vex_ast::Item::Const(c.clone()));
+                                                ast.items.push(vex_ast::Item::Const(c.clone()));
                                             }
                                             _ => {}
                                         }
@@ -908,31 +1276,25 @@ fn main() -> Result<()> {
                             for item in &module_ast.items {
                                 match item {
                                     vex_ast::Item::Function(func) => {
-                                        ast.items
-                                            .push(vex_ast::Item::Function(func.clone()));
+                                        ast.items.push(vex_ast::Item::Function(func.clone()));
                                         imported_funcs.push(func.name.clone());
                                     }
                                     vex_ast::Item::Struct(struct_def) => {
-                                        ast.items.push(vex_ast::Item::Struct(
-                                            struct_def.clone(),
-                                        ));
+                                        ast.items.push(vex_ast::Item::Struct(struct_def.clone()));
                                     }
                                     vex_ast::Item::Const(const_decl) => {
-                                        ast.items
-                                            .push(vex_ast::Item::Const(const_decl.clone()));
+                                        ast.items.push(vex_ast::Item::Const(const_decl.clone()));
                                     }
                                     vex_ast::Item::ExternBlock(extern_block) => {
                                         // Import extern declarations
-                                        ast.items.push(vex_ast::Item::ExternBlock(
-                                            extern_block.clone(),
-                                        ));
+                                        ast.items
+                                            .push(vex_ast::Item::ExternBlock(extern_block.clone()));
                                     }
                                     _ => {}
                                 }
                             }
                             // Save for later codegen registration
-                            module_namespaces
-                                .push((module_name.to_string(), imported_funcs));
+                            module_namespaces.push((module_name.to_string(), imported_funcs));
                         }
                         vex_ast::ImportKind::Namespace(alias) => {
                             // Namespace import: import all with alias
@@ -940,24 +1302,19 @@ fn main() -> Result<()> {
                             for item in &module_ast.items {
                                 match item {
                                     vex_ast::Item::Function(func) => {
-                                        ast.items
-                                            .push(vex_ast::Item::Function(func.clone()));
+                                        ast.items.push(vex_ast::Item::Function(func.clone()));
                                         imported_funcs.push(func.name.clone());
                                     }
                                     vex_ast::Item::Struct(struct_def) => {
-                                        ast.items.push(vex_ast::Item::Struct(
-                                            struct_def.clone(),
-                                        ));
+                                        ast.items.push(vex_ast::Item::Struct(struct_def.clone()));
                                     }
                                     vex_ast::Item::Const(const_decl) => {
-                                        ast.items
-                                            .push(vex_ast::Item::Const(const_decl.clone()));
+                                        ast.items.push(vex_ast::Item::Const(const_decl.clone()));
                                     }
                                     vex_ast::Item::ExternBlock(extern_block) => {
                                         // Import extern declarations
-                                        ast.items.push(vex_ast::Item::ExternBlock(
-                                            extern_block.clone(),
-                                        ));
+                                        ast.items
+                                            .push(vex_ast::Item::ExternBlock(extern_block.clone()));
                                     }
                                     _ => {}
                                 }
@@ -997,7 +1354,7 @@ fn main() -> Result<()> {
                             break; // Found vex.json, stop searching
                         }
                     }
-                    
+
                     // ⭐ Pop from import stack after processing module
                     // This allows sibling imports without false circular detection
                     import_stack.pop();
@@ -1022,7 +1379,7 @@ fn main() -> Result<()> {
             if !json {
                 println!("   🔍 Running borrow checker...");
             }
-            
+
             // 🔍 Phase 0: Contract enforcement check
             let mut visibility_checker = vex_compiler::VisibilityChecker::new();
             if let Err(contract_errors) = visibility_checker.check_program(&ast) {
@@ -1036,7 +1393,7 @@ fn main() -> Result<()> {
                 // For now, just warn - don't fail compilation
                 // return Err(anyhow::anyhow!("Contract enforcement failed"));
             }
-            
+
             let mut borrow_checker = vex_compiler::BorrowChecker::new();
             if let Err(borrow_error) = borrow_checker.check_program(&mut ast) {
                 // Convert borrow error to diagnostic
@@ -1250,7 +1607,7 @@ fn main() -> Result<()> {
             use std::io::{self, Write};
 
             let mut context_code = String::new();
-            
+
             // Load file if provided
             if let Some(ref load_path) = load {
                 match std::fs::read_to_string(load_path) {
@@ -1277,7 +1634,7 @@ fn main() -> Result<()> {
                     Ok(0) => break, // EOF (Ctrl+D)
                     Ok(_) => {
                         let trimmed = input.trim();
-                        
+
                         // Handle special commands
                         match trimmed {
                             "exit" | "quit" => break,
@@ -1342,14 +1699,18 @@ fn main() -> Result<()> {
                                         if verbose {
                                             println!("✓ Parsed successfully");
                                         }
-                                        
+
                                         // For now, just parse and show success
                                         // TODO: Implement actual execution with LLVM JIT
-                                        println!("✅ Code accepted (execution not yet implemented)");
-                                        
+                                        println!(
+                                            "✅ Code accepted (execution not yet implemented)"
+                                        );
+
                                         // Add to context if it's a declaration
-                                        if trimmed.starts_with("fn ") || trimmed.starts_with("struct ") 
-                                            || trimmed.starts_with("const ") {
+                                        if trimmed.starts_with("fn ")
+                                            || trimmed.starts_with("struct ")
+                                            || trimmed.starts_with("const ")
+                                        {
                                             context_code.push_str("\n");
                                             context_code.push_str(trimmed);
                                         }
@@ -1620,7 +1981,7 @@ fn run_single_test(test_file: &PathBuf, timeout: Option<u64>, _verbose: bool) ->
 
         for import in &ast.imports {
             let module_path = &import.module;
-            
+
             let module_ast = match std_resolver.load_module(module_path, Some(test_file_str)) {
                 Ok(module) => module,
                 Err(e) => {
@@ -1633,8 +1994,9 @@ fn run_single_test(test_file: &PathBuf, timeout: Option<u64>, _verbose: bool) ->
                 vex_ast::ImportKind::Module | vex_ast::ImportKind::Namespace(_) => {
                     for item in &module_ast.items {
                         match item {
-                            vex_ast::Item::Function(_) | vex_ast::Item::Struct(_) | 
-                            vex_ast::Item::ExternBlock(_) => {
+                            vex_ast::Item::Function(_)
+                            | vex_ast::Item::Struct(_)
+                            | vex_ast::Item::ExternBlock(_) => {
                                 ast.items.push(item.clone());
                             }
                             _ => {}
@@ -1645,10 +2007,10 @@ fn run_single_test(test_file: &PathBuf, timeout: Option<u64>, _verbose: bool) ->
                     for requested in &import.items {
                         for item in &module_ast.items {
                             match item {
-                                vex_ast::Item::Function(f) if f.name == *requested => {
+                                vex_ast::Item::Function(f) if f.name == *requested.name => {
                                     ast.items.push(item.clone());
                                 }
-                                vex_ast::Item::Struct(s) if s.name == *requested => {
+                                vex_ast::Item::Struct(s) if s.name == *requested.name => {
                                     ast.items.push(item.clone());
                                 }
                                 _ => {}

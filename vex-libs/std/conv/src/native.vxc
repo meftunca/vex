@@ -1,0 +1,10 @@
+extern "C" {
+  export fn vex_i32_to_string(value: i32): str;
+  export fn vex_i64_to_string(value: i64): str;
+  export fn vex_u32_to_string(value: u32): str;
+  export fn vex_u64_to_string(value: u64): str;
+  export fn vex_f32_to_string(value: f32): str;
+  export fn vex_f64_to_string(value: f64): str;
+  export fn vex_bool_to_string(value: bool): str;
+  export fn vex_string_to_string(value: str): str;
+}

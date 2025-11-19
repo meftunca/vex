@@ -2,7 +2,7 @@
 // Scenario: Multiple type params, some with defaults, some explicit
 
 contract Convert<From, To = From> {
-    fn convert(value: From): To;
+    convert(value: From): To;
 }
 
 struct Converter<T, U = T> impl Convert<T, U> {

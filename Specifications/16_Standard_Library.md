@@ -33,7 +33,7 @@ This document provides an overview of the Vex standard library organization and 
 │  Layer 1: I/O Core (Unsafe Bridge)             │
 │  io, ffi, unsafe, hpc, libc                     │
 ├─────────────────────────────────────────────────┤
-│  Layer 0: Vex Runtime (Rust)                   │
+│  Layer 0: Vex Runtime                   │
 │  io_uring, async scheduler, allocator          │
 └─────────────────────────────────────────────────┘
 ```
@@ -801,7 +801,7 @@ std/
 | Layer 3 | http, json, xml, yaml        | 🚧 Planned     | 0%         |
 | Layer 2 | net, sync, testing, datetime | 🚧 Planned     | 5%         |
 | Layer 1 | io, ffi, unsafe, hpc, libc   | ✅ Partial     | 60%        |
-| Layer 0 | Vex Runtime (Rust)           | ✅ Implemented | 80%        |
+| Layer 0 | Vex Runtime                  | ✅ Implemented | 80%        |
 
 **Overall**: ~45% complete (builtins + I/O + FFI + unsafe working)
 

@@ -103,6 +103,7 @@ impl<'a> Parser<'a> {
         self.in_method_body = was_in_method;
 
         Ok(Function {
+            is_exported: false, // Default to false, set to true by parse_export
             is_async: false,
             is_gpu: false,
             is_mutable,        // ⭐ NEW: Store mutability flag

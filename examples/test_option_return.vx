@@ -1,5 +1,5 @@
 // Test that Option enum returns data correctly
-import { Option } from "core";
+
 
 fn test_option(): Option<i32> {
     println("Returning Some(42)");

@@ -13,6 +13,110 @@ impl<'ctx> ASTCodeGen<'ctx> {
         type_args: &[Type],
         args: &[Expression],
     ) -> Result<BasicValueEnum<'ctx>, String> {
+        // Handle generic static methods: HashMap.new<K, V>()
+        // Need to instantiate generic method with concrete types
+        
+        eprintln!("🔍 compile_static_method_call: {}.{}() with type_args: {:?}",
+            type_name, method, type_args);
+
+        // For generic static methods, look up the generic function definition
+        // Expected in function_defs: HashMap_K_V_new
+        let generic_lookup_key = if !type_args.is_empty() {
+            // Build generic key with type parameter NAMES (not concrete types)
+            // Need to find the function definition first to get type param names
+            let base_key = format!("{}_{}", type_name, method);
+            
+            eprintln!("🔍 Looking for generic static method in function_defs");
+            eprintln!("🔍 function_defs keys: {:?}", self.function_defs.keys().filter(|k| k.contains(type_name)).collect::<Vec<_>>());
+            
+            // Try to find a matching generic static method in function_defs
+            let mut found_def = None;
+            for (key, def) in &self.function_defs {
+                eprintln!("  Checking key: {} (is_static={}, type_params={}, starts_with={})", 
+                    key, def.is_static, def.type_params.len(),
+                    key.starts_with(&format!("{}_", type_name)));
+                
+                let method_suffix = format!("_{}", method);
+                let method_mid = format!("_{}_", method);
+
+                // Check if key matches: Type_..._Method or Type_..._Method_Params
+                if key.starts_with(&format!("{}_", type_name)) && 
+                   (key.ends_with(&method_suffix) || key.contains(&method_mid)) &&
+                   def.is_static &&
+                   !def.type_params.is_empty() &&
+                   def.params.len() == args.len() {
+                    found_def = Some((key.clone(), def.clone()));
+                    break;
+                }
+            }
+
+            if let Some((key, generic_def)) = found_def {
+                eprintln!("🔍 Found generic static method: {}", key);
+                eprintln!("🔍 Type params: {:?}", generic_def.type_params);
+                
+                // Instantiate the generic function with concrete types
+                // Similar to how we handle generic functions
+                let mangled_name = if !type_args.is_empty() {
+                    let mut mangled = type_name.to_string();
+                    for ty in type_args {
+                        mangled.push('_');
+                        mangled.push_str(&self.type_to_string(ty));
+                    }
+                    mangled.push('_');
+                    mangled.push_str(method);
+                    mangled
+                } else {
+                    format!("{}_{}", type_name, method)
+                };
+
+                eprintln!("🔍 Instantiating as: {}", mangled_name);
+
+                // Check if already instantiated
+                if let Some(fn_val) = self.functions.get(&mangled_name).copied() {
+                    eprintln!("✅ Found instantiated function: {}", mangled_name);
+                    let mut arg_vals: Vec<BasicMetadataValueEnum> = vec![];
+                    for arg in args {
+                        let val = self.compile_expression(arg)?;
+                        arg_vals.push(val.into());
+                    }
+
+                    let call_site = self
+                        .builder
+                        .build_call(fn_val, &arg_vals, "static_method_call")
+                        .map_err(|e| format!("Failed to build static method call: {}", e))?;
+
+                    return Ok(call_site.try_as_basic_value().unwrap_basic());
+                }
+
+                // Instantiate generic static method
+                let instantiated_fn = self.instantiate_generic_static_method(
+                    type_name,
+                    method,
+                    type_args,
+                    &generic_def,
+                )?;
+
+                // Call the instantiated function
+                let mut arg_vals: Vec<BasicMetadataValueEnum> = vec![];
+                for arg in args {
+                    let val = self.compile_expression(arg)?;
+                    arg_vals.push(val.into());
+                }
+
+                let call_site = self
+                    .builder
+                    .build_call(instantiated_fn, &arg_vals, "static_method_call")
+                    .map_err(|e| format!("Failed to build static method call: {}", e))?;
+
+                return Ok(call_site.try_as_basic_value().unwrap_basic());
+            }
+
+            base_key
+        } else {
+            format!("{}_{}", type_name, method)
+        };
+
+        // Fallback: Try old non-generic path
         // Handle generic static methods: Vec<i32>.new()
         // Mangle function name with type arguments
         let base_method_name = if !type_args.is_empty() {

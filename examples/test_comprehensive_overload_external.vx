@@ -2,7 +2,7 @@
 // Tests primitive types with external methods
 
 contract Add<Rhs> {
-    fn op+(other: Rhs): Self;
+    op+(other: Rhs): Self;
 }
 
 struct Calculator {

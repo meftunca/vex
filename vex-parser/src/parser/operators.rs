@@ -508,6 +508,68 @@ impl<'a> Parser<'a> {
                 // Allow keywords as method/field names (new, free, etc.)
                 let field_or_method = self.consume_identifier_or_keyword()?;
 
+                // ⭐ NEW: Check for generic type arguments after method name: obj.method<T, U>(...)
+                // This enables syntax like: HashMap.new<str, i32>()
+                // BUT: Only parse as generic if it looks like a type argument list, not a comparison
+                let method_type_args = if self.check(&Token::Lt) {
+                    // Lookahead: does this look like generics or comparison?
+                    let checkpoint = self.current;
+                    self.advance(); // consume <
+
+                    let first_token = self.peek().clone();
+                    let looks_like_type = matches!(
+                        first_token,
+                        Token::I32
+                            | Token::I64
+                            | Token::I128
+                            | Token::I8
+                            | Token::I16
+                            | Token::U8
+                            | Token::U16
+                            | Token::U32
+                            | Token::U64
+                            | Token::U128
+                            | Token::F16
+                            | Token::F32
+                            | Token::F64
+                            | Token::String
+                            | Token::Bool
+                            | Token::LBracket
+                            | Token::Ampersand
+                    );
+
+                    let looks_like_generic = if matches!(first_token, Token::Ident(_)) {
+                        self.advance(); // consume identifier
+                        let next = self.peek().clone();
+                        // Generic if followed by: >, comma, type markers, or nested <
+                        matches!(
+                            next,
+                            Token::Gt | Token::Comma | Token::LBracket | Token::Ampersand | Token::Lt
+                        )
+                    } else {
+                        looks_like_type
+                    };
+
+                    self.current = checkpoint; // backtrack
+
+                    if looks_like_generic {
+                        self.advance(); // consume <
+                        let mut type_args = Vec::new();
+                        loop {
+                            type_args.push(self.parse_type()?);
+                            if !self.match_token(&Token::Comma) {
+                                break;
+                            }
+                        }
+                        self.consume_generic_close("Expected '>' after type arguments")?;
+                        Some(type_args)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
+
                 if self.check(&Token::LParen) {
                     // Could be: method call obj.method(args) OR enum constructor Enum.Variant(data)
                     // Priority rules:
@@ -570,10 +632,16 @@ impl<'a> Parser<'a> {
                         // Check for mutable call suffix: method()!
                         let is_mutable_call = self.match_token(&Token::Not);
 
+                        // ⭐ Combine type args: method-level generics take priority over pending ones
+                        // Example: HashMap.new<K, V>() → method_type_args = [K, V]
+                        // Example: obj<T>.method() → pending_type_args = [T]
+                        let final_type_args = method_type_args
+                            .unwrap_or_else(|| pending_type_args.take().unwrap_or_default());
+
                         expr = Expression::MethodCall {
                             receiver: Box::new(expr),
                             method: field_or_method,
-                            type_args: pending_type_args.unwrap_or_default(), // ⭐ NEW: Generic static methods
+                            type_args: final_type_args,
                             args,
                             is_mutable_call,
                         };

@@ -4,7 +4,7 @@ fn main() {
     let y = 10;
     let z = y + 15;
     
-    println!("{}", z);  // Only z is used
+    println("{}", z);  // Only z is used
 }
 
 fn test_params(a: i32, b: i32): i32 {

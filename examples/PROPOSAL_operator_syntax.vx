@@ -3,14 +3,14 @@
 
 // Current Vex syntax (contract-based)
 contract Add {
-    fn op+(other: Self): Self;
+    op+(other: Self): Self;
 }
 
 struct Point impl Add {
     x: i32,
     y: i32,
     
-    fn op+(other: Point): Point {
+    op+(other: Point): Point {
         return Point { x: self.x + other.x, y: self.y + other.y };
     }
 }
@@ -87,11 +87,11 @@ fn test_proposal(): i32 {
 
 /*
 contract AddInt {
-    fn op+(rhs: i32): Vector;
+    op+(rhs: i32): Vector;
 }
 
 contract AddFloat {
-    fn op+(rhs: f64): Vector;
+    op+(rhs: f64): Vector;
 }
 
 struct Vector2 impl AddInt, AddFloat {

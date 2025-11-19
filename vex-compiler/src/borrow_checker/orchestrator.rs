@@ -36,7 +36,9 @@ impl BorrowChecker {
                 ImportKind::Named => {
                     // Register all named imported symbols as global
                     eprintln!("   - Named import: {} items", import.items.len());
-                    for name in &import.items {
+                    for item in &import.items {
+                        // Use alias if present, otherwise use original name
+                        let name = item.alias.as_ref().unwrap_or(&item.name);
                         eprintln!("      + {}", name);
                         self.moves.global_vars.insert(name.clone());
                         self.moves.valid_vars.insert(name.clone());
@@ -55,7 +57,8 @@ impl BorrowChecker {
                 ImportKind::Module => {
                     // Module import - all imported names are registered individually
                     eprintln!("   - Module import: {} items", import.items.len());
-                    for name in &import.items {
+                    for item in &import.items {
+                        let name = item.alias.as_ref().unwrap_or(&item.name);
                         eprintln!("      + {}", name);
                         self.moves.global_vars.insert(name.clone());
                         self.moves.valid_vars.insert(name.clone());

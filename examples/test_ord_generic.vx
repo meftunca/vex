@@ -1,7 +1,7 @@
 // Test generic max function with Ord contract
 // Test contract bounds with generic functions
 
-import { Ord } from "core";
+
 
 struct Number impl Ord {
     value: i32,

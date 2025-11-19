@@ -1,7 +1,7 @@
 // Test Clone contract - Basic usage
 // Test explicit cloning with .clone()
 
-import { Clone } from "core";
+
 
 struct Point impl Clone {
     x: i32,

@@ -50,8 +50,8 @@ fn get_grade(score: i32) : i32 {
 }
 
 // Switch with computation
-fn operation_code(op: i32) : i32 {
-    switch op {
+fn operation_code(opcode: i32) : i32 {
+    switch opcode {
         case 1:
             return 10 + 20;
         case 2:

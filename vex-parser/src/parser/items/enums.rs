@@ -51,6 +51,7 @@ impl<'a> Parser<'a> {
         self.consume(&Token::RBrace, "Expected '}'")?;
 
         Ok(Item::Enum(Enum {
+            is_exported: false, // Default to false
             name,
             type_params,
             variants,

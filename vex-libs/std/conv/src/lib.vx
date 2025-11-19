@@ -2,17 +2,16 @@
 // Provides to_string() for all primitive types
 
 // External C functions from vex_strconv.c
-extern "C" {
-    fn vex_i32_to_string(value: i32): str;
-    fn vex_i64_to_string(value: i64): str;
-    fn vex_u32_to_string(value: u32): str;
-    fn vex_u64_to_string(value: u64): str;
-    fn vex_f32_to_string(value: f32): str;
-    fn vex_f64_to_string(value: f64): str;
-    fn vex_bool_to_string(value: bool): str;
-    fn vex_string_to_string(value: str): str;
-}
-
+import {
+    vex_i32_to_string,
+    vex_i64_to_string,
+    vex_u32_to_string,
+    vex_u64_to_string,
+    vex_f32_to_string,
+    vex_f64_to_string,
+    vex_bool_to_string,
+    vex_string_to_string
+} from "./native.vxc";
 // Exported to_string functions for each type
 export fn i32_to_string(value: i32): str {
     return vex_i32_to_string(value);

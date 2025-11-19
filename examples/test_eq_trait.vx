@@ -1,7 +1,6 @@
 // Test Eq contract - Basic equality comparison
 // Test custom equality with .equals()
 
-import { Eq } from "core";
 
 struct Point impl Eq {
     x: i32,

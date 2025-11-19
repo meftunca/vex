@@ -2,7 +2,7 @@
 
 
 contract Add<Rhs> {
-    fn op+(other: Rhs): Self;
+    op+(other: Rhs): Self;
 }
 
 struct Point impl Add<i32>,Add<f64>  {

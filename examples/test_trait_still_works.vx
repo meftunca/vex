@@ -1,7 +1,7 @@
 // Test: contract keyword hala çalışıyor mu?
 
 contract Logger {
-   fn log(msg: string);
+   log(msg: string);
 }
 
 struct ConsoleLogger impl Logger {

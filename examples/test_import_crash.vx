@@ -1,4 +1,4 @@
-import { PI } from "vex-libs/std/math/src/lib.vx";
+import { PI } from "math";
 
 fn main() {
     println("PI imported");

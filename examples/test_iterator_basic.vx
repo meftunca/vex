@@ -1,7 +1,7 @@
 // Test Iterator contract - Basic implementation
 // Test that Iterator contract with associated types works
 
-import { Iterator, Option } from "core";
+
 
 struct Counter impl Iterator {
     type Item = i32;

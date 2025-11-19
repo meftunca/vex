@@ -16,6 +16,9 @@ pub struct ModuleResolver {
 
     /// Cached parsed modules (module_path -> Program)
     module_cache: HashMap<String, Program>,
+    
+    /// Module path to actual file path mapping (for relative import resolution)
+    module_file_paths: HashMap<String, String>,
 
     /// Stdlib resolver for platform-specific file selection
     stdlib_resolver: StdlibResolver,
@@ -30,9 +33,15 @@ impl ModuleResolver {
         Self {
             std_lib_path: path.clone(),
             module_cache: HashMap::new(),
+            module_file_paths: HashMap::new(),
             stdlib_resolver: StdlibResolver::new(path),
             native_linker_args: Vec::new(),
         }
+    }
+
+    /// Get the actual file path for a loaded module
+    pub fn get_module_file_path(&self, module_path: &str) -> Option<&str> {
+        self.module_file_paths.get(module_path).map(|s| s.as_str())
     }
 
     /// Resolve all imports in a program
@@ -53,13 +62,36 @@ impl ModuleResolver {
         module_path: &str,
         relative_to: Option<&str>,
     ) -> Result<&Program, String> {
+        self.load_module_internal(module_path, relative_to).map(|(prog, _)| prog)
+    }
+    
+    /// Load a module and return both the program and the resolved file path
+    pub fn load_module_with_path(
+        &mut self,
+        module_path: &str,
+        relative_to: Option<&str>,
+    ) -> Result<(&Program, String), String> {
+        self.load_module_internal(module_path, relative_to)
+    }
+
+    /// Internal implementation of module loading
+    fn load_module_internal(
+        &mut self,
+        module_path: &str,
+        relative_to: Option<&str>,
+    ) -> Result<(&Program, String), String> {
         // Check cache first (use contains_key to avoid long-lived immutable borrow)
         if self.module_cache.contains_key(module_path) {
+            let file_path = self.module_file_paths
+                .get(module_path)
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| module_path.to_string());
             // Safe to unwrap: contains_key ensures a value exists
-            return Ok(self
+            let program = self
                 .module_cache
                 .get(module_path)
-                .expect("Module present in cache"));
+                .expect("Module present in cache");
+            return Ok((program, file_path));
         }
 
         // Strip "vex-libs/std/" prefix if present (normalize import paths)
@@ -131,13 +163,20 @@ impl ModuleResolver {
             }
         }
 
+        // Cache file path for relative import resolution
+        let file_path_str = file_path.to_str().unwrap_or(module_path).to_string();
+        self.module_file_paths.insert(
+            module_path.to_string(),
+            file_path_str.clone(),
+        );
+
         // Cache and return - use entry API so we can return a reference without double-borrowing
         let entry = self
             .module_cache
             .entry(module_path.to_string())
             .or_insert(parsed);
 
-        Ok(entry)
+        Ok((entry, file_path_str))
     }
 
     /// Convert module path to filesystem path
@@ -305,12 +344,12 @@ impl ModuleResolver {
                     // Re-exports are handled during import resolution
                     // Just track the exported names here
                     for e in &export.items {
-                        exports.push(e.clone());
+                        exports.push(e.alias.as_ref().unwrap_or(&e.name).clone());
                     }
                 } else {
                     // Regular export: export { x, y }
                     for e in &export.items {
-                        exports.push(e.clone());
+                        exports.push(e.alias.as_ref().unwrap_or(&e.name).clone());
                     }
                 }
             }
@@ -383,7 +422,10 @@ mod tests {
         let program = Program {
             imports: vec![],
             items: vec![vex_ast::Item::Export(vex_ast::Export {
-                items: vec!["helper".to_string()],
+                items: vec![vex_ast::ExportItem {
+                    name: "helper".to_string(),
+                    alias: None,
+                }],
                 from_module: None,
                 is_wildcard: false,
             })],

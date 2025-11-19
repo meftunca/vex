@@ -1,5 +1,5 @@
 // Test Iterator contract - Simplified debug version
-import { Iterator, Option } from "core";
+
 
 struct Counter impl Iterator {
     type Item = i32;

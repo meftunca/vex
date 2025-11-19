@@ -1,6 +1,6 @@
 # Standard Library
 
-Version: 0.1.2 
+Version: 0.1.2
 Last Updated: November 2025
 
 This document provides an overview of the Vex standard library organization and API reference.
@@ -22,7 +22,7 @@ This document provides an overview of the Vex standard library organization and 
 │  Layer 1: I/O Core (Unsafe Bridge)             │
 │  io, ffi, unsafe, hpc, libc                     │
 ├─────────────────────────────────────────────────┤
-│  Layer 0: Vex Runtime (Rust)                   │
+│  Layer 0: Vex Runtime                   │
 │  io_uring, async scheduler, allocator          │
 └─────────────────────────────────────────────────┘
 ```
@@ -789,7 +789,7 @@ std/
 • Layer 3 — http, json, xml, yaml — Planned — 0%
 • Layer 2 — net, sync, testing, datetime — Planned — 5%
 • Layer 1 — io, ffi, unsafe, hpc, libc — Partial — 60%
-• Layer 0 — Vex Runtime (Rust) — Implemented — 80%
+• Layer 0 — Vex Runtime — Implemented — 80%
 
 Overall: ~45% complete (builtins + I/O + FFI + unsafe working)
 
@@ -902,17 +902,22 @@ Duration: 2-3 months
 Tasks:
 
 1. Complete `"io"` module
- - File I/O operations
- - Buffered I/O
- - Stream abstraction
+
+- File I/O operations
+- Buffered I/O
+- Stream abstraction
+
 2. Implement `"ffi"` module
- - FFI declarations
- - C interop
- - Type conversions
+
+- FFI declarations
+- C interop
+- Type conversions
+
 3. Basic `"libc"` bindings
- - Core functions
- - String operations
- - Memory operations
+
+- Core functions
+- String operations
+- Memory operations
 
 ### Phase 2: Layer 2 Protocols (High Priority )
 
@@ -921,17 +926,22 @@ Duration: 3-4 months
 Tasks:
 
 1. `"net"` module family
- - `"net/tcp"` - TCP sockets
- - `"net/udp"` - UDP sockets
- - `"net/ip"` - IP addressing
+
+- `"net/tcp"` - TCP sockets
+- `"net/udp"` - UDP sockets
+- `"net/ip"` - IP addressing
+
 2. `"sync"` primitives
- - Mutex, RwLock
- - Atomic operations
- - WaitGroup
+
+- Mutex, RwLock
+- Atomic operations
+- WaitGroup
+
 3. `"testing"` framework
- - Test runner
- - Assertions
- - Benchmarks
+
+- Test runner
+- Assertions
+- Benchmarks
 
 ### Phase 3: Layer 3 Applications (Medium Priority )
 
@@ -940,17 +950,22 @@ Duration: 4-6 months
 Tasks:
 
 1. `"net/http"` module
- - HTTP client
- - HTTP server
- - WebSocket support
+
+- HTTP client
+- HTTP server
+- WebSocket support
+
 2. Data formats
- - `"json"` parser
- - `"xml"` parser
- - `"yaml"` parser
+
+- `"json"` parser
+- `"xml"` parser
+- `"yaml"` parser
+
 3. `"collections"` module
- - Vec, HashMap, HashSet
- - Iterators
- - Algorithms
+
+- Vec, HashMap, HashSet
+- Iterators
+- Algorithms
 
 ### Phase 4: Advanced Features (Low Priority )
 
@@ -975,5 +990,5 @@ Standard library is open for contributions. See:
 
 ---
 
-Previous: 14Modulesand_Imports.md 
+Previous: 14Modulesand_Imports.md
 Back to: 01Introductionand_Overview.md

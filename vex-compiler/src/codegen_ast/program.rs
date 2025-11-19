@@ -37,24 +37,57 @@ impl<'ctx> ASTCodeGen<'ctx> {
         // Collect all items from imported modules
         let mut imported_items = Vec::new();
 
-        for import in &program.imports {
-            // Skip @relative: markers - these are already resolved in vex-cli
-            if import.module.starts_with("@relative:") {
-                eprintln!("   ⏭️  Skipping relative import marker: {}", import.module);
+        // Clone imports to avoid borrowing issues during iteration
+        let imports = program.imports.clone();
+
+        for import in imports {
+            // ⭐ CRITICAL: Skip @relative: markers AND already-resolved relative imports
+            // These are already resolved and merged in vex-cli's import loop
+            // BUT: If we are inside stdlib (recursively resolving), we MUST handle relative imports
+            let is_stdlib = self.source_file.contains("vex-libs/std");
+            if !is_stdlib
+                && (import.module.starts_with("@relative:")
+                    || import.module.starts_with("./")
+                    || import.module.starts_with("../"))
+            {
+                eprintln!(
+                    "   ⏭️  Skipping already-resolved relative import: {}",
+                    import.module
+                );
                 continue;
             }
 
             // Load from standard library (vex-libs/std)
-            let imported_module =
-                match std_resolver.load_module(&import.module, Some(&self.source_file)) {
-                    Ok(module) => {
+            // Use load_module_with_path to get the file path for recursive resolution
+            let (imported_module_ref, file_path) =
+                match std_resolver.load_module_with_path(&import.module, Some(&self.source_file)) {
+                    Ok(res) => {
                         eprintln!("   ✅ Loaded from vex-libs/std: {}", import.module);
-                        module
+                        res
                     }
                     Err(e) => {
                         return Err(format!("Module not found: {}. Error: {}", import.module, e));
                     }
                 };
+
+            // ⭐ RECURSIVE RESOLUTION:
+            // We must resolve imports in the imported module (e.g. lib.vx importing hashmap.vx)
+            // Clone the module so we can modify it
+            let mut imported_module = imported_module_ref.clone();
+
+            // Save current source file and switch to imported module's path
+            let old_source_file = self.source_file.clone();
+            self.source_file = file_path;
+
+            eprintln!("   🔄 Recursively resolving imports for {}", import.module);
+            if let Err(e) = self.resolve_and_merge_imports(&mut imported_module) {
+                self.source_file = old_source_file;
+                return Err(format!(
+                    "Failed to resolve imports for {}: {}",
+                    import.module, e
+                ));
+            }
+            self.source_file = old_source_file;
 
             // Note: Sub-imports (e.g., lib.vx importing native.vxc) are handled by vex-cli's import loop
             // which processes imports iteratively until all are resolved
@@ -62,7 +95,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             // Build export set from module
             let mut exported_symbols: std::collections::HashSet<String> =
                 std::collections::HashSet::new();
-            let mut re_export_modules: Vec<(Vec<String>, String, bool)> = Vec::new(); // (items, module, is_wildcard)
+            let mut re_export_modules: Vec<(Vec<ExportItem>, String, bool)> = Vec::new(); // (items, module, is_wildcard)
 
             // Scan module items for export declarations
             for item in &imported_module.items {
@@ -81,18 +114,21 @@ impl<'ctx> ASTCodeGen<'ctx> {
                             if export.is_wildcard {
                                 eprintln!("   🔄 Re-exporting all from: {}", from_module);
                             } else {
-                                for symbol in &export.items {
-                                    exported_symbols.insert(symbol.clone());
+                                for item in &export.items {
+                                    // Use alias if present, otherwise use original name
+                                    let exported_name = item.alias.as_ref().unwrap_or(&item.name);
+                                    exported_symbols.insert(exported_name.clone());
                                     eprintln!(
                                         "   🔄 Re-exporting '{}' from: {}",
-                                        symbol, from_module
+                                        exported_name, from_module
                                     );
                                 }
                             }
                         } else {
                             // Regular export: export { x, y }
-                            for symbol in &export.items {
-                                exported_symbols.insert(symbol.clone());
+                            for item in &export.items {
+                                let exported_name = item.alias.as_ref().unwrap_or(&item.name);
+                                exported_symbols.insert(exported_name.clone());
                             }
                         }
                     }
@@ -158,19 +194,33 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     }
                 } else {
                     // export { x, y } from "module" - export specific items
-                    for item_name in &items_to_export {
+                    for export_item in &items_to_export {
                         for item in &re_exported_module.items {
                             let matches = match item {
-                                Item::Function(func) => func.name == *item_name,
-                                Item::Const(const_decl) => const_decl.name == *item_name,
-                                Item::Struct(struct_def) => struct_def.name == *item_name,
-                                Item::Enum(enum_def) => enum_def.name == *item_name,
-                                Item::Contract(trait_def) => trait_def.name == *item_name,
+                                Item::Function(func) => func.name == export_item.name,
+                                Item::Const(const_decl) => const_decl.name == export_item.name,
+                                Item::Struct(struct_def) => struct_def.name == export_item.name,
+                                Item::Enum(enum_def) => enum_def.name == export_item.name,
+                                Item::Contract(trait_def) => trait_def.name == export_item.name,
                                 _ => false,
                             };
 
                             if matches {
-                                imported_items.push(item.clone());
+                                let mut imported_item = item.clone();
+                                
+                                // Handle renaming: export { x as y }
+                                if let Some(alias) = &export_item.alias {
+                                    match &mut imported_item {
+                                        Item::Function(f) => f.name = alias.clone(),
+                                        Item::Const(c) => c.name = alias.clone(),
+                                        Item::Struct(s) => s.name = alias.clone(),
+                                        Item::Enum(e) => e.name = alias.clone(),
+                                        Item::Contract(t) => t.name = alias.clone(),
+                                        _ => {}
+                                    }
+                                }
+                                
+                                imported_items.push(imported_item);
                                 break;
                             }
                         }
@@ -203,7 +253,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                             export_all || exported_symbols.contains(item_name)
                         } else {
                             // Check if item is requested AND exported
-                            let is_requested = import.items.contains(&item_name.to_string());
+                            let is_requested = import.items.iter().any(|i| i.name == item_name);
                             let is_exported = export_all || exported_symbols.contains(item_name);
 
                             if is_requested && !is_exported {
@@ -220,6 +270,15 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         // Namespace/Module import: import all exported items
                         export_all || exported_symbols.contains(item_name)
                     }
+                }
+            };
+
+            // Helper to get alias for imported item
+            let get_import_alias = |item_name: &str| -> Option<String> {
+                if let ImportKind::Named = &import.kind {
+                     import.items.iter().find(|i| i.name == item_name).and_then(|i| i.alias.clone())
+                } else {
+                    None
                 }
             };
 
@@ -248,14 +307,59 @@ impl<'ctx> ASTCodeGen<'ctx> {
             for item in &imported_module.items {
                 match item {
                     Item::Function(func) => {
+                        // Debug: print every function being considered
+                        // eprintln!("   🔍 Considering import: {} (is_static={})", func.name, func.is_static);
+
                         // Check if this function should be imported
-                        if !should_import_item(&func.name) {
+                        let mut should_import = should_import_item(&func.name);
+
+                        // ⭐ CRITICAL: Automatically import static methods if their type is imported
+                        // If importing HashMap, also import HashMap.new()
+                        if !should_import && func.is_static {
+                            if let Some(type_name) = &func.static_type {
+                                eprintln!(
+                                    "   🔍 Checking auto-import for static method {}.{}",
+                                    type_name, func.name
+                                );
+                                if should_import_item(type_name) {
+                                    should_import = true;
+                                    eprintln!("   📦 Auto-importing static method {}.{} because {} is imported", 
+                                        type_name, func.name, type_name);
+                                } else {
+                                    eprintln!(
+                                        "   ❌ Not auto-importing {}.{} because {} is NOT imported",
+                                        type_name, func.name, type_name
+                                    );
+                                }
+                            }
+                        }
+
+                        if !should_import {
                             continue;
                         }
 
+                        // If this is a static method (fn Type.method()), preserve is_static flag
+                        if func.is_static {
+                            let mut item_to_push = item.clone();
+                            if let Item::Function(f) = &mut item_to_push {
+                                if let Some(type_name) = &f.static_type {
+                                    if let Some(alias) = get_import_alias(type_name) {
+                                        f.static_type = Some(alias);
+                                    }
+                                }
+                            }
+                            
+                            eprintln!(
+                                "   📦 Importing static method: {}.{} (is_static={})",
+                                func.static_type.as_ref().unwrap_or(&"?".to_string()),
+                                func.name,
+                                func.is_static
+                            );
+                            imported_items.push(item_to_push);
+                        }
                         // If this is a method (has receiver), mangle its name NOW
                         // This prevents double-mangling in compile_program
-                        if let Some(receiver) = &func.receiver {
+                        else if let Some(receiver) = &func.receiver {
                             if let Some(struct_name) =
                                 self.extract_struct_name_from_receiver(&receiver.ty)
                             {
@@ -267,25 +371,52 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                 imported_items.push(item.clone());
                             }
                         } else {
-                            imported_items.push(item.clone());
+                            let mut item_to_push = item.clone();
+                            if let Item::Function(f) = &mut item_to_push {
+                                if let Some(alias) = get_import_alias(&f.name) {
+                                    f.name = alias;
+                                }
+                            }
+                            imported_items.push(item_to_push);
                         }
                     }
                     Item::Struct(_) => {
-                        // TODO: Check struct name export
-                        imported_items.push(item.clone());
+                        let mut item_to_push = item.clone();
+                        if let Item::Struct(s) = &mut item_to_push {
+                            if let Some(alias) = get_import_alias(&s.name) {
+                                s.name = alias;
+                            }
+                        }
+                        imported_items.push(item_to_push);
                     }
                     Item::Enum(_) => {
-                        // TODO: Check enum name export
-                        imported_items.push(item.clone());
+                        let mut item_to_push = item.clone();
+                        if let Item::Enum(e) = &mut item_to_push {
+                            if let Some(alias) = get_import_alias(&e.name) {
+                                e.name = alias;
+                            }
+                        }
+                        imported_items.push(item_to_push);
                     }
                     Item::Contract(_) => {
-                        // TODO: Check contract name export
-                        imported_items.push(item.clone());
+                        let mut item_to_push = item.clone();
+                        if let Item::Contract(c) = &mut item_to_push {
+                            if let Some(alias) = get_import_alias(&c.name) {
+                                c.name = alias;
+                            }
+                        }
+                        imported_items.push(item_to_push);
                     }
                     Item::Const(const_decl) => {
                         // ⭐ CRITICAL: Import constants (fix for PI, E, etc.)
                         if should_import_item(&const_decl.name) {
-                            imported_items.push(item.clone());
+                            let mut item_to_push = item.clone();
+                            if let Item::Const(c) = &mut item_to_push {
+                                if let Some(alias) = get_import_alias(&c.name) {
+                                    c.name = alias;
+                                }
+                            }
+                            imported_items.push(item_to_push);
                         }
                     }
                     Item::ExternBlock(extern_block) => {
@@ -454,6 +585,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         self.check_circular_struct_dependencies(&merged_program)?;
 
         // Second pass: store and declare non-generic functions
+        eprintln!("📋 Second pass: storing and declaring functions");
         for item in &merged_program.items {
             if let Item::Function(func) = item {
                 // Debug: Print function info
@@ -461,6 +593,13 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     debug_println!("🔍 Function with receiver: {}", func.name);
                     eprintln!("   Receiver: {:?}", func.receiver);
                 }
+
+                eprintln!(
+                    "🔍 Processing function: {} (is_static={}, type_params={})",
+                    func.name,
+                    func.is_static,
+                    func.type_params.len()
+                );
 
                 // Check if this is a method (has receiver parameter) or a static method
                 let (func_name, is_method) = if func.is_static {
@@ -475,6 +614,29 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
                     let mut static_func = func.clone();
                     static_func.name = mangled_name.clone();
+
+                    // ⭐ CRITICAL: For generic static methods, also mangle with type args
+                    // HashMap.new<K, V>() → HashMap_K_V_new
+                    if !func.type_params.is_empty() {
+                        let type_param_names: Vec<String> =
+                            func.type_params.iter().map(|tp| tp.name.clone()).collect();
+                        let generic_mangled = format!(
+                            "{}_{}_{}_{}",
+                            type_name,
+                            type_param_names.join("_"),
+                            encoded_method_name,
+                            func.params.len()
+                        );
+
+                        eprintln!(
+                            "📝 Registering generic static method: {} (type_params: {:?})",
+                            generic_mangled, type_param_names
+                        );
+
+                        // Store with generic mangling for instantiation
+                        self.function_defs
+                            .insert(generic_mangled.clone(), static_func.clone());
+                    }
 
                     // Store static method definitions with both PascalCase and lowercase keys
                     self.function_defs
@@ -576,8 +738,20 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     };
 
                     self.function_defs.insert(storage_name, func.clone());
+
                     // Also store with base name for lookup
-                    self.function_defs.insert(func.name.clone(), func.clone());
+                    // ⭐ CRITICAL FIX: Don't overwrite base name if existing overload is "simpler" (fewer params)
+                    // This ensures foo() is accessible via 'foo', while foo(i32) is via 'foo_i32'
+                    let should_insert_base =
+                        if let Some(existing) = self.function_defs.get(&func.name) {
+                            func.params.len() < existing.params.len()
+                        } else {
+                            true
+                        };
+
+                    if should_insert_base {
+                        self.function_defs.insert(func.name.clone(), func.clone());
+                    }
                     (func.name.clone(), false)
                 };
 

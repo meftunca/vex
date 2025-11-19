@@ -275,12 +275,12 @@ fn match_either<L, R>(e: Either<L, R>): string {
 // ============================================================
 // contract Iterator {
 //     type Item;
-//     fn next(): Option<Self.Item>;
+//     next(): Option<Self.Item>;
 // }
 
 // contract Container2 {
 //     type Element;
-//     fn get(index: i32): Option<Self.Element>;
+//     get(index: i32): Option<Self.Element>;
 // }
 
 // ============================================================

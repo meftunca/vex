@@ -144,8 +144,9 @@ continue    defer
 
 ```
 fn          let         const       struct
-enum        type        contract       impl
-extern
+enum        type        contract    impl
+extern      policy      with        loop
+where       typeof      any
 ```
 
 **Answer**: ❌ `static` keyword eklemiyoruz. Rust'taki `static` yerine Vex'te `const` kullanılıyor. Global değişkenler için gelecekte düşünülebilir ama şu an öncelik değil.
@@ -154,17 +155,18 @@ extern
 
 ```
 i8          i16         i32         i64
-u8          u16         u32         u64
-f32         f64         bool        string
-byte        error       nil
+i128        u8          u16         u32
+u64         u128        f16         f32
+f64         bool        string      byte
+error       nil         any
 ```
 
 **Answer**:
 
 - ❌ `void` - Zaten `nil` kullanıyoruz (unit type)
-- 🟡 `i128/u128` - Gelecekte eklenebilir (crypto/big numbers için), şu an Low Priority
+- ✅ `i128/u128` - Destekleniyor (crypto/big numbers için).
 - ❌ `i256/u256` - Gerek yok, çok spesifik use case (blockchain)
-- ❌ `f16/f8/f128` - LLVM desteği sınırlı, şu an öncelik değil. f32/f64 yeterli.
+- ✅ `f16` - Destekleniyor. `f8/f128` şu an öncelik değil.
 
 ### Module Keywords
 
@@ -260,7 +262,7 @@ true        false
 
 **Answer**: ✅ Bitwise assignment operators eklenmeli (Medium Priority 🟡). Bitwise operatörler zaten planned olduğu için bunlar da eklenecek.
 
-**Answer**: ❌ Increment/Decrement (`++`/`--`) operatörleri eklenmeyecek. Açıkça `x = x + 1` veya `x += 1` kullanılmalı (Go ve Rust'ın yaklaşımı gibi). Belirsizliği önler (prefix vs postfix).
+**Answer**: ✅ Increment/Decrement (`++`/`--`) operatörleri destekleniyor (Postfix only: `x++`, `x--`).
 
 ### Reference Operators
 
@@ -272,7 +274,7 @@ true        false
 
 **Answer**: Stack için `&` reference, heap allocation için `new` keyword kullanılacak (future). Raw pointer için `unsafe` blok içinde manual allocation gerekecek.
 
-**Answer**: ❌ `++`/`--` operatörleri desteklenmeyecek. Açık assignment kullanılmalı: `x += 1` veya `x -= 1`.
+**Answer**: ✅ `++`/`--` operatörleri destekleniyor.
 
 ### Other Operators
 
@@ -329,7 +331,7 @@ Decimal integers without any prefix:
 
 **Regex Pattern**: `[0-9]+`
 
-**Future Extensions**:
+**Supported Formats**:
 
 - Hexadecimal: `0xFF`, `0x1A2B`
 - Octal: `0o77`, `0o644`

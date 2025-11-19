@@ -1,7 +1,7 @@
 // Test Clone contract - Multiple clones
 // Test that multiple clones work independently
 
-import { Clone } from "core";
+
 
 struct Counter impl Clone {
     count: i32,

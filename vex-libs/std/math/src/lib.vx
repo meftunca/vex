@@ -25,10 +25,10 @@ export const SQRT2: f64 = 1.41421356237309504880;
 // ============================================================================
 export fn abs(x: f64): f64 { return fabs(x); }
 export fn abs(x: f32): f32 { return fabsf(x); }
-export fn abs(x: i32): i32 { if x < 0 { return 0 - x; } return x; }
-export fn abs(x: i64): i64 { if x < 0 { return 0 - x; } return x; }
 export fn abs(x: i8): i8 { if x < 0 { return 0 - x; } return x; }
 export fn abs(x: i16): i16 { if x < 0 { return 0 - x; } return x; }
+export fn abs(x: i32): i32 { if x < 0 { return 0 - x; } return x; }
+export fn abs(x: i64): i64 { if x < 0 { return 0 - x; } return x; }
 
 // ============================================================================
 // MIN/MAX - min(a, b) / max(a, b)

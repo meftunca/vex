@@ -205,6 +205,7 @@ impl<'a> Parser<'a> {
         self.consume(&Token::RBrace, "Expected '}'")?;
 
         Ok(Item::Struct(Struct {
+            is_exported: false, // Default to false
             name,
             type_params,
             const_params,
@@ -318,6 +319,7 @@ impl<'a> Parser<'a> {
         self.in_method_body = was_in_method;
 
         Ok(Function {
+            is_exported: false, // Struct methods are not exported individually
             is_async: false,
             is_gpu: false,
             is_mutable,  // ⭐ NEW: Store mutability flag

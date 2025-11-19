@@ -3,15 +3,15 @@
 
 contract Iterator {
     type Item;
-    fn next(): Option<Self.Item>;
+    next(): Option<Self.Item>;
 }
 
 contract Display {
-    fn show(): i32;
+    show(): i32;
 }
 
 contract Debug {
-    fn debug(): i32;
+    debug(): i32;
 }
 
 // Complex conditional impl with associated types

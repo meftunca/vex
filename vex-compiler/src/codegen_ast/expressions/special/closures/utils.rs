@@ -152,6 +152,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Create method with receiver
         let method = Function {
+            is_exported: false, // Generated closure methods are internal
             is_async: false,
             is_gpu: false,
             is_mutable,         // ⭐ NEW: Method mutability matches closure capture mode
@@ -179,6 +180,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         // Create struct definition with trait impl (no fields - managed by LLVM)
         // The actual closure struct layout (fn_ptr + env_ptr) is internal to LLVM
         let struct_def = Struct {
+            is_exported: false, // Generated closure structs are internal
             name: struct_name.clone(),
             type_params: vec![],
             const_params: vec![],

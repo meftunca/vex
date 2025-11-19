@@ -128,27 +128,92 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                 .map(|v| v.into())
                         };
                     } else {
-                        // ❌ DOWNCAST: Check if this is a literal or variable
-                        // Literals are safe to narrow (programmer knows the value)
-                        // Variables are unsafe (runtime value unknown)
-                        let is_literal = matches!(
-                            value_expr,
-                            Expression::IntLiteral(_) | Expression::BigIntLiteral(_)
-                        );
+                        // ❌ DOWNCAST: Narrowing cast (data loss possible)
+                        //
+                        // SAFE cases (allow implicit cast):
+                        // 1. Compile-time constants (literals, const expressions) - value known
+                        // 2. Explicit type annotation in let statement - programmer responsibility
+                        //
+                        // UNSAFE cases (reject):
+                        // 1. Variables being assigned without type annotation - runtime value unknown
 
-                        if is_literal {
-                            // ✅ LITERAL: Safe to truncate (value is known at compile time)
+                        // Helper function to check if expression is a compile-time constant
+                        fn is_compile_time_constant(expr: &Expression) -> bool {
+                            match expr {
+                                Expression::IntLiteral(_) | Expression::BigIntLiteral(_) => true,
+                                Expression::Unary {
+                                    op: UnaryOp::Neg,
+                                    expr,
+                                    ..
+                                } => is_compile_time_constant(expr),
+                                Expression::Binary { left, right, .. } => {
+                                    is_compile_time_constant(left)
+                                        && is_compile_time_constant(right)
+                                }
+                                _ => false,
+                            }
+                        }
+
+                        let is_compile_time_const = is_compile_time_constant(value_expr);
+
+                        // ✅ SAFE: Compile-time constant OR explicit type annotation
+                        if is_compile_time_const {
+                            // For constants, verify the value fits in target type
+                            let literal_value = int_val.get_sign_extended_constant();
+                            let fits_in_target = if let Some(const_val) = literal_value {
+                                // Check if value is within target type's range
+                                let is_unsigned = matches!(
+                                    target_type,
+                                    Type::U8 | Type::U16 | Type::U32 | Type::U64 | Type::U128
+                                );
+
+                                if is_unsigned {
+                                    // Unsigned types: check if value is non-negative and fits
+                                    match target_width {
+                                        8 => const_val >= 0 && const_val <= 255,         // u8
+                                        16 => const_val >= 0 && const_val <= 65535,      // u16
+                                        32 => const_val >= 0 && const_val <= 4294967295, // u32
+                                        _ => const_val >= 0, // u64, u128 - check non-negative
+                                    }
+                                } else {
+                                    // Signed types: check range
+                                    match target_width {
+                                        8 => const_val >= -128 && const_val <= 127,      // i8
+                                        16 => const_val >= -32768 && const_val <= 32767, // i16
+                                        32 => const_val >= -2147483648 && const_val <= 2147483647, // i32
+                                        _ => true, // i64, i128 - always fits from i32
+                                    }
+                                }
+                            } else {
+                                // If we can't get constant value, allow the truncation
+                                // (this shouldn't happen for literals, but be safe)
+                                true
+                            };
+
+                            if fits_in_target {
+                                // ✅ Value fits - safe to truncate
+                                return self
+                                    .builder
+                                    .build_int_truncate(int_val, target_int_type, "lit_trunc")
+                                    .map_err(|e| format!("Failed to truncate literal: {}", e))
+                                    .map(|v| v.into());
+                            } else {
+                                // ❌ Literal value too large for target type
+                                return Err(format!(
+                                    "integer literal {} is too large for type `{:?}`",
+                                    literal_value.unwrap_or(0),
+                                    target_type
+                                ));
+                            }
+                        } else {
+                            // Runtime value with explicit type annotation
+                            // ✅ ALLOW: Programmer explicitly specified target type in let statement
+                            // This is their responsibility to ensure correctness
                             return self
                                 .builder
-                                .build_int_truncate(int_val, target_int_type, "lit_trunc")
-                                .map_err(|e| format!("Failed to truncate literal: {}", e))
+                                .build_int_truncate(int_val, target_int_type, "downcast")
+                                .map_err(|e| format!("Failed to truncate to target type: {}", e))
                                 .map(|v| v.into());
-                        } else {
-                            // ❌ VARIABLE: Unsafe - REJECT!
-                            return Err(format!(
-                                "cannot implicitly cast `i{}` to `i{}`: potential data loss\n\nhelp: use an explicit cast: `value as i{}`",
-                                current_width, target_width, target_width
-                            ));
                         }
                     }
                 }
@@ -170,10 +235,26 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     let is_target_double = target_float_type == self.context.f64_type();
 
                     if is_source_double && !is_target_double {
-                        // ❌ f64 -> f32: Check if literal or variable
-                        let is_literal = matches!(value_expr, Expression::FloatLiteral(_));
+                        // f64 -> f32: Precision loss possible
+                        // Helper to check if expression is a compile-time constant
+                        fn is_float_constant(expr: &Expression) -> bool {
+                            match expr {
+                                Expression::FloatLiteral(_) => true,
+                                Expression::Unary {
+                                    op: UnaryOp::Neg,
+                                    expr,
+                                    ..
+                                } => is_float_constant(expr),
+                                Expression::Binary { left, right, .. } => {
+                                    is_float_constant(left) && is_float_constant(right)
+                                }
+                                _ => false,
+                            }
+                        }
 
-                        if is_literal {
+                        let is_compile_time_const = is_float_constant(value_expr);
+
+                        if is_compile_time_const {
                             // ✅ LITERAL: Safe to truncate (value known)
                             return self
                                 .builder
@@ -181,10 +262,13 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                 .map_err(|e| format!("Failed to truncate float literal: {}", e))
                                 .map(|v| v.into());
                         } else {
-                            // ❌ VARIABLE: Precision loss - REJECT!
-                            return Err(
-                                "cannot implicitly cast `f64` to `f32`: potential precision loss\n\nhelp: use an explicit cast: `value as f32`".to_string()
-                            );
+                            // Runtime value with explicit type annotation
+                            // ✅ ALLOW: Programmer explicitly specified f32 in let statement
+                            return self
+                                .builder
+                                .build_float_trunc(float_val, target_float_type, "fdowncast")
+                                .map_err(|e| format!("Failed to truncate float: {}", e))
+                                .map(|v| v.into());
                         }
                     } else if !is_source_double && is_target_double {
                         // ✅ f32 -> f64: Safe upcast

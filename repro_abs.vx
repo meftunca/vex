@@ -1,0 +1,6 @@
+import * as math from "math";
+
+fn main() {
+  let x = 7;
+  let y = math.abs(x);
+}

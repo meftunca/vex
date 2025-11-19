@@ -43,11 +43,14 @@ Types
 │   ├── Structs
 │   ├── Enums
 │   └── Type Aliases
-└── Advanced Types
-    ├── Generic Types
-    ├── Union Types
-    ├── Intersection Types
-    └── Conditional Types
+├── Advanced Types
+│   ├── Generic Types
+│   ├── Union Types
+│   ├── Intersection Types
+│   ├── Conditional Types
+│   ├── Any Type
+│   ├── Never Type
+│   └── Typeof Operator
 ```
 
 ---
@@ -1406,3 +1409,39 @@ Operators maintain standard mathematical precedence:
 **Next**: [04_Variables_and_Constants.md](./04_Variables_and_Constants.md)
 
 **Maintained by**: Vex Language Team
+### Any Type
+
+The `any` type represents a value of any type. It erases type information at compile time (similar to TypeScript's `any` or C's `void*`).
+
+```vex
+let x: any = 42;
+x = "hello";
+x = true;
+```
+
+### Never Type
+
+The `!` (never) type represents computations that never complete (e.g., infinite loops, panics).
+
+```vex
+fn crash() -> ! {
+    panic("crash");
+}
+```
+
+### Conditional Types
+
+Types that depend on other types (like TypeScript's `T extends U ? X : Y`).
+
+```vex
+type Result<T> = T extends error ? never : T;
+```
+
+### Typeof Operator
+
+Get the type of an expression at compile time.
+
+```vex
+let x = 10;
+type T = typeof(x); // T is i32
+```

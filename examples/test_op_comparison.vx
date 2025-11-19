@@ -48,11 +48,11 @@ struct Point impl Eq, Ord {
     }
     
     op<=(other: Point): bool {
-        return !(self > other);
+        return(self > other);
     }
     
     op>=(other: Point): bool {
-        return !(self < other);
+        return (self < other);
     }
 }
 

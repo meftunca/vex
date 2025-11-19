@@ -143,7 +143,28 @@ if age >= 18 {
 let value = if condition { 10 } else { 20 };
 ```
 
+### Switch Statement
+**Syntax**:
+```vex
+switch value {
+    case 1, 2: {
+        // handle 1 or 2
+    }
+    case 3: {
+        // handle 3
+    }
+    default: {
+        // handle others
+    }
+}
+```
+**Properties**:
+- C-style switch but with block scopes for cases.
+- Supports multiple values per case (`case 1, 2:`).
+- `default` case is optional.
+
 ---
+
 
 ## Pattern Matching
 
@@ -388,7 +409,7 @@ for i in 0..=10 {
 - `..` - Exclusive range: `0..10` → 0, 1, 2, ..., 9
 - `..=` - Inclusive range: `0..=10` → 0, 1, 2, ..., 10
 
-### Loop (Infinite Loop) (Future)
+### Loop (Infinite Loop)
 
 ```vex
 loop {
@@ -523,6 +544,19 @@ Break from nested loops:
             break 'outer;  // Break outer loop
         }
     }
+}
+```
+
+### Go Statement (Async)
+
+Execute a function or block asynchronously:
+
+```vex
+go process_data();
+
+go {
+    // async block
+    perform_task();
 }
 ```
 

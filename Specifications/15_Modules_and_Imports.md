@@ -65,6 +65,7 @@ fn main() {
 ```
 
 **Key Difference**:
+
 - **JavaScript/Vex**: Functions can call non-exported functions in their own module
 - **Rust/Go**: All symbols in a module are visible to importers (package-level visibility)
 
@@ -99,14 +100,16 @@ vex-libs/std/
 ### Import Resolution Rules
 
 **1. Package Name (Recommended)**
+
 ```vex
-import { abs } from "math";  
+import { abs } from "math";
 // → Resolves to: vex-libs/std/math/src/lib.vx (from vex.json "main" field)
 ```
 
 **2. Direct File Import**
+
 ```vex
-import { sin } from "math/native.vxc";  
+import { sin } from "math/native.vxc";
 // → Resolves to: vex-libs/std/math/src/native.vxc
 
 import { helper } from "io/file.vx";
@@ -114,9 +117,10 @@ import { helper } from "io/file.vx";
 ```
 
 **3. Relative Imports (Within Module)**
+
 ```vex
 // In: vex-libs/std/math/src/lib.vx
-import { fabs } from "./native.vxc";  
+import { fabs } from "./native.vxc";
 // → Resolves to: vex-libs/std/math/src/native.vxc
 ```
 
@@ -128,11 +132,12 @@ The `main` field in `vex.json` specifies the primary export:
 {
   "name": "math",
   "version": "1.0.0",
-  "main": "src/lib.vx"  
+  "main": "src/lib.vx"
 }
 ```
 
 **Resolution**:
+
 - `import from "math"` → Uses `main` field → `src/lib.vx`
 - `import from "math/native.vxc"` → Direct file path → `src/native.vxc`
 - If no `vex.json`: Defaults to `src/lib.vx` or `src/mod.vx`
@@ -343,7 +348,7 @@ fn resolve_import(path: &str) -> Result<Program, String> {
 
 ## Standard Library Modules
 
-### Layer 0: Vex Runtime (Rust)
+### Layer 0: Vex Runtime
 
 Core runtime written in Rust:
 

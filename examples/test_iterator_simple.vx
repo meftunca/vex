@@ -1,5 +1,5 @@
 // Test Iterator contract - simple counter implementation
-import { Iterator, Option } from "core";
+
 
 // Counter struct that iterates from 0 to limit
 struct Counter impl Iterator {

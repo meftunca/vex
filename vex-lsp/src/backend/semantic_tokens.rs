@@ -39,6 +39,11 @@ impl VexBackend {
         source: &str,
         tokens: &mut Vec<SemanticToken>,
     ) {
+        // Process imports
+        for import in &ast.imports {
+            self.add_import_tokens(import, source, tokens);
+        }
+
         // Process each item in the AST
         for item in &ast.items {
             match item {
@@ -69,11 +74,11 @@ impl VexBackend {
                 vex_ast::Item::Export(export) => {
                     self.add_export_tokens(export, source, tokens);
                 }
-                vex_ast::Item::Policy(_) => {
-                    // TODO: Add policy token handling
+                vex_ast::Item::Policy(policy) => {
+                    self.add_policy_tokens(policy, source, tokens);
                 }
-                vex_ast::Item::ExternBlock(_) => {
-                    // TODO: Add extern block token handling
+                vex_ast::Item::ExternBlock(block) => {
+                    self.add_extern_block_tokens(block, source, tokens);
                 }
             }
         }
@@ -222,11 +227,25 @@ impl VexBackend {
 
     fn add_trait_impl_tokens(
         &self,
-        _impl_block: &vex_ast::ExternalTraitImpl,
-        _source: &str,
-        _tokens: &mut Vec<SemanticToken>,
+        impl_block: &vex_ast::ExternalTraitImpl,
+        source: &str,
+        tokens: &mut Vec<SemanticToken>,
     ) {
-        // TODO: Implement external trait impl block semantic tokens
+        // Trait name
+        if let Some(range) = self.find_token_range(source, &impl_block.trait_name) {
+            tokens.push(SemanticToken {
+                delta_line: range.start.line as u32,
+                delta_start: range.start.character as u32,
+                length: impl_block.trait_name.len() as u32,
+                token_type: self.token_type_to_index(SemanticTokenType::INTERFACE),
+                token_modifiers_bitset: 0,
+            });
+        }
+
+        // Methods
+        for method in &impl_block.methods {
+            self.add_function_tokens(method, source, tokens);
+        }
     }
 
     fn add_import_tokens(
@@ -260,34 +279,177 @@ impl VexBackend {
 
         // Highlight imported items (if any)
         for item in &import.items {
-            if let Some(range) = self.find_token_range(source, item) {
+            if let Some(range) = self.find_token_range(source, &item.name) {
                 tokens.push(SemanticToken {
                     delta_line: range.start.line,
                     delta_start: range.start.character,
-                    length: item.len() as u32,
-                    token_type: self.token_type_to_index(SemanticTokenType::FUNCTION),
-                    token_modifiers_bitset: 0,
+                    length: item.name.len() as u32,
+                    token_type: self.token_type_to_index(SemanticTokenType::VARIABLE),
+                    token_modifiers_bitset: self
+                        .token_modifiers_to_bitset(&[SemanticTokenModifier::DECLARATION]),
                 });
+            }
+
+            if let Some(alias) = &item.alias {
+                if let Some(range) = self.find_token_range(source, alias) {
+                    tokens.push(SemanticToken {
+                        delta_line: range.start.line,
+                        delta_start: range.start.character,
+                        length: alias.len() as u32,
+                        token_type: self.token_type_to_index(SemanticTokenType::VARIABLE),
+                        token_modifiers_bitset: self
+                            .token_modifiers_to_bitset(&[SemanticTokenModifier::DECLARATION]),
+                    });
+                }
             }
         }
     }
 
     fn add_type_alias_tokens(
         &self,
-        _alias: &vex_ast::TypeAlias,
-        _source: &str,
-        _tokens: &mut Vec<SemanticToken>,
+        alias: &vex_ast::TypeAlias,
+        source: &str,
+        tokens: &mut Vec<SemanticToken>,
     ) {
-        // TODO: Implement type alias semantic tokens
+        // Type alias name
+        if let Some(range) = self.find_token_range(source, &alias.name) {
+            tokens.push(SemanticToken {
+                delta_line: range.start.line as u32,
+                delta_start: range.start.character as u32,
+                length: alias.name.len() as u32,
+                token_type: self.token_type_to_index(SemanticTokenType::TYPE),
+                token_modifiers_bitset: self
+                    .token_modifiers_to_bitset(&[SemanticTokenModifier::DECLARATION]),
+            });
+        }
     }
 
     fn add_export_tokens(
         &self,
-        _export: &vex_ast::Export,
-        _source: &str,
-        _tokens: &mut Vec<SemanticToken>,
+        export: &vex_ast::Export,
+        source: &str,
+        tokens: &mut Vec<SemanticToken>,
     ) {
-        // TODO: Implement export semantic tokens
+        // Highlight export keyword
+        if let Some(range) = self.find_token_range(source, "export") {
+            tokens.push(SemanticToken {
+                delta_line: range.start.line,
+                delta_start: range.start.character,
+                length: 6, // "export".len()
+                token_type: self.token_type_to_index(SemanticTokenType::KEYWORD),
+                token_modifiers_bitset: 0,
+            });
+        }
+
+        // Highlight exported items
+        for item in &export.items {
+            if let Some(range) = self.find_token_range(source, &item.name) {
+                tokens.push(SemanticToken {
+                    delta_line: range.start.line,
+                    delta_start: range.start.character,
+                    length: item.name.len() as u32,
+                    token_type: self.token_type_to_index(SemanticTokenType::VARIABLE),
+                    token_modifiers_bitset: self
+                        .token_modifiers_to_bitset(&[SemanticTokenModifier::DECLARATION]),
+                });
+            }
+
+            if let Some(alias) = &item.alias {
+                if let Some(range) = self.find_token_range(source, alias) {
+                    tokens.push(SemanticToken {
+                        delta_line: range.start.line,
+                        delta_start: range.start.character,
+                        length: alias.len() as u32,
+                        token_type: self.token_type_to_index(SemanticTokenType::VARIABLE),
+                        token_modifiers_bitset: self
+                            .token_modifiers_to_bitset(&[SemanticTokenModifier::DECLARATION]),
+                    });
+                }
+            }
+        }
+
+        // Highlight from module if present
+        if let Some(module) = &export.from_module {
+            if let Some(range) = self.find_token_range(source, module) {
+                tokens.push(SemanticToken {
+                    delta_line: range.start.line,
+                    delta_start: range.start.character,
+                    length: module.len() as u32,
+                    token_type: self.token_type_to_index(SemanticTokenType::NAMESPACE),
+                    token_modifiers_bitset: 0,
+                });
+            }
+        }
+    }
+
+    fn add_policy_tokens(
+        &self,
+        policy: &vex_ast::Policy,
+        source: &str,
+        tokens: &mut Vec<SemanticToken>,
+    ) {
+        // Policy name
+        if let Some(range) = self.find_token_range(source, &policy.name) {
+            tokens.push(SemanticToken {
+                delta_line: range.start.line as u32,
+                delta_start: range.start.character as u32,
+                length: policy.name.len() as u32,
+                token_type: self.token_type_to_index(SemanticTokenType::CLASS),
+                token_modifiers_bitset: self
+                    .token_modifiers_to_bitset(&[SemanticTokenModifier::DECLARATION]),
+            });
+        }
+
+        // Fields
+        for field in &policy.fields {
+            if let Some(range) = self.find_token_range(source, &field.name) {
+                tokens.push(SemanticToken {
+                    delta_line: range.start.line as u32,
+                    delta_start: range.start.character as u32,
+                    length: field.name.len() as u32,
+                    token_type: self.token_type_to_index(SemanticTokenType::PROPERTY),
+                    token_modifiers_bitset: self
+                        .token_modifiers_to_bitset(&[SemanticTokenModifier::DECLARATION]),
+                });
+            }
+        }
+    }
+
+    fn add_extern_block_tokens(
+        &self,
+        block: &vex_ast::ExternBlock,
+        source: &str,
+        tokens: &mut Vec<SemanticToken>,
+    ) {
+        // Types
+        for ty in &block.types {
+            if let Some(range) = self.find_token_range(source, &ty.name) {
+                tokens.push(SemanticToken {
+                    delta_line: range.start.line as u32,
+                    delta_start: range.start.character as u32,
+                    length: ty.name.len() as u32,
+                    token_type: self.token_type_to_index(SemanticTokenType::TYPE),
+                    token_modifiers_bitset: self
+                        .token_modifiers_to_bitset(&[SemanticTokenModifier::DECLARATION]),
+                });
+            }
+        }
+
+        // Functions
+        for func in &block.functions {
+            if let Some(range) = self.find_token_range(source, &func.name) {
+                tokens.push(SemanticToken {
+                    delta_line: range.start.line as u32,
+                    delta_start: range.start.character as u32,
+                    length: func.name.len() as u32,
+                    token_type: self.token_type_to_index(SemanticTokenType::FUNCTION),
+                    token_modifiers_bitset: self.token_modifiers_to_bitset(&[
+                        SemanticTokenModifier::DECLARATION,
+                        SemanticTokenModifier::STATIC,
+                    ]),
+                });
+            }
+        }
     }
 
     fn find_token_range(&self, source: &str, token: &str) -> Option<Range> {

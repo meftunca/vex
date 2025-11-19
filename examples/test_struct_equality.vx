@@ -1,5 +1,5 @@
 // Test struct equality comparison
-import { Option } from "core";
+// 
 
 struct Point {
     x: i32,

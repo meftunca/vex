@@ -2,7 +2,7 @@
 // Comparison with C++ operator overloading
 
 contract Add {
-    fn op+(other: Self): Self;
+     op+(other: Self): Self;
 }
 
 // Scenario 1: Same type addition (like C++)
@@ -22,7 +22,7 @@ struct Point impl Add {
 // Scenario 2: Different types - Scalar multiplication
 // C++: Point operator*(int scalar) const
 contract MulScalar {
-    fn mul_scalar(scalar: i32): Self;
+     mul_scalar(scalar: i32): Self;
 }
 
 struct Vector impl MulScalar {
@@ -39,7 +39,7 @@ struct Vector impl MulScalar {
 
 // Scenario 3: Multiple contracts on same type
 contract Display {
-    fn to_string(): string;
+     to_string(): string;
 }
 
 struct Complex impl Add, Display {

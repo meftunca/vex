@@ -498,3 +498,119 @@ fn sum(numbers: ...i32): i32 {
 ---
 
 ## Return Values
+
+Functions can return a single value or multiple values (via tuples).
+
+### Single Return Value
+
+```vex
+fn square(x: i32): i32 {
+    return x * x;
+}
+```
+
+### Multiple Return Values
+
+```vex
+fn swap(x: i32, y: i32): (i32, i32) {
+    return (y, x);
+}
+
+let (a, b) = swap(1, 2);
+```
+
+### Named Return Values (Future)
+
+```vex
+fn divide(dividend, divisor: i32): (quotient, remainder: i32) {
+    quotient = dividend / divisor;
+    remainder = dividend % divisor;
+    return; // Implicitly returns quotient and remainder
+}
+```
+
+---
+
+## Generic Functions
+
+Functions can be generic over types.
+
+```vex
+fn id<T>(x: T): T {
+    return x;
+}
+
+let s = id<string>("hello");
+let n = id(42); // Type inference
+```
+
+---
+
+## Function Overloading
+
+Vex does **not** support traditional function overloading (same name, different parameters). Instead, use:
+- Default parameters
+- Variadic parameters
+- Generic functions
+- Different names (e.g., `from_string`, `from_int`)
+
+---
+
+## Higher-Order Functions
+
+Functions that take other functions as parameters or return them.
+
+### Closures
+
+Closures are anonymous functions that can capture their environment.
+
+**Syntax**: `|parameters| body`
+
+```vex
+let add = |x, y| x + y;
+let result = add(1, 2);
+
+// With type annotations
+let multiply = |x: i32, y: i32|: i32 {
+    return x * y;
+};
+
+// No parameters
+let greet = || println("Hello");
+```
+
+**Capturing**:
+Closures capture variables from their scope.
+
+```vex
+let factor = 2;
+let doubler = |x| x * factor;
+```
+
+---
+
+## Special Function Types
+
+### Async Functions
+
+Functions marked with `async` return a `Future<T>`.
+
+```vex
+async fn fetch_data(url: string): string {
+    // ... network call ...
+    return "data";
+}
+
+// Calling async function
+let future = fetch_data("https://example.com");
+let data = await future; // (await syntax future)
+```
+
+### Async Blocks
+
+```vex
+let future = async {
+    let x = do_something();
+    x + 1
+};
+```

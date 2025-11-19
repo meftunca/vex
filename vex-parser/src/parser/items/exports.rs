@@ -40,8 +40,19 @@ impl<'a> Parser<'a> {
 
             loop {
                 // Accept both identifiers and keywords (like "unsafe")
-                let item = self.consume_identifier_or_keyword()?;
-                export_items.push(item);
+                let item_name = self.consume_identifier_or_keyword()?;
+                
+                // Check for alias: export { a as b }
+                let alias = if self.match_token(&Token::As) {
+                    Some(self.consume_identifier()?)
+                } else {
+                    None
+                };
+
+                export_items.push(ExportItem {
+                    name: item_name,
+                    alias,
+                });
 
                 if !self.match_token(&Token::Comma) {
                     break;
@@ -117,7 +128,18 @@ impl<'a> Parser<'a> {
 
                 // Mark as static method and store type info
                 func.is_static = true;
-                func.static_type = static_type;
+                func.static_type = static_type.clone();
+
+                eprintln!(
+                    "📝 Parser: export fn {}.{}<{}> (is_static=true)",
+                    static_type.as_ref().unwrap(),
+                    func.name,
+                    func.type_params
+                        .iter()
+                        .map(|tp| tp.name.as_str())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                );
 
                 // Merge generic params from Type<T> with method params
                 if !type_params.is_empty() {
@@ -129,24 +151,43 @@ impl<'a> Parser<'a> {
                     func.const_params = const_params;
                 }
 
+                func.is_exported = true; // ⭐ Mark as exported
                 Ok(Item::Function(func))
             } else {
                 // Not a static method, backtrack
                 self.current = checkpoint;
-                Ok(Item::Function(self.parse_function()?))
+                let mut func = self.parse_function()?;
+                func.is_exported = true; // ⭐ Mark as exported
+                Ok(Item::Function(func))
             }
         } else if self.check(&Token::Const) {
             // Pattern 2: export const X = 5;
-            self.parse_const()
+            let mut item = self.parse_const()?;
+            if let Item::Const(ref mut c) = item {
+                c.is_exported = true;
+            }
+            Ok(item)
         } else if self.check(&Token::Struct) {
             // Pattern 2: export struct Foo {}
-            self.parse_struct()
+            let mut item = self.parse_struct()?;
+            if let Item::Struct(ref mut s) = item {
+                s.is_exported = true;
+            }
+            Ok(item)
         } else if self.check(&Token::Contract) {
             // Pattern 2: export contract Foo {}
-            self.parse_trait()
+            let mut item = self.parse_trait()?;
+            if let Item::Contract(ref mut t) = item {
+                t.is_exported = true;
+            }
+            Ok(item)
         } else if self.check(&Token::Enum) {
             // Pattern 2: export enum Foo {}
-            self.parse_enum()
+            let mut item = self.parse_enum()?;
+            if let Item::Enum(ref mut e) = item {
+                e.is_exported = true;
+            }
+            Ok(item)
         } else {
             return Err(self.error(
                 "Expected '{', 'fn', 'const', 'struct', 'contract', or 'enum' after 'export'",

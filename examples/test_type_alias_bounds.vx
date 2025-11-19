@@ -2,11 +2,11 @@
 // Expected: Parse successfully
 
 contract Display {
-    fn show(): i32;
+    show(): i32;
 }
 
 contract Clone {
-    fn clone(): Self;
+    clone(): Self;
 }
 
 // Type alias with single bound

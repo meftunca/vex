@@ -2,7 +2,7 @@
 // Phase 1: struct Point impl Add
 
 contract Add {
-    fn op+(other: Self): Self;
+     op+(other: Self): Self;
 }
 
 struct Point impl Add {

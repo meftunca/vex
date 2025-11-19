@@ -3,11 +3,11 @@
 
 contract Iterator {
     type Item;
-    fn next(): Option<Self.Item>;
+    next(): Option<Self.Item>;
 }
 
 contract Display {
-    fn show(): i32;
+    show(): i32;
 }
 
 // Function with associated type constraint

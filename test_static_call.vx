@@ -1,0 +1,6 @@
+import { HashMap } from "collections";
+
+fn main(): i32 {
+    let! m = HashMap.new<str, i32>();
+    return 0;
+}

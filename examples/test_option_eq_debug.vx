@@ -1,5 +1,5 @@
 // Debug Option equality
-import { Option } from "core";
+
 
 fn main(): i32 {
     let opt1 = Some(42);

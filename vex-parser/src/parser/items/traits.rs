@@ -76,6 +76,7 @@ impl<'a> Parser<'a> {
 
         // Return Contract variant only
         Ok(Item::Contract(Trait {
+            is_exported: false, // Default to false
             name,
             type_params,
             super_traits,

@@ -1,7 +1,7 @@
 // Test Ord contract - Ordering comparison
 // Test custom ordering with .compare()
 
-import { Ord } from "core";
+
 
 struct Version impl Ord {
     major: i32,

@@ -513,13 +513,34 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     mangled_candidates.push(func_name.to_string());
                 }
 
-                // Try each candidate in order
+                // Try each candidate - prefer exact match over upcasts
                 let mut found_fn_val = None;
+                let mut best_match_score = i32::MIN;
+
                 for candidate in &mangled_candidates {
                     if let Some(fn_val) = self.functions.get(candidate) {
-                        eprintln!("✅ Found function: {}", candidate);
-                        found_fn_val = Some(*fn_val);
-                        break;
+                        // Calculate match score:
+                        // - Exact match (same type): score = 1000
+                        // - Safe upcast (i8->i32): score = 100
+                        // - Base name fallback: score = 0
+                        let score = if candidate == &mangled_candidates[0] {
+                            1000 // Exact match from argument types
+                        } else if candidate == func_name {
+                            0 // Base name fallback
+                        } else {
+                            100 // Other candidates (potential upcasts)
+                        };
+
+                        if score > best_match_score {
+                            eprintln!("✅ Found function: {} (score: {})", candidate, score);
+                            found_fn_val = Some(*fn_val);
+                            best_match_score = score;
+
+                            // If exact match, no need to search further
+                            if score == 1000 {
+                                break;
+                            }
+                        }
                     }
                 }
 
@@ -730,25 +751,52 @@ impl<'ctx> ASTCodeGen<'ctx> {
                             if current_width != target_width {
                                 if current_width < target_width {
                                     // ✅ UPCAST: Safe for external functions
+                                    // Determine if we should sign-extend or zero-extend
+                                    // We need to check the argument expression type
+                                    let is_signed = if i < final_args.len() {
+                                        match self.infer_expression_type(&final_args[i]) {
+                                            Ok(ty) => matches!(
+                                                ty,
+                                                Type::I8
+                                                    | Type::I16
+                                                    | Type::I32
+                                                    | Type::I64
+                                                    | Type::I128
+                                            ),
+                                            Err(_) => true, // Default to signed if inference fails
+                                        }
+                                    } else {
+                                        true // Default to signed
+                                    };
+
                                     eprintln!(
-                                        "🔄 [External] Upcasting argument {} from i{} to i{} for function signature",
-                                        i, current_width, target_width
+                                        "🔄 [External/Overload] Upcasting argument {} from i{} to i{} (signed={})",
+                                        i, current_width, target_width, is_signed
                                     );
 
-                                    let casted = self
-                                        .builder
-                                        .build_int_z_extend(
-                                            int_val,
-                                            target_int_type,
-                                            "ext_arg_cast",
-                                        )
-                                        .map_err(|e| {
-                                            format!(
-                                                "Failed to cast external function argument: {}",
-                                                e
+                                    let casted = if is_signed {
+                                        self.builder
+                                            .build_int_s_extend(
+                                                int_val,
+                                                target_int_type,
+                                                "sext_arg_cast",
                                             )
-                                        })?
-                                        .into();
+                                            .map_err(|e| {
+                                                format!("Failed to sign-extend argument: {}", e)
+                                            })?
+                                            .into()
+                                    } else {
+                                        self.builder
+                                            .build_int_z_extend(
+                                                int_val,
+                                                target_int_type,
+                                                "zext_arg_cast",
+                                            )
+                                            .map_err(|e| {
+                                                format!("Failed to zero-extend argument: {}", e)
+                                            })?
+                                            .into()
+                                    };
                                     *arg_val_meta = casted;
                                 } else {
                                     // ❌ DOWNCAST: Even for external functions, this is unsafe

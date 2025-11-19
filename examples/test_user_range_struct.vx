@@ -1,7 +1,7 @@
 // Test that user-defined "Range" struct doesn't conflict with builtin range
 // This tests the fix for struct method inline compilation
 
-import { Option } from "core";
+
 
 // User-defined struct named Range (conflicts with builtin 0..10 syntax)
 struct Range {

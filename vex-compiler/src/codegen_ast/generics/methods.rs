@@ -758,4 +758,134 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         Ok(arg_vals)
     }
+
+    /// Instantiate a generic static method with concrete type arguments
+    /// Example: HashMap.new<str, i32>() → hashmap_str_i32_new
+    pub(crate) fn instantiate_generic_static_method(
+        &mut self,
+        type_name: &str,
+        method_name: &str,
+        type_args: &[Type],
+        method_def: &Function,
+    ) -> Result<FunctionValue<'ctx>, String> {
+        eprintln!("🔧 instantiate_generic_static_method: {}.{}<{}>",
+            type_name, method_name,
+            type_args.iter().map(|t| self.type_to_string(t)).collect::<Vec<_>>().join(", "));
+
+        // Build mangled name: HashMap_str_i32_new
+        let mut mangled_name = type_name.to_string();
+        for ty in type_args {
+            mangled_name.push('_');
+            mangled_name.push_str(&self.type_to_string(ty));
+        }
+        mangled_name.push('_');
+        mangled_name.push_str(method_name);
+
+        eprintln!("  → Mangled name: {}", mangled_name);
+
+        // Check cache
+        if let Some(fn_val) = self.functions.get(&mangled_name) {
+            eprintln!("  ✅ Found in cache!");
+            return Ok(*fn_val);
+        }
+
+        // Build type substitution map
+        let mut type_subst = std::collections::HashMap::new();
+        for (i, type_param) in method_def.type_params.iter().enumerate() {
+            if let Some(concrete_type) = type_args.get(i) {
+                type_subst.insert(type_param.name.clone(), concrete_type.clone());
+                eprintln!("  📝 Type param {} → {}", type_param.name, self.type_to_string(concrete_type));
+            }
+        }
+
+        // Substitute types in function definition
+        let mut concrete_method = self.substitute_types_in_function(method_def, &type_subst)?;
+
+        // ⭐ CRITICAL: Update name to mangled name so declare_function uses it
+        // Otherwise declare_function will generate HashMap_new instead of HashMap_str_i32_new
+        concrete_method.name = mangled_name.clone();
+        
+        // Disable static flag to prevent double mangling by declare_function
+        // We have already fully mangled the name including type args
+        concrete_method.is_static = false;
+        concrete_method.static_type = None;
+
+        // ⭐ CRITICAL: Instantiate return type struct if it's generic
+        // This ensures ast_type_to_llvm finds the struct definition and returns StructType instead of opaque pointer
+        // We must use method_def.return_type (generic) because concrete_method.return_type might already be mangled to Named(...)
+        if let Some(ret_ty) = &method_def.return_type {
+            if let Type::Generic { name, type_args } = ret_ty {
+                // Substitute type args to get concrete types
+                let substituted_args: Vec<Type> = type_args
+                    .iter()
+                    .map(|arg| self.substitute_type(arg, &type_subst))
+                    .collect();
+
+                eprintln!("  📦 Instantiating return type struct: {}<{:?}>", name, substituted_args);
+                // We ignore the result (mangled name) as we just want it registered in struct_defs
+                if let Err(e) = self.instantiate_generic_struct(name, &substituted_args) {
+                    eprintln!("  ❌ Failed to instantiate return type struct: {}", e);
+                }
+            }
+        }
+
+        eprintln!("  🔨 Declaring function: {}", mangled_name);
+
+        // Declare function
+        let fn_val = self.declare_function(&concrete_method)?;
+
+        // Register
+        self.functions.insert(mangled_name.clone(), fn_val);
+        self.function_defs.insert(mangled_name.clone(), concrete_method.clone());
+
+        // ⭐ CRITICAL: Save state before compiling nested function
+        // This prevents the nested compilation from corrupting the current function's state (variables, builder position, etc.)
+        let saved_current_function = self.current_function;
+        let saved_insert_block = self.builder.get_insert_block();
+        let saved_variables = std::mem::take(&mut self.variables);
+        let saved_variable_types = std::mem::take(&mut self.variable_types);
+        let saved_variable_ast_types = std::mem::take(&mut self.variable_ast_types);
+        let saved_variable_struct_names = std::mem::take(&mut self.variable_struct_names);
+        let saved_variable_enum_names = std::mem::take(&mut self.variable_enum_names);
+        let saved_tuple_variable_types = std::mem::take(&mut self.tuple_variable_types);
+        let saved_function_params = std::mem::take(&mut self.function_params);
+        let saved_function_param_types = std::mem::take(&mut self.function_param_types);
+        let saved_scope_stack = std::mem::take(&mut self.scope_stack);
+        let saved_loop_context_stack = std::mem::take(&mut self.loop_context_stack);
+        let saved_deferred_statements = std::mem::take(&mut self.deferred_statements);
+        let saved_closure_envs = std::mem::take(&mut self.closure_envs);
+        let saved_closure_variables = std::mem::take(&mut self.closure_variables);
+        let saved_last_tuple_type = self.last_compiled_tuple_type.take();
+        let saved_method_mutability = self.current_method_is_mutable;
+
+        // Compile function body
+        let compile_result = self.compile_function(&concrete_method);
+
+        // Restore state
+        self.current_function = saved_current_function;
+        self.variables = saved_variables;
+        self.variable_types = saved_variable_types;
+        self.variable_ast_types = saved_variable_ast_types;
+        self.variable_struct_names = saved_variable_struct_names;
+        self.variable_enum_names = saved_variable_enum_names;
+        self.tuple_variable_types = saved_tuple_variable_types;
+        self.function_params = saved_function_params;
+        self.function_param_types = saved_function_param_types;
+        self.scope_stack = saved_scope_stack;
+        self.loop_context_stack = saved_loop_context_stack;
+        self.deferred_statements = saved_deferred_statements;
+        self.closure_envs = saved_closure_envs;
+        self.closure_variables = saved_closure_variables;
+        self.last_compiled_tuple_type = saved_last_tuple_type;
+        self.current_method_is_mutable = saved_method_mutability;
+
+        if let Some(block) = saved_insert_block {
+            self.builder.position_at_end(block);
+        }
+        
+        compile_result?;
+
+        eprintln!("  ✅ Instantiated and compiled: {}", mangled_name);
+        Ok(fn_val)
+    }
 }

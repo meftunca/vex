@@ -1,7 +1,7 @@
 import * as math from "math";
 
 fn main() {
-    let abs_int1: i32 = math.abs(-5) as i32;
+    let abs_int1: i32 = math.abs(-5);
     if abs_int1 != 5 {
         print("FAIL: abs(-5) != 5\n");
     } else {

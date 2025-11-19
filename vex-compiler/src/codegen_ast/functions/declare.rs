@@ -217,9 +217,20 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
             self.module.add_function(&fn_name, fn_type, None)
         } else {
-            eprintln!("🟢 Function {} return type: void", fn_name);
-            let fn_type = self.context.void_type().fn_type(&param_types, is_variadic);
-            self.module.add_function(&fn_name, fn_type, None)
+            // ⭐ SPECIAL HANDLING: main() must always return i32 (0) for C runtime compatibility
+            if fn_name == "main" && !func.is_async {
+                eprintln!(
+                    "🟢 Function {} return type: void -> i32 (forced for main)",
+                    fn_name
+                );
+                let i32_type = self.context.i32_type();
+                let fn_type = i32_type.fn_type(&param_types, is_variadic);
+                self.module.add_function(&fn_name, fn_type, None)
+            } else {
+                eprintln!("🟢 Function {} return type: void", fn_name);
+                let fn_type = self.context.void_type().fn_type(&param_types, is_variadic);
+                self.module.add_function(&fn_name, fn_type, None)
+            }
         };
 
         // ⭐ CRITICAL FIX: For function overloading, generate mangled name with parameter types

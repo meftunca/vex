@@ -46,22 +46,22 @@ impl Program {
         let contract_import = Import {
             kind: ImportKind::Named,
             items: vec![
-                "Collection".to_string(),
-                "Stack".to_string(),
-                "Queue".to_string(),
-                "Indexable".to_string(),
-                "SmartPointer".to_string(),
-                "RefCounted".to_string(),
-                "Drop".to_string(),
-                "Clone".to_string(),
-                "Display".to_string(),
-                "Debug".to_string(),
-                "Default".to_string(),
-                "From".to_string(),
-                "Into".to_string(),
-                "Eq".to_string(),
-                "Ord".to_string(),
-                "Hash".to_string(),
+                ImportItem { name: "Collection".to_string(), alias: None },
+                ImportItem { name: "Stack".to_string(), alias: None },
+                ImportItem { name: "Queue".to_string(), alias: None },
+                ImportItem { name: "Indexable".to_string(), alias: None },
+                ImportItem { name: "SmartPointer".to_string(), alias: None },
+                ImportItem { name: "RefCounted".to_string(), alias: None },
+                ImportItem { name: "Drop".to_string(), alias: None },
+                ImportItem { name: "Clone".to_string(), alias: None },
+                ImportItem { name: "Display".to_string(), alias: None },
+                ImportItem { name: "Debug".to_string(), alias: None },
+                ImportItem { name: "Default".to_string(), alias: None },
+                ImportItem { name: "From".to_string(), alias: None },
+                ImportItem { name: "Into".to_string(), alias: None },
+                ImportItem { name: "Eq".to_string(), alias: None },
+                ImportItem { name: "Ord".to_string(), alias: None },
+                ImportItem { name: "Hash".to_string(), alias: None },
             ],
             module: "std/contracts".to_string(),
             alias: None,
@@ -163,19 +163,33 @@ pub enum ImportKind {
     Module,
 }
 
+/// Import item: { name, alias }
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ImportItem {
+    pub name: String,
+    pub alias: Option<String>,
+}
+
 /// Import statement
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Import {
     pub kind: ImportKind,
-    pub items: Vec<String>,    // For Named imports
+    pub items: Vec<ImportItem>, // Changed from Vec<String>
     pub module: String,        // Module path
     pub alias: Option<String>, // For namespace imports or renaming
+}
+
+/// Export item: { name, alias }
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ExportItem {
+    pub name: String,
+    pub alias: Option<String>,
 }
 
 /// Export statement: export { io, net }; or export fn foo() {} or export { Arc } from "./arc.vx";
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Export {
-    pub items: Vec<String>,      // For export { io, net };
+    pub items: Vec<ExportItem>,      // Changed from Vec<String>
     pub from_module: Option<String>, // For re-export: export { Arc } from "./arc.vx"
     pub is_wildcard: bool,       // For export * from "./module.vx"
 }
@@ -183,6 +197,7 @@ pub struct Export {
 /// Policy declaration: policy APIModel { id `json:"id"`, name `json:"name"` }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Policy {
+    pub is_exported: bool, // ⭐ NEW: Export visibility
     pub name: String,
     pub parent_policies: Vec<String>, // For policy composition: policy Child with Parent
     pub fields: Vec<PolicyField>,
@@ -214,6 +229,7 @@ pub enum Item {
 /// Function definition
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Function {
+    pub is_exported: bool, // ⭐ NEW: Export visibility
     pub is_async: bool,
     pub is_gpu: bool,
     pub is_mutable: bool,  // ⭐ NEW: Method-level mutability (fn method()!)
@@ -276,6 +292,7 @@ pub struct TraitImpl {
 /// Example: struct File impl Reader, Writer { fd: i32, fn read() {...} }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Struct {
+    pub is_exported: bool, // ⭐ NEW: Export visibility
     pub name: String,
     pub type_params: Vec<TypeParam>, // Generic type parameters with bounds: <T: Display>
     pub const_params: Vec<(String, Type)>, // ⭐ NEW: Const params: (N, usize), (SIZE, i32)
@@ -299,6 +316,7 @@ pub struct Field {
 /// Type alias definition: type UserID = u64;
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TypeAlias {
+    pub is_exported: bool, // ⭐ NEW: Export visibility
     pub name: String,
     pub type_params: Vec<TypeParam>, // Generic type parameters with bounds
     pub ty: Type,
@@ -307,6 +325,7 @@ pub struct TypeAlias {
 /// Enum definition (Rust/TS-style sum types)
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Enum {
+    pub is_exported: bool, // ⭐ NEW: Export visibility
     pub name: String,
     pub type_params: Vec<TypeParam>, // Generic type parameters with bounds
     pub variants: Vec<EnumVariant>,
@@ -322,6 +341,7 @@ pub struct EnumVariant {
 /// Constant declaration
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Const {
+    pub is_exported: bool, // ⭐ NEW: Export visibility
     pub name: String,
     pub ty: Option<Type>,
     pub value: Expression,
@@ -357,6 +377,7 @@ pub struct ExternFunction {
 /// Example: trait Logger { fn log(&Self!, msg); fn info(&Self!, msg) {...} }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Trait {
+    pub is_exported: bool, // ⭐ NEW: Export visibility
     pub name: String,
     pub type_params: Vec<TypeParam>, // Generic type parameters with bounds: Converter<T: Display>
     pub super_traits: Vec<String>,   // Trait inheritance: trait A: B, C

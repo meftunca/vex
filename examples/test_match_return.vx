@@ -1,5 +1,5 @@
 // Test match arm return statements
-import { Option } from "core";
+
 
 fn test_match_return(opt: Option<i32>): i32 {
     let result = match opt {

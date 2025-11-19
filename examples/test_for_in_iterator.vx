@@ -1,5 +1,5 @@
 // Test for-in loop with Iterator contract
-import { Iterator, Option } from "core";
+
 
 struct Counter impl Iterator {
     count: i32,

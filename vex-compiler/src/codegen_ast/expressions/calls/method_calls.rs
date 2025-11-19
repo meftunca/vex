@@ -33,16 +33,67 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         "🔍 Module call: {}.{} -> calling global function {}",
                         module_name, method, method
                     );
-                    // Found! Call the function directly
+                    
+                    // Compile arguments first to get their types
                     let mut arg_vals: Vec<BasicMetadataValueEnum> = vec![];
+                    let mut arg_basic_vals: Vec<BasicValueEnum> = vec![];
                     for arg in args {
                         let val = self.compile_expression(arg)?;
                         arg_vals.push(val.into());
+                        arg_basic_vals.push(val);
                     }
 
-                    let fn_val = *self.functions.get(method).ok_or_else(|| {
-                        format!("Module function {} not found in LLVM module", method)
-                    })?;
+                    // ⭐ NEW: Perform overload resolution based on argument types
+                    let fn_val = if !arg_basic_vals.is_empty() {
+                        // Build type suffix from arguments for overload resolution
+                        let mut type_suffix = String::new();
+                        for arg_val in &arg_basic_vals {
+                            let arg_type_enum = arg_val.get_type();
+                            let ast_type = match arg_type_enum {
+                                inkwell::types::BasicTypeEnum::IntType(it) => {
+                                    match it.get_bit_width() {
+                                        8 => Type::I8,
+                                        16 => Type::I16,
+                                        32 => Type::I32,
+                                        64 => Type::I64,
+                                        128 => Type::I128,
+                                        1 => Type::Bool,
+                                        _ => Type::I32,
+                                    }
+                                }
+                                inkwell::types::BasicTypeEnum::FloatType(ft) => {
+                                    if ft == self.context.f32_type() {
+                                        Type::F32
+                                    } else {
+                                        Type::F64
+                                    }
+                                }
+                                inkwell::types::BasicTypeEnum::PointerType(_) => Type::String,
+                                _ => Type::I32, // fallback
+                            };
+                            type_suffix.push_str(&self.generate_type_suffix(&ast_type));
+                        }
+                        
+                        // Try exact match first
+                        let mangled_name = format!("{}{}", method, type_suffix);
+                        eprintln!("🔍 Trying overload: {}", mangled_name);
+                        
+                        if let Some(fn_val) = self.functions.get(&mangled_name) {
+                            eprintln!("✅ Found exact match: {}", mangled_name);
+                            *fn_val
+                        } else {
+                            // Fallback to base name
+                            eprintln!("⚠️ No exact match, trying base name: {}", method);
+                            *self.functions.get(method).ok_or_else(|| {
+                                format!("Module function {} not found in LLVM module", method)
+                            })?
+                        }
+                    } else {
+                        // No arguments, use base name
+                        *self.functions.get(method).ok_or_else(|| {
+                            format!("Module function {} not found in LLVM module", method)
+                        })?
+                    };
 
                     let call_site = self
                         .builder
@@ -115,57 +166,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     }
                     Err(e) => {
                         eprintln!("❌ Static method call failed: {}", e);
-                        // Fall through to other resolution methods
-                    }
-                }
-
-                // Special-case: allow calling an instance method as a static call when
-                // the method is effectively a constructor (returns Self). For example:
-                // Nocontract.test() where test() is declared with a receiver and returns Self.
-                let pascal_method_name = format!("{}_{}", potential_type_name, method);
-                if let Some(func_def) = self.function_defs.get(&pascal_method_name) {
-                    if func_def.receiver.is_some() {
-                        if let Some(ret_ty) = &func_def.return_type {
-                            let is_constructor = matches!(ret_ty, Type::SelfType)
-                                || matches!(ret_ty, Type::Named(name) if name == potential_type_name);
-                            if is_constructor {
-                                // Build a temporary receiver pointer and call the method
-                                if let Some(receiver_param) = &func_def.receiver {
-                                    let receiver_llvm_ty =
-                                        self.ast_type_to_llvm(&receiver_param.ty);
-                                    let receiver_ptr = self
-                                        .builder
-                                        .build_alloca(receiver_llvm_ty, "static_self")
-                                        .map_err(|e| {
-                                            format!(
-                                                "Failed to allocate receiver for static call: {}",
-                                                e
-                                            )
-                                        })?;
-
-                                    let mut arg_vals: Vec<BasicMetadataValueEnum> = vec![];
-                                    arg_vals.push(receiver_ptr.into());
-                                    for arg in args {
-                                        let val = self.compile_expression(arg)?;
-                                        arg_vals.push(val.into());
-                                    }
-
-                                    let fn_val =
-                                        *self.functions.get(&pascal_method_name).ok_or_else(
-                                            || format!("Method {} not found", pascal_method_name),
-                                        )?;
-
-                                    let call_site = self
-                                        .builder
-                                        .build_call(fn_val, &arg_vals, "static_method_call")
-                                        .map_err(|e| {
-                                            format!("Failed to build static method call: {}", e)
-                                        })?;
-
-                                    return Ok(call_site.try_as_basic_value().unwrap_basic());
-                                }
-                            }
-                        }
+                        // Return error instead of falling through
+                        return Err(e);
                     }
                 }
             }

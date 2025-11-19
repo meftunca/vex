@@ -1,9 +1,0 @@
-extern "C" {
-    fn sin(x: f64): f64;
-}
-
-export fn sin_f64(x: f64): f64 { return sin(x); }
-
-fn main() {
-    let x: f64 = sin_f64(0.0);
-}

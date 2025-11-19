@@ -42,8 +42,19 @@ impl<'a> Parser<'a> {
             let mut import_items = Vec::new();
 
             loop {
-                let item = self.consume_identifier()?;
-                import_items.push(item);
+                let item_name = self.consume_identifier()?;
+                
+                // Check for alias: import { a as b }
+                let alias = if self.match_token(&Token::As) {
+                    Some(self.consume_identifier()?)
+                } else {
+                    None
+                };
+
+                import_items.push(ImportItem {
+                    name: item_name,
+                    alias,
+                });
 
                 if !self.match_token(&Token::Comma) {
                     break;

@@ -50,6 +50,7 @@ impl<'a> Parser<'a> {
         self.consume(&Token::RBrace, "Expected '}' after policy fields")?;
 
         Ok(Policy {
+            is_exported: false, // Default to false
             name,
             parent_policies,
             fields,

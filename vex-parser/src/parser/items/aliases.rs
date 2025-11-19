@@ -41,6 +41,7 @@ impl<'a> Parser<'a> {
         self.consume(&Token::Semicolon, "Expected ';' after type alias")?;
 
         Ok(Item::TypeAlias(TypeAlias {
+            is_exported: false, // Default to false
             name,
             type_params,
             ty,

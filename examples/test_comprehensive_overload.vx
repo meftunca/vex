@@ -2,7 +2,7 @@
 // Tests primitive types, generics, references, tuples, arrays
 
 contract Add<Rhs> {
-    fn op+(other: Rhs): Self;
+    op+(other: Rhs): Self;
 }
 
 struct Calculator impl Add<i32>,Add<i64>, Add<f32> , Add<f64> ,Add<bool> {
