@@ -215,7 +215,27 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 }
             };
 
-            self.module.add_function(&fn_name, fn_type, None)
+            // ⭐ LINKAGE TRICK: Control visibility for Dead Code Elimination (DCE)
+            // If LINKAGE_MODE != "EXTERNAL", we make non-exported functions Internal.
+            // Internal functions can be deleted by LLVM if they are not used.
+            // main() is always External.
+            use inkwell::module::Linkage;
+            
+            let linkage_mode = std::env::var("LINKAGE_MODE").unwrap_or_default();
+            let force_external = linkage_mode == "EXTERNAL";
+            
+            let linkage = if fn_name == "main" {
+                Some(Linkage::External)
+            } else if force_external {
+                Some(Linkage::External)
+            } else if func.is_exported {
+                Some(Linkage::External)
+            } else {
+                // "Trick": Make it internal so GlobalDCE can remove it if unused
+                Some(Linkage::Internal)
+            };
+
+            self.module.add_function(&fn_name, fn_type, linkage)
         } else {
             // ⭐ SPECIAL HANDLING: main() must always return i32 (0) for C runtime compatibility
             if fn_name == "main" && !func.is_async {
@@ -225,11 +245,27 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 );
                 let i32_type = self.context.i32_type();
                 let fn_type = i32_type.fn_type(&param_types, is_variadic);
-                self.module.add_function(&fn_name, fn_type, None)
+                self.module.add_function(&fn_name, fn_type, Some(inkwell::module::Linkage::External))
             } else {
                 eprintln!("🟢 Function {} return type: void", fn_name);
                 let fn_type = self.context.void_type().fn_type(&param_types, is_variadic);
-                self.module.add_function(&fn_name, fn_type, None)
+                
+                // ⭐ LINKAGE TRICK (Void functions)
+                use inkwell::module::Linkage;
+                let linkage_mode = std::env::var("LINKAGE_MODE").unwrap_or_default();
+                let force_external = linkage_mode == "EXTERNAL";
+                
+                let linkage = if fn_name == "main" {
+                    Some(Linkage::External)
+                } else if force_external {
+                    Some(Linkage::External)
+                } else if func.is_exported {
+                    Some(Linkage::External)
+                } else {
+                    Some(Linkage::Internal)
+                };
+                
+                self.module.add_function(&fn_name, fn_type, linkage)
             }
         };
 

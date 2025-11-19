@@ -466,7 +466,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 // typeof always returns string
                 Ok(Type::String)
             }
-            Expression::Call { func, .. } => {
+            Expression::Call { func, args, .. } => {
                 // Infer return type of function call
                 match func.as_ref() {
                     Expression::Ident(func_name) => {
@@ -479,7 +479,38 @@ impl<'ctx> ASTCodeGen<'ctx> {
                             return Ok(Type::String);
                         }
 
-                        // Check function definitions we've compiled
+                        // ⭐ NEW: Overload resolution for type inference
+                        // 1. Infer argument types
+                        let mut arg_types = Vec::new();
+                        let mut inference_failed = false;
+                        for arg in args {
+                            if let Ok(ty) = self.infer_expression_type(arg) {
+                                arg_types.push(ty);
+                            } else {
+                                inference_failed = true;
+                                break;
+                            }
+                        }
+
+                        if !inference_failed {
+                            // 2. Generate mangled name: func_arg1_arg2
+                            let mut type_suffix = String::new();
+                            for ty in &arg_types {
+                                type_suffix.push_str(&self.generate_type_suffix(ty));
+                            }
+
+                            let mangled_name = if type_suffix.is_empty() {
+                                func_name.clone()
+                            } else {
+                                format!("{}{}", func_name, type_suffix)
+                            };
+
+                            if let Some(func_def) = self.function_defs.get(&mangled_name) {
+                                return Ok(func_def.return_type.clone().unwrap_or(Type::I32));
+                            }
+                        }
+
+                        // 4. Fallback to base name (last registered overload)
                         if let Some(func_def) = self.function_defs.get(func_name.as_str()) {
                             return Ok(func_def.return_type.clone().unwrap_or(Type::I32));
                         }

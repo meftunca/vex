@@ -25,15 +25,29 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 "🔍 module_namespaces keys: {:?}",
                 self.module_namespaces.keys().collect::<Vec<_>>()
             );
-            // Check if this is a known module namespace
-            if let Some(module_funcs) = self.module_namespaces.get(module_name) {
-                // This is a module namespace, check if the method exists
-                if module_funcs.contains(&method.to_string()) {
+
+            // Check if this is a known module namespace OR a namespace import
+            // If it's a namespace import (import * as math), we treat it as a module call
+            // even if it's not explicitly in module_namespaces (which might happen with aliases)
+            let is_module_namespace = self.module_namespaces.contains_key(module_name);
+            let is_namespace_import = self.namespace_imports.contains_key(module_name);
+
+            if is_module_namespace || is_namespace_import {
+                // Check if method exists in module_namespaces (if available)
+                // If only in namespace_imports, we assume the method exists and let the function lookup fail if not
+                let method_exists =
+                    if let Some(module_funcs) = self.module_namespaces.get(module_name) {
+                        module_funcs.contains(&method.to_string())
+                    } else {
+                        true
+                    };
+
+                if method_exists {
                     eprintln!(
                         "🔍 Module call: {}.{} -> calling global function {}",
                         module_name, method, method
                     );
-                    
+
                     // Compile arguments first to get their types
                     let mut arg_vals: Vec<BasicMetadataValueEnum> = vec![];
                     let mut arg_basic_vals: Vec<BasicValueEnum> = vec![];
@@ -73,11 +87,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
                             };
                             type_suffix.push_str(&self.generate_type_suffix(&ast_type));
                         }
-                        
+
                         // Try exact match first
                         let mangled_name = format!("{}{}", method, type_suffix);
                         eprintln!("🔍 Trying overload: {}", mangled_name);
-                        
+
                         if let Some(fn_val) = self.functions.get(&mangled_name) {
                             eprintln!("✅ Found exact match: {}", mangled_name);
                             *fn_val
@@ -158,8 +172,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 // This is a static method call: Type.method(args) or Vec<i32>.new()
                 // Try static method first; if not found, fall through to instance method
                 // resolution so that inline/instance methods are not shadowed by type name.
-                eprintln!("🔍 Attempting static method call: {}.{}", potential_type_name, method);
-                match self.compile_static_method_call(potential_type_name, method, type_args, args) {
+                eprintln!(
+                    "🔍 Attempting static method call: {}.{}",
+                    potential_type_name, method
+                );
+                match self.compile_static_method_call(potential_type_name, method, type_args, args)
+                {
                     Ok(val) => {
                         eprintln!("✅ Static method call succeeded!");
                         return Ok(val);

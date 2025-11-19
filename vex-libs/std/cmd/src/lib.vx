@@ -1,11 +1,7 @@
-// Command-line argument parsing module
-// Provides access to program arguments (argc/argv)
-
-extern "C" {
-    fn vex_argc(): i32;
-    fn vex_argv(index: i32): str;
-}
-
+import {
+    vex_argc,
+    vex_argv
+} from "./native.vxc";
 // Get total number of command-line arguments (including program name)
 export fn argc(): i32 {
     return vex_argc();

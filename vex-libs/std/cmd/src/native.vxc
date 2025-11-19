@@ -1,0 +1,7 @@
+// Command-line argument parsing module
+// Provides access to program arguments (argc/argv)
+
+extern "C" {
+  export  fn vex_argc(): i32;
+   export fn vex_argv(index: i32): str;
+}

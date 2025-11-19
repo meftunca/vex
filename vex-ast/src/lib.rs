@@ -37,7 +37,7 @@ impl Program {
             self.imports.insert(0, import);
         }
     }
-    
+
     /// Auto-import standard contracts (Phase 2: Contract-based prelude)
     /// Injects common contracts like Collection, Stack, Drop, Clone, etc.
     /// These are available globally without explicit import
@@ -46,27 +46,75 @@ impl Program {
         let contract_import = Import {
             kind: ImportKind::Named,
             items: vec![
-                ImportItem { name: "Collection".to_string(), alias: None },
-                ImportItem { name: "Stack".to_string(), alias: None },
-                ImportItem { name: "Queue".to_string(), alias: None },
-                ImportItem { name: "Indexable".to_string(), alias: None },
-                ImportItem { name: "SmartPointer".to_string(), alias: None },
-                ImportItem { name: "RefCounted".to_string(), alias: None },
-                ImportItem { name: "Drop".to_string(), alias: None },
-                ImportItem { name: "Clone".to_string(), alias: None },
-                ImportItem { name: "Display".to_string(), alias: None },
-                ImportItem { name: "Debug".to_string(), alias: None },
-                ImportItem { name: "Default".to_string(), alias: None },
-                ImportItem { name: "From".to_string(), alias: None },
-                ImportItem { name: "Into".to_string(), alias: None },
-                ImportItem { name: "Eq".to_string(), alias: None },
-                ImportItem { name: "Ord".to_string(), alias: None },
-                ImportItem { name: "Hash".to_string(), alias: None },
+                ImportItem {
+                    name: "Collection".to_string(),
+                    alias: None,
+                },
+                ImportItem {
+                    name: "Stack".to_string(),
+                    alias: None,
+                },
+                ImportItem {
+                    name: "Queue".to_string(),
+                    alias: None,
+                },
+                ImportItem {
+                    name: "Indexable".to_string(),
+                    alias: None,
+                },
+                ImportItem {
+                    name: "SmartPointer".to_string(),
+                    alias: None,
+                },
+                ImportItem {
+                    name: "RefCounted".to_string(),
+                    alias: None,
+                },
+                ImportItem {
+                    name: "Drop".to_string(),
+                    alias: None,
+                },
+                ImportItem {
+                    name: "Clone".to_string(),
+                    alias: None,
+                },
+                ImportItem {
+                    name: "Display".to_string(),
+                    alias: None,
+                },
+                ImportItem {
+                    name: "Debug".to_string(),
+                    alias: None,
+                },
+                ImportItem {
+                    name: "Default".to_string(),
+                    alias: None,
+                },
+                ImportItem {
+                    name: "From".to_string(),
+                    alias: None,
+                },
+                ImportItem {
+                    name: "Into".to_string(),
+                    alias: None,
+                },
+                ImportItem {
+                    name: "Eq".to_string(),
+                    alias: None,
+                },
+                ImportItem {
+                    name: "Ord".to_string(),
+                    alias: None,
+                },
+                ImportItem {
+                    name: "Hash".to_string(),
+                    alias: None,
+                },
             ],
             module: "std/contracts".to_string(),
             alias: None,
         };
-        
+
         // Insert after core prelude (5 core modules)
         self.imports.insert(5, contract_import);
     }
@@ -175,8 +223,8 @@ pub struct ImportItem {
 pub struct Import {
     pub kind: ImportKind,
     pub items: Vec<ImportItem>, // Changed from Vec<String>
-    pub module: String,        // Module path
-    pub alias: Option<String>, // For namespace imports or renaming
+    pub module: String,         // Module path
+    pub alias: Option<String>,  // For namespace imports or renaming
 }
 
 /// Export item: { name, alias }
@@ -191,7 +239,7 @@ pub struct ExportItem {
 pub struct Export {
     pub items: Vec<ExportItem>,      // Changed from Vec<String>
     pub from_module: Option<String>, // For re-export: export { Arc } from "./arc.vx"
-    pub is_wildcard: bool,       // For export * from "./module.vx"
+    pub is_wildcard: bool,           // For export * from "./module.vx"
 }
 
 /// Policy declaration: policy APIModel { id `json:"id"`, name `json:"name"` }
@@ -1031,7 +1079,16 @@ mod tests {
         let program = Program {
             imports: vec![Import {
                 kind: ImportKind::Named,
-                items: vec!["io".to_string(), "log".to_string()],
+                items: vec![
+                    ImportItem {
+                        name: "io".to_string(),
+                        alias: None,
+                    },
+                    ImportItem {
+                        name: "log".to_string(),
+                        alias: None,
+                    },
+                ],
                 module: "std".to_string(),
                 alias: None,
             }],

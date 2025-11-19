@@ -98,7 +98,8 @@ test_file() {
        [[ "$file" == *"test_borrow_diagnostic"* ]] || \
        [[ "$file" == *"test_immutable_violation"* ]] || \
        [[ "$file" == *"test_error_recovery"* ]] || \
-       [[ "$file" == *"test_import_export_complete"* ]]; then
+       [[ "$file" == *"test_func_downcast"* ]] || \
+       [[ "$file" == *"test_downcast_errors"* ]]; then
         output=$(timeout 10s "$vex_bin" run "$file" 2>&1)
         exit_code=$?
         if [ $exit_code -eq 124 ]; then

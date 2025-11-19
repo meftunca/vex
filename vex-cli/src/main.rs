@@ -529,7 +529,37 @@ fn main() -> Result<()> {
                     // We need to queue native.vxc for processing too (JavaScript semantics)
                     // Use the loaded module's file path for relative import resolution
                     for sub_import in &module_ast.imports {
-                        let sub_module_path = sub_import.module.clone();
+                        let mut sub_module_path = sub_import.module.clone();
+                        let mut sub_import_clone = sub_import.clone();
+
+                        // FIX: Rewrite relative imports in stdlib to canonical paths
+                        // This prevents ambiguity and context loss in the flat import list
+                        // e.g. "./native.vxc" in "cmd" -> "cmd/src/native.vxc"
+                        if sub_module_path.starts_with("./") || sub_module_path.starts_with("../") {
+                            let parent_path = std::path::Path::new(&loaded_module_file)
+                                .parent()
+                                .unwrap_or(std::path::Path::new("."));
+                            let resolved_path = parent_path.join(&sub_module_path);
+
+                            // Try to canonicalize to resolve .. and .
+                            // Only if file exists (it should for valid imports)
+                            if let Ok(abs_path) = std::fs::canonicalize(&resolved_path) {
+                                // Check if inside stdlib
+                                let std_lib_path = std::fs::canonicalize("vex-libs/std")
+                                    .unwrap_or(PathBuf::from("vex-libs/std"));
+
+                                if abs_path.starts_with(&std_lib_path) {
+                                    if let Ok(rel_path) = abs_path.strip_prefix(&std_lib_path) {
+                                        let new_module_path =
+                                            rel_path.to_string_lossy().to_string();
+                                        // Replace \ with / for consistency
+                                        sub_module_path = new_module_path.replace("\\", "/");
+                                        sub_import_clone.module = sub_module_path.clone();
+                                        // eprintln!("   ✨ Rewrote relative import {} -> {}", sub_import.module, sub_module_path);
+                                    }
+                                }
+                            }
+                        }
 
                         // Check if already queued or processed
                         let already_imported =
@@ -543,7 +573,7 @@ fn main() -> Result<()> {
                             // Store the parent file path for this import
                             import_parent_files
                                 .insert(sub_module_path.clone(), loaded_module_file.clone());
-                            sub_imports_to_add.push(sub_import.clone());
+                            sub_imports_to_add.push(sub_import_clone);
                         }
                     }
 
@@ -1180,7 +1210,37 @@ fn main() -> Result<()> {
                     // We need to queue native.vxc for processing too (JavaScript semantics)
                     // Use the loaded module's file path for relative import resolution
                     for sub_import in &module_ast.imports {
-                        let sub_module_path = sub_import.module.clone();
+                        let mut sub_module_path = sub_import.module.clone();
+                        let mut sub_import_clone = sub_import.clone();
+
+                        // FIX: Rewrite relative imports in stdlib to canonical paths
+                        // This prevents ambiguity and context loss in the flat import list
+                        // e.g. "./native.vxc" in "cmd" -> "cmd/src/native.vxc"
+                        if sub_module_path.starts_with("./") || sub_module_path.starts_with("../") {
+                            let parent_path = std::path::Path::new(&loaded_module_file)
+                                .parent()
+                                .unwrap_or(std::path::Path::new("."));
+                            let resolved_path = parent_path.join(&sub_module_path);
+
+                            // Try to canonicalize to resolve .. and .
+                            // Only if file exists (it should for valid imports)
+                            if let Ok(abs_path) = std::fs::canonicalize(&resolved_path) {
+                                // Check if inside stdlib
+                                let std_lib_path = std::fs::canonicalize("vex-libs/std")
+                                    .unwrap_or(PathBuf::from("vex-libs/std"));
+
+                                if abs_path.starts_with(&std_lib_path) {
+                                    if let Ok(rel_path) = abs_path.strip_prefix(&std_lib_path) {
+                                        let new_module_path =
+                                            rel_path.to_string_lossy().to_string();
+                                        // Replace \ with / for consistency
+                                        sub_module_path = new_module_path.replace("\\", "/");
+                                        sub_import_clone.module = sub_module_path.clone();
+                                        // eprintln!("   ✨ Rewrote relative import {} -> {}", sub_import.module, sub_module_path);
+                                    }
+                                }
+                            }
+                        }
 
                         // Check if already queued or processed
                         let already_imported =
@@ -1194,7 +1254,7 @@ fn main() -> Result<()> {
                             // Store the parent file path for this import
                             import_parent_files
                                 .insert(sub_module_path.clone(), loaded_module_file.clone());
-                            sub_imports_to_add.push(sub_import.clone());
+                            sub_imports_to_add.push(sub_import_clone);
                         }
                     }
 

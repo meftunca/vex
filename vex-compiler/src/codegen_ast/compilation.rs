@@ -52,9 +52,50 @@ impl<'ctx> super::ASTCodeGen<'ctx> {
             )
             .ok_or("Failed to create target machine")?;
 
+        // ⭐ Run optimizations before code generation
+        self.optimize_module(opt_level, &target_machine)?;
+
         target_machine
             .write_to_file(&self.module, FileType::Object, output_path)
             .map_err(|e| format!("Failed to write object file: {}", e))
+    }
+
+    /// Optimize the module using LLVM PassManager (New Pass Manager for LLVM 16+)
+    /// This enables Dead Code Elimination (DCE) and other optimizations
+    pub fn optimize_module(
+        &self,
+        opt_level: OptimizationLevel,
+        target_machine: &TargetMachine,
+    ) -> Result<(), String> {
+        use inkwell::passes::PassBuilderOptions;
+
+        // Use LLVM's standard optimization pipelines
+        // These include all appropriate passes including DCE for each optimization level
+        let pipeline = match opt_level {
+            OptimizationLevel::None => {
+                // No optimizations
+                return Ok(());
+            }
+            OptimizationLevel::Less => {
+                // O1: Basic optimizations
+                "default<O1>"
+            }
+            OptimizationLevel::Default => {
+                // O2: Standard optimizations (includes GlobalDCE, DeadArgElim, etc.)
+                "default<O2>"
+            }
+            OptimizationLevel::Aggressive => {
+                // O3: Aggressive optimizations
+                "default<O3>"
+            }
+        };
+
+        // Run the optimization pipeline
+        self.module
+            .run_passes(pipeline, target_machine, PassBuilderOptions::create())
+            .map_err(|e| format!("Failed to run optimization passes: {}", e))?;
+
+        Ok(())
     }
 
     pub fn verify_and_print(&self) -> Result<(), String> {

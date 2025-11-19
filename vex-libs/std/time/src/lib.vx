@@ -1,69 +1,33 @@
-// std/time lib - Vex wrapper around native high-performance vex_time C runtime
-// v0.1.2 syntax (no ::, Go-style API surface adapted for Vex)
-
-// Basic native types (outside extern)
-type VexDuration = i64; // nanoseconds
-struct VexInstant { unix_sec: i64, nsec: i32, _pad: i32 }
-struct VexTime { wall: VexInstant, mono_ns: u64 }
-type VexTz = *u8; // opaque timezone pointer
-
-extern "C" {
-
-	fn vt_now(out: *VexTime);
-	fn vt_monotonic_now_ns(): u64;
-	fn vt_instant_from_unix(sec: i64, nsec: i32): VexInstant;
-	fn vt_instant_to_unix(t: VexInstant, sec: *i64, nsec: *i32);
-
-	fn vt_parse_duration(s: *u8, out_ns: *VexDuration): i32;
-	fn vt_format_duration(ns: VexDuration, buf: *u8, buflen: u64): i32;
-
-	fn vt_add(t: VexTime, d: VexDuration): VexTime;
-	fn vt_sub(t: VexTime, u: VexTime): VexDuration;
-	fn vt_since(t: VexTime): VexDuration;
-	fn vt_until(t: VexTime): VexDuration;
-
-	fn vt_sleep_ns(ns: VexDuration): i32;
-
-	fn vt_format_rfc3339_utc(t: VexInstant, buf: *u8, buflen: u64): i32;
-	fn vt_parse_rfc3339(s: *u8, out: *VexInstant): i32;
-
-	fn vt_tz_set_dir(path: *u8);
-	fn vt_tz_utc(): VexTz;
-	fn vt_tz_fixed(name: *u8, offset_sec: i32): VexTz;
-	fn vt_tz_local(): VexTz;
-	fn vt_tz_load(name: *u8): VexTz;
-	fn vt_tz_load_from_memory(name: *u8, tzif: *u8, len: u64): VexTz;
-	fn vt_tz_release(tz: VexTz);
-	fn vt_tz_offset_at(tz: VexTz, utc: VexInstant, offset_sec: *i32, abbr: *u8): i32;
-	fn vt_utc_to_tz(tz: VexTz, utc: VexInstant): VexInstant;
-
-	fn vt_instant_date(t: VexInstant, year: *i32, month: *i32, day: *i32, hour: *i32, minute: *i32, second: *i32, nsec: *i32);
-	fn vt_instant_clock(t: VexInstant, hour: *i32, minute: *i32, second: *i32);
-	fn vt_instant_yearday(t: VexInstant): i32;
-	fn vt_instant_weekday(t: VexInstant): i32; // 0=Sunday
-	fn vt_instant_isoweek(t: VexInstant, iso_year: *i32): i32; // returns week
-
-	fn vt_instant_compare(a: VexInstant, b: VexInstant): i32; // -1,0,1
-	fn vt_instant_equal(a: VexInstant, b: VexInstant): i32;
-	fn vt_instant_before(a: VexInstant, b: VexInstant): i32;
-	fn vt_instant_after(a: VexInstant, b: VexInstant): i32;
-
-	fn vt_instant_truncate(t: VexInstant, d: VexDuration): VexInstant;
-	fn vt_instant_round(t: VexInstant, d: VexDuration): VexInstant;
-	fn vt_instant_unix_milli(t: VexInstant): i64;
-	fn vt_instant_unix_micro(t: VexInstant): i64;
-
-	fn vt_format_go(utc: VexInstant, tz: VexTz, layout: *u8, out: *u8, outlen: u64): i32;
-	fn vt_parse_go(layout: *u8, value: *u8, tz: VexTz, out: *VexInstant): i32;
-}
-
-// ==== High-level Vex types ====
-
-export struct Duration { ns: i64 }
-export struct Instant { inner: VexInstant }
-export struct Time { inner: VexTime }
-export struct Location { tz: VexTz }
-
+import {
+		VexTime,
+		VexInstant,
+		VexTz,
+		vt_now,
+		vt_monotonic_now_ns,
+		vt_instant_from_unix,
+		vt_parse_duration,
+		vt_add,
+		vt_sub,
+		vt_since,
+		vt_until,
+		vt_sleep_ns,
+		vt_parse_rfc3339,
+		vt_tz_utc,
+		vt_tz_local,
+		vt_tz_fixed,
+		vt_tz_load,
+		vt_parse_go,
+		vt_instant_weekday,
+		vt_instant_yearday,
+		vt_instant_compare,
+		vt_instant_before,
+		vt_instant_after,
+		vt_instant_equal,
+		vt_instant_truncate,
+		vt_instant_round,
+		vt_instant_unix_milli,
+		vt_instant_unix_micro
+} from "./native.vxc";
 // ==== Constructors & basics ====
 
 export fn now(): Time {

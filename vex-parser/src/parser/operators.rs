@@ -544,7 +544,11 @@ impl<'a> Parser<'a> {
                         // Generic if followed by: >, comma, type markers, or nested <
                         matches!(
                             next,
-                            Token::Gt | Token::Comma | Token::LBracket | Token::Ampersand | Token::Lt
+                            Token::Gt
+                                | Token::Comma
+                                | Token::LBracket
+                                | Token::Ampersand
+                                | Token::Lt
                         )
                     } else {
                         looks_like_type
