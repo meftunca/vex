@@ -23,11 +23,11 @@ fn main(): i32 {
     let val2 = map.get("go");
     let val3 = map.get("vex");
     
-    print("rust -> ");
+    print("rust : ");
     println(val1);
-    print("go -> ");
+    print("go : ");
     println(val2);
-    print("vex -> ");
+    print("vex : ");
     println(val3);
     
     println("=== All method syntax works! ===");

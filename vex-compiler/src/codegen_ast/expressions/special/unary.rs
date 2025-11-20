@@ -11,6 +11,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         &mut self,
         op: &UnaryOp,
         expr: &Expression,
+        expected_type: Option<&Type>,
     ) -> Result<BasicValueEnum<'ctx>, String> {
         // ⭐ NEW: Operator Overloading - Check for user-defined unary operators
         if let Ok(expr_type) = self.infer_expression_type(expr) {
@@ -36,7 +37,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
         }
 
         // Fallback: Builtin unary operations
-        let val = self.compile_expression(expr)?;
+        // For negation, pass expected_type to support target-typed literals
+        let val = if matches!(op, UnaryOp::Neg) {
+            self.compile_expression_with_type(expr, expected_type)?
+        } else {
+            self.compile_expression(expr)?
+        };
 
         match op {
             UnaryOp::Neg => {

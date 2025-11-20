@@ -102,6 +102,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             module_namespaces: HashMap::new(),
             namespace_imports: HashMap::new(), // ⭐ NEW: Namespace import aliases
             module_constants: HashMap::new(),  // ⭐ NEW: Module constant registry
+            module_constant_types: HashMap::new(), // ⭐ NEW: Module constant type tracking
             builtins: BuiltinRegistry::new(),
             current_function: None,
             current_function_return_type: None,
@@ -115,7 +116,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             last_compiled_tuple_type: None,
             last_compiled_array_ptr: None,
             current_method_is_mutable: false, // ⭐ NEW: Default to immutable
-            is_in_unsafe_block: false, // ⭐ NEW: Default to safe context
+            is_in_unsafe_block: false,        // ⭐ NEW: Default to safe context
             diagnostics: DiagnosticEngine::new(), // Initialize diagnostic engine
             span_map,                         // ⭐ NEW: Store span map from parser
             trait_bounds_checker: None,       // ⭐ NEW: Initialized in compile_program

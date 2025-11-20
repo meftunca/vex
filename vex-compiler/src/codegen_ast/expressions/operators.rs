@@ -16,9 +16,46 @@ impl<'ctx> ASTCodeGen<'ctx> {
             return Ok(result);
         }
 
-        // Compile left and right operands with expected type for literal inference
-        let left_val = self.compile_expression_with_type(left, expected_type)?;
-        let right_val = self.compile_expression_with_type(right, expected_type)?;
+        // Smart literal compilation: If one operand is a literal and the other is typed,
+        // use the typed operand's type for the literal
+        let left_is_literal = matches!(
+            left,
+            vex_ast::Expression::IntLiteral(_)
+                | vex_ast::Expression::FloatLiteral(_)
+                | vex_ast::Expression::BigIntLiteral(_)
+        );
+        let right_is_literal = matches!(
+            right,
+            vex_ast::Expression::IntLiteral(_)
+                | vex_ast::Expression::FloatLiteral(_)
+                | vex_ast::Expression::BigIntLiteral(_)
+        );
+
+        // Infer types early to avoid lifetime issues
+        let inferred_left_type = if right_is_literal && !left_is_literal {
+            self.infer_expression_type(left).ok()
+        } else {
+            None
+        };
+        let inferred_right_type = if left_is_literal && !right_is_literal {
+            self.infer_expression_type(right).ok()
+        } else {
+            None
+        };
+
+        let (left_expected, right_expected) = if expected_type.is_some() {
+            (expected_type, expected_type)
+        } else if left_is_literal && inferred_right_type.is_some() {
+            (inferred_right_type.as_ref(), None)
+        } else if right_is_literal && inferred_left_type.is_some() {
+            (None, inferred_left_type.as_ref())
+        } else {
+            (None, None)
+        };
+
+        // Compile left and right operands with inferred/expected types
+        let left_val = self.compile_expression_with_type(left, left_expected)?;
+        let right_val = self.compile_expression_with_type(right, right_expected)?;
 
         // Load operands if they are pointers to structs/enums
         let (left_val, right_val) =
@@ -32,7 +69,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 let right_ast_type = self.infer_expression_type(right)?;
 
                 // Align integer widths with AST type awareness
-                let (l, r) = self.align_integer_widths_with_ast(*l, *r, &left_ast_type, &right_ast_type)?;
+                let (l, r) =
+                    self.align_integer_widths_with_ast(*l, *r, &left_ast_type, &right_ast_type)?;
                 match op {
                     vex_ast::BinaryOp::Pow => self.compile_int_power(l, r),
                     _ => self.compile_integer_binary_op_with_expected(l, r, op, expected_type),
@@ -84,8 +122,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
         &mut self,
         op: &vex_ast::UnaryOp,
         expr: &vex_ast::Expression,
+        expected_type: Option<&vex_ast::Type>,
     ) -> Result<BasicValueEnum<'ctx>, String> {
-        self.compile_unary_op(op, expr)
+        self.compile_unary_op(op, expr, expected_type)
     }
 
     /// Compile postfix operations

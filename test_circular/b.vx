@@ -1,6 +1,6 @@
 import { bar } from "./a.vx";
 
-fn foo() -> i32 {
+fn foo() : i32 {
     bar()
 }
 

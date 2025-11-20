@@ -207,7 +207,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
                             if matches {
                                 let mut imported_item = item.clone();
-                                
+
                                 // Handle renaming: export { x as y }
                                 if let Some(alias) = &export_item.alias {
                                     match &mut imported_item {
@@ -219,7 +219,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                         _ => {}
                                     }
                                 }
-                                
+
                                 imported_items.push(imported_item);
                                 break;
                             }
@@ -276,7 +276,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
             // Helper to get alias for imported item
             let get_import_alias = |item_name: &str| -> Option<String> {
                 if let ImportKind::Named = &import.kind {
-                     import.items.iter().find(|i| i.name == item_name).and_then(|i| i.alias.clone())
+                    import
+                        .items
+                        .iter()
+                        .find(|i| i.name == item_name)
+                        .and_then(|i| i.alias.clone())
                 } else {
                     None
                 }
@@ -348,7 +352,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                     }
                                 }
                             }
-                            
+
                             eprintln!(
                                 "   📦 Importing static method: {}.{} (is_static={})",
                                 func.static_type.as_ref().unwrap_or(&"?".to_string()),
@@ -1083,16 +1087,29 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
             // For inline methods, use param_count=2, for external use param_count=1
             let eq_method_name = if is_external {
-                // External: Point_opeq_Point_1 (has type suffix)
-                // Try to find the actual method name
+                // External: Point_opeq_Point_1 or Point_opeq_Point_1_Point (has type suffix)
+                // Try to find the actual method name - check both LLVM module and self.functions
                 let base_name = format!("{}_opeq", type_name);
 
-                // Search for method with type suffix
+                // First, search in LLVM module (already compiled functions)
                 let mut found_name = None;
-                for (name, _) in &self.functions {
-                    if name.starts_with(&base_name) {
-                        found_name = Some(name.clone());
+
+                // Try common patterns: Point_opeq_Point_1_Point, Point_opeq_Point_1
+                for suffix in &["_Point", ""] {
+                    let candidate = format!("{}_Point_1{}", base_name, suffix);
+                    if self.module.get_function(&candidate).is_some() {
+                        found_name = Some(candidate);
                         break;
+                    }
+                }
+
+                // Fallback: search all functions starting with base_name
+                if found_name.is_none() {
+                    for (name, _) in &self.functions {
+                        if name.starts_with(&base_name) && name.contains("_Point_1") {
+                            found_name = Some(name.clone());
+                            break;
+                        }
                     }
                 }
 

@@ -1,0 +1,4 @@
+fn main() {
+    let t: (i8, i16) = (5, 1000);
+    println("Tuple elements should be i8 and i16");
+}

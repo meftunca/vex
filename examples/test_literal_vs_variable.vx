@@ -1,7 +1,7 @@
 fn main() {
     // Test 1: Literal narrowing - should work (value known at compile time)
-    let small: i8 = 127;  // ✅ i32 literal -> i8 (safe, value is 127)
-    let ubyte: u8 = 255;   // ✅ i32 literal -> u8 (safe, value is 255)
+    let small: i8 = 127;  // ✅ i32 literal : i8 (safe, value is 127)
+    let ubyte: u8 = 255;   // ✅ i32 literal : u8 (safe, value is 255)
     print("Test 1: Literal narrowing OK\n");
     
     // Test 2: Variable narrowing - should error

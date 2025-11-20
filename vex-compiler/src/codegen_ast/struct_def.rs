@@ -103,6 +103,11 @@ pub struct ASTCodeGen<'ctx> {
     // Stores compiled constant values from imported modules
     // Key format: "module_name::CONST_NAME" or direct "CONST_NAME"
     pub(crate) module_constants: HashMap<String, BasicValueEnum<'ctx>>,
+    
+    // ⭐ NEW: Module constant type tracking
+    // Stores AST types for module constants for proper type inference
+    // Used by infer_expression_type() for namespace access (math.PI)
+    pub(crate) module_constant_types: HashMap<String, Type>,
 
     // Builtin functions registry
     pub(crate) builtins: BuiltinRegistry<'ctx>,

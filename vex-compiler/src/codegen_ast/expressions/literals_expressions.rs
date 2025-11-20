@@ -21,38 +21,104 @@ impl<'ctx> ASTCodeGen<'ctx> {
         match expr {
             vex_ast::Expression::IntLiteral(n) => {
                 // Target-typed: infer from expected type if available
-                eprintln!("🔍 IntLiteral({}) expected_type: {:?}", n, expected_type);
                 if let Some(expected) = expected_type {
+                    // Validate that literal value fits in target type
+                    // Note: For negative literals like -128, the unary negation is handled separately
+                    // This validates the positive part (128), and negation applies after
+                    let value = *n;
                     match expected {
                         vex_ast::Type::I8 => {
-                            return Ok(self.context.i8_type().const_int(*n as u64, true).into())
+                            // Allow both positive values in range and values that become valid after negation
+                            if value > 127 && value != 128 {
+                                return Err(format!(
+                                    "integer literal {} is out of range for type i8 (range: -128 to 127)",
+                                    value
+                                ));
+                            }
+                            return Ok(self.context.i8_type().const_int(value as u64, true).into());
                         }
                         vex_ast::Type::I16 => {
-                            return Ok(self.context.i16_type().const_int(*n as u64, true).into())
+                            if value > 32767 && value != 32768 {
+                                return Err(format!(
+                                    "integer literal {} is out of range for type i16 (range: -32768 to 32767)",
+                                    value
+                                ));
+                            }
+                            return Ok(self.context.i16_type().const_int(value as u64, true).into());
                         }
                         vex_ast::Type::I32 => {
-                            return Ok(self.context.i32_type().const_int(*n as u64, true).into())
+                            return Ok(self.context.i32_type().const_int(value as u64, true).into())
                         }
                         vex_ast::Type::I64 => {
-                            return Ok(self.context.i64_type().const_int(*n as u64, true).into())
+                            return Ok(self.context.i64_type().const_int(value as u64, true).into())
                         }
                         vex_ast::Type::I128 => {
-                            return Ok(self.context.i128_type().const_int(*n as u64, true).into())
+                            return Ok(self
+                                .context
+                                .i128_type()
+                                .const_int(value as u64, true)
+                                .into())
                         }
                         vex_ast::Type::U8 => {
-                            return Ok(self.context.i8_type().const_int(*n as u64, false).into())
+                            if value < 0 || value > 255 {
+                                return Err(format!(
+                                    "integer literal {} is out of range for type u8 (range: 0 to 255)",
+                                    value
+                                ));
+                            }
+                            return Ok(self.context.i8_type().const_int(value as u64, false).into());
                         }
                         vex_ast::Type::U16 => {
-                            return Ok(self.context.i16_type().const_int(*n as u64, false).into())
+                            if value < 0 || value > 65535 {
+                                return Err(format!(
+                                    "integer literal {} is out of range for type u16 (range: 0 to 65535)",
+                                    value
+                                ));
+                            }
+                            return Ok(self
+                                .context
+                                .i16_type()
+                                .const_int(value as u64, false)
+                                .into());
                         }
                         vex_ast::Type::U32 => {
-                            return Ok(self.context.i32_type().const_int(*n as u64, false).into())
+                            if value < 0 {
+                                return Err(format!(
+                                    "integer literal {} is out of range for type u32 (range: 0 to 4294967295)",
+                                    value
+                                ));
+                            }
+                            return Ok(self
+                                .context
+                                .i32_type()
+                                .const_int(value as u64, false)
+                                .into());
                         }
                         vex_ast::Type::U64 => {
-                            return Ok(self.context.i64_type().const_int(*n as u64, false).into())
+                            if value < 0 {
+                                return Err(format!(
+                                    "integer literal {} is out of range for type u64 (range: 0 to 18446744073709551615)",
+                                    value
+                                ));
+                            }
+                            return Ok(self
+                                .context
+                                .i64_type()
+                                .const_int(value as u64, false)
+                                .into());
                         }
                         vex_ast::Type::U128 => {
-                            return Ok(self.context.i128_type().const_int(*n as u64, false).into())
+                            if value < 0 {
+                                return Err(format!(
+                                    "integer literal {} is out of range for type u128 (must be non-negative)",
+                                    value
+                                ));
+                            }
+                            return Ok(self
+                                .context
+                                .i128_type()
+                                .const_int(value as u64, false)
+                                .into());
                         }
                         _ => {} // Fall through to default i32
                     }
@@ -159,7 +225,26 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }
 
             vex_ast::Expression::BigIntLiteral(s) => {
-                // Parse large integer literals for i128/u128
+                // Handle large integer literals that don't fit in i64
+                // These can be target-typed to u64 or i128/u128
+                if let Some(expected) = expected_type {
+                    match expected {
+                        vex_ast::Type::U64 => {
+                            // Parse as u64 for large unsigned values
+                            if let Ok(value) = s.parse::<u64>() {
+                                return Ok(self.context.i64_type().const_int(value, false).into());
+                            }
+                        }
+                        vex_ast::Type::I128 | vex_ast::Type::U128 => {
+                            // Parse as i128/u128
+                            // Fall through to default i128 handling below
+                        }
+                        _ => {}
+                    }
+                }
+
+                // Default: i128
+                // Parse the bigint string
                 // Remove any prefix (0x, 0b, 0o) and parse accordingly
                 if s.starts_with("0x") || s.starts_with("0X") {
                     // Hexadecimal
@@ -219,6 +304,19 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }
 
             vex_ast::Expression::FloatLiteral(f) => {
+                // Target-typed: compile to f32 if expected type is f32
+                if let Some(expected) = expected_type {
+                    match expected {
+                        vex_ast::Type::F32 => {
+                            return Ok(self.context.f32_type().const_float(*f).into())
+                        }
+                        vex_ast::Type::F64 => {
+                            return Ok(self.context.f64_type().const_float(*f).into())
+                        }
+                        _ => {} // Fall through to default f64
+                    }
+                }
+                // Default: f64
                 Ok(self.context.f64_type().const_float(*f).into())
             }
 

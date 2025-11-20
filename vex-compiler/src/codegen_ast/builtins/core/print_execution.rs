@@ -401,36 +401,62 @@ fn convert_to_vex_value_typed<'ctx>(
             .build_call(helper_fn, &[], "vex_value_nil_call")
             .map_err(|e| format!("Failed to call vex_value_nil: {}", e))?
     } else {
-        // Auto-cast value to match helper function signature (e.g., i64 → i32 for vex_value_i32)
-        let casted_val = if let BasicValueEnum::IntValue(int_val) = val {
-            let helper_param_types = helper_fn.get_type().get_param_types();
-            if let Some(inkwell::types::BasicMetadataTypeEnum::IntType(target_int_ty)) =
-                helper_param_types.first()
-            {
-                if int_val.get_type().get_bit_width() != target_int_ty.get_bit_width() {
-                    if int_val.get_type().get_bit_width() > target_int_ty.get_bit_width() {
-                        // Truncate: i64 → i32
-                        codegen
-                            .builder
-                            .build_int_truncate(int_val, *target_int_ty, "trunc_for_print")
-                            .map_err(|e| format!("Failed to truncate for print: {}", e))?
-                            .into()
+        // Auto-cast value to match helper function signature
+        // Integer: i64 → i32, i32 → i64, etc.
+        // Float: f64 → f32, f32 → f64
+        let casted_val = match val {
+            BasicValueEnum::IntValue(int_val) => {
+                let helper_param_types = helper_fn.get_type().get_param_types();
+                if let Some(inkwell::types::BasicMetadataTypeEnum::IntType(target_int_ty)) =
+                    helper_param_types.first()
+                {
+                    if int_val.get_type().get_bit_width() != target_int_ty.get_bit_width() {
+                        if int_val.get_type().get_bit_width() > target_int_ty.get_bit_width() {
+                            // Truncate: i64 → i32
+                            codegen
+                                .builder
+                                .build_int_truncate(int_val, *target_int_ty, "trunc_for_print")
+                                .map_err(|e| format!("Failed to truncate for print: {}", e))?
+                                .into()
+                        } else {
+                            // Extend: i32 → i64
+                            codegen
+                                .builder
+                                .build_int_s_extend(int_val, *target_int_ty, "ext_for_print")
+                                .map_err(|e| format!("Failed to extend for print: {}", e))?
+                                .into()
+                        }
                     } else {
-                        // Extend: i32 → i64
-                        codegen
-                            .builder
-                            .build_int_s_extend(int_val, *target_int_ty, "ext_for_print")
-                            .map_err(|e| format!("Failed to extend for print: {}", e))?
-                            .into()
+                        val
                     }
                 } else {
                     val
                 }
-            } else {
-                val
             }
-        } else {
-            val
+            BasicValueEnum::FloatValue(float_val) => {
+                let helper_param_types = helper_fn.get_type().get_param_types();
+                if let Some(inkwell::types::BasicMetadataTypeEnum::FloatType(target_float_ty)) =
+                    helper_param_types.first()
+                {
+                    let src_kind = float_val.get_type();
+                    let target_kind = *target_float_ty;
+
+                    // Check if types differ (f32 vs f64)
+                    if src_kind != target_kind {
+                        // Cast float: f64 → f32 or f32 → f64
+                        codegen
+                            .builder
+                            .build_float_cast(float_val, target_kind, "float_cast_for_print")
+                            .map_err(|e| format!("Failed to cast float for print: {}", e))?
+                            .into()
+                    } else {
+                        val
+                    }
+                } else {
+                    val
+                }
+            }
+            _ => val,
         };
 
         codegen

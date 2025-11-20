@@ -49,6 +49,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
         // This allows field_access to resolve math.PI without loading from global
         self.module_constants.insert(const_decl.name.clone(), value);
 
+        // ⭐ NEW: Store AST type for proper type inference in println() etc.
+        if let Some(ref ty) = const_decl.ty {
+            self.module_constant_types
+                .insert(const_decl.name.clone(), ty.clone());
+        }
+
         Ok(())
     }
 }

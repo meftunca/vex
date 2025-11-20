@@ -1,0 +1,5 @@
+struct Point { x: i8, y: i8 }
+fn main() {
+    let p = Point { x: 10, y: 20 };
+    println("Struct field literals should be i8");
+}

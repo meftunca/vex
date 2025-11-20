@@ -1,0 +1,7 @@
+// Test: Overflow errors should be caught
+fn main() {
+    // This should error: 300 > 127 (max i8)
+    let overflow_i8: i8 = 300;
+    
+    println("Should not reach here");
+}

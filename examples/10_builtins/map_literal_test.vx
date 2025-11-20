@@ -2,10 +2,10 @@
 // EXPECTED_OUTPUT: === Map Literal Syntax Test ===
 // EXPECTED_OUTPUT: ✓ Created map with literal syntax
 // EXPECTED_OUTPUT: Length: 3
-// EXPECTED_OUTPUT: rust -> systems
-// EXPECTED_OUTPUT: go -> simplicity
-// EXPECTED_OUTPUT: vex -> performance
-// EXPECTED_OUTPUT: python -> dynamic
+// EXPECTED_OUTPUT: rust : systems
+// EXPECTED_OUTPUT: go : simplicity
+// EXPECTED_OUTPUT: vex : performance
+// EXPECTED_OUTPUT: python : dynamic
 // EXPECTED_OUTPUT: === Map literal + method syntax works! ===
 
 fn main(): i32 {
@@ -30,17 +30,17 @@ fn main(): i32 {
     let val2 = map.get("go");
     let val3 = map.get("vex");
     
-    print("rust -> ");
+    print("rust : ");
     println(val1);
-    print("go -> ");
+    print("go : ");
     println(val2);
-    print("vex -> ");
+    print("vex : ");
     println(val3);
     
     // Add more entries
     map.insert("python", "dynamic");
     let val4 = map.get("python");
-    print("python -> ");
+    print("python : ");
     println(val4);
     
     println("=== Map literal + method syntax works! ===");

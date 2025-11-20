@@ -1,4 +1,4 @@
-// Test float -> unsigned cast
+// Test float : unsigned cast
 fn test_float_to_uint(): u32 {
     let f: f64 = 250.7;
     let u: u32 = f as u32;  // Should use fptoui (unsigned)

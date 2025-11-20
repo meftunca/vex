@@ -9,12 +9,14 @@
 ## Executive Summary
 
 **Problem:** Vex's type system lacks:
+
 1. Automatic type coercion for safe operations (i8+i64 requires manual cast)
 2. Runtime overflow detection (wrapping arithmetic without checks)
 3. Mixed-type binary operations (i8+i64 errors or behaves unpredictably)
 4. Consistent casting semantics across contexts (let, function call, binary op)
 
 **Solution:** Implement Rust-parity type system with optional ergonomic extensions:
+
 - **Tier 1 (Rust-strict):** No implicit conversions, all casts explicit
 - **Tier 2 (Ergonomic mode):** Auto-upcasting for safe operations, strict downcasting
 
@@ -28,7 +30,7 @@
 
 ```rust
 /// Type coercion rules for Vex
-/// 
+///
 /// Rust Mode (--strict-types):
 ///   - No implicit conversions
 ///   - All casts require `as` keyword
@@ -44,28 +46,28 @@
 pub enum CoercionKind {
     /// No conversion needed
     NoOp,
-    
+
     /// Safe widening (i8 -> i32, f32 -> f64)
     /// Always allowed in ergonomic mode, never in strict mode
     Upcast {
         from: Type,
         to: Type,
     },
-    
+
     /// Narrowing (i64 -> i32, f64 -> f32)
     /// NEVER implicit, always requires `as`
     Downcast {
         from: Type,
         to: Type,
     },
-    
+
     /// Signedness change (i32 -> u32, u64 -> i64)
     /// NEVER implicit, always requires `as`
     SignChange {
         from: Type,
         to: Type,
     },
-    
+
     /// Incompatible types (String -> i32)
     /// Always error
     Incompatible {
@@ -82,36 +84,36 @@ impl CoercionRules {
             CoercionKind::NoOp | CoercionKind::Upcast { .. }
         )
     }
-    
+
     /// Classify the coercion needed
     pub fn classify_coercion(from: &Type, to: &Type) -> CoercionKind {
         match (from, to) {
             // Same type
             (a, b) if a == b => CoercionKind::NoOp,
-            
+
             // Integer upcasts (signed)
             (Type::I8, Type::I16 | Type::I32 | Type::I64 | Type::I128) => CoercionKind::Upcast { from: from.clone(), to: to.clone() },
             (Type::I16, Type::I32 | Type::I64 | Type::I128) => CoercionKind::Upcast { from: from.clone(), to: to.clone() },
             (Type::I32, Type::I64 | Type::I128) => CoercionKind::Upcast { from: from.clone(), to: to.clone() },
             (Type::I64, Type::I128) => CoercionKind::Upcast { from: from.clone(), to: to.clone() },
-            
+
             // Integer upcasts (unsigned)
             (Type::U8, Type::U16 | Type::U32 | Type::U64 | Type::U128) => CoercionKind::Upcast { from: from.clone(), to: to.clone() },
             (Type::U16, Type::U32 | Type::U64 | Type::U128) => CoercionKind::Upcast { from: from.clone(), to: to.clone() },
             (Type::U32, Type::U64 | Type::U128) => CoercionKind::Upcast { from: from.clone(), to: to.clone() },
             (Type::U64, Type::U128) => CoercionKind::Upcast { from: from.clone(), to: to.clone() },
-            
+
             // Float upcasts
             (Type::F32, Type::F64) => CoercionKind::Upcast { from: from.clone(), to: to.clone() },
-            
+
             // Integer downcasts
             (Type::I16 | Type::I32 | Type::I64 | Type::I128, Type::I8) => CoercionKind::Downcast { from: from.clone(), to: to.clone() },
             (Type::I32 | Type::I64 | Type::I128, Type::I16) => CoercionKind::Downcast { from: from.clone(), to: to.clone() },
             (Type::I64 | Type::I128, Type::I32) => CoercionKind::Downcast { from: from.clone(), to: to.clone() },
             (Type::I128, Type::I64) => CoercionKind::Downcast { from: from.clone(), to: to.clone() },
-            
+
             // Signedness changes
-            (Type::I8 | Type::I16 | Type::I32 | Type::I64 | Type::I128, 
+            (Type::I8 | Type::I16 | Type::I32 | Type::I64 | Type::I128,
              Type::U8 | Type::U16 | Type::U32 | Type::U64 | Type::U128) => {
                 CoercionKind::SignChange { from: from.clone(), to: to.clone() }
             }
@@ -119,24 +121,24 @@ impl CoercionRules {
              Type::I8 | Type::I16 | Type::I32 | Type::I64 | Type::I128) => {
                 CoercionKind::SignChange { from: from.clone(), to: to.clone() }
             }
-            
+
             // Everything else is incompatible
             _ => CoercionKind::Incompatible { from: from.clone(), to: to.clone() },
         }
     }
-    
+
     /// Get the "wider" type for binary operations
     pub fn wider_type(left: &Type, right: &Type) -> Option<Type> {
         match (left, right) {
             // Same type
             (a, b) if a == b => Some(a.clone()),
-            
+
             // Mixed signedness -> Error (require explicit cast)
             (Type::I8 | Type::I16 | Type::I32 | Type::I64 | Type::I128,
              Type::U8 | Type::U16 | Type::U32 | Type::U64 | Type::U128) => None,
             (Type::U8 | Type::U16 | Type::U32 | Type::U64 | Type::U128,
              Type::I8 | Type::I16 | Type::I32 | Type::I64 | Type::I128) => None,
-            
+
             // Signed integers - pick wider
             (Type::I8, Type::I16 | Type::I32 | Type::I64 | Type::I128) => Some(right.clone()),
             (Type::I16 | Type::I32 | Type::I64 | Type::I128, Type::I8) => Some(left.clone()),
@@ -146,7 +148,7 @@ impl CoercionRules {
             (Type::I64 | Type::I128, Type::I32) => Some(left.clone()),
             (Type::I64, Type::I128) => Some(right.clone()),
             (Type::I128, Type::I64) => Some(left.clone()),
-            
+
             // Unsigned integers - pick wider
             (Type::U8, Type::U16 | Type::U32 | Type::U64 | Type::U128) => Some(right.clone()),
             (Type::U16 | Type::U32 | Type::U64 | Type::U128, Type::U8) => Some(left.clone()),
@@ -156,11 +158,11 @@ impl CoercionRules {
             (Type::U64 | Type::U128, Type::U32) => Some(left.clone()),
             (Type::U64, Type::U128) => Some(right.clone()),
             (Type::U128, Type::U64) => Some(left.clone()),
-            
+
             // Floats
             (Type::F32, Type::F64) => Some(Type::F64),
             (Type::F64, Type::F32) => Some(Type::F64),
-            
+
             _ => None,
         }
     }
@@ -168,6 +170,7 @@ impl CoercionRules {
 ```
 
 **Tests:**
+
 ```rust
 #[test]
 fn test_safe_coercions() {
@@ -193,10 +196,10 @@ pub struct TypeSystemConfig {
     /// Strict mode (Rust-like): No implicit conversions
     /// Ergonomic mode: Auto-upcast allowed
     pub strict_types: bool,
-    
+
     /// Overflow checking in debug builds
     pub overflow_checks_debug: bool,
-    
+
     /// Overflow checking in release builds
     pub overflow_checks_release: bool,
 }
@@ -213,6 +216,7 @@ impl Default for TypeSystemConfig {
 ```
 
 **CLI Integration:**
+
 ```bash
 vex build --strict-types         # Rust-strict mode
 vex build --overflow-checks      # Force overflow checks in release
@@ -228,6 +232,7 @@ vex build --no-overflow-checks   # Disable in debug (not recommended)
 **File:** `vex-compiler/src/codegen_ast/expressions/operators.rs`
 
 **Current Issue:**
+
 ```vex
 let a: i8 = 10;
 let b: i64 = 100;
@@ -235,6 +240,7 @@ let c = a + b;  // ❌ Error or unpredictable behavior
 ```
 
 **Solution:**
+
 ```rust
 pub(crate) fn compile_binary_op_with_coercion(
     &mut self,
@@ -246,7 +252,7 @@ pub(crate) fn compile_binary_op_with_coercion(
     // Step 1: Infer types of both operands
     let left_type = self.infer_expression_type(left)?;
     let right_type = self.infer_expression_type(right)?;
-    
+
     // Step 2: Determine target type
     let target_type = if let Some(expected) = expected_type {
         // Use expected type if provided (e.g., `let x: i64 = a + b`)
@@ -263,15 +269,15 @@ pub(crate) fn compile_binary_op_with_coercion(
                 )
             })?
     };
-    
+
     // Step 3: Compile operands with target type
     let left_val = self.compile_expression_with_type(left, Some(&target_type))?;
     let right_val = self.compile_expression_with_type(right, Some(&target_type))?;
-    
+
     // Step 4: Apply coercions if needed (in ergonomic mode)
     let left_val = self.apply_coercion_if_allowed(
-        left_val, 
-        &left_type, 
+        left_val,
+        &left_type,
         &target_type,
         "left operand"
     )?;
@@ -281,7 +287,7 @@ pub(crate) fn compile_binary_op_with_coercion(
         &target_type,
         "right operand"
     )?;
-    
+
     // Step 5: Perform operation
     match (&left_val, &right_val) {
         (BasicValueEnum::IntValue(l), BasicValueEnum::IntValue(r)) => {
@@ -302,10 +308,10 @@ fn apply_coercion_if_allowed(
     context: &str,
 ) -> Result<BasicValueEnum<'ctx>, String> {
     let coercion = CoercionRules::classify_coercion(from_type, to_type);
-    
+
     match coercion {
         CoercionKind::NoOp => Ok(val),
-        
+
         CoercionKind::Upcast { .. } => {
             if self.config.type_system.strict_types {
                 // Strict mode: reject implicit upcast
@@ -315,19 +321,19 @@ fn apply_coercion_if_allowed(
                     from_type, to_type, context, to_type
                 ));
             }
-            
+
             // Ergonomic mode: perform upcast
             eprintln!("🔄 Auto-upcasting {} from {:?} to {:?}", context, from_type, to_type);
             self.build_upcast(val, from_type, to_type)
         }
-        
+
         CoercionKind::Downcast { .. } | CoercionKind::SignChange { .. } => {
             Err(format!(
                 "Unsafe cast {:?} -> {:?} for {}. Use explicit cast: `expr as {:?}`",
                 from_type, to_type, context, to_type
             ))
         }
-        
+
         CoercionKind::Incompatible { .. } => {
             Err(format!(
                 "Incompatible types: {:?} and {:?} for {}",
@@ -352,10 +358,10 @@ pub(crate) fn compile_literal_with_type(
         vex_ast::Expression::IntLiteral(n) => {
             // Target-typed: infer from expected type if available
             let target_type = expected_type.unwrap_or(&Type::I32);
-            
+
             // Validate literal fits in target type
             self.validate_literal_range(*n, target_type)?;
-            
+
             match target_type {
                 Type::I8 => Ok(self.context.i8_type().const_int(*n as u64, true).into()),
                 Type::I16 => Ok(self.context.i16_type().const_int(*n as u64, true).into()),
@@ -386,14 +392,14 @@ fn validate_literal_range(&self, value: i64, target_type: &Type) -> Result<(), S
         Type::U64 => (0, i64::MAX), // Can't represent full u64 in i64
         _ => return Ok(()), // Skip validation for other types
     };
-    
+
     if value < min || value > max {
         return Err(format!(
             "Integer literal {} out of range for type {:?} (range: {}..={})",
             value, target_type, min, max
         ));
     }
-    
+
     Ok(())
 }
 ```
@@ -418,7 +424,7 @@ fn compile_integer_binary_op_with_overflow_check(
     if l.is_const() && r.is_const() {
         return self.compile_integer_binary_op_internal(l, r, op, target_bit_width);
     }
-    
+
     // Runtime context: use overflow intrinsics if enabled
     if self.should_check_overflow() {
         match op {
@@ -441,42 +447,42 @@ fn compile_checked_add(
 ) -> Result<BasicValueEnum<'ctx>, String> {
     let int_type = l.get_type();
     let bit_width = int_type.get_bit_width();
-    
+
     // Call LLVM intrinsic: llvm.sadd.with.overflow.i32
     let intrinsic_name = format!("llvm.sadd.with.overflow.i{}", bit_width);
-    
+
     // Result struct: { i32 result, i1 overflow }
     let result_struct_type = self.context.struct_type(
         &[int_type.into(), self.context.bool_type().into()],
         false,
     );
-    
+
     let intrinsic = self.declare_llvm_intrinsic(
         &intrinsic_name,
         &[int_type.into(), int_type.into()],
         result_struct_type.into(),
     );
-    
+
     let result = self.builder
         .build_call(intrinsic, &[l.into(), r.into()], "add_result")
         .map_err(|e| format!("Failed to call overflow intrinsic: {}", e))?
         .try_as_basic_value()
         .unwrap_basic();
-    
+
     // Extract sum and overflow flag
     let sum = self.builder
         .build_extract_value(result.into_struct_value(), 0, "sum")
         .map_err(|e| format!("Failed to extract sum: {}", e))?
         .into_int_value();
-    
+
     let overflow = self.builder
         .build_extract_value(result.into_struct_value(), 1, "overflow")
         .map_err(|e| format!("Failed to extract overflow: {}", e))?
         .into_int_value();
-    
+
     // if overflow { panic!("arithmetic overflow") }
     self.emit_overflow_check(overflow, op, target_type)?;
-    
+
     Ok(sum.into())
 }
 
@@ -488,18 +494,18 @@ fn emit_overflow_check(
 ) -> Result<(), String> {
     let current_fn = self.current_function
         .ok_or("Overflow check outside function context")?;
-    
+
     let overflow_block = self.context.append_basic_block(current_fn, "overflow");
     let continue_block = self.context.append_basic_block(current_fn, "no_overflow");
-    
+
     // Branch based on overflow flag
     self.builder
         .build_conditional_branch(overflow_flag, overflow_block, continue_block)
         .map_err(|e| format!("Failed to build overflow branch: {}", e))?;
-    
+
     // Overflow block: panic
     self.builder.position_at_end(overflow_block);
-    
+
     let panic_msg = format!(
         "arithmetic overflow: {} operation on {:?}",
         match op {
@@ -510,14 +516,14 @@ fn emit_overflow_check(
         },
         target_type
     );
-    
+
     self.call_panic(&panic_msg)?;
     self.builder.build_unreachable()
         .map_err(|e| format!("Failed to build unreachable: {}", e))?;
-    
+
     // Continue block
     self.builder.position_at_end(continue_block);
-    
+
     Ok(())
 }
 
@@ -551,19 +557,19 @@ impl<'ctx> ASTCodeGen<'ctx> {
     pub(crate) fn call_panic(&mut self, message: &str) -> Result<(), String> {
         // Get or declare vex_panic(message: *const i8, file: *const i8, line: i32)
         let panic_fn = self.get_or_declare_panic_fn();
-        
+
         // Create string constant for message
         let msg_global = self.builder
             .build_global_string_ptr(message, "panic_msg")
             .map_err(|e| format!("Failed to create panic message: {}", e))?;
-        
+
         // Get file/line info (TODO: propagate from span)
         let file_global = self.builder
             .build_global_string_ptr("unknown", "panic_file")
             .map_err(|e| format!("Failed to create file string: {}", e))?;
-        
+
         let line_const = self.context.i32_type().const_int(0, false);
-        
+
         // Call vex_panic
         self.builder
             .build_call(
@@ -576,25 +582,25 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 "panic_call",
             )
             .map_err(|e| format!("Failed to call panic: {}", e))?;
-        
+
         Ok(())
     }
-    
+
     fn get_or_declare_panic_fn(&mut self) -> FunctionValue<'ctx> {
         if let Some(func) = self.module.get_function("vex_panic") {
             return func;
         }
-        
+
         // Declare: void vex_panic(const char*, const char*, i32)
         let i8_ptr = self.context.i8_type().ptr_type(AddressSpace::default());
         let i32_type = self.context.i32_type();
         let void_type = self.context.void_type();
-        
+
         let fn_type = void_type.fn_type(
             &[i8_ptr.into(), i8_ptr.into(), i32_type.into()],
             false,
         );
-        
+
         self.module.add_function("vex_panic", fn_type, None)
     }
 }
@@ -609,6 +615,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
 **File:** `vex-compiler/src/codegen_ast/expressions/binary_ops/type_alignment.rs`
 
 **Enhancement:**
+
 ```rust
 /// Build upcast from narrower to wider integer type
 pub(crate) fn build_upcast(
@@ -621,33 +628,33 @@ pub(crate) fn build_upcast(
         BasicValueEnum::IntValue(i) => i,
         _ => return Err(format!("Cannot upcast non-integer value")),
     };
-    
+
     let target_llvm_type = self.ast_type_to_llvm_basic_type(to_type)?;
     let target_int_type = match target_llvm_type {
         BasicTypeEnum::IntType(t) => t,
         _ => return Err(format!("Target type is not an integer")),
     };
-    
+
     let current_width = int_val.get_type().get_bit_width();
     let target_width = target_int_type.get_bit_width();
-    
+
     if current_width == target_width {
         return Ok(val);
     }
-    
+
     if current_width > target_width {
         return Err(format!(
             "Cannot upcast from wider to narrower type: {:?} -> {:?}",
             from_type, to_type
         ));
     }
-    
+
     // Determine if source is signed
     let is_signed = matches!(
         from_type,
         Type::I8 | Type::I16 | Type::I32 | Type::I64 | Type::I128
     );
-    
+
     let extended = if is_signed {
         self.builder
             .build_int_s_extend(int_val, target_int_type, "upcast_sext")
@@ -657,7 +664,7 @@ pub(crate) fn build_upcast(
             .build_int_z_extend(int_val, target_int_type, "upcast_zext")
             .map_err(|e| format!("Failed to zero-extend: {}", e))?
     };
-    
+
     Ok(extended.into())
 }
 ```
@@ -671,12 +678,12 @@ pub(crate) fn build_upcast(
 fn test_mixed_signed() {
     let a: i8 = 10;
     let b: i64 = 100;
-    
+
     // Should auto-upcast a to i64
     let c = a + b;  // Type: i64, value: 110
-    
+
     assert(c == 110);
-    
+
     // Explicit type annotation
     let d: i64 = a + b;
     assert(d == 110);
@@ -686,10 +693,10 @@ fn test_mixed_signed() {
 fn test_mixed_sign_error() {
     let a: i32 = 10;
     let b: u32 = 100;
-    
+
     // Should ERROR: mixed signedness
     // let c = a + b;  // Compile error
-    
+
     // Requires explicit cast
     let c = (a as u32) + b;  // OK
     assert(c == 110);
@@ -699,10 +706,10 @@ fn test_mixed_sign_error() {
 fn test_downcast_error() {
     let a: i64 = 1000000;
     let b: i32 = 100;
-    
+
     // Should ERROR: would downcast i64 to i32
     // let c = a + b;  // Compile error
-    
+
     // Requires explicit cast or upcast
     let c = a + (b as i64);  // OK: upcast b to i64
     assert(c == 1000100);
@@ -712,10 +719,10 @@ fn test_downcast_error() {
 fn test_float_widening() {
     let a: f32 = 3.14;
     let b: f64 = 2.71;
-    
+
     // Should auto-widen a to f64
     let c = a + b;  // Type: f64
-    
+
     // Precision preserved
     assert(c > 5.84 && c < 5.86);
 }
@@ -739,6 +746,7 @@ fn test_const_mixed() {
 **File:** `vex-compiler/src/codegen_ast/expressions/calls/function_calls.rs`
 
 **Enhancement:**
+
 ```rust
 fn compile_function_args_with_coercion(
     &mut self,
@@ -752,14 +760,14 @@ fn compile_function_args_with_coercion(
             args.len()
         ));
     }
-    
+
     let mut compiled_args = Vec::new();
-    
+
     for (i, (arg, param_type)) in args.iter().zip(param_types).enumerate() {
         // Compile argument
         let arg_val = self.compile_expression(arg)?;
         let arg_type = self.infer_expression_type(arg)?;
-        
+
         // Apply coercion if needed
         let coerced = self.apply_coercion_if_allowed(
             arg_val,
@@ -767,15 +775,16 @@ fn compile_function_args_with_coercion(
             param_type,
             &format!("argument {}", i + 1),
         )?;
-        
+
         compiled_args.push(coerced);
     }
-    
+
     Ok(compiled_args)
 }
 ```
 
 **Test Case:**
+
 ```vex
 fn takes_i64(x: i64) {
     println("Received: {}", x);
@@ -783,10 +792,10 @@ fn takes_i64(x: i64) {
 
 fn test_auto_upcast_arg() {
     let small: i32 = 42;
-    
+
     // Should auto-upcast i32 to i64
     takes_i64(small);  // OK in ergonomic mode
-    
+
     // Strict mode would require:
     // takes_i64(small as i64);
 }
@@ -831,23 +840,23 @@ impl<'ctx> ConstEvaluator<'ctx> {
                 self.validate_int_range(*n, expected_type)?;
                 Ok(ConstValue::Int(*n))
             }
-            
+
             Expression::Binary { left, op, right, .. } => {
                 let left_val = self.eval_const_expr(left, expected_type)?;
                 let right_val = self.eval_const_expr(right, expected_type)?;
                 self.eval_binary_op(&left_val, op, &right_val, expected_type)
             }
-            
+
             Expression::Ident(name) => {
                 self.const_values.get(name)
                     .cloned()
                     .ok_or_else(|| format!("Constant '{}' not found", name))
             }
-            
+
             _ => Err(format!("Non-constant expression in const context")),
         }
     }
-    
+
     fn eval_binary_op(
         &self,
         left: &ConstValue,
@@ -868,19 +877,19 @@ impl<'ctx> ConstEvaluator<'ctx> {
                         .ok_or("Division by zero in const expression")?,
                     _ => return Err(format!("Unsupported const operation: {:?}", op)),
                 };
-                
+
                 self.validate_int_range(result as i64, expected_type)?;
                 Ok(ConstValue::Int(result))
             }
             _ => Err("Type mismatch in const binary operation".to_string()),
         }
     }
-    
+
     fn validate_int_range(&self, value: i64, target_type: &Type) -> Result<(), String> {
         // Same validation logic as Phase 2.2
         // ...
     }
-    
+
     pub fn to_llvm_const(
         &self,
         value: &ConstValue,
@@ -908,25 +917,25 @@ impl<'ctx> ConstEvaluator<'ctx> {
 pub fn compile_const(&mut self, const_decl: &Const) -> Result<(), String> {
     let expected_type = const_decl.ty.as_ref()
         .ok_or("Const declaration must have explicit type")?;
-    
+
     // Use const evaluator instead of expression compiler
     let mut evaluator = ConstEvaluator::new(self.context, &self.module);
-    
+
     // Evaluate at compile time
     let const_value = evaluator.eval_const_expr(&const_decl.value, expected_type)?;
-    
+
     // Convert to LLVM constant
     let llvm_const = evaluator.to_llvm_const(&const_value, expected_type)?;
-    
+
     // Create global constant
     let global = self.module.add_global(llvm_const.get_type(), None, &const_decl.name);
     global.set_initializer(&llvm_const);
     global.set_constant(true);
-    
+
     // Cache for future references
     self.module_constants.insert(const_decl.name.clone(), llvm_const);
     self.global_constants.insert(const_decl.name.clone(), global.as_pointer_value());
-    
+
     Ok(())
 }
 ```
@@ -973,10 +982,10 @@ fn test_const_upcast() {
 fn test_downcast_error() {
     let big: i64 = 1000;
     let small: i32 = 100;
-    
+
     // Should fail to compile:
     // let result = big + small;  // Error: would downcast big to i32
-    
+
     // Correct:
     let result = big + (small as i64);
     assert(result == 1100);
@@ -986,10 +995,10 @@ fn test_downcast_error() {
 fn test_sign_error() {
     let signed: i32 = -10;
     let unsigned: u32 = 100;
-    
+
     // Should fail:
     // let result = signed + unsigned;  // Error: mixed signedness
-    
+
     // Correct:
     let result = (signed as u32) + unsigned;
     assert(result == 90);
@@ -999,10 +1008,10 @@ fn test_sign_error() {
 
 fn test_overflow_panic() {
     let x: i32 = 2147483647;  // i32::MAX
-    
+
     // Should panic in debug mode:
     // let y = x + 1;
-    
+
     // Use checked arithmetic:
     let checked = sadd_overflow(x, 1);
     assert(checked.overflow == true);
@@ -1014,10 +1023,10 @@ fn test_overflow_panic() {
 fn test_strict_no_upcast() {
     let a: i8 = 10;
     let b: i64 = 100;
-    
+
     // Should fail in strict mode:
     // let c = a + b;  // Error: implicit cast not allowed
-    
+
     // Correct:
     let c = (a as i64) + b;
     assert(c == 110);
@@ -1067,7 +1076,7 @@ error: arithmetic overflow
 
 **File:** `Specifications/03_Type_System.md`
 
-```markdown
+````markdown
 ## Type Coercion and Casting
 
 ### Implicit Coercions (Ergonomic Mode)
@@ -1079,11 +1088,13 @@ Vex allows safe implicit conversions (upcasts) by default:
 - **Float widening:** f32 → f64
 
 Example:
+
 ```vex
 let a: i8 = 10;
 let b: i64 = 100;
 let c = a + b;  // ✅ a auto-upcasted to i64
 ```
+````
 
 ### Forbidden Implicit Conversions
 
@@ -1096,6 +1107,7 @@ The following require explicit `as` casts:
 ### Strict Mode
 
 Enable with `--strict-types` for Rust-like semantics:
+
 - No implicit conversions
 - All casts require `as` keyword
 - Mismatched types = compile error
@@ -1103,7 +1115,8 @@ Enable with `--strict-types` for Rust-like semantics:
 ```bash
 vex build --strict-types
 ```
-```
+
+````
 
 ### 8.2 Migration Guide
 
@@ -1119,9 +1132,10 @@ vex build --strict-types
 let a: i8 = 10;
 let b: i64 = 100;
 let c = (a as i64) + b;  // Manual cast required
-```
+````
 
 ### After
+
 ```vex
 let a: i8 = 10;
 let b: i64 = 100;
@@ -1147,7 +1161,8 @@ strict-types = true
 ## Code Examples
 
 See `examples/type_coercion/` for comprehensive examples.
-```
+
+````
 
 ---
 
@@ -1168,7 +1183,7 @@ pub fn apply_type_coercion_optimizations(module: &Module) {
     // Fold constant upcasts at compile time
     // Eliminate overflow checks for small constants
 }
-```
+````
 
 ### 9.2 Benchmark Suite
 
@@ -1188,11 +1203,13 @@ pub fn apply_type_coercion_optimizations(module: &Module) {
 ### 10.1 Complex Scenarios
 
 **Arrays:**
+
 ```vex
 let arr: [i64; 3] = [1i8, 2i16, 3i32];  // Auto-upcast elements
 ```
 
 **Struct fields:**
+
 ```vex
 struct Point {
     x: i64,
@@ -1203,6 +1220,7 @@ let p = Point { x: 10i8, y: 20i16 };  // Auto-upcast
 ```
 
 **Generic functions:**
+
 ```vex
 fn max<T>(a: T, b: T) -> T { ... }
 
@@ -1225,7 +1243,7 @@ let result = max(10i8 as i64, 100i64);  // OK
 - [ ] i8 + i64 auto-upcasts to i64
 - [ ] i64 + i32 errors (downcast forbidden)
 - [ ] i32 + u32 errors (sign change forbidden)
-- [ ] const X: i64 = 60 * SECOND works without casts
+- [ ] const X: i64 = 60 \* SECOND works without casts
 - [ ] Overflow panics in debug mode
 - [ ] Overflow wraps in release (configurable)
 - [ ] --strict-types disables auto-upcast
@@ -1254,7 +1272,8 @@ let result = max(10i8 as i64, 100i64);  // OK
 ### Compatibility
 
 **Concern:** Existing code breaks with new auto-upcast  
-**Mitigation:** 
+**Mitigation:**
+
 - Provide `--strict-types` opt-out
 - Gradual migration period
 - Clear deprecation warnings
@@ -1263,6 +1282,7 @@ let result = max(10i8 as i64, 100i64);  // OK
 
 **Concern:** Overflow checks slow down tight loops  
 **Mitigation:**
+
 - Profile-guided optimization
 - `--no-overflow-checks` for hot paths
 - LLVM removes provably-safe checks
@@ -1271,6 +1291,7 @@ let result = max(10i8 as i64, 100i64);  // OK
 
 **Concern:** Type system too complex  
 **Mitigation:**
+
 - Start with simple rules (only safe upcasts)
 - Comprehensive error messages
 - Interactive playground with examples
@@ -1279,17 +1300,17 @@ let result = max(10i8 as i64, 100i64);  // OK
 
 ## Timeline Summary
 
-| Week | Phase | Deliverables |
-|------|-------|--------------|
-| 1-2  | Infrastructure | Coercion rules, config, binary op inference |
-| 3-4  | Overflow | Runtime checks, panic integration |
-| 4-5  | Mixed arithmetic | Auto-widening, test cases |
-| 5    | Function calls | Argument coercion |
-| 6-7  | Const folding | Builder-free evaluator |
-| 7-8  | Testing | Comprehensive test suite |
-| 8    | Documentation | Spec, migration guide |
-| 9-10 | Optimization | LLVM passes, benchmarks |
-| 10-12| Refinement | Edge cases, error messages |
+| Week  | Phase            | Deliverables                                |
+| ----- | ---------------- | ------------------------------------------- |
+| 1-2   | Infrastructure   | Coercion rules, config, binary op inference |
+| 3-4   | Overflow         | Runtime checks, panic integration           |
+| 4-5   | Mixed arithmetic | Auto-widening, test cases                   |
+| 5     | Function calls   | Argument coercion                           |
+| 6-7   | Const folding    | Builder-free evaluator                      |
+| 7-8   | Testing          | Comprehensive test suite                    |
+| 8     | Documentation    | Spec, migration guide                       |
+| 9-10  | Optimization     | LLVM passes, benchmarks                     |
+| 10-12 | Refinement       | Edge cases, error messages                  |
 
 **Total:** 12 weeks to production-ready type system
 

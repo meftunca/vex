@@ -1,0 +1,15 @@
+// Test binary operations with literals and variables
+fn abs(x: i8): i8 {
+    if x < 0 {
+        return 0 - x;
+    }
+    return x;
+}
+
+fn main() {
+    let result: i8 = abs(-5);
+    println("abs(-5) = {}", result);
+    
+    let result2: i8 = abs(7);
+    println("abs(7) = {}", result2);
+}

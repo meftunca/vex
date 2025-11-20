@@ -193,6 +193,74 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         return Err("Constant division requires literal operands".to_string());
                     }
                 }
+                BinaryOp::Eq => {
+                    if let (Some(l_val), Some(r_val)) = (
+                        l.get_sign_extended_constant(),
+                        r.get_sign_extended_constant(),
+                    ) {
+                        let res = if l_val == r_val { 1 } else { 0 };
+                        self.context.bool_type().const_int(res, false)
+                    } else {
+                        return Err("Constant equality requires literal operands".to_string());
+                    }
+                }
+                BinaryOp::NotEq => {
+                    if let (Some(l_val), Some(r_val)) = (
+                        l.get_sign_extended_constant(),
+                        r.get_sign_extended_constant(),
+                    ) {
+                        let res = if l_val != r_val { 1 } else { 0 };
+                        self.context.bool_type().const_int(res, false)
+                    } else {
+                        return Err("Constant inequality requires literal operands".to_string());
+                    }
+                }
+                BinaryOp::Lt => {
+                    if let (Some(l_val), Some(r_val)) = (
+                        l.get_sign_extended_constant(),
+                        r.get_sign_extended_constant(),
+                    ) {
+                        let res = if l_val < r_val { 1 } else { 0 };
+                        self.context.bool_type().const_int(res, false)
+                    } else {
+                        return Err("Constant less-than requires literal operands".to_string());
+                    }
+                }
+                BinaryOp::Gt => {
+                    if let (Some(l_val), Some(r_val)) = (
+                        l.get_sign_extended_constant(),
+                        r.get_sign_extended_constant(),
+                    ) {
+                        let res = if l_val > r_val { 1 } else { 0 };
+                        self.context.bool_type().const_int(res, false)
+                    } else {
+                        return Err("Constant greater-than requires literal operands".to_string());
+                    }
+                }
+                BinaryOp::LtEq => {
+                    if let (Some(l_val), Some(r_val)) = (
+                        l.get_sign_extended_constant(),
+                        r.get_sign_extended_constant(),
+                    ) {
+                        let res = if l_val <= r_val { 1 } else { 0 };
+                        self.context.bool_type().const_int(res, false)
+                    } else {
+                        return Err("Constant less-or-equal requires literal operands".to_string());
+                    }
+                }
+                BinaryOp::GtEq => {
+                    if let (Some(l_val), Some(r_val)) = (
+                        l.get_sign_extended_constant(),
+                        r.get_sign_extended_constant(),
+                    ) {
+                        let res = if l_val >= r_val { 1 } else { 0 };
+                        self.context.bool_type().const_int(res, false)
+                    } else {
+                        return Err(
+                            "Constant greater-or-equal requires literal operands".to_string()
+                        );
+                    }
+                }
                 _ => {
                     return Err(format!(
                         "Operator {:?} not supported in constant expressions yet",

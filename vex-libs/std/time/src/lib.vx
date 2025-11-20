@@ -46,7 +46,8 @@ export fn monotonic_now(): u64 { return vt_monotonic_now_ns(); }
 
 // ==== Constructors & basics ====
 export fn now(): Time {
-    let t: VexTime = VexTime { wall: VexInstant { unix_sec: 0, nsec: 0, _pad: 0 }, mono_ns: 0 };
+    let inst: VexInstant = VexInstant { unix_sec: 0, nsec: 0, _pad: 0 };
+    let t: VexTime = VexTime { wall: inst, mono_ns: 0 };
     vt_now(&t);
     return Time { inner: t };
 }

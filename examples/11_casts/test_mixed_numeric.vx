@@ -1,4 +1,4 @@
-// Test float <-> unsigned casts
+// Test float <: unsigned casts
 fn test_uint_to_float(): i32 {
     let u: u32 = 250;
     let f: f64 = u as f64;

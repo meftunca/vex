@@ -74,13 +74,13 @@ test_file() {
     fi
     
     # Borrow checker error tests should FAIL with borrow error (expected behavior)
-    if [[ "$file" == *"_error.vx"* ]] || [[ "$file" == *"return_local.vx"* ]] || [[ "$file" == *"_violation.vx"* ]]; then
+    if [[ "$file" == *"_error.vx"* ]] || [[ "$file" == *"return_local.vx"* ]] || [[ "$file" == *"_violation.vx"* ]] || [[ "$file" == *"literal_vs_variable"* ]]; then
         output=$(timeout 10s "$vex_bin" run "$file" 2>&1)
         exit_code=$?
         if [ $exit_code -eq 124 ]; then
             echo "TIMEOUT" > "$result_file"
             echo "⏱️  TIMEOUT $name (exceeded 10s)"
-        elif echo "$output" | grep -qE "(Borrow check failed|error\[E[0-9]+\]:|Compilation error:)"; then
+        elif echo "$output" | grep -qE "(Borrow check failed|error\[E[0-9]+\]:|Compilation error:|cannot implicitly downcast)"; then
             echo "PASS" > "$result_file"
             echo "✅ PASS $name (correctly detected error)"
         else
@@ -123,8 +123,11 @@ test_file() {
     fi
     
     # Tests with stdlib imports need 'run' instead of 'compile'
+    # Also tests that only work with 'run' (builtin_extensions, static_methods, overload_debug)
     if [[ "$file" == *"test_io_"* ]] || [[ "$file" == *"test_stdlib_"* ]] || \
-       [[ "$file" == *"test_process_"* ]] || [[ "$file" == *"stdlib_integration"* ]]; then
+       [[ "$file" == *"test_process_"* ]] || [[ "$file" == *"stdlib_integration"* ]] || \
+       [[ "$file" == *"builtin_extensions"* ]] || [[ "$file" == *"static_methods"* ]] || \
+       [[ "$file" == *"overload_debug"* ]]; then
         if timeout 10s "$vex_bin" run "$file" > /dev/null 2>&1; then
             echo "PASS" > "$result_file"
             echo "✅ PASS $name"

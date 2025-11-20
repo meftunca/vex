@@ -27,7 +27,7 @@ fn process_file(input_path: String, output_path: String) {
     write_string(output_path, processed);
     print("  Processed: ");
     print(input_path);
-    print(" -> ");
+    print(" : ");
     print(output_path);
     print("\n");
 }

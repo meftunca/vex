@@ -1,0 +1,30 @@
+// Test: Type annotations with literals should work without explicit casts
+fn main() {
+    // Integer types with in-range literals
+    let a: i8 = 100;
+    let b: i16 = 30000;
+    let c: i32 = 2000000000;
+    let d: i64 = 9000000000;
+    
+    // Unsigned types
+    let e: u8 = 255;
+    let f: u16 = 65535;
+    let g: u32 = 4294967295;
+    let h: u64 = 18446744073709551615;
+    
+    // Float types
+    let pi_f32: f32 = 3.14159;
+    let pi_f64: f64 = 3.141592653589793;
+    
+    // Negative literals
+    let neg_i8: i8 = -128;
+    let neg_i16: i16 = -32768;
+    
+    // Boundary values
+    let max_i8: i8 = 127;
+    let min_i8: i8 = -128;
+    let max_u8: u8 = 255;
+    let min_u8: u8 = 0;
+    
+    println("All type-annotated literals compiled successfully!");
+}

@@ -11,6 +11,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         func_expr: &Expression,
         type_args: &[Type],
         args: &[Expression],
+        expected_type: Option<&Type>,
     ) -> Result<BasicValueEnum<'ctx>, String> {
         eprintln!("🔵 compile_call: type_args.len()={}", type_args.len());
         if !type_args.is_empty() {
@@ -101,31 +102,87 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let mut arg_vals: Vec<BasicMetadataValueEnum> = Vec::new();
         let mut arg_basic_vals: Vec<BasicValueEnum> = Vec::new();
 
+        // ⭐ CRITICAL: Check overload count ONCE before argument compilation
+        let func_name_for_check = if let Expression::Ident(name) = func_expr {
+            Some(name.as_str())
+        } else {
+            None
+        };
+
+        let overload_count = if let Some(fname) = func_name_for_check {
+            // Count ONLY overloaded versions (fname_suffix), NOT the base name
+            self.function_defs
+                .keys()
+                .filter(|k| {
+                    k.starts_with(fname) && k.chars().nth(fname.len()) == Some('_')
+                })
+                .count()
+        } else {
+            0
+        };
+
+        // ⭐ NEW: For multi-overload + expected return type, try to pick overload by return type BEFORE compiling args
+        let selected_overload_by_return_type = if overload_count > 1 && expected_type.is_some() {
+            if let Some(fname) = func_name_for_check {
+                // Find overload that matches expected return type
+                let matching_overload = self.function_defs
+                    .iter()
+                    .find(|(k, def)| {
+                        (k.as_str() == fname || (k.starts_with(fname) && k.chars().nth(fname.len()) == Some('_')))
+                        && matches!(&def.return_type, Some(ret_ty) if ret_ty == expected_type.unwrap())
+                    })
+                    .map(|(k, _)| k.clone());
+                
+                matching_overload
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
         for (i, arg) in final_args.iter().enumerate() {
-            // ⭐ CRITICAL: For overloaded functions, DON'T use param types before overload resolution
-            // param_type is only valid for NON-overloaded functions
-            let func_name_for_check = if let Expression::Ident(name) = func_expr {
-                Some(name.as_str())
-            } else {
-                None
-            };
+            let is_overloaded = overload_count > 1;
 
-            // Check if function has multiple overloads (appears in function_defs with mangled names)
-            let is_overloaded = if let Some(fname) = func_name_for_check {
-                // Check if any function_defs key starts with fname + type suffix
-                self.function_defs
+            // Clone param type to avoid borrow issues
+            let param_type_opt: Option<Type> = if let Some(ref selected_name) = selected_overload_by_return_type {
+                // Use param types from the selected overload
+                if let Some(func_def) = self.function_defs.get(selected_name) {
+                    if i < func_def.params.len() {
+                        Some(func_def.params[i].ty.clone())
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            } else if is_overloaded {
+                // For overloaded functions without return type hint, don't use param types yet
+                None
+            } else if overload_count == 1 && func_name_for_check.is_some() {
+                // Single overload - find it and use its param types
+                let fname = func_name_for_check.unwrap();
+                let func_key = self.function_defs
                     .keys()
-                    .any(|k| k.starts_with(fname) && k.len() > fname.len())
-            } else {
-                false
-            };
-
-            let param_type_opt = if is_overloaded {
-                // For overloaded functions, don't use param types yet - let overload resolution decide
-                None
+                    .find(|k| k == &fname || (k.starts_with(fname) && k.chars().nth(fname.len()) == Some('_')))
+                    .cloned();
+                
+                if let Some(key) = func_key {
+                    if let Some(func_def) = self.function_defs.get(&key) {
+                        if i < func_def.params.len() {
+                            Some(func_def.params[i].ty.clone())
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
             } else if let Some(func_def) = &func_def_opt {
                 if i < func_def.params.len() {
-                    Some(&func_def.params[i].ty)
+                    Some(func_def.params[i].ty.clone())
                 } else {
                     None
                 }
@@ -135,7 +192,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
             // ⭐ CRITICAL: Struct parameters expect BY VALUE, not pointer
             // Check if we need to load struct value before compiling
-            let param_expects_struct_by_value = if let Some(param_ty) = param_type_opt {
+            let param_expects_struct_by_value = if let Some(ref param_ty) = param_type_opt {
                 match param_ty {
                     Type::Named(type_name) => self.struct_defs.contains_key(type_name),
                     Type::Generic { name, .. } => {
@@ -158,7 +215,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 if let Expression::Ident(name) = arg {
                     if let Some(struct_ptr) = self.variables.get(name) {
                         // Load struct value for BY VALUE parameter
-                        let param_llvm_ty = if let Some(param_ty) = param_type_opt {
+                        let param_llvm_ty = if let Some(ref param_ty) = param_type_opt {
                             self.ast_type_to_llvm(param_ty)
                         } else {
                             return Err("Cannot determine struct type".to_string());
@@ -174,15 +231,15 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         return Err(format!("Struct variable {} not found", name));
                     }
                 } else {
-                    self.compile_expression(arg)?
+                    self.compile_expression_with_type(arg, param_type_opt.as_ref())?
                 }
             } else {
-                self.compile_expression(arg)?
+                self.compile_expression_with_type(arg, param_type_opt.as_ref())?
             };
 
             // ⭐ CRITICAL FIX: Cast integer arguments to match parameter type width
             // This prevents "i32 100 passed to i64 parameter" LLVM errors
-            if let Some(param_ty) = param_type_opt {
+            if let Some(ref param_ty) = param_type_opt {
                 if let BasicValueEnum::IntValue(int_val) = val {
                     let target_llvm_type = self.ast_type_to_llvm(param_ty);
                     if let inkwell::types::BasicTypeEnum::IntType(target_int_type) =
@@ -465,10 +522,14 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
                 if is_extern {
                     // Extern C function - use exact name, no overloading
-                    eprintln!("🔍 Extern function detected: {}", func_name);
+                    mangled_candidates.push(func_name.to_string());
+                } else if let Some(ref selected_name) = selected_overload_by_return_type {
+                    // ⭐ NEW: Return type-based overload selection takes priority
+                    mangled_candidates.push(selected_name.clone());
+                } else if overload_count == 1 {
                     mangled_candidates.push(func_name.to_string());
                 } else if !arg_basic_vals.is_empty() {
-                    // If we have argument values, try type-based lookup for user functions
+                    // Multiple overloads - use argument types for disambiguation
                     // Generate type suffix from actual argument types
                     let mut type_suffix = String::new();
                     for arg_val in &arg_basic_vals {
@@ -500,10 +561,6 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     if !type_suffix.is_empty() {
                         let mangled_name = format!("{}{}", func_name, type_suffix);
                         mangled_candidates.push(mangled_name);
-                        eprintln!(
-                            "🔍 Trying overload: {} (from argument types)",
-                            mangled_candidates[0]
-                        );
                     }
 
                     // Also try base name as fallback
@@ -532,7 +589,6 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         };
 
                         if score > best_match_score {
-                            eprintln!("✅ Found function: {} (score: {})", candidate, score);
                             found_fn_val = Some(*fn_val);
                             best_match_score = score;
 

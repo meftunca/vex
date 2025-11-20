@@ -114,22 +114,44 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 let target_width = target_int_type.get_bit_width();
 
                 // ⚠️ CRITICAL: Check sign change even with same width (i32 → u32)
-                // Infer source type from expression AST
-                let source_type_from_expr = self.infer_expression_type(value_expr).ok();
-                
-                if let Some(src_type) = source_type_from_expr {
-                    // Check for forbidden sign changes
-                    let coercion_kind = classify_coercion(&src_type, target_type);
-                    let policy = coercion_policy(coercion_kind, self.is_in_unsafe_block);
-                    
-                    match policy {
-                        CoercionPolicy::Error => {
-                            return Err(format_coercion_error(&src_type, target_type, coercion_kind));
+                // BUT: Skip check for plain literals with type annotations
+                // (they're already compiled to the correct type via target-typing)
+                let should_skip_coercion_check = matches!(
+                    value_expr,
+                    Expression::IntLiteral(_)
+                        | Expression::FloatLiteral(_)
+                        | Expression::BigIntLiteral(_)
+                ) || matches!(
+                    value_expr,
+                    Expression::Unary { op: UnaryOp::Neg, expr, .. }
+                    if matches!(expr.as_ref(), Expression::IntLiteral(_))
+                );
+
+                if !should_skip_coercion_check {
+                    // Infer source type from expression AST
+                    let source_type_from_expr = self.infer_expression_type(value_expr).ok();
+
+                    if let Some(src_type) = source_type_from_expr {
+                        // Check for forbidden sign changes
+                        let coercion_kind = classify_coercion(&src_type, target_type);
+                        let policy = coercion_policy(coercion_kind, self.is_in_unsafe_block);
+
+                        match policy {
+                            CoercionPolicy::Error => {
+                                return Err(format_coercion_error(
+                                    &src_type,
+                                    target_type,
+                                    coercion_kind,
+                                ));
+                            }
+                            CoercionPolicy::Warn => {
+                                eprintln!(
+                                    "⚠️  warning: {}",
+                                    format_coercion_warning(&src_type, target_type)
+                                );
+                            }
+                            CoercionPolicy::Allow => {}
                         }
-                        CoercionPolicy::Warn => {
-                            eprintln!("⚠️  warning: {}", format_coercion_warning(&src_type, target_type));
-                        }
-                        CoercionPolicy::Allow => {}
                     }
                 }
 
@@ -181,7 +203,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
                             32 => Type::I32,
                             64 => Type::I64,
                             128 => Type::I128,
-                            _ => return Err(format!("Unsupported integer width: {}", current_width)),
+                            _ => {
+                                return Err(format!("Unsupported integer width: {}", current_width))
+                            }
                         };
 
                         // Check coercion policy
@@ -190,11 +214,18 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
                         match policy {
                             CoercionPolicy::Error => {
-                                return Err(format_coercion_error(&source_type, target_type, coercion_kind));
+                                return Err(format_coercion_error(
+                                    &source_type,
+                                    target_type,
+                                    coercion_kind,
+                                ));
                             }
                             CoercionPolicy::Warn => {
                                 // Emit warning for unsafe downcast
-                                eprintln!("⚠️  warning: {}", format_coercion_warning(&source_type, target_type));
+                                eprintln!(
+                                    "⚠️  warning: {}",
+                                    format_coercion_warning(&source_type, target_type)
+                                );
                                 // Allow truncation in unsafe{}
                             }
                             CoercionPolicy::Allow => {

@@ -1,0 +1,10 @@
+fn get_value(cond: bool): i8 {
+    if cond {
+        return 10;
+    }
+    return 20;
+}
+
+fn main() {
+    println("Result: {}", get_value(true));
+}

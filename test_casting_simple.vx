@@ -1,0 +1,5 @@
+// Test: Array literal element coercion
+fn main() {
+    let arr: [i8; 3] = [1, 2, 3];
+    println("Array elements should be i8");
+}

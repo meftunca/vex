@@ -4,11 +4,11 @@
 // EXPECTED_OUTPUT: Initial length: 3
 // EXPECTED_OUTPUT: ✓ Inserted 2 more entries
 // EXPECTED_OUTPUT: Length after insert: 5
-// EXPECTED_OUTPUT: rust -> systems
-// EXPECTED_OUTPUT: go -> simplicity
-// EXPECTED_OUTPUT: vex -> performance
-// EXPECTED_OUTPUT: python -> dynamic
-// EXPECTED_OUTPUT: java -> enterprise
+// EXPECTED_OUTPUT: rust : systems
+// EXPECTED_OUTPUT: go : simplicity
+// EXPECTED_OUTPUT: vex : performance
+// EXPECTED_OUTPUT: python : dynamic
+// EXPECTED_OUTPUT: java : enterprise
 // EXPECTED_OUTPUT: rust (updated): blazing-fast
 // EXPECTED_OUTPUT: Empty map length: 0
 // EXPECTED_OUTPUT: === All tests passed! ===
@@ -46,15 +46,15 @@ fn main(): i32 {
     let val4 = map.get("python");
     let val5 = map.get("java");
     
-    print("rust -> ");
+    print("rust : ");
     println(val1);
-    print("go -> ");
+    print("go : ");
     println(val2);
-    print("vex -> ");
+    print("vex : ");
     println(val3);
-    print("python -> ");
+    print("python : ");
     println(val4);
-    print("java -> ");
+    print("java : ");
     println(val5);
     
     // 6. Update existing key

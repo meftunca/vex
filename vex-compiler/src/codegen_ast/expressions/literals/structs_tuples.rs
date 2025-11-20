@@ -103,7 +103,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 field_expr.1.clone()
             };
 
-            let field_val = self.compile_expression(&adjusted_field_expr)?;
+            // ⭐ CRITICAL: Use compile_expression_with_type to enable literal coercion
+            // This allows `Point { x: 10, y: 20 }` where x,y are i8
+            let field_val =
+                self.compile_expression_with_type(&adjusted_field_expr, Some(field_ty))?;
             let field_llvm_ty = self.ast_type_to_llvm(field_ty);
 
             eprintln!(
@@ -137,21 +140,36 @@ impl<'ctx> ASTCodeGen<'ctx> {
                             }
                         } else {
                             // Truncate: i64 -> i32 - check coercion policy
-                            if let Ok(field_val_type) = self.infer_expression_type(&adjusted_field_expr) {
+                            if let Ok(field_val_type) =
+                                self.infer_expression_type(&adjusted_field_expr)
+                            {
                                 let coercion_kind = classify_coercion(&field_val_type, field_ty);
-                                let policy = coercion_policy(coercion_kind, self.is_in_unsafe_block);
-                                
+                                let policy =
+                                    coercion_policy(coercion_kind, self.is_in_unsafe_block);
+
                                 match policy {
                                     CoercionPolicy::Error => {
-                                        return Err(format!("struct field '{}': {}", field_name, format_coercion_error(&field_val_type, field_ty, coercion_kind)));
+                                        return Err(format!(
+                                            "struct field '{}': {}",
+                                            field_name,
+                                            format_coercion_error(
+                                                &field_val_type,
+                                                field_ty,
+                                                coercion_kind
+                                            )
+                                        ));
                                     }
                                     CoercionPolicy::Warn => {
-                                        eprintln!("⚠️  warning: struct field '{}': {}", field_name, format_coercion_warning(&field_val_type, field_ty));
+                                        eprintln!(
+                                            "⚠️  warning: struct field '{}': {}",
+                                            field_name,
+                                            format_coercion_warning(&field_val_type, field_ty)
+                                        );
                                     }
                                     CoercionPolicy::Allow => {}
                                 }
                             }
-                            
+
                             self.builder
                                 .build_int_truncate(int_val, target_int_ty, "field_trunc")
                                 .map_err(|e| format!("Failed to truncate field: {}", e))?

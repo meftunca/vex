@@ -1,8 +1,8 @@
 // Comprehensive coercion tests
 fn main() {
     // ✅ Test 1: Upcast (i8 → i64)
-    let x: i8 = 10;
-    let y: i64 = 100;
+    let x: i8 = 10i8;
+    let y: i64 = 100i64;
     let sum = x + y;
     println(sum); // 110
     

@@ -10,7 +10,7 @@ import {
 } from "fs";
 
 fn rotate_logs(base_path: String, max_rotations: i64) {
-    // Rotate old logs: log.3 -> delete, log.2 -> log.3, log.1 -> log.2, log -> log.1
+    // Rotate old logs: log.3 : delete, log.2 : log.3, log.1 : log.2, log : log.1
     let! i: i64 = max_rotations - 1;
     while i > 0 {
         // Note: String concatenation with numbers not yet available

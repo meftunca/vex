@@ -1,0 +1,55 @@
+// Test 1: Array literal element coercion
+fn test_array_coercion() {
+    let arr: [i8; 3] = [1, 2, 3];  // Should compile 1,2,3 as i8
+    println("Array test passed");
+}
+
+// Test 2: Struct field coercion
+struct Point {
+    x: i8,
+    y: i8
+}
+
+fn test_struct_coercion() {
+    let p = Point { x: 10, y: 20 };  // Should compile 10,20 as i8
+    println("Struct test passed");
+}
+
+// Test 3: Tuple element coercion
+fn test_tuple_coercion() {
+    let t: (i8, i16) = (5, 1000);  // Should compile 5 as i8, 1000 as i16
+    println("Tuple test passed");
+}
+
+// Test 4: Match arm coercion
+fn test_match_coercion(x: i8): i8 {
+    return match x {
+        0 => 1,      // Should compile 1 as i8
+        1 => 2,      // Should compile 2 as i8
+        _ => 127     // Should compile 127 as i8
+    };
+}
+
+// Test 5: If expression coercion
+fn test_if_expr(cond: bool): i8 {
+    return if cond { 10 } else { 20 };  // Should compile 10,20 as i8
+}
+
+// Test 6: Multi-overload function call
+fn abs(x: i8): i8 { if x < 0 { return 0 - x; } return x; }
+fn abs(x: i16): i16 { if x < 0 { return 0 - x; } return x; }
+
+fn test_multi_overload() {
+    let r1: i8 = abs(5);   // Should pick abs_i8
+    let r2: i16 = abs(5);  // Should pick abs_i16
+    println("Multi-overload test passed");
+}
+
+fn main() {
+    test_array_coercion();
+    test_struct_coercion();
+    test_tuple_coercion();
+    println("Match result: {}", test_match_coercion(1));
+    println("If expr result: {}", test_if_expr(true));
+    test_multi_overload();
+}

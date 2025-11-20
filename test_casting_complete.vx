@@ -1,0 +1,55 @@
+// Comprehensive casting & coercion test
+
+// 1. Let statement literals
+fn test_let_literals() {
+    let a: i8 = 10;
+    let b: i16 = 1000;
+    let c: u8 = 255;
+    let d: f32 = 3.14;
+    println("Let literals: {}, {}, {}, {}", a, b, c, d);
+}
+
+// 2. Struct field literals
+struct Point { x: i8, y: i16 }
+fn test_struct_fields() {
+    let p = Point { x: 10, y: 1000 };
+    println("Struct fields work");
+}
+
+// 3. Return statement literals
+fn get_i8(): i8 { return 42; }
+fn get_i16(): i16 { return 1000; }
+
+// 4. Binary operation inference
+fn test_binary_ops() {
+    let x: i8 = 10;
+    let result = 0 - x;
+    println("Binary op: {}", result);
+}
+
+// 5. Function call single overload
+fn single(x: i8): i8 { return x; }
+fn test_single_overload() {
+    let r = single(42);
+    println("Single overload: {}", r);
+}
+
+// 6. Function call multi-overload with return type
+fn multi(x: i8): i8 { return x; }
+fn multi(x: i16): i16 { return x; }
+fn test_multi_overload() {
+    let r1: i8 = multi(5);
+    let r2: i16 = multi(500);
+    println("Multi overload: {}, {}", r1, r2);
+}
+
+fn main() {
+    test_let_literals();
+    test_struct_fields();
+    println("Return i8: {}", get_i8());
+    println("Return i16: {}", get_i16());
+    test_binary_ops();
+    test_single_overload();
+    test_multi_overload();
+    println("✅ All casting tests passed!");
+}

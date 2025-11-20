@@ -18,7 +18,7 @@ fn test_i64_to_i32(): i32 {
 fn test_i32_to_f64(): i32 {
     let x: i32 = 42;
     let y: f64 = x as f64;
-    // Return as int to verify (42.0 -> 42)
+    // Return as int to verify (42.0 : 42)
     return y as i32;
 }
 

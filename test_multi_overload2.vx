@@ -1,0 +1,19 @@
+fn abs(x: i8): i8 {
+    if x < 0 {
+        return 0 - x;
+    }
+    return x;
+}
+
+fn abs(x: i16): i16 {
+    if x < 0 {
+        return 0 - x;
+    }
+    return x;
+}
+
+fn main() {
+    let r1: i8 = abs(-5);
+    let r2: i16 = abs(-500);
+    println("abs(-5) = {}, abs(-500) = {}", r1, r2);
+}

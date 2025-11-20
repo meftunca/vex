@@ -173,27 +173,23 @@ impl<'ctx> ASTCodeGen<'ctx> {
     pub(crate) fn infer_expression_type(&self, expr: &Expression) -> Result<Type, String> {
         let result = match expr {
             Expression::IntLiteral(_) => Ok(Type::I32),
-            Expression::TypedIntLiteral { type_suffix, .. } => {
-                Ok(match type_suffix.as_str() {
-                    "i8" => Type::I8,
-                    "i16" => Type::I16,
-                    "i32" => Type::I32,
-                    "i64" => Type::I64,
-                    "u8" => Type::U8,
-                    "u16" => Type::U16,
-                    "u32" => Type::U32,
-                    "u64" => Type::U64,
-                    _ => Type::I32,
-                })
-            }
+            Expression::TypedIntLiteral { type_suffix, .. } => Ok(match type_suffix.as_str() {
+                "i8" => Type::I8,
+                "i16" => Type::I16,
+                "i32" => Type::I32,
+                "i64" => Type::I64,
+                "u8" => Type::U8,
+                "u16" => Type::U16,
+                "u32" => Type::U32,
+                "u64" => Type::U64,
+                _ => Type::I32,
+            }),
             Expression::BigIntLiteral(_) => Ok(Type::I128), // Large integers default to i128
-            Expression::TypedBigIntLiteral { type_suffix, .. } => {
-                Ok(match type_suffix.as_str() {
-                    "i128" => Type::I128,
-                    "u128" => Type::U128,
-                    _ => Type::I128,
-                })
-            }
+            Expression::TypedBigIntLiteral { type_suffix, .. } => Ok(match type_suffix.as_str() {
+                "i128" => Type::I128,
+                "u128" => Type::U128,
+                _ => Type::I128,
+            }),
             Expression::FloatLiteral(_) => Ok(Type::F64),
             Expression::StringLiteral(_) => Ok(Type::String),
             Expression::FStringLiteral(_) => Ok(Type::String),
@@ -213,6 +209,38 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 // This contains full Generic types like Vec<i32>, not just mangled names
                 if let Some(ty) = self.variable_concrete_types.get(name) {
                     return Ok(ty.clone());
+                }
+
+                // ⭐ NEW: Check module constant types FIRST (from imported modules)
+                // Prioritize AST types over LLVM types for accuracy
+                if let Some(const_type) = self.module_constant_types.get(name) {
+                    return Ok(const_type.clone());
+                }
+
+                // ⭐ NEW: Check global constants (module-level const declarations)
+                // MUST check before variable_ast_types for correct const type inference
+                if let Some(const_llvm_type) = self.global_constant_types.get(name) {
+                    match const_llvm_type {
+                        BasicTypeEnum::IntType(int_type) => {
+                            return Ok(match int_type.get_bit_width() {
+                                1 => Type::Bool,
+                                8 => Type::I8,
+                                16 => Type::I16,
+                                32 => Type::I32,
+                                64 => Type::I64,
+                                128 => Type::I128,
+                                _ => Type::I32,
+                            });
+                        }
+                        BasicTypeEnum::FloatType(float_type) => {
+                            return Ok(if float_type == &self.context.f32_type() {
+                                Type::F32
+                            } else {
+                                Type::F64
+                            });
+                        }
+                        _ => {}
+                    }
                 }
 
                 // Check if we have AST type information first (most accurate)
@@ -292,6 +320,47 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 Ok(target_type.clone())
             }
             Expression::FieldAccess { object, field } => {
+                // ⭐ PRIORITY 1: Check namespace constant access FIRST (math.PI)
+                // This must come before struct field access to handle module imports correctly
+                if let Expression::Ident(var_name) = &**object {
+                    // Check if this is a namespace import alias
+                    if let Some(_namespace_module) = self.namespace_imports.get(var_name) {
+                        // Field is a constant from the imported module
+                        // Check module_constant_types for AST type (most accurate)
+                        if let Some(const_type) = self.module_constant_types.get(field.as_str()) {
+                            return Ok(const_type.clone());
+                        }
+
+                        // Fallback: Check global_constant_types for LLVM type
+                        if let Some(const_llvm_type) =
+                            self.global_constant_types.get(field.as_str())
+                        {
+                            return Ok(match const_llvm_type {
+                                BasicTypeEnum::IntType(int_type) => {
+                                    match int_type.get_bit_width() {
+                                        1 => Type::Bool,
+                                        8 => Type::I8,
+                                        16 => Type::I16,
+                                        32 => Type::I32,
+                                        64 => Type::I64,
+                                        128 => Type::I128,
+                                        _ => Type::I32,
+                                    }
+                                }
+                                BasicTypeEnum::FloatType(float_type) => {
+                                    if float_type == &self.context.f32_type() {
+                                        Type::F32
+                                    } else {
+                                        Type::F64
+                                    }
+                                }
+                                _ => Type::I32,
+                            });
+                        }
+                    }
+                }
+
+                // PRIORITY 2: Struct field access
                 // Infer type of field access (self.x, obj.field)
                 let base_type = self.infer_expression_type(object)?;
 

@@ -1,0 +1,54 @@
+// Test ALL coercion scenarios
+
+struct Point {
+    x: i32,
+    y: i32,
+}
+
+fn returns_i64() : i64 {
+    1000i64
+}
+
+fn main() {
+    // ========== LITERALS ==========
+    println("=== Literals ===");
+    let a: i8 = 10;  // i32 literal → i8: Should this work or error?
+    println(a);
+    
+    // ========== BINARY OPS ==========
+    println("=== Binary Ops ===");
+    let b: i8 = 5i8;
+    let c: i64 = 100i64;
+    let sum1 = b + c;  // i8 + i64 → should upcast to i64
+    println(sum1);
+    
+    // ========== LET DOWNCAST ==========
+    println("=== Let Downcast ===");
+    let d: i64 = 1000i64;
+    // let e: i32 = d;  // Should ERROR
+    
+    // ========== SIGNED/UNSIGNED ==========
+    println("=== Sign Change ===");
+    let f: i32 = -100i32;
+    // let g: u32 = f;  // Should ERROR
+    
+    // ========== STRUCT FIELDS ==========
+    println("=== Struct Fields ===");
+    let h: i64 = 2000i64;
+    // let p = Point { x: h, y: 30 };  // Should ERROR
+    
+    // ========== ARRAY ELEMENTS ==========
+    println("=== Array Elements ===");
+    let arr1: [i32; 3] = [1i32, 2i32, 3i32];
+    println(arr1[0]);
+    
+    // ========== FUNCTION ARGS ==========
+    println("=== Function Args ===");
+    // takes_i32(d);  // Should ERROR (i64 → i32)
+    
+    println(0);
+}
+
+fn takes_i32(x: i32) {
+    println(x);
+}

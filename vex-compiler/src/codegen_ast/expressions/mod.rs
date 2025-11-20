@@ -62,14 +62,14 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 span_id: _,
                 op,
                 expr,
-            } => self.compile_unary_op_dispatch(op, expr),
+            } => self.compile_unary_op_dispatch(op, expr, expected_type),
 
             Expression::Call {
                 func,
                 type_args,
                 args,
                 ..
-            } => self.compile_call(func, type_args, args),
+            } => self.compile_call(func, type_args, args, expected_type),
 
             Expression::MethodCall {
                 receiver,
