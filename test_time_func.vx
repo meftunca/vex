@@ -1,0 +1,6 @@
+import { monotonic_now } from "time";
+
+fn main() {
+    let t = monotonic_now();
+    println("Time works!");
+}

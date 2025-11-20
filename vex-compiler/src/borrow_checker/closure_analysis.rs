@@ -304,7 +304,7 @@ impl super::BorrowChecker {
                 Ok(())
             }
             Expression::Await(expr)
-            | Expression::QuestionMark(expr)
+            | Expression::TryOp { expr }
             | Expression::New(expr)
             | Expression::Deref(expr)
             | Expression::ChannelReceive(expr)
@@ -335,7 +335,9 @@ impl super::BorrowChecker {
             }
             // Literals and identifiers have no nested closures
             Expression::IntLiteral(_)
+            | Expression::TypedIntLiteral { .. }
             | Expression::BigIntLiteral(_)
+            | Expression::TypedBigIntLiteral { .. }
             | Expression::FloatLiteral(_)
             | Expression::StringLiteral(_)
             | Expression::FStringLiteral(_)

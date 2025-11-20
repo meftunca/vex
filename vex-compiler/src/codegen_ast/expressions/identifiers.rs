@@ -1,7 +1,7 @@
 // Expression compilation - identifiers and variable access
-use crate::{debug_log, debug_println};
 use super::ASTCodeGen;
 use crate::diagnostics::{error_codes, Diagnostic, ErrorLevel, Span};
+use crate::{debug_log, debug_println};
 use inkwell::values::BasicValueEnum;
 
 impl<'ctx> ASTCodeGen<'ctx> {
@@ -23,13 +23,34 @@ impl<'ctx> ASTCodeGen<'ctx> {
         }
 
         // Check global constants FIRST (never cleared during function compilation)
+        // First check if we have the value directly (for constant folding)
+        if let Some(val) = self.module_constants.get(name) {
+            return Ok(*val);
+        }
+
+        // Fallback to loading from pointer if value not cached (should not happen for simple constants)
         if let Some(ptr) = self.global_constants.get(name) {
+            // For global constants, try to return the initializer value (LLVM constant) instead of loading
+            // This allows const folding: `const X = 60 * SECOND` where SECOND is also a const
+            if let Some(global_var) = self.module.get_global(name) {
+                if let Some(initializer) = global_var.get_initializer() {
+                    eprintln!("🔍 Returning const initializer for {}", name);
+                    // Return the constant initializer directly for const folding
+                    return Ok(initializer);
+                } else {
+                    eprintln!("⚠️ Global {} has no initializer!", name);
+                }
+            } else {
+                eprintln!("⚠️ Module has no global named {}", name);
+            }
+
+            // Fallback: load if no initializer (shouldn't happen for constants but handles edge cases)
             let ty = self
                 .global_constant_types
                 .get(name)
                 .ok_or_else(|| format!("Type for constant {} not found", name))?;
 
-            // Load the constant value
+            eprintln!("⚠️ Falling back to load for const {}", name);
             let loaded = self.build_load_aligned(*ty, *ptr, name)?;
             return Ok(loaded);
         }
@@ -78,6 +99,13 @@ impl<'ctx> ASTCodeGen<'ctx> {
         }
 
         // Variable/function not found - find similar names for suggestion
+        if self.suppress_diagnostics {
+            return Err(format!(
+                "Cannot find variable or function '{}' in this scope",
+                name
+            ));
+        }
+
         let mut candidates: Vec<String> = self.variables.keys().cloned().collect();
         candidates.extend(self.functions.keys().cloned());
 

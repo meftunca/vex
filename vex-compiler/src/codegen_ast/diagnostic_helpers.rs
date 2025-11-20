@@ -24,6 +24,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
     /// Emit an undefined variable error
     pub(crate) fn emit_undefined_variable(&mut self, var_name: &str, span: Span) {
+        if self.suppress_diagnostics {
+            return;
+        }
+
         let similar = self.find_similar_variable_names(var_name);
 
         self.diagnostics.emit(Diagnostic {

@@ -1,0 +1,6 @@
+import { parse_duration } from "time";
+
+fn main() {
+    let r = parse_duration("1s");
+    println("Parse duration works!");
+}

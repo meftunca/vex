@@ -1,0 +1,14 @@
+// Test: Binary operator type inference for literals
+// Without suffixes, literals should inherit expected type
+
+const SECOND: i64 = 1000000;
+const MINUTE: i64 = 60 * SECOND;  // Should infer 60 as i64, no overflow
+const HOUR: i64 = 60 * MINUTE;
+const DAY: i64 = 24 * HOUR;
+
+fn main() {
+    println("SECOND: {}", SECOND);
+    println("MINUTE: {}", MINUTE);
+    println("HOUR: {}", HOUR);
+    println("DAY: {}", DAY);
+}

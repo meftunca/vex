@@ -1,0 +1,6 @@
+import { now } from "time";
+
+fn main() {
+    let t = now();
+    println("Current time created!");
+}

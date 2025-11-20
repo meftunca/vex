@@ -271,6 +271,19 @@ impl<'ctx> ASTCodeGen<'ctx> {
     fn infer_expr_type(&self, expr: &Expression) -> Option<Type> {
         match expr {
             Expression::IntLiteral(_) => Some(Type::I32),
+            Expression::TypedIntLiteral { type_suffix, .. } => {
+                Some(match type_suffix.as_str() {
+                    "i8" => Type::I8,
+                    "i16" => Type::I16,
+                    "i32" => Type::I32,
+                    "i64" => Type::I64,
+                    "u8" => Type::U8,
+                    "u16" => Type::U16,
+                    "u32" => Type::U32,
+                    "u64" => Type::U64,
+                    _ => Type::I32,
+                })
+            }
             Expression::FloatLiteral(_) => Some(Type::F64),
             Expression::BoolLiteral(_) => Some(Type::Bool),
             Expression::StringLiteral(_) => Some(Type::String),

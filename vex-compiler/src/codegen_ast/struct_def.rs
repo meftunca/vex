@@ -94,11 +94,11 @@ pub struct ASTCodeGen<'ctx> {
     // Module namespace tracking
     // Maps module names to their imported functions: "io" -> ["print", "println"]
     pub(crate) module_namespaces: HashMap<String, Vec<String>>,
-    
+
     // ⭐ NEW: Namespace import aliases: alias -> module_name
     // Example: import * as math from "math" → namespace_imports["math"] = "math"
     pub(crate) namespace_imports: HashMap<String, String>,
-    
+
     // ⭐ NEW: Module constants registry
     // Stores compiled constant values from imported modules
     // Key format: "module_name::CONST_NAME" or direct "CONST_NAME"
@@ -192,4 +192,7 @@ pub struct ASTCodeGen<'ctx> {
 
     // ⭐ ASYNC: Current async context for await compilation
     pub(crate) async_context: Option<AsyncContext>,
+
+    // ⭐ NEW: Suppress diagnostics during speculative compilation (e.g. constants)
+    pub(crate) suppress_diagnostics: bool,
 }

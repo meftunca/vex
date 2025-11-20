@@ -1,0 +1,8 @@
+// Test target-typed integer literal inference in const context
+const X: i64 = 1000;
+const Y: i64 = 1000i64 * X;  // Using literal suffix works
+
+fn main(): i32 {
+    println("Y = {}", Y);
+    return 0;
+}

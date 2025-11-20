@@ -216,6 +216,9 @@ impl super::LifetimeChecker {
 
             // Literals have no lifetime concerns
             Expression::IntLiteral(_)
+            | Expression::TypedIntLiteral { .. }
+            | Expression::BigIntLiteral(_)
+            | Expression::TypedBigIntLiteral { .. }
             | Expression::FloatLiteral(_)
             | Expression::StringLiteral(_)
             | Expression::FStringLiteral(_)
@@ -242,7 +245,7 @@ impl super::LifetimeChecker {
             Expression::PostfixOp { expr, .. } => self.check_expression(expr),
 
             Expression::Await(expr)
-            | Expression::QuestionMark(expr)
+            | Expression::TryOp { expr }
             | Expression::ChannelReceive(expr) => self.check_expression(expr),
 
             Expression::Launch { args, .. } => {

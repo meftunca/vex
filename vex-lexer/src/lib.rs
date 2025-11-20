@@ -308,24 +308,24 @@ pub enum Token {
     Decrement,
 
     // Literals
-    // Hex literal: 0x1A3F, 0xFF
+    // Hex literal with optional type suffix: 0x1A3F, 0xFFu8, 0x1000i64
     // Store as String to support i128/u128 range - parser will validate
-    #[regex(r"0[xX][0-9a-fA-F]+", |lex| lex.slice().to_string())]
+    #[regex(r"0[xX][0-9a-fA-F]+(?:i8|i16|i32|i64|i128|u8|u16|u32|u64|u128)?", |lex| lex.slice().to_string())]
     HexLiteral(String),
 
-    // Binary literal: 0b1010, 0B1111
+    // Binary literal with optional type suffix: 0b1010, 0B1111u8, 0b1010i32
     // Store as String to support i128/u128 range - parser will validate
-    #[regex(r"0[bB][01]+", |lex| lex.slice().to_string())]
+    #[regex(r"0[bB][01]+(?:i8|i16|i32|i64|i128|u8|u16|u32|u64|u128)?", |lex| lex.slice().to_string())]
     BinaryLiteral(String),
 
-    // Octal literal: 0o777, 0O123
+    // Octal literal with optional type suffix: 0o777, 0O123u16, 0o777i64
     // Store as String to support i128/u128 range - parser will validate
-    #[regex(r"0[oO][0-7]+", |lex| lex.slice().to_string())]
+    #[regex(r"0[oO][0-7]+(?:i8|i16|i32|i64|i128|u8|u16|u32|u64|u128)?", |lex| lex.slice().to_string())]
     OctalLiteral(String),
 
-    // Decimal integer (must come AFTER hex/binary/octal to avoid conflicts)
+    // Decimal integer with optional type suffix: 42, 42i64, 100u32, etc.
     // Store as String to support i128/u128 range - parser will validate range
-    #[regex(r"[0-9]+", |lex| lex.slice().to_string())]
+    #[regex(r"[0-9]+(?:i8|i16|i32|i64|i128|u8|u16|u32|u64|u128)?", |lex| lex.slice().to_string())]
     IntLiteral(String),
 
     // Float literal with optional scientific notation: 3.14, 1.5e10, 2.0E-5

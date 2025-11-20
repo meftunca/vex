@@ -1,145 +1,110 @@
 import {
-		VexTime,
-		VexInstant,
-		VexTz,
-		vt_now,
-		vt_monotonic_now_ns,
-		vt_instant_from_unix,
-		vt_parse_duration,
-		vt_add,
-		vt_sub,
-		vt_since,
-		vt_until,
-		vt_sleep_ns,
-		vt_parse_rfc3339,
-		vt_tz_utc,
-		vt_tz_local,
-		vt_tz_fixed,
-		vt_tz_load,
-		vt_parse_go,
-		vt_instant_weekday,
-		vt_instant_yearday,
-		vt_instant_compare,
-		vt_instant_before,
-		vt_instant_after,
-		vt_instant_equal,
-		vt_instant_truncate,
-		vt_instant_round,
-		vt_instant_unix_milli,
-		vt_instant_unix_micro
+    VexTime,
+    VexInstant,
+    Duration,
+    Instant,
+    Time,
+    Location,
+    vt_now,
+    vt_monotonic_now_ns,
+    vt_instant_from_unix,
+    vt_parse_duration,
+    vt_add,
+    vt_sub,
+    vt_since,
+    vt_until,
+    vt_sleep_ns,
+    vt_parse_rfc3339,
+    vt_tz_utc,
+    vt_tz_local,
+    vt_tz_fixed,
+    vt_tz_load,
+    vt_parse_go,
+    vt_instant_weekday,
+    vt_instant_yearday,
+    vt_instant_compare,
+    vt_instant_before,
+    vt_instant_after,
+    vt_instant_equal,
+    vt_instant_truncate,
+    vt_instant_round,
+    vt_instant_unix_milli,
+    vt_instant_unix_micro
 } from "./native.vxc";
-// ==== Constructors & basics ====
 
-export fn now(): Time {
-	let t: VexTime = VexTime { wall: VexInstant { unix_sec: 0, nsec: 0, _pad: 0 }, mono_ns: 0 };
-	vt_now(&t);
-	return Time { inner: t };
-}
+// ==== Duration constants ====
+export const NANOSECOND: i64 = 1;
+export const MICROSECOND: i64 = 1000i64 * NANOSECOND;
+export const MILLISECOND: i64 = 1000i64 * MICROSECOND;
+export const SECOND: i64 = 1000i64 * MILLISECOND;
+export const MINUTE: i64 = 60i64 * SECOND;
+export const HOUR: i64 = 60i64 * MINUTE;
+export const DAY: i64 = 24i64 * HOUR;
 
+// ==== Monotonic time (u64 nanoseconds) ====
 export fn monotonic_now(): u64 { return vt_monotonic_now_ns(); }
 
-export fn unix(sec: i64, nsec: i32): Instant {
-	let inst = vt_instant_from_unix(sec, nsec);
-	return Instant { inner: inst };
+// ==== Constructors & basics ====
+export fn now(): Time {
+    let t: VexTime = VexTime { wall: VexInstant { unix_sec: 0, nsec: 0, _pad: 0 }, mono_ns: 0 };
+    vt_now(&t);
+    return Time { inner: t };
 }
 
-// ==== Instant: unix components ====
-export fn unix_seconds(i: Instant): i64 { return i.inner.unix_sec; }
-export fn unix_nanosecond(i: Instant): i32 { return i.inner.nsec; }
+export fn unix(sec: i64, nsec: i32): Instant {
+    let inst = vt_instant_from_unix(sec, nsec);
+    return Instant { inner: inst };
+}
 
-// ==== Duration parsing/formatting ====
-export fn parse_duration(s: str): Result<Duration, str> {
+// ==== Duration parsing ====
+export fn parse_duration(s: str): Result<i64, str> {
 	let raw: i64 = 0;
 	let p: *u8 = s as *u8;
 	let r = vt_parse_duration(p, &raw);
-	if r == 0 { return Result.Ok(Duration { ns: raw }); } else { return Result.Err("invalid duration"); }
-}
-
-// Minimal formatting (allocate small stack buf, fallback if too small)
-export fn format_duration(d: Duration): str {
-	// TODO replace with proper dynamic string API when available
-	return "Duration"; // placeholder
-}
-
-// ==== Arithmetic on Time ====
-export fn add(t: Time, d: Duration): Time { return Time { inner: vt_add(t.inner, d.ns) }; }
-export fn sub(t: Time, u: Time): Duration { return Duration { ns: vt_sub(t.inner, u.inner) }; }
-export fn since(t: Time): Duration { return Duration { ns: vt_since(t.inner) }; }
-export fn until(t: Time): Duration { return Duration { ns: vt_until(t.inner) }; }
+	if r == 0 { return Result.Ok(raw); } else { return Result.Err("invalid duration"); }
+}// ==== Arithmetic on Time ====
+export fn add(t: Time, d: i64): Time { return Time { inner: vt_add(&t.inner, d) }; }
+export fn sub(t: Time, u: Time): i64 { return vt_sub(&t.inner, &u.inner); }
+export fn since(t: Time): i64 { return vt_since(&t.inner); }
+export fn until(t: Time): i64 { return vt_until(&t.inner); }
 
 // ==== Sleep ====
-export fn sleep(d: Duration) { vt_sleep_ns(d.ns); }
+export fn sleep(ns: i64) { vt_sleep_ns(ns); }
 
 // ==== RFC3339 ====
-export fn format_rfc3339(i: Instant): str { return _format_rfc3339_impl(i); }
-fn _format_rfc3339_impl(i: Instant): str {
-	return "0001-01-01T00:00:00Z"; // placeholder until string builder ready
-}
-
 export fn parse_rfc3339(s: str): Result<Instant, str> {
-	let inst: VexInstant = VexInstant { unix_sec: 0, nsec: 0, _pad: 0 };
-	let p: *u8 = s as *u8;
-	let r = vt_parse_rfc3339(p, &inst);
-	if r == 0 { return Result.Ok(Instant { inner: inst }); } else { return Result.Err("invalid RFC3339"); }
+    let inst: VexInstant = VexInstant { unix_sec: 0, nsec: 0, _pad: 0 };
+    let p: *u8 = s as *u8;
+    let r = vt_parse_rfc3339(p, &inst);
+    if r == 0 { return Result.Ok(Instant { inner: inst }); } else { return Result.Err("invalid RFC3339"); }
 }
 
 // ==== Time Zones ====
 export fn utc(): Location { return Location { tz: vt_tz_utc() }; }
 export fn local(): Location { return Location { tz: vt_tz_local() }; }
 export fn fixed_zone(name: str, offset_sec: i32): Location {
-	let p: *u8 = name as *u8; return Location { tz: vt_tz_fixed(p, offset_sec) };
+    let p: *u8 = name as *u8; return Location { tz: vt_tz_fixed(p, offset_sec) };
 }
 export fn load_location(name: str): Result<Location, str> {
-	let p: *u8 = name as *u8; let tz = vt_tz_load(p); if tz != 0 as VexTz { return Result.Ok(Location { tz: tz }); } else { return Result.Err("tz not found"); }
-}
-
-// ==== Go layout formatting/parsing ====
-export fn format_go(i: Instant, loc: Location, layout: str): Result<str, str> {
-	// placeholder for future string builder
-	return Result.Ok("formatted");
-}
-
-export fn parse_go(layout: str, value: str, loc: Location): Result<Instant, str> {
-	let inst: VexInstant = VexInstant { unix_sec: 0, nsec: 0, _pad: 0 };
-	let lp: *u8 = layout as *u8;
-	let vp: *u8 = value as *u8;
-	let r = vt_parse_go(lp, vp, loc.tz, &inst);
-	if r == 0 { return Result.Ok(Instant { inner: inst }); } else { return Result.Err("invalid layout parse"); }
+    let p: *u8 = name as *u8; let tz = vt_tz_load(p); 
+    if tz != 0 as *u8 { return Result.Ok(Location { tz: tz }); } 
+    else { return Result.Err("tz not found"); }
 }
 
 // ==== Component queries ====
-// TODO: Tuple returns not yet supported - commented out
-// export fn date(i: Instant): (i32, i32, i32) { ... }
-// export fn clock(i: Instant): (i32, i32, i32) { ... }
-// export fn iso_week(i: Instant): (i32, i32) { ... }
-
-export fn weekday(i: Instant): i32 { return vt_instant_weekday(i.inner); }
-export fn yearday(i: Instant): i32 { return vt_instant_yearday(i.inner); }
+export fn weekday(i: Instant): i32 { return vt_instant_weekday(&i.inner); }
+export fn yearday(i: Instant): i32 { return vt_instant_yearday(&i.inner); }
 
 // ==== Comparison ====
-export fn compare(a: Instant, b: Instant): i32 { return vt_instant_compare(a.inner, b.inner); }
-export fn before(a: Instant, b: Instant): bool { return vt_instant_before(a.inner, b.inner) == 1; }
-export fn after(a: Instant, b: Instant): bool { return vt_instant_after(a.inner, b.inner) == 1; }
-export fn equal(a: Instant, b: Instant): bool { return vt_instant_equal(a.inner, b.inner) == 1; }
+export fn compare(a: Instant, b: Instant): i32 { return vt_instant_compare(&a.inner, &b.inner); }
+export fn before(a: Instant, b: Instant): bool { return vt_instant_before(&a.inner, &b.inner) == 1; }
+export fn after(a: Instant, b: Instant): bool { return vt_instant_after(&a.inner, &b.inner) == 1; }
+export fn equal(a: Instant, b: Instant): bool { return vt_instant_equal(&a.inner, &b.inner) == 1; }
 
 // ==== Truncate/Round ====
-export fn truncate(i: Instant, d: Duration): Instant { return Instant { inner: vt_instant_truncate(i.inner, d.ns) }; }
-export fn round(i: Instant, d: Duration): Instant { return Instant { inner: vt_instant_round(i.inner, d.ns) }; }
+export fn truncate(i: Instant, d: i64): Instant { return Instant { inner: vt_instant_truncate(&i.inner, d) }; }
+export fn round(i: Instant, d: i64): Instant { return Instant { inner: vt_instant_round(&i.inner, d) }; }
 
 // ==== Unix helpers ====
-export fn unix_milli(i: Instant): i64 { return vt_instant_unix_milli(i.inner); }
-export fn unix_micro(i: Instant): i64 { return vt_instant_unix_micro(i.inner); }
-
-// ==== Duration constants ====
-export const NANOSECOND: i64 = 1;
-export const MICROSECOND: i64 = 1000;
-export const MILLISECOND: i64 = 1000000;
-export const SECOND: i64 = 1000000000;
-export const MINUTE: i64 = 60 * SECOND;
-export const HOUR: i64 = 60 * MINUTE;
-
-// ==== Simple smoke test (optional helper) ====
-export fn _smoke_now(): bool {
-	let t = now(); let dur = since(t); return dur.ns >= 0;
-}
-
+export fn unix_milli(i: Instant): i64 { return vt_instant_unix_milli(&i.inner); }
+export fn unix_micro(i: Instant): i64 { return vt_instant_unix_micro(&i.inner); }

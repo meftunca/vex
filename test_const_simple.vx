@@ -1,0 +1,6 @@
+const A: i64 = 1000;
+const B: i64 = 60 * A;
+
+fn main() {
+    println("{}", B);
+}

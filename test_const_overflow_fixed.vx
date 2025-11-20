@@ -1,0 +1,8 @@
+// Test const overflow with target type
+const X: i64 = 1000i64;
+const Y: i64 = 60i64;  // This would cause const eval builder overflow without suffix
+const MINUTE: i64 = 60i64 * X*Y;  // Use literal suffix to avoid const eval builder issue
+
+fn main() {
+    println("MINUTE = {}", MINUTE);
+}

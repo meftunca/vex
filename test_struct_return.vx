@@ -1,0 +1,12 @@
+import { now, since } from "time";
+
+fn test_direct() {
+    let t = now();
+    println("Created time");
+    let d = since(t);
+    println("Since called");
+}
+
+fn main() {
+    test_direct();
+}

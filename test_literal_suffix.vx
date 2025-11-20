@@ -1,0 +1,18 @@
+// Test integer literal type suffixes
+fn main(): i32 {
+    let a: i64 = 42i64;
+    let b: u32 = 100u32;
+    let c: i8 = 127i8;
+    let d: u64 = 0xFFu64;
+    let e: i32 = 0b1010i32;
+    let f: i16 = 0o777i16;
+    
+    println("a (i64): {}", a);
+    println("b (u32): {}", b);
+    println("c (i8): {}", c);
+    println("d (u64 hex): {}", d);
+    println("e (i32 bin): {}", e);
+    println("f (i16 oct): {}", f);
+    
+    return 0;
+}

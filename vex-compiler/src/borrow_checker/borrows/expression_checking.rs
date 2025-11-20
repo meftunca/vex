@@ -82,7 +82,7 @@ impl BorrowRulesChecker {
             Expression::Deref(expr) => self.check_deref_expression(expr),
 
             Expression::Await(expr)
-            | Expression::QuestionMark(expr)
+            | Expression::TryOp { expr }
             | Expression::ChannelReceive(expr) => {
                 self.check_expression_for_borrows(expr)?;
                 Ok(())

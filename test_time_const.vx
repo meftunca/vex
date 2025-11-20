@@ -1,0 +1,5 @@
+import { SECOND } from "time";
+
+fn main() {
+    println("Test");
+}

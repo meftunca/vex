@@ -3,21 +3,22 @@ use super::ASTCodeGen;
 use inkwell::values::BasicValueEnum;
 
 impl<'ctx> ASTCodeGen<'ctx> {
-    /// Compile binary operations
-    pub(crate) fn compile_binary_op(
+    /// Compile binary operations with optional expected type for overflow checking
+    pub(crate) fn compile_binary_op_with_expected(
         &mut self,
         left: &vex_ast::Expression,
         op: &vex_ast::BinaryOp,
         right: &vex_ast::Expression,
+        expected_type: Option<&vex_ast::Type>,
     ) -> Result<BasicValueEnum<'ctx>, String> {
-        // Compile left and right operands first
-        let left_val = self.compile_expression(left)?;
-        let right_val = self.compile_expression(right)?;
-
-        // Check for operator overloading first
-        if let Some(result) = self.check_operator_overloading(left, op, right)? {
+        // Check for operator overloading BEFORE compiling (needs Expression AST for type inference)
+        if let Some(result) = self.check_operator_overloading(left, op, right, expected_type)? {
             return Ok(result);
         }
+
+        // Compile left and right operands with expected type for literal inference
+        let left_val = self.compile_expression_with_type(left, expected_type)?;
+        let right_val = self.compile_expression_with_type(right, expected_type)?;
 
         // Load operands if they are pointers to structs/enums
         let (left_val, right_val) =
@@ -30,7 +31,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 let (l, r) = self.align_integer_widths(*l, *r)?;
                 match op {
                     vex_ast::BinaryOp::Pow => self.compile_int_power(l, r),
-                    _ => self.compile_integer_binary_op(l, r, op),
+                    _ => self.compile_integer_binary_op_with_expected(l, r, op, expected_type),
                 }
             }
             (BasicValueEnum::FloatValue(l), BasicValueEnum::FloatValue(r)) => {
@@ -52,6 +53,16 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 op
             )),
         }
+    }
+
+    /// Compile binary operations (backward compat wrapper)
+    pub(crate) fn compile_binary_op(
+        &mut self,
+        left: &vex_ast::Expression,
+        op: &vex_ast::BinaryOp,
+        right: &vex_ast::Expression,
+    ) -> Result<BasicValueEnum<'ctx>, String> {
+        self.compile_binary_op_with_expected(left, op, right, None)
     }
 
     /// Compile binary operations dispatch

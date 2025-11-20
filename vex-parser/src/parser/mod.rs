@@ -57,6 +57,23 @@ impl<'a> Parser<'a> {
         &self.diagnostics
     }
 
+    /// Split type suffix from integer literal string
+    /// Returns (number_part, optional_suffix)
+    /// Example: "42i64" -> ("42", Some("i64")), "100" -> ("100", None)
+    pub(crate) fn split_type_suffix(s: &str) -> (&str, Option<&str>) {
+        // Check for known type suffixes
+        const SUFFIXES: &[&str] = &["i128", "u128", "i64", "u64", "i32", "u32", "i16", "u16", "i8", "u8"];
+        
+        for suffix in SUFFIXES {
+            if s.ends_with(suffix) {
+                let num_part = &s[..s.len() - suffix.len()];
+                return (num_part, Some(suffix));
+            }
+        }
+        
+        (s, None)
+    }
+
     /// Emit a warning diagnostic
     pub(crate) fn emit_warning(
         &mut self,

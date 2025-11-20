@@ -4,13 +4,158 @@ use inkwell::values::BasicValueEnum;
 
 impl<'ctx> ASTCodeGen<'ctx> {
     /// Compile literal expressions (numbers, strings, booleans, nil)
+    /// Optional expected_type for target-typed inference
     pub(crate) fn compile_literal(
         &mut self,
         expr: &vex_ast::Expression,
     ) -> Result<BasicValueEnum<'ctx>, String> {
+        self.compile_literal_with_type(expr, None)
+    }
+
+    /// Compile literal with optional expected type for context-dependent inference
+    pub(crate) fn compile_literal_with_type(
+        &mut self,
+        expr: &vex_ast::Expression,
+        expected_type: Option<&vex_ast::Type>,
+    ) -> Result<BasicValueEnum<'ctx>, String> {
         match expr {
             vex_ast::Expression::IntLiteral(n) => {
+                // Target-typed: infer from expected type if available
+                eprintln!("🔍 IntLiteral({}) expected_type: {:?}", n, expected_type);
+                if let Some(expected) = expected_type {
+                    match expected {
+                        vex_ast::Type::I8 => {
+                            return Ok(self.context.i8_type().const_int(*n as u64, true).into())
+                        }
+                        vex_ast::Type::I16 => {
+                            return Ok(self.context.i16_type().const_int(*n as u64, true).into())
+                        }
+                        vex_ast::Type::I32 => {
+                            return Ok(self.context.i32_type().const_int(*n as u64, true).into())
+                        }
+                        vex_ast::Type::I64 => {
+                            return Ok(self.context.i64_type().const_int(*n as u64, true).into())
+                        }
+                        vex_ast::Type::I128 => {
+                            return Ok(self.context.i128_type().const_int(*n as u64, true).into())
+                        }
+                        vex_ast::Type::U8 => {
+                            return Ok(self.context.i8_type().const_int(*n as u64, false).into())
+                        }
+                        vex_ast::Type::U16 => {
+                            return Ok(self.context.i16_type().const_int(*n as u64, false).into())
+                        }
+                        vex_ast::Type::U32 => {
+                            return Ok(self.context.i32_type().const_int(*n as u64, false).into())
+                        }
+                        vex_ast::Type::U64 => {
+                            return Ok(self.context.i64_type().const_int(*n as u64, false).into())
+                        }
+                        vex_ast::Type::U128 => {
+                            return Ok(self.context.i128_type().const_int(*n as u64, false).into())
+                        }
+                        _ => {} // Fall through to default i32
+                    }
+                }
+                // Default: i32
                 Ok(self.context.i32_type().const_int(*n as u64, false).into())
+            }
+
+            vex_ast::Expression::TypedIntLiteral { value, type_suffix } => {
+                // Compile typed integer literal with explicit type suffix
+                match type_suffix.as_str() {
+                    "i8" => Ok(self.context.i8_type().const_int(*value as u64, true).into()),
+                    "i16" => Ok(self
+                        .context
+                        .i16_type()
+                        .const_int(*value as u64, true)
+                        .into()),
+                    "i32" => Ok(self
+                        .context
+                        .i32_type()
+                        .const_int(*value as u64, true)
+                        .into()),
+                    "i64" => Ok(self
+                        .context
+                        .i64_type()
+                        .const_int(*value as u64, true)
+                        .into()),
+                    "u8" => Ok(self
+                        .context
+                        .i8_type()
+                        .const_int(*value as u64, false)
+                        .into()),
+                    "u16" => Ok(self
+                        .context
+                        .i16_type()
+                        .const_int(*value as u64, false)
+                        .into()),
+                    "u32" => Ok(self
+                        .context
+                        .i32_type()
+                        .const_int(*value as u64, false)
+                        .into()),
+                    "u64" => Ok(self
+                        .context
+                        .i64_type()
+                        .const_int(*value as u64, false)
+                        .into()),
+                    _ => Err(format!("Unsupported type suffix: {}", type_suffix)),
+                }
+            }
+
+            vex_ast::Expression::TypedBigIntLiteral { value, type_suffix } => {
+                // Compile big integer with explicit type suffix (i128/u128)
+                match type_suffix.as_str() {
+                    "i128" => {
+                        let radix = if value.starts_with("0x") || value.starts_with("0X") {
+                            inkwell::types::StringRadix::Hexadecimal
+                        } else if value.starts_with("0b") || value.starts_with("0B") {
+                            inkwell::types::StringRadix::Binary
+                        } else if value.starts_with("0o") || value.starts_with("0O") {
+                            inkwell::types::StringRadix::Octal
+                        } else {
+                            inkwell::types::StringRadix::Decimal
+                        };
+                        let num_str = if radix != inkwell::types::StringRadix::Decimal {
+                            &value[2..]
+                        } else {
+                            value.as_str()
+                        };
+                        Ok(self
+                            .context
+                            .i128_type()
+                            .const_int_from_string(num_str, radix)
+                            .unwrap()
+                            .into())
+                    }
+                    "u128" => {
+                        let radix = if value.starts_with("0x") || value.starts_with("0X") {
+                            inkwell::types::StringRadix::Hexadecimal
+                        } else if value.starts_with("0b") || value.starts_with("0B") {
+                            inkwell::types::StringRadix::Binary
+                        } else if value.starts_with("0o") || value.starts_with("0O") {
+                            inkwell::types::StringRadix::Octal
+                        } else {
+                            inkwell::types::StringRadix::Decimal
+                        };
+                        let num_str = if radix != inkwell::types::StringRadix::Decimal {
+                            &value[2..]
+                        } else {
+                            value.as_str()
+                        };
+                        Ok(self
+                            .context
+                            .i128_type()
+                            .const_int_from_string(num_str, radix)
+                            .unwrap()
+                            .into())
+                    }
+                    _ => Err(format!(
+                        "Unsupported big integer type suffix: {}",
+                        type_suffix
+                    )),
+                }
             }
 
             vex_ast::Expression::BigIntLiteral(s) => {

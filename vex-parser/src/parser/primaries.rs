@@ -44,12 +44,31 @@ impl<'a> Parser<'a> {
             return self.parse_closure();
         }
 
-        // Integer literals (decimal, hex, binary, octal)
-        // Now stored as String in lexer to support i128/u128 range
+        // Integer literals (decimal, hex, binary, octal) with optional type suffix
+        // Now stored as String in lexer to support i128/u128 range and type suffixes
         if let Token::IntLiteral(s) = self.peek() {
             let s = s.clone();
             self.advance();
-            // Try to parse as i64 first
+
+            // Parse type suffix if present
+            let (num_str, type_suffix) = Self::split_type_suffix(&s);
+
+            if let Some(suffix) = type_suffix {
+                // Typed literal: 42i64, 100u32, etc.
+                if let Ok(n) = num_str.parse::<i64>() {
+                    return Ok(Expression::TypedIntLiteral {
+                        value: n,
+                        type_suffix: suffix.to_string(),
+                    });
+                }
+                // If doesn't fit in i64, use BigIntLiteral
+                return Ok(Expression::TypedBigIntLiteral {
+                    value: num_str.to_string(),
+                    type_suffix: suffix.to_string(),
+                });
+            }
+
+            // No suffix: default behavior (i32 inference or context-dependent)
             if let Ok(n) = s.parse::<i64>() {
                 return Ok(Expression::IntLiteral(n));
             }
@@ -65,7 +84,35 @@ impl<'a> Parser<'a> {
         if let Token::HexLiteral(s) = self.peek() {
             let s = s.clone();
             self.advance();
-            if let Ok(n) = i64::from_str_radix(&s[2..], 16) {
+
+            // Parse type suffix if present
+            let (num_str, type_suffix) = Self::split_type_suffix(&s);
+
+            // Extract hex digits (skip 0x prefix)
+            let hex_start = if num_str.starts_with("0x") || num_str.starts_with("0X") {
+                2
+            } else {
+                0
+            };
+            let hex_digits = &num_str[hex_start..];
+
+            if let Some(suffix) = type_suffix {
+                // Typed hex literal: 0xFFi64, 0x100u32
+                if let Ok(n) = i64::from_str_radix(hex_digits, 16) {
+                    return Ok(Expression::TypedIntLiteral {
+                        value: n,
+                        type_suffix: suffix.to_string(),
+                    });
+                }
+                // If doesn't fit in i64, use BigIntLiteral
+                return Ok(Expression::TypedBigIntLiteral {
+                    value: num_str.to_string(),
+                    type_suffix: suffix.to_string(),
+                });
+            }
+
+            // No suffix: default behavior
+            if let Ok(n) = i64::from_str_radix(hex_digits, 16) {
                 return Ok(Expression::IntLiteral(n));
             }
             // Store as BigIntLiteral if too large
@@ -74,7 +121,34 @@ impl<'a> Parser<'a> {
         if let Token::BinaryLiteral(s) = self.peek() {
             let s = s.clone();
             self.advance();
-            if let Ok(n) = i64::from_str_radix(&s[2..], 2) {
+
+            // Parse type suffix if present
+            let (num_str, type_suffix) = Self::split_type_suffix(&s);
+
+            // Extract binary digits (skip 0b prefix)
+            let bin_start = if num_str.starts_with("0b") || num_str.starts_with("0B") {
+                2
+            } else {
+                0
+            };
+            let bin_digits = &num_str[bin_start..];
+
+            if let Some(suffix) = type_suffix {
+                // Typed binary literal: 0b1010i32, 0b1111u8
+                if let Ok(n) = i64::from_str_radix(bin_digits, 2) {
+                    return Ok(Expression::TypedIntLiteral {
+                        value: n,
+                        type_suffix: suffix.to_string(),
+                    });
+                }
+                return Ok(Expression::TypedBigIntLiteral {
+                    value: num_str.to_string(),
+                    type_suffix: suffix.to_string(),
+                });
+            }
+
+            // No suffix: default behavior
+            if let Ok(n) = i64::from_str_radix(bin_digits, 2) {
                 return Ok(Expression::IntLiteral(n));
             }
             return Ok(Expression::BigIntLiteral(s));
@@ -82,7 +156,34 @@ impl<'a> Parser<'a> {
         if let Token::OctalLiteral(s) = self.peek() {
             let s = s.clone();
             self.advance();
-            if let Ok(n) = i64::from_str_radix(&s[2..], 8) {
+
+            // Parse type suffix if present
+            let (num_str, type_suffix) = Self::split_type_suffix(&s);
+
+            // Extract octal digits (skip 0o prefix)
+            let oct_start = if num_str.starts_with("0o") || num_str.starts_with("0O") {
+                2
+            } else {
+                0
+            };
+            let oct_digits = &num_str[oct_start..];
+
+            if let Some(suffix) = type_suffix {
+                // Typed octal literal: 0o777i64, 0o123u16
+                if let Ok(n) = i64::from_str_radix(oct_digits, 8) {
+                    return Ok(Expression::TypedIntLiteral {
+                        value: n,
+                        type_suffix: suffix.to_string(),
+                    });
+                }
+                return Ok(Expression::TypedBigIntLiteral {
+                    value: num_str.to_string(),
+                    type_suffix: suffix.to_string(),
+                });
+            }
+
+            // No suffix: default behavior
+            if let Ok(n) = i64::from_str_radix(oct_digits, 8) {
                 return Ok(Expression::IntLiteral(n));
             }
             return Ok(Expression::BigIntLiteral(s));

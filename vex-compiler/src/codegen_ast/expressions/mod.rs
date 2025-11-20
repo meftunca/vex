@@ -29,14 +29,25 @@ impl<'ctx> ASTCodeGen<'ctx> {
         &mut self,
         expr: &vex_ast::Expression,
     ) -> Result<BasicValueEnum<'ctx>, String> {
+        self.compile_expression_with_type(expr, None)
+    }
+
+    /// Expression compiler with optional expected type for target-typed inference
+    pub(crate) fn compile_expression_with_type(
+        &mut self,
+        expr: &vex_ast::Expression,
+        expected_type: Option<&vex_ast::Type>,
+    ) -> Result<BasicValueEnum<'ctx>, String> {
         match expr {
             Expression::IntLiteral(_)
+            | Expression::TypedIntLiteral { .. }
             | Expression::BigIntLiteral(_)
+            | Expression::TypedBigIntLiteral { .. }
             | Expression::FloatLiteral(_)
             | Expression::BoolLiteral(_)
             | Expression::StringLiteral(_)
             | Expression::FStringLiteral(_)
-            | Expression::Nil => self.compile_literal(expr),
+            | Expression::Nil => self.compile_literal_with_type(expr, expected_type),
 
             Expression::Ident(name) => self.compile_identifier(name),
 
@@ -45,7 +56,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 left,
                 op,
                 right,
-            } => self.compile_binary_op_dispatch(left, op, right),
+            } => self.compile_binary_op_with_expected(left, op, right, expected_type),
 
             Expression::Unary {
                 span_id: _,
@@ -104,7 +115,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 return_expr,
             } => self.compile_async_block_dispatch(statements, return_expr),
 
-            Expression::QuestionMark(expr) => self.compile_question_mark_dispatch(expr),
+            Expression::TryOp { expr } => self.compile_try_dispatch(expr),
 
             Expression::Reference { is_mutable, expr } => {
                 self.compile_reference_dispatch(*is_mutable, expr)

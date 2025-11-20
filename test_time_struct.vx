@@ -1,0 +1,6 @@
+import { unix } from "time";
+
+fn main() {
+    let i = unix(0, 0);
+    println("Unix instant created!");
+}

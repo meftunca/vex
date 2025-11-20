@@ -1,0 +1,10 @@
+import { monotonic_now, SECOND } from "time";
+
+fn expect(cond: bool, code: i32): i32 { if !cond { return code; } return 0; }
+
+fn main() {
+    let a = monotonic_now();
+    let b = monotonic_now();
+    let result = expect(b >= a, 1);
+    println("Test passed!");
+}

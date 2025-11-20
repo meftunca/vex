@@ -18,6 +18,7 @@ mod associated_types; // Associated types resolution
 pub mod builtins; // Now a directory module
 mod compilation; // Compilation and code generation utilities
 mod constants;
+mod destructors; // Automatic destructors (RAII/Drop trait)
 mod diagnostic_helpers; // Diagnostic helper methods for error reporting
 mod drop_trait; // Drop trait automatic cleanup (RAII)
 mod expressions;
@@ -99,8 +100,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
             policy_defs: HashMap::new(),
             struct_metadata: HashMap::new(),
             module_namespaces: HashMap::new(),
-            namespace_imports: HashMap::new(),     // ⭐ NEW: Namespace import aliases
-            module_constants: HashMap::new(),      // ⭐ NEW: Module constant registry
+            namespace_imports: HashMap::new(), // ⭐ NEW: Namespace import aliases
+            module_constants: HashMap::new(),  // ⭐ NEW: Module constant registry
             builtins: BuiltinRegistry::new(),
             current_function: None,
             current_function_return_type: None,
@@ -126,6 +127,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             current_async_resume_fn: None, // ⭐ ASYNC STATE MACHINE: Resume function
             async_resume_blocks: Vec::new(), // ⭐ ASYNC STATE MACHINE: Pre-allocated resume blocks
             async_context: None,  // ⭐ ASYNC: Current async context
+            suppress_diagnostics: false, // ⭐ NEW: Default to false
         };
 
         // Register Phase 0 builtin types (Vec, Option, Result, Box)

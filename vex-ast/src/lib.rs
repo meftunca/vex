@@ -787,8 +787,12 @@ pub enum CompoundOp {
 pub enum Expression {
     /// Literals
     IntLiteral(i64),
+    /// Typed integer literal with explicit suffix: 42i64, 100u32, etc.
+    TypedIntLiteral { value: i64, type_suffix: String },
     /// Large integer literal (for i128/u128) stored as string, converted during codegen
     BigIntLiteral(String),
+    /// Typed big integer literal with explicit suffix
+    TypedBigIntLiteral { value: String, type_suffix: String },
     FloatLiteral(f64),
     StringLiteral(String),
     FStringLiteral(String), // f"..."
@@ -936,9 +940,11 @@ pub enum Expression {
         target_type: Type,
     },
 
-    /// Question mark operator: expr? (Result early return)
+    /// Try operator: expr? (unwrap Result or propagate error)
     /// Desugars to: match expr { Ok(v) => v, Err(e) => return Err(e) }
-    QuestionMark(Box<Expression>),
+    TryOp {
+        expr: Box<Expression>,
+    },
 
     /// Typeof operator: typeof(expr) - Get type of expression
     Typeof(Box<Expression>),

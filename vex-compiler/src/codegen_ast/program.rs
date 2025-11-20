@@ -551,6 +551,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         self.trait_bounds_checker = Some(trait_checker);
 
         // First pass: register types, constants, and function signatures
+        let mut constants_to_compile = Vec::new();
         for item in &merged_program.items {
             if let Item::TypeAlias(type_alias) = item {
                 self.register_type_alias(type_alias)?;
@@ -569,8 +570,52 @@ impl<'ctx> ASTCodeGen<'ctx> {
             } else if let Item::ExternBlock(extern_block) = item {
                 self.compile_extern_block(extern_block)?;
             } else if let Item::Const(const_decl) = item {
-                // Register constants as global variables
-                self.compile_const(const_decl)?;
+                // Defer constant compilation to handle dependencies
+                constants_to_compile.push(const_decl);
+            }
+        }
+
+        // Compile constants with dependency resolution (multi-pass)
+        let mut compiled_constants = std::collections::HashSet::new();
+        let mut progress = true;
+        let mut last_errors = Vec::new();
+
+        // Enable diagnostic suppression for speculative passes
+        self.suppress_diagnostics = true;
+
+        while progress && compiled_constants.len() < constants_to_compile.len() {
+            progress = false;
+            last_errors.clear();
+
+            for const_decl in &constants_to_compile {
+                if compiled_constants.contains(&const_decl.name) {
+                    continue;
+                }
+
+                match self.compile_const(const_decl) {
+                    Ok(_) => {
+                        compiled_constants.insert(const_decl.name.clone());
+                        progress = true;
+                    }
+                    Err(e) => {
+                        // Store error and retry in next pass
+                        last_errors.push(e);
+                    }
+                }
+            }
+        }
+
+        // Disable diagnostic suppression
+        self.suppress_diagnostics = false;
+
+        // If we still have uncompiled constants, report the first error
+        if compiled_constants.len() < constants_to_compile.len() {
+            // Re-compile the first failing constant to emit the diagnostic
+            for const_decl in &constants_to_compile {
+                if !compiled_constants.contains(&const_decl.name) {
+                    // This will emit the diagnostic and return the error
+                    return self.compile_const(const_decl);
+                }
             }
         }
 

@@ -1,0 +1,7 @@
+import { monotonic_now, SECOND } from "time";
+
+fn main() {
+    let t = monotonic_now();
+    let s = SECOND;
+    println("Time works with constants!");
+}

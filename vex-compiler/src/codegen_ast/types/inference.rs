@@ -173,7 +173,27 @@ impl<'ctx> ASTCodeGen<'ctx> {
     pub(crate) fn infer_expression_type(&self, expr: &Expression) -> Result<Type, String> {
         let result = match expr {
             Expression::IntLiteral(_) => Ok(Type::I32),
+            Expression::TypedIntLiteral { type_suffix, .. } => {
+                Ok(match type_suffix.as_str() {
+                    "i8" => Type::I8,
+                    "i16" => Type::I16,
+                    "i32" => Type::I32,
+                    "i64" => Type::I64,
+                    "u8" => Type::U8,
+                    "u16" => Type::U16,
+                    "u32" => Type::U32,
+                    "u64" => Type::U64,
+                    _ => Type::I32,
+                })
+            }
             Expression::BigIntLiteral(_) => Ok(Type::I128), // Large integers default to i128
+            Expression::TypedBigIntLiteral { type_suffix, .. } => {
+                Ok(match type_suffix.as_str() {
+                    "i128" => Type::I128,
+                    "u128" => Type::U128,
+                    _ => Type::I128,
+                })
+            }
             Expression::FloatLiteral(_) => Ok(Type::F64),
             Expression::StringLiteral(_) => Ok(Type::String),
             Expression::FStringLiteral(_) => Ok(Type::String),

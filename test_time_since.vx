@@ -1,0 +1,7 @@
+import { now, since } from "time";
+
+fn main() {
+    let t = now();
+    let d: i64 = since(t);
+    println("Duration calculated!");
+}

@@ -108,7 +108,9 @@ fn count_await_in_expression(expr: &Expression) -> usize {
 
         // Literals - no await
         Expression::IntLiteral(_)
+        | Expression::TypedIntLiteral { .. }
         | Expression::BigIntLiteral(_)
+        | Expression::TypedBigIntLiteral { .. }
         | Expression::FloatLiteral(_)
         | Expression::StringLiteral(_)
         | Expression::FStringLiteral(_)
@@ -221,7 +223,7 @@ fn count_await_in_expression(expr: &Expression) -> usize {
 
         // Other expressions
         Expression::Cast { expr, .. } => count_await_in_expression(expr),
-        Expression::QuestionMark(expr) => count_await_in_expression(expr),
+        Expression::TryOp { expr } => count_await_in_expression(expr),
         Expression::Typeof(expr) => count_await_in_expression(expr),
         Expression::PostfixOp { expr, .. } => count_await_in_expression(expr),
         Expression::ErrorNew(expr) => count_await_in_expression(expr),

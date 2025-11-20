@@ -40,7 +40,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
     }
 
     /// Compile question mark operator (?)
-    pub(crate) fn compile_question_mark_dispatch(
+    pub(crate) fn compile_try_dispatch(
         &mut self,
         expr: &vex_ast::Expression,
     ) -> Result<BasicValueEnum<'ctx>, String> {

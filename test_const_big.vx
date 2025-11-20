@@ -1,0 +1,5 @@
+const BIG: i64 = 3600000000;
+
+fn main() {
+    println("{}", BIG);
+}

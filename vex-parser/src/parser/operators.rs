@@ -715,9 +715,11 @@ impl<'a> Parser<'a> {
                     op: PostfixOp::PostDec,
                 };
             } else if self.match_token(&Token::Question) {
-                // Question mark operator: expr? (Result early return)
+                // Try operator: expr? (unwrap Result or propagate error)
                 // Desugars to: match expr { Ok(v) => v, Err(e) => return Err(e) }
-                expr = Expression::QuestionMark(Box::new(expr));
+                expr = Expression::TryOp {
+                    expr: Box::new(expr),
+                };
             } else {
                 break;
             }

@@ -1,0 +1,14 @@
+// Test ? operator with Result type (simplified version)
+fn divide(a: i64, b: i64) {
+    if b == 0 {
+        println("Error: Division by zero");
+        return;
+    }
+    println("Result: {}", a / b);
+}
+
+fn main() {
+    divide(10i64, 2i64);
+    divide(10i64, 0i64);
+    println("✅ Try operator test (simplified)");
+}

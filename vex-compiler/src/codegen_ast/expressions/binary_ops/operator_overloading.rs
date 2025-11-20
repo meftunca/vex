@@ -14,6 +14,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         left: &Expression,
         op: &BinaryOp,
         right: &Expression,
+        expected_type: Option<&Type>,
     ) -> Result<Option<BasicValueEnum<'ctx>>, String> {
         // ⭐ NEW: Operator Overloading - Check if left operand has operator contract
         debug_println!("🔍 Binary op: {:?} {:?} {:?}", left, op, right);
@@ -29,8 +30,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         } = right_type
                         {
                             if right_name == "Vec" {
-                                let left_val = self.compile_expression(left)?;
-                                let right_val = self.compile_expression(right)?;
+                                let left_val = self.compile_expression_with_type(left, expected_type)?;
+                                let right_val = self.compile_expression_with_type(right, expected_type)?;
 
                                 let concat_fn = self.get_vex_vec_concat();
                                 let concat_call = self
@@ -69,8 +70,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         );
 
                         // Compile operands
-                        let left_val = self.compile_expression(left)?;
-                        let right_val = self.compile_expression(right)?;
+                        let left_val = self.compile_expression_with_type(left, expected_type)?;
+                        let right_val = self.compile_expression_with_type(right, expected_type)?;
 
                         // ⭐ NEW: Dispatch to builtin operator codegen (zero overhead LLVM IR)
                         match builtin_contracts::codegen_builtin_operator(

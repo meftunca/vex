@@ -807,6 +807,27 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                 }
                             }
                         }
+
+                        // ⭐ CRITICAL FIX: Load struct if passed by pointer but expected by value
+                        // This happens when overload resolution selects a function that takes a struct by value,
+                        // but we compiled the argument as a pointer (because we didn't know the type yet)
+                        if let (
+                            BasicValueEnum::PointerValue(ptr_val),
+                            inkwell::types::BasicMetadataTypeEnum::StructType(target_struct_type),
+                        ) = (arg_val, param_type)
+                        {
+                            eprintln!(
+                                "🔄 [Overload] Loading struct from pointer for by-value parameter {}",
+                                i
+                            );
+                            let loaded = self
+                                .builder
+                                .build_load(target_struct_type, ptr_val, "struct_load")
+                                .map_err(|e| {
+                                    format!("Failed to load struct for by-value param: {}", e)
+                                })?;
+                            *arg_val_meta = loaded.into();
+                        }
                     }
                 }
 

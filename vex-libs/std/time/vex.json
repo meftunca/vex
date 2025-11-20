@@ -15,8 +15,8 @@
       "../../../vex-runtime/c/vex_time/src/posix/time_posix.c"
     ],
     "include_dirs": [
-      "../../../vex-runtime/c/vex_time/include",
-      "../../../vex-runtime/c"
+      "/Users/mapletechnologies/Desktop/big_projects/vex_lang/vex-runtime/c/vex_time/include",
+      "/Users/mapletechnologies/Desktop/big_projects/vex_lang/vex-runtime/c"
     ],
     "cflags": ["-O3", "-Wall", "-Wextra"]
   }
