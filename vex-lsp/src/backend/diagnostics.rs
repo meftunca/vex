@@ -26,6 +26,10 @@ impl VexBackend {
 
         // If we have AST, run linter (fast) + borrow checker (slower, optional)
         if let Some(mut program) = cached_doc.ast {
+            // ⭐ NEW: Validate imports FIRST (fast, high-value diagnostics)
+            self.validate_imports(&program, text, uri, &mut diagnostics)
+                .await;
+
             // Run linter for warnings (unused variables, etc.) - this is fast
             let mut linter = Linter::new();
             let lint_warnings = linter.lint(&program);
@@ -50,6 +54,228 @@ impl VexBackend {
         }
 
         diagnostics
+    }
+
+    /// ⭐ NEW: Validate import statements - missing modules, unused imports, circular dependencies
+    async fn validate_imports(
+        &self,
+        program: &vex_ast::Program,
+        text: &str,
+        uri: &str,
+        diagnostics: &mut Vec<Diagnostic>,
+    ) {
+        use std::collections::HashSet;
+
+        // 1. Check for missing/invalid imports
+        for (import_idx, import) in program.imports.iter().enumerate() {
+            // Skip auto-injected prelude imports (they're synthetic)
+            if import_idx < 6 {
+                // First 6 imports are core prelude (core/vec, core/box, etc.)
+                continue;
+            }
+
+            // Resolve import path
+            let current_file = std::path::Path::new(uri);
+            let resolved = self
+                .module_resolver
+                .resolve_import(&import.module, Some(current_file));
+
+            if resolved.is_none() {
+                // Module not found - create diagnostic
+                let range = self.find_import_in_source(text, &import.module);
+                diagnostics.push(Diagnostic {
+                    range,
+                    severity: Some(DiagnosticSeverity::ERROR),
+                    code: Some(NumberOrString::String("E0404".to_string())),
+                    source: Some("vex-imports".to_string()),
+                    message: format!("cannot find module '{}'", import.module),
+                    ..Default::default()
+                });
+            }
+        }
+
+        // 2. Detect unused imports (simple heuristic: search for import items in code)
+        let used_imports = self.find_used_imports(program, text);
+        for (import_idx, import) in program.imports.iter().enumerate() {
+            // Skip prelude and module-level imports
+            if import_idx < 6 || matches!(import.kind, vex_ast::ImportKind::Module) {
+                continue;
+            }
+
+            // Check named imports
+            if let vex_ast::ImportKind::Named = import.kind {
+                for item in &import.items {
+                    let import_name = item.alias.as_ref().unwrap_or(&item.name);
+                    if !used_imports.contains(import_name) {
+                        let range =
+                            self.find_import_item_in_source(text, &import.module, &item.name);
+                        diagnostics.push(Diagnostic {
+                            range,
+                            severity: Some(DiagnosticSeverity::WARNING),
+                            code: Some(NumberOrString::String("W0401".to_string())),
+                            source: Some("vex-imports".to_string()),
+                            message: format!("unused import: '{}'", import_name),
+                            tags: Some(vec![DiagnosticTag::UNNECESSARY]),
+                            ..Default::default()
+                        });
+                    }
+                }
+            }
+        }
+
+        // 3. TODO: Detect circular imports (requires workspace-wide analysis)
+        // This would need to traverse import graph across multiple files
+    }
+
+    /// Find import statement in source code
+    fn find_import_in_source(&self, text: &str, module_path: &str) -> Range {
+        let lines: Vec<&str> = text.lines().collect();
+
+        for (line_idx, line) in lines.iter().enumerate() {
+            // Match: import "module" or import { ... } from "module"
+            if line.contains("import") && line.contains(module_path) {
+                if let Some(col_idx) = line.find(module_path) {
+                    return Range {
+                        start: Position {
+                            line: line_idx as u32,
+                            character: col_idx as u32,
+                        },
+                        end: Position {
+                            line: line_idx as u32,
+                            character: (col_idx + module_path.len()) as u32,
+                        },
+                    };
+                }
+            }
+        }
+
+        self.default_range()
+    }
+
+    /// Find specific import item in source code
+    fn find_import_item_in_source(&self, text: &str, _module: &str, item_name: &str) -> Range {
+        let lines: Vec<&str> = text.lines().collect();
+
+        for (line_idx, line) in lines.iter().enumerate() {
+            // Match item name in import statement: import { item, ... }
+            if line.contains("import") && line.contains(item_name) {
+                if let Some(col_idx) = line.find(item_name) {
+                    return Range {
+                        start: Position {
+                            line: line_idx as u32,
+                            character: col_idx as u32,
+                        },
+                        end: Position {
+                            line: line_idx as u32,
+                            character: (col_idx + item_name.len()) as u32,
+                        },
+                    };
+                }
+            }
+        }
+
+        self.default_range()
+    }
+
+    /// Find which imports are actually used in the code
+    fn find_used_imports(
+        &self,
+        program: &vex_ast::Program,
+        text: &str,
+    ) -> std::collections::HashSet<String> {
+        use std::collections::HashSet;
+        let mut used = HashSet::new();
+
+        // Scan all items for identifier usage
+        for item in &program.items {
+            match item {
+                vex_ast::Item::Function(func) => {
+                    // Check function signature and body for imported types/functions
+                    self.scan_function_for_imports(func, &mut used);
+                }
+                vex_ast::Item::Struct(s) => {
+                    // Check struct fields for imported types
+                    for field in &s.fields {
+                        self.scan_type_for_imports(&field.ty, &mut used);
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        // Simple text scan for identifiers (fallback)
+        // This catches cases we might miss in AST traversal
+        for line in text.lines() {
+            // Skip import lines themselves
+            if line.trim_start().starts_with("import") {
+                continue;
+            }
+
+            // Extract all words (simple approximation)
+            for word in line.split_whitespace() {
+                let clean = word.trim_matches(|c: char| !c.is_alphanumeric() && c != '_');
+                if !clean.is_empty() {
+                    used.insert(clean.to_string());
+                }
+            }
+        }
+
+        used
+    }
+
+    /// Scan function for imported identifiers
+    fn scan_function_for_imports(
+        &self,
+        _func: &vex_ast::Function,
+        used: &mut std::collections::HashSet<String>,
+    ) {
+        // TODO: Deep AST traversal for expressions
+        // For now, rely on text-based scanning
+
+        // Scan return type
+        if let Some(ref ret_ty) = _func.return_type {
+            self.scan_type_for_imports(ret_ty, used);
+        }
+
+        // Scan parameters
+        for param in &_func.params {
+            self.scan_type_for_imports(&param.ty, used);
+        }
+    }
+
+    /// Scan type for imported identifiers
+    fn scan_type_for_imports(
+        &self,
+        ty: &vex_ast::Type,
+        used: &mut std::collections::HashSet<String>,
+    ) {
+        match ty {
+            vex_ast::Type::Named(name) => {
+                used.insert(name.clone());
+            }
+            vex_ast::Type::Generic { name, type_args } => {
+                used.insert(name.clone());
+                for arg in type_args {
+                    self.scan_type_for_imports(arg, used);
+                }
+            }
+            vex_ast::Type::Reference(inner, _) | vex_ast::Type::Slice(inner, _) => {
+                self.scan_type_for_imports(inner, used);
+            }
+            vex_ast::Type::Array(inner, _) => {
+                self.scan_type_for_imports(inner, used);
+            }
+            vex_ast::Type::Vec(inner)
+            | vex_ast::Type::Box(inner)
+            | vex_ast::Type::Option(inner) => {
+                self.scan_type_for_imports(inner, used);
+            }
+            vex_ast::Type::Result(ok, err) => {
+                self.scan_type_for_imports(ok, used);
+                self.scan_type_for_imports(err, used);
+            }
+            _ => {}
+        }
     }
 
     /// Convert Vex BorrowError to LSP Diagnostic

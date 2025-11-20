@@ -376,7 +376,96 @@ impl<'ctx> ASTCodeGen<'ctx> {
             Statement::Return(Some(expr)) => {
                 Statement::Return(Some(self.substitute_types_in_expression(expr, type_subst)))
             }
-            // TODO: Handle other statement types as needed
+            Statement::Return(None) => Statement::Return(None),
+            Statement::If {
+                span_id,
+                condition,
+                then_block,
+                elif_branches,
+                else_block,
+            } => Statement::If {
+                span_id: span_id.clone(),
+                condition: self.substitute_types_in_expression(condition, type_subst),
+                then_block: self.substitute_types_in_block(then_block, type_subst),
+                elif_branches: elif_branches
+                    .iter()
+                    .map(|(cond, block)| {
+                        (
+                            self.substitute_types_in_expression(cond, type_subst),
+                            self.substitute_types_in_block(block, type_subst),
+                        )
+                    })
+                    .collect(),
+                else_block: else_block
+                    .as_ref()
+                    .map(|b| self.substitute_types_in_block(b, type_subst)),
+            },
+            Statement::Let {
+                name,
+                ty,
+                value,
+                is_mutable,
+            } => Statement::Let {
+                name: name.clone(),
+                ty: ty.as_ref().map(|t| self.substitute_type(t, type_subst)),
+                value: self.substitute_types_in_expression(value, type_subst),
+                is_mutable: *is_mutable,
+            },
+            Statement::Expression(expr) => {
+                Statement::Expression(self.substitute_types_in_expression(expr, type_subst))
+            }
+            Statement::While {
+                span_id,
+                condition,
+                body,
+            } => Statement::While {
+                span_id: span_id.clone(),
+                condition: self.substitute_types_in_expression(condition, type_subst),
+                body: self.substitute_types_in_block(body, type_subst),
+            },
+            Statement::For {
+                span_id,
+                init,
+                condition,
+                post,
+                body,
+            } => Statement::For {
+                span_id: span_id.clone(),
+                init: init
+                    .as_ref()
+                    .map(|s| Box::new(self.substitute_types_in_statement(s, type_subst))),
+                condition: condition
+                    .as_ref()
+                    .map(|e| self.substitute_types_in_expression(e, type_subst)),
+                post: post
+                    .as_ref()
+                    .map(|s| Box::new(self.substitute_types_in_statement(s, type_subst))),
+                body: self.substitute_types_in_block(body, type_subst),
+            },
+            Statement::ForIn {
+                variable,
+                iterable,
+                body,
+            } => Statement::ForIn {
+                variable: variable.clone(),
+                iterable: self.substitute_types_in_expression(iterable, type_subst),
+                body: self.substitute_types_in_block(body, type_subst),
+            },
+            Statement::Assign { target, value } => Statement::Assign {
+                target: self.substitute_types_in_expression(target, type_subst),
+                value: self.substitute_types_in_expression(value, type_subst),
+            },
+            Statement::LetPattern {
+                is_mutable,
+                pattern,
+                ty,
+                value,
+            } => Statement::LetPattern {
+                is_mutable: *is_mutable,
+                pattern: pattern.clone(), // TODO: substitute in pattern if needed
+                ty: ty.as_ref().map(|t| self.substitute_type(t, type_subst)),
+                value: self.substitute_types_in_expression(value, type_subst),
+            },
             _ => stmt.clone(),
         }
     }
@@ -413,7 +502,101 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     fields: new_fields,
                 }
             }
-            // TODO: Handle other expression types as needed
+            Expression::Binary {
+                span_id,
+                left,
+                op,
+                right,
+            } => Expression::Binary {
+                span_id: span_id.clone(),
+                left: Box::new(self.substitute_types_in_expression(left, type_subst)),
+                op: op.clone(),
+                right: Box::new(self.substitute_types_in_expression(right, type_subst)),
+            },
+            Expression::Unary { span_id, op, expr } => Expression::Unary {
+                span_id: span_id.clone(),
+                op: op.clone(),
+                expr: Box::new(self.substitute_types_in_expression(expr, type_subst)),
+            },
+            Expression::Call {
+                span_id,
+                func,
+                type_args,
+                args,
+            } => Expression::Call {
+                span_id: span_id.clone(),
+                func: Box::new(self.substitute_types_in_expression(func, type_subst)),
+                type_args: type_args
+                    .iter()
+                    .map(|ty| self.substitute_type(ty, type_subst))
+                    .collect(),
+                args: args
+                    .iter()
+                    .map(|arg| self.substitute_types_in_expression(arg, type_subst))
+                    .collect(),
+            },
+            Expression::MethodCall {
+                receiver,
+                method,
+                type_args,
+                args,
+                is_mutable_call,
+            } => Expression::MethodCall {
+                receiver: Box::new(self.substitute_types_in_expression(receiver, type_subst)),
+                method: method.clone(),
+                type_args: type_args
+                    .iter()
+                    .map(|ty| self.substitute_type(ty, type_subst))
+                    .collect(),
+                args: args
+                    .iter()
+                    .map(|arg| self.substitute_types_in_expression(arg, type_subst))
+                    .collect(),
+                is_mutable_call: *is_mutable_call,
+            },
+            Expression::Index { object, index } => Expression::Index {
+                object: Box::new(self.substitute_types_in_expression(object, type_subst)),
+                index: Box::new(self.substitute_types_in_expression(index, type_subst)),
+            },
+            Expression::Cast { expr, target_type } => Expression::Cast {
+                expr: Box::new(self.substitute_types_in_expression(expr, type_subst)),
+                target_type: self.substitute_type(target_type, type_subst),
+            },
+            Expression::TupleLiteral(elements) => Expression::TupleLiteral(
+                elements
+                    .iter()
+                    .map(|e| self.substitute_types_in_expression(e, type_subst))
+                    .collect(),
+            ),
+            Expression::Array(elements) => Expression::Array(
+                elements
+                    .iter()
+                    .map(|e| self.substitute_types_in_expression(e, type_subst))
+                    .collect(),
+            ),
+            Expression::FieldAccess { object, field } => Expression::FieldAccess {
+                object: Box::new(self.substitute_types_in_expression(object, type_subst)),
+                field: field.clone(),
+            },
+            Expression::Reference { is_mutable, expr } => Expression::Reference {
+                is_mutable: *is_mutable,
+                expr: Box::new(self.substitute_types_in_expression(expr, type_subst)),
+            },
+            Expression::Deref(expr) => {
+                Expression::Deref(Box::new(self.substitute_types_in_expression(expr, type_subst)))
+            }
+            Expression::Block {
+                statements,
+                return_expr,
+            } => Expression::Block {
+                statements: statements
+                    .iter()
+                    .map(|stmt| self.substitute_types_in_statement(stmt, type_subst))
+                    .collect(),
+                return_expr: return_expr.as_ref().map(|e| {
+                    Box::new(self.substitute_types_in_expression(e, type_subst))
+                }),
+            },
             _ => expr.clone(),
         }
     }

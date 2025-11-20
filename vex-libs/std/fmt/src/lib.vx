@@ -5,85 +5,37 @@
 //   import { format, sprintf, println } from "fmt";
 //   import { FormatSpec, Formatter } from "fmt";
 
-// ============================================================================
-// EXTERNAL C FUNCTIONS
-// ============================================================================
-
-// Format spec types (C struct definitions)
-struct FormatSpec {
-    align: i32,         // 0=left, 1=right, 2=center
-    fill_char: u8,
-    width: i32,
-    precision: i32,
-    sign: i32,          // 0=minus, 1=plus, 2=space
-    alternate: bool,
-    zero_pad: bool,
-    base: i32,          // 2=bin, 8=oct, 10=dec, 16=hex_lower, 17=hex_upper
-    uppercase: bool,
-}
-
-// Opaque pointer type (actual struct defined in C)
-struct FormatBuffer {
-    _private: u8,  // Placeholder - never accessed in Vex
-}
-
-extern "C" {
-    // Buffer management
-    fn vex_fmt_buffer_new(initial_capacity: u64): *FormatBuffer;
-    fn vex_fmt_buffer_free(buf: *FormatBuffer);
-    fn vex_fmt_buffer_clear(buf: *FormatBuffer);
-    fn vex_fmt_buffer_append_str(buf: *FormatBuffer, str: *u8, len: u64);
-    fn vex_fmt_buffer_append_char(buf: *FormatBuffer, c: u8);
-    fn vex_fmt_buffer_to_string(buf: *FormatBuffer): *u8;
-    
-    // Format spec parsing
-    fn vex_fmt_spec_default(): FormatSpec;
-    fn vex_fmt_spec_parse(spec_str: *u8, len: u64, spec: *FormatSpec): bool;
-    
-    // Core formatting functions
-    fn vex_fmt_i32(value: i32, spec: *FormatSpec): *u8;
-    fn vex_fmt_i64(value: i64, spec: *FormatSpec): *u8;
-    fn vex_fmt_u32(value: u32, spec: *FormatSpec): *u8;
-    fn vex_fmt_u64(value: u64, spec: *FormatSpec): *u8;
-    fn vex_fmt_f32(value: f32, spec: *FormatSpec): *u8;
-    fn vex_fmt_f64(value: f64, spec: *FormatSpec): *u8;
-    fn vex_fmt_string(str: *u8, len: u64, spec: *FormatSpec): *u8;
-    fn vex_fmt_bool(value: bool, spec: *FormatSpec): *u8;
-    fn vex_fmt_pointer(ptr: *u8, spec: *FormatSpec): *u8;
-    
-    // Utility functions
-    fn vex_fmt_itoa(value: i64, base: i32, uppercase: bool): *u8;
-    fn vex_fmt_utoa(value: u64, base: i32, uppercase: bool): *u8;
-    fn vex_fmt_ftoa(value: f64, precision: i32): *u8;
-    
-    // Padding functions
-    fn vex_fmt_pad_left(str: *u8, len: u64, fill: u8, width: i32): *u8;
-    fn vex_fmt_pad_right(str: *u8, len: u64, fill: u8, width: i32): *u8;
-    fn vex_fmt_pad_center(str: *u8, len: u64, fill: u8, width: i32): *u8;
-    
-    // String escaping
-    fn vex_fmt_escape_string(str: *u8, len: u64): *u8;
-    fn vex_fmt_debug_string(str: *u8, len: u64): *u8;
-    
-    // Print functions
-    fn vex_fmt_print(str: *u8);
-    fn vex_fmt_println(str: *u8);
-    fn vex_fmt_eprint(str: *u8);
-    fn vex_fmt_eprintln(str: *u8);
-    
-    // Variadic printf/sprintf (C-style)
-    fn vex_fmt_printf(format: *u8, ...): i32;
-    fn vex_fmt_eprintf(format: *u8, ...): i32;
-    fn vex_fmt_sprintf(format: *u8, ...): *u8;
-    
-    // Memory management
-    fn vex_fmt_malloc(size: u64): *u8;
-    fn vex_fmt_free(ptr: *u8);
-    
-    // String helpers (from runtime)
-    fn vex_string_as_cstr(s: *String): *u8;
-    fn vex_string_len(s: *String): u64;
-}
+import {
+    FormatSpec,
+    vex_fmt_spec_default,
+    vex_fmt_spec_parse,
+    vex_fmt_i32,
+    vex_fmt_i64,
+    vex_fmt_u32,
+    vex_fmt_u64,
+    vex_fmt_f32,
+    vex_fmt_f64,
+    vex_fmt_string,
+    vex_fmt_bool,
+    vex_fmt_pointer,
+    vex_fmt_itoa,
+    vex_fmt_utoa,
+    vex_fmt_ftoa,
+    vex_fmt_pad_left,
+    vex_fmt_pad_right,
+    vex_fmt_pad_center,
+    vex_fmt_escape_string,
+    vex_fmt_debug_string,
+    vex_fmt_print,
+    vex_fmt_println,
+    vex_fmt_eprint,
+    vex_fmt_eprintln,
+    vex_fmt_printf,
+    vex_fmt_eprintf,
+    vex_fmt_sprintf,
+    vex_string_as_cstr,
+    vex_string_len
+} from "./native.vxc";
 
 // ============================================================================
 // CONSTANTS
@@ -418,21 +370,21 @@ export fn format_octal(value: i64): String {
 // VARIADIC FORMATTING (C-style printf/sprintf)
 // ============================================================================
 
-// Note: These are variadic functions that take C-style format strings
-// Example: sprintf("x = %d, y = %f", 42, 3.14)
+// // Note: These are variadic functions that take C-style format strings
+// // Example: sprintf("x = %d, y = %f", 42, 3.14)
 
-export fn sprintf(format: String, ...): String {
-    // This function will be directly forwarded to C
-    // The variadic args handling is done by the compiler
-    return "formatted";
-}
+// export fn sprintf(format: String, ...): String {
+//     // This function will be directly forwarded to C
+//     // The variadic args handling is done by the compiler
+//     return "formatted";
+// }
 
-export fn printf(format: String, ...): i32 {
-    // Print to stdout with C-style formatting
-    return 0;
-}
+// export fn printf(format: String, ...): i32 {
+//     // Print to stdout with C-style formatting
+//     return 0;
+// }
 
-export fn eprintf(format: String, ...): i32 {
-    // Print to stderr with C-style formatting
-    return 0;
-}
+// export fn eprintf(format: String, ...): i32 {
+//     // Print to stderr with C-style formatting
+//     return 0;
+// }

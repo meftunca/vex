@@ -1,0 +1,80 @@
+// ============================================================================
+// EXTERNAL C FUNCTIONS
+// ============================================================================
+
+// Format spec types (C struct definitions)
+export struct FormatSpec {
+    align: i32,         // 0=left, 1=right, 2=center
+    fill_char: u8,
+    width: i32,
+    precision: i32,
+    sign: i32,          // 0=minus, 1=plus, 2=space
+    alternate: bool,
+    zero_pad: bool,
+    base: i32,          // 2=bin, 8=oct, 10=dec, 16=hex_lower, 17=hex_upper
+    uppercase: bool,
+}
+
+// Opaque pointer type (actual struct defined in C)
+export struct FormatBuffer {
+    _private: u8,  // Placeholder - never accessed in Vex
+}
+
+extern "C" {
+    // Buffer management
+    export fn vex_fmt_buffer_new(initial_capacity: u64): *FormatBuffer;
+    export fn vex_fmt_buffer_free(buf: *FormatBuffer);
+    export fn vex_fmt_buffer_clear(buf: *FormatBuffer);
+    export fn vex_fmt_buffer_append_str(buf: *FormatBuffer, str: *u8, len: u64);
+    export fn vex_fmt_buffer_append_char(buf: *FormatBuffer, c: u8);
+    export fn vex_fmt_buffer_to_string(buf: *FormatBuffer): *u8;
+    
+    // Format spec parsing
+    export fn vex_fmt_spec_default(): FormatSpec;
+    export fn vex_fmt_spec_parse(spec_str: *u8, len: u64, spec: *FormatSpec): bool;
+    
+    // Core formatting functions
+    export fn vex_fmt_i32(value: i32, spec: *FormatSpec): *u8;
+    export fn vex_fmt_i64(value: i64, spec: *FormatSpec): *u8;
+    export fn vex_fmt_u32(value: u32, spec: *FormatSpec): *u8;
+    export fn vex_fmt_u64(value: u64, spec: *FormatSpec): *u8;
+    export fn vex_fmt_f32(value: f32, spec: *FormatSpec): *u8;
+    export fn vex_fmt_f64(value: f64, spec: *FormatSpec): *u8;
+    export fn vex_fmt_string(str: *u8, len: u64, spec: *FormatSpec): *u8;
+    export fn vex_fmt_bool(value: bool, spec: *FormatSpec): *u8;
+    export fn vex_fmt_pointer(ptr: *u8, spec: *FormatSpec): *u8;
+    
+    // Utility functions
+    export fn vex_fmt_itoa(value: i64, base: i32, uppercase: bool): *u8;
+    export fn vex_fmt_utoa(value: u64, base: i32, uppercase: bool): *u8;
+    export fn vex_fmt_ftoa(value: f64, precision: i32): *u8;
+    
+    // Padding functions
+    export fn vex_fmt_pad_left(str: *u8, len: u64, fill: u8, width: i32): *u8;
+    export fn vex_fmt_pad_right(str: *u8, len: u64, fill: u8, width: i32): *u8;
+    export fn vex_fmt_pad_center(str: *u8, len: u64, fill: u8, width: i32): *u8;
+    
+    // String escaping
+    export fn vex_fmt_escape_string(str: *u8, len: u64): *u8;
+    export fn vex_fmt_debug_string(str: *u8, len: u64): *u8;
+    
+    // Print functions
+    export fn vex_fmt_print(str: *u8);
+    export fn vex_fmt_println(str: *u8);
+    export fn vex_fmt_eprint(str: *u8);
+    export fn vex_fmt_eprintln(str: *u8);
+    
+    // Variadic printf/sprintf (C-style)
+    export fn vex_fmt_printf(format: *u8, ...): i32;
+    export fn vex_fmt_eprintf(format: *u8, ...): i32;
+    export fn vex_fmt_sprintf(format: *u8, ...): *u8;
+    
+    // Memory management
+    export fn vex_fmt_malloc(size: u64): *u8;
+    export fn vex_fmt_free(ptr: *u8);
+    
+    // String helpers (from runtime)
+    export fn vex_string_as_cstr(s: *String): *u8;
+    export fn vex_string_len(s: *String): u64;
+}
+// ============================================================================

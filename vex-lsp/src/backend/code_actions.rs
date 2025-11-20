@@ -433,9 +433,83 @@ impl VexBackend {
                             data: None,
                         }));
                     }
-                    "missing_import" => {
-                        // Suggest adding import
-                        // TODO: Implement import suggestion
+                    "missing_import" | "E0404" => {
+                        // ⭐ Auto-import for missing modules
+                        if let Some(module_name) =
+                            Self::extract_module_from_message(&diagnostic.message)
+                        {
+                            let insert_line = self.find_import_insertion_line(&uri_str);
+
+                            actions.push(CodeActionOrCommand::CodeAction(CodeAction {
+                                title: format!("Add import for '{}'", module_name),
+                                kind: Some(CodeActionKind::QUICKFIX),
+                                diagnostics: Some(vec![diagnostic.clone()]),
+                                edit: Some(WorkspaceEdit {
+                                    changes: Some(std::collections::HashMap::from([(
+                                        params.text_document.uri.clone(),
+                                        vec![TextEdit {
+                                            range: Range {
+                                                start: Position {
+                                                    line: insert_line,
+                                                    character: 0,
+                                                },
+                                                end: Position {
+                                                    line: insert_line,
+                                                    character: 0,
+                                                },
+                                            },
+                                            new_text: format!("import \"{}\";\n", module_name),
+                                        }],
+                                    )])),
+                                    document_changes: None,
+                                    change_annotations: None,
+                                }),
+                                command: None,
+                                is_preferred: Some(true),
+                                disabled: None,
+                                data: None,
+                            }));
+                        }
+                    }
+                    "W0401" => {
+                        // ⭐ Remove unused import
+                        let line_idx = diagnostic.range.start.line as usize;
+                        if line_idx < lines.len() {
+                            let line = lines[line_idx];
+
+                            // If entire import line, remove whole line
+                            if line.trim().starts_with("import") {
+                                actions.push(CodeActionOrCommand::CodeAction(CodeAction {
+                                    title: "Remove unused import".to_string(),
+                                    kind: Some(CodeActionKind::QUICKFIX),
+                                    diagnostics: Some(vec![diagnostic.clone()]),
+                                    edit: Some(WorkspaceEdit {
+                                        changes: Some(std::collections::HashMap::from([(
+                                            params.text_document.uri.clone(),
+                                            vec![TextEdit {
+                                                range: Range {
+                                                    start: Position {
+                                                        line: line_idx as u32,
+                                                        character: 0,
+                                                    },
+                                                    end: Position {
+                                                        line: (line_idx + 1) as u32,
+                                                        character: 0,
+                                                    },
+                                                },
+                                                new_text: String::new(),
+                                            }],
+                                        )])),
+                                        document_changes: None,
+                                        change_annotations: None,
+                                    }),
+                                    command: None,
+                                    is_preferred: Some(true),
+                                    disabled: None,
+                                    data: None,
+                                }));
+                            }
+                        }
                     }
                     _ => {}
                 },
@@ -450,6 +524,50 @@ impl VexBackend {
         let start = message.find('`')?;
         let end = message[start + 1..].find('`')?;
         Some(message[start + 1..start + 1 + end].to_string())
+    }
+
+    /// Extract module name from import error message
+    /// "cannot find module 'std/io'" → Some("std/io")
+    fn extract_module_from_message(message: &str) -> Option<String> {
+        // Match: "cannot find module 'module_name'"
+        if let Some(start) = message.find('\'') {
+            if let Some(end) = message[start + 1..].find('\'') {
+                return Some(message[start + 1..start + 1 + end].to_string());
+            }
+        }
+        None
+    }
+
+    /// Find best line to insert new import statement
+    fn find_import_insertion_line(&self, uri: &str) -> u32 {
+        if let Some(text) = self.documents.get(uri) {
+            let lines: Vec<&str> = text.lines().collect();
+
+            // Find last import statement
+            let mut last_import_line = 0;
+            for (idx, line) in lines.iter().enumerate() {
+                if line.trim().starts_with("import") {
+                    last_import_line = idx + 1; // Insert after last import
+                }
+            }
+
+            // If no imports found, insert at top (after any comments/pragmas)
+            if last_import_line == 0 {
+                for (idx, line) in lines.iter().enumerate() {
+                    let trimmed = line.trim();
+                    if !trimmed.is_empty()
+                        && !trimmed.starts_with("//")
+                        && !trimmed.starts_with("/*")
+                    {
+                        return idx as u32;
+                    }
+                }
+            }
+
+            last_import_line as u32
+        } else {
+            0
+        }
     }
 
     pub async fn code_action_resolve(

@@ -30,6 +30,9 @@ import {
     vt_instant_round,
     vt_instant_unix_milli,
     vt_instant_unix_micro
+    vt_format_go,       // 
+    vt_instant_date,    // 
+    vt_instant_clock    //
 } from "./native.vxc";
 
 // ==== Duration constants ====
@@ -40,7 +43,20 @@ export const SECOND: i64 = 1000i64 * MILLISECOND;
 export const MINUTE: i64 = 60i64 * SECOND;
 export const HOUR: i64 = 60i64 * MINUTE;
 export const DAY: i64 = 24i64 * HOUR;
-
+// ==== Layout Constants (Go Style) ====
+export const LAYOUT_ANSIC: str       = "Mon Jan _2 15:04:05 2006";
+export const LAYOUT_UNIX_DATE: str   = "Mon Jan _2 15:04:05 MST 2006";
+export const LAYOUT_RUBY_DATE: str   = "Mon Jan 02 15:04:05 -0700 2006";
+export const LAYOUT_RFC822: str      = "02 Jan 06 15:04 MST";
+export const LAYOUT_RFC822Z: str     = "02 Jan 06 15:04 -0700";
+export const LAYOUT_RFC850: str      = "Monday, 02-Jan-06 15:04:05 MST";
+export const LAYOUT_RFC1123: str     = "Mon, 02 Jan 2006 15:04:05 MST";
+export const LAYOUT_RFC1123Z: str    = "Mon, 02 Jan 2006 15:04:05 -0700";
+export const LAYOUT_RFC3339: str     = "2006-01-02T15:04:05Z07:00";
+export const LAYOUT_KITCHEN: str     = "3:04PM";
+export const LAYOUT_STAMP: str       = "Jan _2 15:04:05";
+export const LAYOUT_DATE_ONLY: str   = "2006-01-02";
+export const LAYOUT_TIME_ONLY: str   = "15:04:05";
 // ==== Monotonic time (u64 nanoseconds) ====
 export fn monotonic_now(): u64 { return vt_monotonic_now_ns(); }
 
@@ -109,3 +125,97 @@ export fn round(i: Instant, d: i64): Instant { return Instant { inner: vt_instan
 // ==== Unix helpers ====
 export fn unix_milli(i: Instant): i64 { return vt_instant_unix_milli(&i.inner); }
 export fn unix_micro(i: Instant): i64 { return vt_instant_unix_micro(&i.inner); }
+
+
+// ==== Formatting ====
+
+/// Formats the Instant according to the given layout and location.
+export fn format(i: Instant, layout: str, loc: Location): str {
+    // Stack üzerinde statik bir buffer ayıralım (128 byte genelde yeterlidir)
+    // Vex'in mevcut sürümünde stack array tanımlayıp pointer'ını geçiyoruz.
+    let buf_len: u64 = 128;
+    // Not: Vex'te stack array syntax'ı sürüme göre değişebilir,
+    // burada varsayımsal bir buffer allocation kullanıyorum.
+    // Eğer std.mem varsa oradan alloc da yapılabilir.
+    let buf = unsafe { std.mem.alloc(buf_len) }; 
+
+    let layout_ptr: *u8 = layout as *u8;
+    
+    // C fonksiyonunu çağır 
+    let len = vt_format_go(i.inner, loc.tz, layout_ptr, buf, buf_len);
+    
+    if len < 0 {
+        unsafe { std.mem.free(buf); }
+        return ""; // Veya hata yönetimi
+    }
+
+    // Buffer'dan string oluştur (Vex string'i heap allocated ise kopyalar)
+    let result = string.from_utf8_lossy(buf, len as u64);
+    
+    unsafe { std.mem.free(buf); }
+    return result;
+}
+
+/// Parse a string using a specific layout
+export fn parse(layout: str, value: str, loc: Location): Result<Instant, str> {
+    let inst: VexInstant = VexInstant { unix_sec: 0, nsec: 0, _pad: 0 };
+    
+    let layout_ptr: *u8 = layout as *u8;
+    let value_ptr: *u8 = value as *u8;
+
+    // C fonksiyonunu çağır [cite: 15]
+    let res = vt_parse_go(layout_ptr, value_ptr, loc.tz, &inst);
+    
+    if res == 0 {
+        return Result.Ok(Instant { inner: inst });
+    } else {
+        return Result.Err("parse error");
+    }
+}
+
+// ==== Date Components ====
+
+export struct Date {
+    year: i32,
+    month: i32, // 1-12
+    day: i32,
+    hour: i32,
+    minute: i32,
+    second: i32,
+    nsec: i32
+}
+
+/// Extracts all date components at once
+export fn date(i: Instant): Date {
+    let y: i32 = 0;
+    let m: i32 = 0;
+    let d: i32 = 0;
+    let h: i32 = 0;
+    let min: i32 = 0;
+    let s: i32 = 0;
+    let ns: i32 = 0;
+
+    // C fonksiyonunu çağırarak pointerlar üzerinden değerleri doldur 
+    vt_instant_date(i.inner, &y, &m, &d, &h, &min, &s, &ns);
+
+    return Date {
+        year: y,
+        month: m,
+        day: d,
+        hour: h,
+        minute: min,
+        second: s,
+        nsec: ns
+    };
+}
+
+/// Convenience: Get just the clock part
+export fn clock(i: Instant): (i32, i32, i32) {
+    let h: i32 = 0;
+    let m: i32 = 0;
+    let s: i32 = 0;
+    
+    // 
+    vt_instant_clock(i.inner, &h, &m, &s);
+    return (h, m, s);
+}

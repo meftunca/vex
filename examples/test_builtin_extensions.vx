@@ -29,5 +29,5 @@ string extends Display, Clone, Eq, Debug;
 
 fn main():i32 {
     println("Builtin extensions test passed");
-    return 1;
+    return 0;
 }

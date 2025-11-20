@@ -16,7 +16,7 @@ export fn max<T=NUMERIC>(a: T, b: T): T {
     return b;
 }
 
-fn main() {
+fn main(): i32 {
     let a: i32 = min(5, 10);
     let b: f64 = max(3.14, 2.71);
     
@@ -24,4 +24,6 @@ fn main() {
     println(a);
     println("max(3.14, 2.71) = ");
     println(b);
+    
+    return 0;
 }

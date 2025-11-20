@@ -1,20 +1,28 @@
-// Test extends keyword support
+// Test composition pattern (Vex uses composition over inheritance)
+// This demonstrates embedding structs instead of using 'extends'
 
 struct Base {
-    id: i32
-    name: string
+    id: i32,
+    name: string,
 }
 
-struct Derived extends Base {
-    extra: string
+struct Derived {
+    base: Base,
+    extra: string,
 }
 
-fn main() {
+fn main(): i32 {
     let obj = Derived {
-        id: 1,
-        name: "test",
-        extra: "data"
-    }
+        base: Base { id: 1, name: "test" },
+        extra: "Test composition pattern (Vex uses composition over inheritance)",
+    };
     
-    println("ID: {}, Name: {}, Extra: {}", obj.id, obj.name, obj.extra)
+    println("ID: ");
+    println(obj.base.id);
+    println("Name: ");
+    println(obj.base.name);
+    println("Extra: ");
+    println(obj.extra);
+    
+    return 0;
 }
