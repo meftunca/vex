@@ -115,6 +115,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             last_compiled_tuple_type: None,
             last_compiled_array_ptr: None,
             current_method_is_mutable: false, // ⭐ NEW: Default to immutable
+            is_in_unsafe_block: false, // ⭐ NEW: Default to safe context
             diagnostics: DiagnosticEngine::new(), // Initialize diagnostic engine
             span_map,                         // ⭐ NEW: Store span map from parser
             trait_bounds_checker: None,       // ⭐ NEW: Initialized in compile_program

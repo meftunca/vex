@@ -1,0 +1,8 @@
+// Test: Return downcast via expression
+fn main() {
+    let x: i64 = 1000;
+    
+    // Simulate return via assignment
+    let result: i32 = x; // Should ERROR
+    println(result);
+}

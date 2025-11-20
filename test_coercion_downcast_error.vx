@@ -1,0 +1,10 @@
+// Test: Downcast rejection (should error)
+fn main() {
+    let x: i16 = 10;
+    let y: i64 = 1000;
+    let result = x + y; // Should auto-upcast i16 to i64 ✓
+    println(result);
+    
+    let z: i32 = result; // This should ERROR: cannot downcast i64 to i32
+    println(z);
+}

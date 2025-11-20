@@ -1,4 +1,8 @@
 use super::super::super::ASTCodeGen;
+use crate::type_system::coercion_rules::{
+    classify_coercion, coercion_policy, format_coercion_error, format_coercion_warning,
+    CoercionPolicy,
+};
 use inkwell::types::BasicTypeEnum;
 use inkwell::values::BasicValueEnum;
 use vex_ast::*;
@@ -132,7 +136,22 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                     .into()
                             }
                         } else {
-                            // Truncate: i64 -> i32
+                            // Truncate: i64 -> i32 - check coercion policy
+                            if let Ok(field_val_type) = self.infer_expression_type(&adjusted_field_expr) {
+                                let coercion_kind = classify_coercion(&field_val_type, field_ty);
+                                let policy = coercion_policy(coercion_kind, self.is_in_unsafe_block);
+                                
+                                match policy {
+                                    CoercionPolicy::Error => {
+                                        return Err(format!("struct field '{}': {}", field_name, format_coercion_error(&field_val_type, field_ty, coercion_kind)));
+                                    }
+                                    CoercionPolicy::Warn => {
+                                        eprintln!("⚠️  warning: struct field '{}': {}", field_name, format_coercion_warning(&field_val_type, field_ty));
+                                    }
+                                    CoercionPolicy::Allow => {}
+                                }
+                            }
+                            
                             self.builder
                                 .build_int_truncate(int_val, target_int_ty, "field_trunc")
                                 .map_err(|e| format!("Failed to truncate field: {}", e))?

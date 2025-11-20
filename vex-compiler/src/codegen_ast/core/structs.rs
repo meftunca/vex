@@ -117,6 +117,11 @@ pub struct ASTCodeGen<'ctx> {
     // Used to validate self! usage in method bodies
     pub(crate) current_method_is_mutable: bool,
 
+    // ⭐ NEW: Unsafe context tracking
+    // Tracks whether current code is inside unsafe{} block
+    // Used to downgrade downcast errors to warnings
+    pub(crate) is_in_unsafe_block: bool,
+
     // Diagnostic engine for collecting errors, warnings, and info messages
     pub(crate) diagnostics: DiagnosticEngine,
 

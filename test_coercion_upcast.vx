@@ -1,0 +1,7 @@
+// Test: Upcast auto-coercion (should work)
+fn main() {
+    let x: i8 = 10;
+    let y: i64 = 1000;
+    let result = x + y; // Should auto-upcast i8 to i64
+    println(result);
+}

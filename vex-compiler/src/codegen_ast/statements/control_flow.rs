@@ -2,6 +2,10 @@
 // return / break / continue / defer
 
 use super::ASTCodeGen;
+use crate::type_system::coercion_rules::{
+    classify_coercion, coercion_policy, format_coercion_error, format_coercion_warning,
+    CoercionPolicy,
+};
 use inkwell::types::{BasicTypeEnum, PointerType};
 use inkwell::values::BasicValueEnum;
 use inkwell::AddressSpace;
@@ -147,7 +151,27 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                     .map_err(|e| format!("Failed to extend return value: {}", e))?;
                                 val = extended.into();
                             } else {
-                                // Truncate
+                                // Truncate - check coercion policy
+                                if let Some(expr) = expr {
+                                    if let Ok(return_val_type) = self.infer_expression_type(expr) {
+                                        // Infer function return type from current function
+                                        if let Some(func_return_type) = self.current_function_return_type.as_ref() {
+                                            let coercion_kind = classify_coercion(&return_val_type, func_return_type);
+                                            let policy = coercion_policy(coercion_kind, self.is_in_unsafe_block);
+                                            
+                                            match policy {
+                                                CoercionPolicy::Error => {
+                                                    return Err(format!("return statement: {}", format_coercion_error(&return_val_type, func_return_type, coercion_kind)));
+                                                }
+                                                CoercionPolicy::Warn => {
+                                                    eprintln!("⚠️  warning: return statement: {}", format_coercion_warning(&return_val_type, func_return_type));
+                                                }
+                                                CoercionPolicy::Allow => {}
+                                            }
+                                        }
+                                    }
+                                }
+                                
                                 let truncated = self
                                     .builder
                                     .build_int_truncate(val_int, expected, "ret_trunc")

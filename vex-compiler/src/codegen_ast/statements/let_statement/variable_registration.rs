@@ -1,6 +1,10 @@
 // Variable registration and type determination
 
 use crate::codegen_ast::ASTCodeGen;
+use crate::type_system::coercion_rules::{
+    classify_coercion, coercion_policy, format_coercion_error, format_coercion_warning,
+    CoercionPolicy,
+};
 use inkwell::types::BasicTypeEnum;
 use inkwell::values::BasicValueEnum;
 use vex_ast::*;
@@ -109,6 +113,26 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 let current_width = int_val.get_type().get_bit_width();
                 let target_width = target_int_type.get_bit_width();
 
+                // ⚠️ CRITICAL: Check sign change even with same width (i32 → u32)
+                // Infer source type from expression AST
+                let source_type_from_expr = self.infer_expression_type(value_expr).ok();
+                
+                if let Some(src_type) = source_type_from_expr {
+                    // Check for forbidden sign changes
+                    let coercion_kind = classify_coercion(&src_type, target_type);
+                    let policy = coercion_policy(coercion_kind, self.is_in_unsafe_block);
+                    
+                    match policy {
+                        CoercionPolicy::Error => {
+                            return Err(format_coercion_error(&src_type, target_type, coercion_kind));
+                        }
+                        CoercionPolicy::Warn => {
+                            eprintln!("⚠️  warning: {}", format_coercion_warning(&src_type, target_type));
+                        }
+                        CoercionPolicy::Allow => {}
+                    }
+                }
+
                 if current_width != target_width {
                     if current_width < target_width {
                         // ✅ UPCAST: Safe widening conversion
@@ -129,13 +153,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         };
                     } else {
                         // ❌ DOWNCAST: Narrowing cast (data loss possible)
-                        //
-                        // SAFE cases (allow implicit cast):
-                        // 1. Compile-time constants (literals, const expressions) - value known
-                        // 2. Explicit type annotation in let statement - programmer responsibility
-                        //
-                        // UNSAFE cases (reject):
-                        // 1. Variables being assigned without type annotation - runtime value unknown
+                        // Use coercion_rules to determine if this is allowed
 
                         // Helper function to check if expression is a compile-time constant
                         fn is_compile_time_constant(expr: &Expression) -> bool {
@@ -156,7 +174,35 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
                         let is_compile_time_const = is_compile_time_constant(value_expr);
 
-                        // ✅ SAFE: Compile-time constant OR explicit type annotation
+                        // Infer source type from current bit width
+                        let source_type = match current_width {
+                            8 => Type::I8,
+                            16 => Type::I16,
+                            32 => Type::I32,
+                            64 => Type::I64,
+                            128 => Type::I128,
+                            _ => return Err(format!("Unsupported integer width: {}", current_width)),
+                        };
+
+                        // Check coercion policy
+                        let coercion_kind = classify_coercion(&source_type, target_type);
+                        let policy = coercion_policy(coercion_kind, self.is_in_unsafe_block);
+
+                        match policy {
+                            CoercionPolicy::Error => {
+                                return Err(format_coercion_error(&source_type, target_type, coercion_kind));
+                            }
+                            CoercionPolicy::Warn => {
+                                // Emit warning for unsafe downcast
+                                eprintln!("⚠️  warning: {}", format_coercion_warning(&source_type, target_type));
+                                // Allow truncation in unsafe{}
+                            }
+                            CoercionPolicy::Allow => {
+                                // Safe upcast, should not reach here in downcast branch
+                            }
+                        }
+
+                        // ✅ SAFE: Compile-time constant - verify value fits
                         if is_compile_time_const {
                             // For constants, verify the value fits in target type
                             let literal_value = int_val.get_sign_extended_constant();

@@ -1,0 +1,11 @@
+// Test: Struct field downcast
+struct Point {
+    x: i32,
+    y: i32,
+}
+
+fn main() {
+    let a: i64 = 1000;
+    let p = Point { x: a, y: 20 }; // Should ERROR: cannot downcast i64 to i32
+    println(p.x);
+}

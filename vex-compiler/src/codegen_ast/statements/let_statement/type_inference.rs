@@ -612,6 +612,6 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }
         }
 
-        self.compile_expression(adjusted_value)
+        self.compile_expression_with_type(adjusted_value, ty)
     }
 }

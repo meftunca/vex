@@ -1,0 +1,6 @@
+// Test: Signed/unsigned conversion (should error)
+fn main() {
+    let x: i32 = -100;
+    let y: u32 = x; // Should ERROR: cannot convert i32 to u32 (sign change)
+    println(y);
+}

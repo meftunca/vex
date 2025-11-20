@@ -1,6 +1,10 @@
 // Literal expressions (arrays, structs, tuples)
 
 use super::super::ASTCodeGen;
+use crate::type_system::coercion_rules::{
+    classify_coercion, coercion_policy, format_coercion_error, format_coercion_warning,
+    CoercionPolicy,
+};
 use inkwell::types::BasicTypeEnum;
 use inkwell::values::BasicValueEnum;
 use vex_ast::*;

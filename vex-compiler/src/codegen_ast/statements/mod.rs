@@ -126,9 +126,13 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 self.compile_go_statement(expr)?;
             }
 
-            // Unsafe block - just compile the block (no special handling for now)
+            // Unsafe block - enable downcast warnings instead of errors
             Statement::Unsafe(block) => {
-                self.compile_block(block)?;
+                let prev_unsafe = self.is_in_unsafe_block;
+                self.is_in_unsafe_block = true;
+                let result = self.compile_block(block);
+                self.is_in_unsafe_block = prev_unsafe;
+                result?;
             }
 
             // loops & branching

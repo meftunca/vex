@@ -1,0 +1,9 @@
+// Test: Function argument downcast (should error)
+fn foo(x: i32) {
+    println(x);
+}
+
+fn main() {
+    let y: i64 = 1000;
+    foo(y); // Should ERROR: cannot downcast i64 to i32
+}

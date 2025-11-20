@@ -8,6 +8,7 @@ pub mod prelude_loader; // Prelude parser and injection
 pub mod resolver; // Platform detection & stdlib resolution
 pub mod trait_bounds_checker; // Trait bounds verification
 pub mod type_registry; // Builtin type name registry for O(1) lookup
+pub mod type_system; // Type coercion rules and safety checks
 pub mod types; // Type interning and utilities
 pub mod utils; // Utility modules (safe arithmetic, etc.)
 pub mod visibility; // Contract enforcement and visibility checks

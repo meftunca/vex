@@ -1,0 +1,8 @@
+// Test: unsafe{} downcast warning
+fn main() {
+    let x: i64 = 1000;
+    unsafe {
+        let y: i32 = x; // Should WARN: unsafe downcast
+        println(y);
+    }
+}

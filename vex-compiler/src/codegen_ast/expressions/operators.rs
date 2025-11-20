@@ -27,15 +27,19 @@ impl<'ctx> ASTCodeGen<'ctx> {
         // Dispatch to type-specific handlers
         match (&left_val, &right_val) {
             (BasicValueEnum::IntValue(l), BasicValueEnum::IntValue(r)) => {
-                // Align integer widths if needed
-                let (l, r) = self.align_integer_widths(*l, *r)?;
+                // Infer AST types for coercion checks
+                let left_ast_type = self.infer_expression_type(left)?;
+                let right_ast_type = self.infer_expression_type(right)?;
+
+                // Align integer widths with AST type awareness
+                let (l, r) = self.align_integer_widths_with_ast(*l, *r, &left_ast_type, &right_ast_type)?;
                 match op {
                     vex_ast::BinaryOp::Pow => self.compile_int_power(l, r),
                     _ => self.compile_integer_binary_op_with_expected(l, r, op, expected_type),
                 }
             }
             (BasicValueEnum::FloatValue(l), BasicValueEnum::FloatValue(r)) => {
-                // Align float widths (f32 vs f64)
+                // Align float widths (already uses coercion_rules internally)
                 let (l, r) = self.align_float_widths(*l, *r)?;
                 match op {
                     vex_ast::BinaryOp::Pow => self.compile_float_power(l, r),

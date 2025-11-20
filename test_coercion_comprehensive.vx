@@ -1,0 +1,19 @@
+// Comprehensive coercion tests
+fn main() {
+    // ✅ Test 1: Upcast (i8 → i64)
+    let x: i8 = 10;
+    let y: i64 = 100;
+    let sum = x + y;
+    println(sum); // 110
+    
+    // ✅ Test 2: Signed/Unsigned forbidden
+    // let a: i32 = -100;
+    // let b: u32 = a; // ERROR
+    
+    // ✅ Test 3: Struct field downcast forbidden
+    // struct P { x: i32 }
+    // let v: i64 = 1000;
+    // let p = P { x: v }; // ERROR
+    
+    println(0);
+}
