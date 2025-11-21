@@ -10,7 +10,7 @@ extern "C" {
 }
 
 export struct Box<T> impl Drop {
-    _ptr: ptr
+    _ptr: *T
 }
 
 // Static constructor: Box.new<T>(value)

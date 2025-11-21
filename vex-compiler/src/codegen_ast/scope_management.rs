@@ -1,7 +1,6 @@
 // Scope and cleanup management for ASTCodeGen
 // Handles deferred statements, RAII cleanup, and scope management
 
-use inkwell::values::{BasicValueEnum, FunctionValue, PointerValue};
 use vex_ast::Statement;
 
 impl<'ctx> super::ASTCodeGen<'ctx> {
@@ -71,9 +70,8 @@ impl<'ctx> super::ASTCodeGen<'ctx> {
                     // Call the appropriate cleanup function based on type
                     match type_name.as_str() {
                         "Vec" => {
-                            let vec_opaque_type = self.context.opaque_struct_type("vex_vec_s");
                             let vec_ptr_type =
-                                vec_opaque_type.ptr_type(inkwell::AddressSpace::default());
+                                self.context.ptr_type(inkwell::AddressSpace::default());
 
                             let vec_value = self
                                 .builder
@@ -86,19 +84,10 @@ impl<'ctx> super::ASTCodeGen<'ctx> {
                                 .map_err(|e| format!("Failed to call vec_free: {}", e))?;
                         }
                         "Box" => {
-                            let box_ptr_type = self
-                                .context
-                                .struct_type(
-                                    &[
-                                        self.context
-                                            .i8_type()
-                                            .ptr_type(inkwell::AddressSpace::default())
-                                            .into(),
-                                        self.context.i64_type().into(),
-                                    ],
-                                    false,
-                                )
-                                .ptr_type(inkwell::AddressSpace::default());
+                            let i8_ptr = self.context.ptr_type(inkwell::AddressSpace::default());
+
+                            let box_ptr_type =
+                                self.context.ptr_type(inkwell::AddressSpace::default());
 
                             let box_value = self
                                 .builder

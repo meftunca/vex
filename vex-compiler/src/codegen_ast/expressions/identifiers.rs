@@ -1,7 +1,7 @@
 // Expression compilation - identifiers and variable access
 use super::ASTCodeGen;
+use crate::debug_println;
 use crate::diagnostics::{error_codes, Diagnostic, ErrorLevel, Span};
-use crate::{debug_log, debug_println};
 use inkwell::values::BasicValueEnum;
 
 impl<'ctx> ASTCodeGen<'ctx> {
@@ -122,10 +122,42 @@ impl<'ctx> ASTCodeGen<'ctx> {
             code: error_codes::UNDEFINED_VARIABLE.to_string(),
             message: format!("Cannot find variable or function `{}` in this scope", name),
             span: Span::unknown(),
+            primary_label: Some("undefined name".to_string()),
             notes: vec![],
             help: Some(help_msg),
-            suggestion: None,
+            suggestion: suggestions.get(0).map(|s| vex_diagnostics::Suggestion {
+                message: format!("use `{}`", s),
+                replacement: s.clone(),
+                span: Span::unknown(),
+            }),
+            related: Vec::new(),
         });
         Err(format!("Variable or function {} not found", name))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use inkwell::context::Context;
+
+    #[test]
+    fn test_compile_identifier_undefined_suggestion() {
+        let ctx = Context::create();
+        let mut codegen = ASTCodeGen::new(&ctx, "test");
+        // register a known function
+        let fn_type = codegen.context.void_type().fn_type(&[], false);
+        let print_fn = codegen.module.add_function("print", fn_type, None);
+        codegen.functions.insert("print".to_string(), print_fn);
+
+        let res = codegen.compile_identifier("prinnt");
+        assert!(res.is_err());
+        let diags = codegen.diagnostics.diagnostics();
+        assert!(!diags.is_empty());
+        let diag = diags.last().unwrap();
+        assert!(diag.primary_label.is_some());
+        assert_eq!(diag.primary_label.as_ref().unwrap(), "undefined name");
+        assert!(diag.suggestion.is_some());
+        assert_eq!(diag.suggestion.as_ref().unwrap().replacement, "print");
     }
 }

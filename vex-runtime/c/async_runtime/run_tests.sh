@@ -3,9 +3,10 @@
 
 set -e
 
-CC=${CC:-gcc}
-CFLAGS="-std=c11 -O2 -Wall -Wextra -pthread"
-INC="-Iinclude"
+CC=${CC:-clang}
+CFLAGS="-std=c11 -O2 -Wall -Wextra -pthread -DVEX_USE_MIMALLOC -DVEX_ALLOC_TRACKING=1"
+INC="-Iinclude -I.. -I../allocators/mimalloc/include"
+ALLOC_OBJ="../vex_alloc.o ../allocators/mimalloc/src/static.o"
 
 # Determine poller
 UNAME_S=$(uname -s)
@@ -29,12 +30,22 @@ else
     exit 1
 fi
 
-echo "======================================"
+echo "====================================="
 echo "Vex Async Runtime Test Suite"
 echo "OS: $UNAME_S"
 echo "Poller: $POLLER"
-echo "======================================"
+echo "====================================="
 echo
+
+# Build allocator objects first
+if [ ! -f "../vex_alloc.o" ]; then
+    echo "Building vex_alloc.o..."
+    $CC $CFLAGS $INC -c -o ../vex_alloc.o ../vex_alloc.c
+fi
+if [ ! -f "../allocators/mimalloc/src/static.o" ]; then
+    echo "Building mimalloc..."
+    $CC $CFLAGS $INC -c -o ../allocators/mimalloc/src/static.o ../allocators/mimalloc/src/static.c
+fi
 
 # Compile runtime sources
 SRC_COMMON="src/runtime.c src/worker_context.c src/lockfree_queue.c src/common.c"
@@ -82,7 +93,7 @@ for test in "${TESTS[@]}"; do
     fi
     
     # Compile test
-    if $CC $CFLAGS $INC -o "$TEST_BIN" "$TEST_SRC" $OBJ $LIBS; then
+    if $CC $CFLAGS $INC -o "$TEST_BIN" "$TEST_SRC" $OBJ $ALLOC_OBJ $LIBS; then
         echo "Running $test..."
         echo
         

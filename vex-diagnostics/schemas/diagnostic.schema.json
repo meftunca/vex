@@ -1,0 +1,68 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Vex Diagnostic Schema",
+  "type": "object",
+  "properties": {
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "level": { "type": "string" },
+          "code": { "type": "string" },
+          "message": { "type": "string" },
+          "file": { "type": "string" },
+          "line": { "type": "integer", "minimum": 0 },
+          "column": { "type": "integer", "minimum": 0 },
+          "length": { "type": "integer", "minimum": 0 },
+          "primary_label": { "type": ["string", "null"] },
+          "notes": { "type": "array", "items": { "type": "string" } },
+          "help": { "type": ["string", "null"] },
+          "suggestion": {
+            "type": ["object", "null"],
+            "properties": {
+              "message": { "type": "string" },
+              "replacement": { "type": "string" },
+              "file": { "type": "string" },
+              "line": { "type": "integer", "minimum": 0 },
+              "column": { "type": "integer", "minimum": 0 },
+              "length": { "type": "integer", "minimum": 0 }
+            },
+            "required": [
+              "message",
+              "replacement",
+              "file",
+              "line",
+              "column",
+              "length"
+            ]
+          },
+          "related": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "file": { "type": "string" },
+                "line": { "type": "integer", "minimum": 0 },
+                "column": { "type": "integer", "minimum": 0 },
+                "length": { "type": "integer", "minimum": 0 },
+                "message": { "type": "string" }
+              },
+              "required": ["file", "line", "column", "length", "message"]
+            }
+          }
+        },
+        "required": [
+          "level",
+          "code",
+          "message",
+          "file",
+          "line",
+          "column",
+          "length"
+        ]
+      }
+    }
+  },
+  "required": ["diagnostics"]
+}

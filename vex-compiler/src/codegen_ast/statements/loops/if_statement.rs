@@ -55,6 +55,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     "Ensure the condition evaluates to a boolean (i1) or integer type".to_string(),
                 ),
                 suggestion: None,
+                related: Vec::new(),
+                primary_label: Some("type mismatch".to_string()),
             });
             return Err("Condition must be integer value".to_string());
         };

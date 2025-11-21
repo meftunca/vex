@@ -41,7 +41,7 @@ impl BorrowRulesChecker {
 
                 // Check function body
                 for stmt in &func.body.statements {
-                    self.check_statement(stmt)?;
+                    self.check_statement(stmt, None)?;
                 }
 
                 // Restore scope
@@ -55,23 +55,38 @@ impl BorrowRulesChecker {
     }
 
     /// Check if a variable can be borrowed with the given kind
-    pub(super) fn check_can_borrow(&self, var: &str, kind: BorrowKind) -> BorrowResult<()> {
+    pub(super) fn check_can_borrow(&self, var: &str, kind: BorrowKind, _new_borrow_loc: Option<String>) -> BorrowResult<()> {
         if let Some(existing_borrows) = self.borrowed_vars.get(var) {
             match kind {
                 BorrowKind::Mutable => {
                     // Cannot borrow as mutable if ANY borrows exist
                     if !existing_borrows.is_empty() {
+                        // Try to find a borrow location for an existing borrow (if recorded)
+                        let mut existing_loc: Option<String> = None;
+                        for (_ref_name, borrows) in &self.active_borrows {
+                            for b in borrows {
+                                if b.variable == var {
+                                    if let Some(loc) = &b.location {
+                                        existing_loc = Some(loc.clone());
+                                        break;
+                                    }
+                                }
+                            }
+                            if existing_loc.is_some() {
+                                break;
+                            }
+                        }
                         if existing_borrows.contains(&BorrowKind::Mutable) {
                             return Err(BorrowError::MutableBorrowWhileBorrowed {
                                 variable: var.to_string(),
-                                existing_borrow: None,
-                                new_borrow: None,
+                                existing_borrow: existing_loc,
+                                new_borrow: _new_borrow_loc.clone(),
                             });
                         } else {
                             return Err(BorrowError::MutableBorrowWhileBorrowed {
                                 variable: var.to_string(),
-                                existing_borrow: Some("immutably borrowed".to_string()),
-                                new_borrow: None,
+                                existing_borrow: existing_loc.or(Some("immutably borrowed".to_string())),
+                                new_borrow: _new_borrow_loc.clone(),
                             });
                         }
                     }
@@ -79,9 +94,24 @@ impl BorrowRulesChecker {
                 BorrowKind::Immutable => {
                     // Cannot borrow as immutable if mutable borrow exists
                     if existing_borrows.contains(&BorrowKind::Mutable) {
+                        // Find an active mutable borrow location for better diagnostics
+                        let mut mutable_loc: Option<String> = None;
+                        for (_ref_name, borrows) in &self.active_borrows {
+                            for b in borrows {
+                                if b.variable == var && b.kind == BorrowKind::Mutable {
+                                    if let Some(loc) = &b.location {
+                                        mutable_loc = Some(loc.clone());
+                                        break;
+                                    }
+                                }
+                            }
+                            if mutable_loc.is_some() {
+                                break;
+                            }
+                        }
                         return Err(BorrowError::ImmutableBorrowWhileMutableBorrowed {
                             variable: var.to_string(),
-                            mutable_borrow: None,
+                            mutable_borrow: mutable_loc,
                             new_borrow: None,
                         });
                     }
@@ -99,9 +129,10 @@ impl BorrowRulesChecker {
         ref_name: String,
         var: String,
         kind: BorrowKind,
+        location: Option<String>,
     ) -> BorrowResult<()> {
         // First check if this borrow is allowed
-        self.check_can_borrow(&var, kind.clone())?;
+        self.check_can_borrow(&var, kind.clone(), location.clone())?;
 
         // Track the borrow
         self.active_borrows
@@ -110,6 +141,7 @@ impl BorrowRulesChecker {
             .push(Borrow {
                 kind: kind.clone(),
                 variable: var.clone(),
+                location,
             });
 
         // Mark the variable as borrowed

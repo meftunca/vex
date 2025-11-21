@@ -1,5 +1,7 @@
-CC = gcc
+CC = clang
 CFLAGS = -std=c11 -O2 -Wall -Wextra -pthread
+# Enable mimalloc and allocation tracking for allocator consistency with the rest of the runtime
+CFLAGS += -DVEX_USE_MIMALLOC -DVEX_ALLOC_TRACKING=1
 UNAME_S := $(shell uname -s)
 KERNEL_R := $(shell uname -r)
 KERNEL_MAJ := $(word 1, $(subst ., ,$(KERNEL_R)))
@@ -39,7 +41,11 @@ else
     endif
 endif
 
-SRC_COMMON = src/runtime.c src/worker_context.c src/lockfree_queue.c src/common.c
+SRC_COMMON = src/runtime.c src/worker_context.c src/lockfree_queue.c src/common.c src/timer_heap.c
+
+# Ensure we link the core allocator implementation so async runtime tests can use vex_malloc/vex_free
+ALLOC_SRC = ../vex_alloc.c
+ALLOC_OBJ = ../vex_alloc.o
 
 ifeq ($(POLLER),vexnet)
     SRC_POLL = src/poller_vexnet.c
@@ -62,8 +68,12 @@ endif
 
 SRC = $(SRC_COMMON) $(SRC_POLL)
 INC = -Iinclude
+INC += -I..
+INC += -I../allocators/mimalloc/include
 OBJ = $(SRC:.c=.o)
 TARGET = async_runtime_demo
+MIMALLOC_SRC = ../allocators/mimalloc/src/static.c
+MIMALLOC_OBJ = ../allocators/mimalloc/src/static.o
 
 all: $(TARGET)
 
@@ -76,8 +86,8 @@ $(VEXNET_LIB):
 	@echo "vex_net not needed for $(POLLER)"
 endif
 
-$(TARGET): $(VEXNET_LIB) $(OBJ) tests/example_async_demo.o
-	$(CC) $(CFLAGS) -o $@ $(OBJ) tests/example_async_demo.o $(LIBS)
+$(TARGET): $(VEXNET_LIB) $(OBJ) tests/example_async_demo.o $(ALLOC_OBJ) $(MIMALLOC_OBJ)
+	$(CC) $(CFLAGS) -o $@ $(OBJ) tests/example_async_demo.o $(ALLOC_OBJ) $(MIMALLOC_OBJ) $(LIBS)
 
 tests/example_async_demo.o: tests/example_async_demo.c include/runtime.h include/poller.h
 	$(CC) $(CFLAGS) $(INC) -c -o $@ $<
@@ -86,35 +96,39 @@ tests/example_async_demo.o: tests/example_async_demo.c include/runtime.h include
 	$(CC) $(CFLAGS) $(INC) -c -o $@ $<
 
 # Test vex_net integration
-test_vexnet_integration: $(VEXNET_LIB) $(OBJ) test_vexnet_integration.o
-	$(CC) $(CFLAGS) -o $@ $(OBJ) test_vexnet_integration.o $(LIBS)
+test_vexnet_integration: $(VEXNET_LIB) $(OBJ) test_vexnet_integration.o $(ALLOC_OBJ) $(MIMALLOC_OBJ)
+	$(CC) $(CFLAGS) -o $@ $(OBJ) test_vexnet_integration.o $(ALLOC_OBJ) $(MIMALLOC_OBJ) $(LIBS)
 
 test_vexnet_integration.o: test_vexnet_integration.c
 	$(CC) $(CFLAGS) $(INC) -c -o $@ $<
 
 # Simple test without timers
-test_simple_vexnet: $(VEXNET_LIB) $(OBJ) test_simple_vexnet.o
-	$(CC) $(CFLAGS) -o $@ $(OBJ) test_simple_vexnet.o $(LIBS)
+test_simple_vexnet: $(VEXNET_LIB) $(OBJ) test_simple_vexnet.o $(ALLOC_OBJ) $(MIMALLOC_OBJ)
+	$(CC) $(CFLAGS) -o $@ $(OBJ) test_simple_vexnet.o $(ALLOC_OBJ) $(MIMALLOC_OBJ) $(LIBS)
 
 test_simple_vexnet.o: test_simple_vexnet.c
 	$(CC) $(CFLAGS) $(INC) -c -o $@ $<
 
 # Demo without timer dependency
-demo_notimer: $(VEXNET_LIB) $(OBJ) demo_notimer.o
-	$(CC) $(CFLAGS) -o $@ $(OBJ) demo_notimer.o $(LIBS)
+demo_notimer: $(VEXNET_LIB) $(OBJ) demo_notimer.o $(ALLOC_OBJ) $(MIMALLOC_OBJ)
+	$(CC) $(CFLAGS) -o $@ $(OBJ) demo_notimer.o $(ALLOC_OBJ) $(MIMALLOC_OBJ) $(LIBS)
 
 demo_notimer.o: demo_notimer.c
 	$(CC) $(CFLAGS) $(INC) -c -o $@ $<
 
 # Demo WITH timer (proper state machine)
-demo_with_timer: $(VEXNET_LIB) $(OBJ) demo_with_timer.o
-	$(CC) $(CFLAGS) -o $@ $(OBJ) demo_with_timer.o $(LIBS)
+demo_with_timer: $(VEXNET_LIB) $(OBJ) demo_with_timer.o $(ALLOC_OBJ) $(MIMALLOC_OBJ)
+	$(CC) $(CFLAGS) -o $@ $(OBJ) demo_with_timer.o $(ALLOC_OBJ) $(MIMALLOC_OBJ) $(LIBS)
 
 demo_with_timer.o: demo_with_timer.c
 	$(CC) $(CFLAGS) $(INC) -c -o $@ $<
 
 clean:
-	rm -f $(OBJ) tests/example_async_demo.o $(TARGET) test_vexnet_integration test_vexnet_integration.o test_simple_vexnet test_simple_vexnet.o demo_notimer demo_notimer.o demo_with_timer demo_with_timer.o
+	@echo "Cleaning build artifacts..."
+	@rm -f $(OBJ) tests/example_async_demo.o $(TARGET) test_vexnet_integration test_vexnet_integration.o \
+		test_simple_vexnet test_simple_vexnet.o demo_notimer demo_notimer.o demo_with_timer demo_with_timer.o
+	@rm -f $(ALLOC_OBJ)
+	@rm -f $(MIMALLOC_OBJ)
 
 clean-all: clean
 	$(MAKE) -C $(VEXNET_DIR) clean
@@ -127,3 +141,9 @@ print-config:
 	@echo VEXNET_LIB=$(VEXNET_LIB)
 
 # PRO extensions: timers/cancel/stats are built-in to runtime.c stubs
+
+../vex_alloc.o: ../vex_alloc.c
+	$(CC) $(CFLAGS) $(INC) -c -o $@ $<
+
+$(MIMALLOC_OBJ): $(MIMALLOC_SRC)
+	$(CC) $(CFLAGS) $(INC) -c -o $@ $<

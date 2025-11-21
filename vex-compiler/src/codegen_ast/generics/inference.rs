@@ -359,6 +359,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         type_subst: &HashMap<String, Type>,
     ) -> Block {
         Block {
+            span_id: block.span_id.clone(), // Preserve span
             statements: block
                 .statements
                 .iter()
@@ -373,10 +374,20 @@ impl<'ctx> ASTCodeGen<'ctx> {
         type_subst: &HashMap<String, Type>,
     ) -> Statement {
         match stmt {
-            Statement::Return(Some(expr)) => {
-                Statement::Return(Some(self.substitute_types_in_expression(expr, type_subst)))
-            }
-            Statement::Return(None) => Statement::Return(None),
+            Statement::Return {
+                span_id: _,
+                value: Some(expr),
+            } => Statement::Return {
+                span_id: None,
+                value: Some(self.substitute_types_in_expression(expr, type_subst)),
+            },
+            Statement::Return {
+                span_id: _,
+                value: None,
+            } => Statement::Return {
+                span_id: None,
+                value: None,
+            },
             Statement::If {
                 span_id,
                 condition,
@@ -443,15 +454,22 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 body: self.substitute_types_in_block(body, type_subst),
             },
             Statement::ForIn {
+                span_id: _,
                 variable,
                 iterable,
                 body,
             } => Statement::ForIn {
+                span_id: None,
                 variable: variable.clone(),
                 iterable: self.substitute_types_in_expression(iterable, type_subst),
                 body: self.substitute_types_in_block(body, type_subst),
             },
-            Statement::Assign { target, value } => Statement::Assign {
+            Statement::Assign {
+                span_id: _,
+                target,
+                value,
+            } => Statement::Assign {
+                span_id: None,
                 target: self.substitute_types_in_expression(target, type_subst),
                 value: self.substitute_types_in_expression(value, type_subst),
             },
@@ -582,9 +600,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 is_mutable: *is_mutable,
                 expr: Box::new(self.substitute_types_in_expression(expr, type_subst)),
             },
-            Expression::Deref(expr) => {
-                Expression::Deref(Box::new(self.substitute_types_in_expression(expr, type_subst)))
-            }
+            Expression::Deref(expr) => Expression::Deref(Box::new(
+                self.substitute_types_in_expression(expr, type_subst),
+            )),
             Expression::Block {
                 statements,
                 return_expr,
@@ -593,9 +611,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     .iter()
                     .map(|stmt| self.substitute_types_in_statement(stmt, type_subst))
                     .collect(),
-                return_expr: return_expr.as_ref().map(|e| {
-                    Box::new(self.substitute_types_in_expression(e, type_subst))
-                }),
+                return_expr: return_expr
+                    .as_ref()
+                    .map(|e| Box::new(self.substitute_types_in_expression(e, type_subst))),
             },
             _ => expr.clone(),
         }

@@ -7,6 +7,11 @@ impl<'a> Parser<'a> {
     pub(crate) fn parse_type_alias(&mut self) -> Result<Item, ParseError> {
         self.consume(&Token::Type, "Expected 'type'")?;
 
+        // Capture span for the type alias name
+        let span = self.token_to_diag_span(&self.peek_span().span);
+        let span_id = self.span_map.generate_id();
+        self.span_map.record(span_id.clone(), span);
+
         let name = self.consume_identifier()?;
 
         // Optional type parameters with bounds: type Result<T: Display, E> = ...
@@ -26,9 +31,12 @@ impl<'a> Parser<'a> {
                     }
                     WhereClausePredicate::AssociatedTypeBound { .. } => {
                         // Type aliases don't support associated type bounds
-                        return Err(
-                            self.error("Associated type bounds not supported in type aliases")
-                        );
+                        return Err(self.make_syntax_error(
+                            "Associated type bounds not supported in type aliases",
+                            Some("unsupported associated type bound"),
+                            Some("Use associated types in traits, not in type aliases"),
+                            Some(("consider using trait with associated types", "trait T { type Item; }")),
+                        ));
                     }
                 }
             }
@@ -42,6 +50,7 @@ impl<'a> Parser<'a> {
 
         Ok(Item::TypeAlias(TypeAlias {
             is_exported: false, // Default to false
+            span_id: Some(span_id),
             name,
             type_params,
             ty,

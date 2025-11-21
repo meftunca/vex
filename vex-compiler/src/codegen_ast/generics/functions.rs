@@ -142,6 +142,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let saved_variable_types = std::mem::take(&mut self.variable_types);
         let saved_variable_struct_names = std::mem::take(&mut self.variable_struct_names);
 
+        // ⭐ CRITICAL: Store type substitution map for use during compilation
+        // This allows infer_expression_type() to resolve generic parameters like T → I32
+        // Example: When compiling "if a < b", identifiers "a" and "b" need concrete types
+        let saved_type_subst =
+            std::mem::replace(&mut self.active_type_substitutions, type_subst.clone());
+
         // ⭐ NEW: Store instantiated function in function_defs for type inference
         self.function_defs
             .insert(mangled_name.clone(), subst_func.clone());
@@ -150,6 +156,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
         self.functions.insert(mangled_name.clone(), fn_val);
 
         self.compile_function(&subst_func)?;
+
+        // ⭐ CRITICAL: Restore previous type substitution context
+        self.active_type_substitutions = saved_type_subst;
 
         self.current_function = saved_current_function;
         self.variables = saved_variables;

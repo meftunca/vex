@@ -88,6 +88,13 @@ impl NamingConventionRule {
                 span: Span::unknown(), // TODO: Get actual span
                 help: Some(format!("consider renaming to `{}`", suggestion)),
                 notes: vec![],
+                related: Vec::new(),
+                primary_label: Some("naming convention".to_string()),
+                suggestion: Some(vex_diagnostics::Suggestion {
+                    message: format!("rename to `{}`", suggestion),
+                    replacement: suggestion.clone(),
+                    span: Span::unknown(),
+                }),
             });
         }
         None
@@ -103,6 +110,13 @@ impl NamingConventionRule {
                 span: Span::unknown(),
                 help: Some(format!("consider renaming to `{}`", suggestion)),
                 notes: vec![],
+                related: Vec::new(),
+                primary_label: Some("naming convention".to_string()),
+                suggestion: Some(vex_diagnostics::Suggestion {
+                    message: format!("rename to `{}`", suggestion),
+                    replacement: suggestion.clone(),
+                    span: Span::unknown(),
+                }),
             });
         }
         None
@@ -118,6 +132,13 @@ impl NamingConventionRule {
                 span: Span::unknown(),
                 help: Some(format!("consider renaming to `{}`", suggestion)),
                 notes: vec![],
+                related: Vec::new(),
+                primary_label: Some("naming convention".to_string()),
+                suggestion: Some(vex_diagnostics::Suggestion {
+                    message: format!("rename to `{}`", suggestion),
+                    replacement: suggestion.clone(),
+                    span: Span::unknown(),
+                }),
             });
         }
         None
@@ -135,6 +156,13 @@ impl NamingConventionRule {
                 span: Span::unknown(),
                 help: Some(format!("consider renaming to `{}`", name.to_uppercase())),
                 notes: vec![],
+                related: Vec::new(),
+                primary_label: Some("naming convention".to_string()),
+                suggestion: Some(vex_diagnostics::Suggestion {
+                    message: format!("rename to `{}`", name.to_uppercase()),
+                    replacement: name.to_uppercase(),
+                    span: Span::unknown(),
+                }),
             });
         }
         None
@@ -159,6 +187,13 @@ impl NamingConventionRule {
                         span: Span::unknown(),
                         help: Some(format!("consider renaming to `{}`", suggestion)),
                         notes: vec![],
+                        related: Vec::new(),
+                        primary_label: Some("naming convention".to_string()),
+                        suggestion: Some(vex_diagnostics::Suggestion {
+                            message: format!("rename to `{}`", suggestion),
+                            replacement: suggestion.clone(),
+                            span: Span::unknown(),
+                        }),
                     });
                 }
             }
@@ -175,6 +210,13 @@ impl NamingConventionRule {
                         span: Span::unknown(),
                         help: Some(format!("consider renaming to `{}`", suggestion)),
                         notes: vec![],
+                        related: Vec::new(),
+                        primary_label: Some("naming convention".to_string()),
+                        suggestion: Some(vex_diagnostics::Suggestion {
+                            message: format!("rename to `{}`", suggestion),
+                            replacement: suggestion.clone(),
+                            span: Span::unknown(),
+                        }),
                     });
                 }
                 

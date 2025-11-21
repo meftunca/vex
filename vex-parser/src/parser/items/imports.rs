@@ -1,5 +1,6 @@
 use crate::parser::Parser;
 use crate::ParseError;
+use vex_diagnostics::error_codes;
 use vex_ast::*;
 use vex_lexer::Token;
 
@@ -24,7 +25,21 @@ impl<'a> Parser<'a> {
                 self.advance();
                 m
             } else {
-                return Err(self.error("Expected module string after 'from'"));
+                // Provide a richer diagnostic with suggestion for module path
+                let span = self.token_to_diag_span(&self.peek_span().span);
+                let diag = vex_diagnostics::Diagnostic::error(
+                    error_codes::SYNTAX_ERROR,
+                    "Expected module string after 'from'".to_string(),
+                    span.clone(),
+                )
+                .with_primary_label("expected module string".to_string())
+                .with_help("Use a module path string, e.g., from \"./module.vx\"".to_string())
+                .with_suggestion(
+                    "use module path".to_string(),
+                    "\"./module.vx\"".to_string(),
+                    span,
+                );
+                return Err(ParseError::from_diagnostic(diag));
             };
 
             self.consume(&Token::Semicolon, "Expected ';' after import")?;
@@ -69,7 +84,21 @@ impl<'a> Parser<'a> {
                 self.advance();
                 m
             } else {
-                return Err(self.error("Expected module string after 'from'"));
+                // Provide a richer diagnostic with suggestion for module path
+                let span = self.token_to_diag_span(&self.peek_span().span);
+                let diag = vex_diagnostics::Diagnostic::error(
+                    error_codes::SYNTAX_ERROR,
+                    "Expected module string after 'from'".to_string(),
+                    span.clone(),
+                )
+                .with_primary_label("expected module string".to_string())
+                .with_help("Use a module path string, e.g., from \"./module.vx\"".to_string())
+                .with_suggestion(
+                    "use module path".to_string(),
+                    "\"./module.vx\"".to_string(),
+                    span,
+                );
+                return Err(ParseError::from_diagnostic(diag));
             };
 
             self.consume(&Token::Semicolon, "Expected ';' after import")?;
@@ -96,6 +125,19 @@ impl<'a> Parser<'a> {
             });
         }
 
-        Err(self.error("Expected '{', '*', or string after 'import'"))
+        let span = self.token_to_diag_span(&self.peek_span().span);
+        let diag = vex_diagnostics::Diagnostic::error(
+            error_codes::SYNTAX_ERROR,
+            "Expected '{', '*', or string after 'import'".to_string(),
+            span.clone(),
+        )
+        .with_primary_label("expected import form".to_string())
+        .with_help("Valid patterns: `import {name} from \"mod\";`, `import * as ns from \"mod\";`, or `import \"mod\";`".to_string())
+        .with_suggestion(
+            "try import pattern".to_string(),
+            "import { io } from \"std\";".to_string(),
+            span,
+        );
+        Err(ParseError::from_diagnostic(diag))
     }
 }

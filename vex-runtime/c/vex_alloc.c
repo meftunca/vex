@@ -358,6 +358,7 @@ void *vex_malloc(size_t size)
     size_t alloc_size = size + ALLOC_HEADER_SIZE;
     int size_class = size_to_class(alloc_size);
 
+#if VEX_ALLOC_TRACKING
     /* Fast path 1: Free list (3-5 cycles) */
     if (VEX_LIKELY(size_class >= 0))
     {
@@ -384,12 +385,13 @@ void *vex_malloc(size_t size)
             }
         }
     }
+#endif
 
     /* Slow path: System allocator */
     STAT_INC(system_allocs);
     STAT_ADD(total_bytes, alloc_size);
     size_t aligned = (alloc_size + VEX_ALLOC_ALIGNMENT - 1) & ~(VEX_ALLOC_ALIGNMENT - 1);
-    void *ptr = aligned_alloc(VEX_ALLOC_ALIGNMENT, aligned);
+    void *ptr = vex_alloc_aligned(aligned, VEX_ALLOC_ALIGNMENT);
     return track_alloc(ptr, size, -1);
 }
 
@@ -425,9 +427,13 @@ void vex_free(void *ptr)
         {
             return; /* Cached for reuse */
         }
+        /* If freelist doesn't accept (cache full), do NOT call system free
+           for arena/small allocations because these pointers are not from
+           the system allocator; just drop them (no-op). */
+        return;
     }
 
-    /* System free */
+    /* System free for non-size-class allocations */
     VEX_FREE_IMPL(real_ptr);
 #else
     /* Without tracking, can't reuse - just free */
@@ -503,6 +509,7 @@ char *vex_strdup(const char *str)
 
     size_t len = strlen(str) + 1;
 
+#if VEX_ALLOC_TRACKING
     /* Try arena for small strings (zero overhead) */
     if (VEX_LIKELY(len <= VEX_SMALL_THRESHOLD))
     {
@@ -517,6 +524,7 @@ char *vex_strdup(const char *str)
             }
         }
     }
+#endif
 
     /* Fallback */
     char *dup = (char *)vex_malloc(len);

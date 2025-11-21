@@ -3,9 +3,10 @@
 
 set -e
 
-CC=${CC:-gcc}
-CFLAGS="-std=c11 -O2 -Wall -Wextra -pthread"
-INC="-Iinclude"
+CC=${CC:-clang}
+CFLAGS="-std=c11 -O2 -Wall -Wextra -pthread -DVEX_USE_MIMALLOC -DVEX_ALLOC_TRACKING=1"
+INC="-Iinclude -I.. -I../allocators/mimalloc/include"
+ALLOC_OBJ="../vex_alloc.o ../allocators/mimalloc/src/static.o"
 
 UNAME_S=$(uname -s)
 if [[ "$UNAME_S" == "Darwin" ]] || [[ "$UNAME_S" == "FreeBSD" ]]; then
@@ -21,7 +22,15 @@ fi
 echo "Quick Test Suite (OS: $UNAME_S, Poller: $POLLER)"
 echo "================================================"
 
-SRC_COMMON="src/runtime.c src/worker_context.c src/lockfree_queue.c src/common.c"
+# Build allocator objects first
+if [ ! -f "../vex_alloc.o" ]; then
+    $CC $CFLAGS $INC -c -o ../vex_alloc.o ../vex_alloc.c 2>/dev/null
+fi
+if [ ! -f "../allocators/mimalloc/src/static.o" ]; then
+    $CC $CFLAGS $INC -c -o ../allocators/mimalloc/src/static.o ../allocators/mimalloc/src/static.c 2>/dev/null
+fi
+
+SRC_COMMON="src/runtime.c src/worker_context.c src/lockfree_queue.c src/common.c src/timer_heap.c"
 SRC_ALL="$SRC_COMMON $SRC_POLL"
 
 OBJ=""
@@ -49,7 +58,7 @@ for test in "${TESTS[@]}"; do
     
     printf "%-30s" "$test..."
     
-    if $CC $CFLAGS $INC -o "$TEST_BIN" "$TEST_SRC" $OBJ $LIBS 2>/dev/null; then
+    if $CC $CFLAGS $INC -o "$TEST_BIN" "$TEST_SRC" $OBJ $ALLOC_OBJ $LIBS 2>/dev/null; then
         if timeout 5 "$TEST_BIN" >/dev/null 2>&1; then
             echo "✅"
             PASSED=$((PASSED + 1))

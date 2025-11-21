@@ -75,12 +75,12 @@ mod tests {
 
         // let r1 = &x;
         checker
-            .create_borrow("r1".to_string(), "x".to_string(), BorrowKind::Immutable)
+            .create_borrow("r1".to_string(), "x".to_string(), BorrowKind::Immutable, None)
             .unwrap();
 
         // let r2 = &x;  (should be OK)
         let result =
-            checker.create_borrow("r2".to_string(), "x".to_string(), BorrowKind::Immutable);
+            checker.create_borrow("r2".to_string(), "x".to_string(), BorrowKind::Immutable, None);
 
         assert!(result.is_ok());
     }
@@ -91,11 +91,11 @@ mod tests {
 
         // let m = &x!;
         checker
-            .create_borrow("m".to_string(), "x".to_string(), BorrowKind::Mutable)
+            .create_borrow("m".to_string(), "x".to_string(), BorrowKind::Mutable, None)
             .unwrap();
 
         // let r = &x;  (should fail)
-        let result = checker.create_borrow("r".to_string(), "x".to_string(), BorrowKind::Immutable);
+        let result = checker.create_borrow("r".to_string(), "x".to_string(), BorrowKind::Immutable, None);
 
         assert!(result.is_err());
     }
@@ -106,11 +106,11 @@ mod tests {
 
         // let r = &x;
         checker
-            .create_borrow("r".to_string(), "x".to_string(), BorrowKind::Immutable)
+            .create_borrow("r".to_string(), "x".to_string(), BorrowKind::Immutable, None)
             .unwrap();
 
         // let m = &x!;  (should fail)
-        let result = checker.create_borrow("m".to_string(), "x".to_string(), BorrowKind::Mutable);
+        let result = checker.create_borrow("m".to_string(), "x".to_string(), BorrowKind::Mutable, None);
 
         assert!(result.is_err());
     }
@@ -121,11 +121,11 @@ mod tests {
 
         // let m1 = &x!;
         checker
-            .create_borrow("m1".to_string(), "x".to_string(), BorrowKind::Mutable)
+            .create_borrow("m1".to_string(), "x".to_string(), BorrowKind::Mutable, None)
             .unwrap();
 
         // let m2 = &x!;  (should fail)
-        let result = checker.create_borrow("m2".to_string(), "x".to_string(), BorrowKind::Mutable);
+        let result = checker.create_borrow("m2".to_string(), "x".to_string(), BorrowKind::Mutable, None);
 
         assert!(result.is_err());
     }
@@ -136,16 +136,85 @@ mod tests {
 
         // let r = &x;
         checker
-            .create_borrow("r".to_string(), "x".to_string(), BorrowKind::Immutable)
+            .create_borrow("r".to_string(), "x".to_string(), BorrowKind::Immutable, None)
             .unwrap();
 
         // x = 10;  (should fail)
         let assign = Statement::Assign {
+            span_id: None,
             target: Expression::Ident("x".to_string()),
             value: Expression::IntLiteral(10),
         };
 
-        let result = checker.check_statement(&assign);
+        let result = checker.check_statement(&assign, None);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_borrow_related_location_in_error() {
+        let mut checker = BorrowRulesChecker::new();
+
+        // record a borrow with a span id
+        let span_id = "span_99".to_string();
+        checker
+            .create_borrow("r".to_string(), "x".to_string(), BorrowKind::Immutable, Some(span_id.clone()))
+            .unwrap();
+
+        // try to create a conflicting mutable borrow
+        let result = checker.create_borrow("m".to_string(), "x".to_string(), BorrowKind::Mutable, None);
+        assert!(result.is_err());
+        if let Err(err) = result {
+            // Build span map that resolves span_99
+            let mut span_map = vex_diagnostics::SpanMap::new();
+            let path = std::env::temp_dir().join("file2.vx");
+            span_map.record(span_id.clone(), vex_diagnostics::Span::new(path.display().to_string(), 12, 4, 1));
+
+            let diag = err.to_diagnostic(&span_map);
+            assert_eq!(diag.related.len(), 1);
+            assert!(diag.related[0].0.file.contains("file2.vx"));
+        }
+    }
+
+    #[test]
+    fn test_mutation_while_borrowed_parent_span_fallback() {
+        let mut checker = BorrowRulesChecker::new();
+
+        // Create a borrow without an explicit recorded location
+        checker
+            .create_borrow("r".to_string(), "x".to_string(), BorrowKind::Immutable, None)
+            .unwrap();
+
+        // Prepare an assignment that will trigger MutationWhileBorrowed
+        let assign = Statement::Assign {
+            span_id: None,
+            target: Expression::Ident("x".to_string()),
+            value: Expression::IntLiteral(10),
+        };
+
+        // Provide a parent span id as the contextual location
+        let parent_span = "span_parent".to_string();
+        let result = checker.check_statement(&assign, Some(&parent_span));
+        assert!(result.is_err());
+
+        if let Err(err) = result {
+            // Make sure the error includes the parent_span as borrowed_at
+            use crate::borrow_checker::errors::BorrowError;
+            match &err {
+                BorrowError::MutationWhileBorrowed { borrowed_at, .. } => {
+                    assert_eq!(borrowed_at, &Some(parent_span.clone()));
+                }
+                _ => panic!("Unexpected error type"),
+            }
+            // Build span map that resolves parent span
+            let mut span_map = vex_diagnostics::SpanMap::new();
+            let path = std::env::temp_dir().join("file_parent.vx");
+            span_map.record(parent_span.clone(), vex_diagnostics::Span::new(path.display().to_string(), 3, 2, 1));
+
+            let diag = err.to_diagnostic(&span_map);
+            // The diagnostic should include a related span pointing to parent_span
+            assert_eq!(diag.related.len(), 1);
+            assert!(diag.related[0].0.file.contains("file_parent.vx"));
+            assert!(diag.related[0].1.contains("borrow occurs") || diag.related[0].1.contains("borrow"));
+        }
     }
 }

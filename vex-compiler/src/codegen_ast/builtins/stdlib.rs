@@ -11,7 +11,7 @@ use inkwell::AddressSpace;
 
 pub fn declare_logger_functions<'ctx>(codegen: &mut ASTCodeGen<'ctx>) {
     let void_type = codegen.context.void_type();
-    let i8_ptr_type = codegen.context.i8_type().ptr_type(AddressSpace::default());
+    let i8_ptr_type = codegen.context.ptr_type(AddressSpace::default());
     let i32_type = codegen.context.i32_type();
     let i64_type = codegen.context.i64_type();
 
@@ -54,7 +54,7 @@ pub fn declare_fs_functions<'ctx>(codegen: &mut ASTCodeGen<'ctx>) {
     let i32_type = codegen.context.i32_type();
     let i64_type = codegen.context.i64_type();
     let bool_type = codegen.context.bool_type();
-    let i8_ptr_type = codegen.context.i8_type().ptr_type(AddressSpace::default());
+    let i8_ptr_type = codegen.context.ptr_type(AddressSpace::default());
     let usize_type = codegen.context.i64_type(); // usize = i64 on 64-bit
     let void_type = codegen.context.void_type();
 
@@ -63,8 +63,8 @@ pub fn declare_fs_functions<'ctx>(codegen: &mut ASTCodeGen<'ctx>) {
     let file_read_type = i32_type.fn_type(
         &[
             i8_ptr_type.into(),
-            i8_ptr_type.ptr_type(AddressSpace::default()).into(),
-            usize_type.ptr_type(AddressSpace::default()).into(),
+            codegen.context.ptr_type(AddressSpace::default()).into(),
+            codegen.context.ptr_type(AddressSpace::default()).into(),
         ],
         false,
     );
@@ -164,8 +164,8 @@ pub fn declare_fs_functions<'ctx>(codegen: &mut ASTCodeGen<'ctx>) {
     let dir_list_type = i32_type.fn_type(
         &[
             i8_ptr_type.into(),
-            i8_ptr_type.ptr_type(AddressSpace::default()).into(),
-            usize_type.ptr_type(AddressSpace::default()).into(),
+            codegen.context.ptr_type(AddressSpace::default()).into(),
+            codegen.context.ptr_type(AddressSpace::default()).into(),
         ],
         false,
     );
@@ -241,7 +241,7 @@ pub fn declare_time_functions<'ctx>(codegen: &mut ASTCodeGen<'ctx>) {
 pub fn declare_testing_functions<'ctx>(codegen: &mut ASTCodeGen<'ctx>) {
     let void_type = codegen.context.void_type();
     let i32_type = codegen.context.i32_type();
-    let i8_ptr_type = codegen.context.i8_type().ptr_type(AddressSpace::default());
+    let i8_ptr_type = codegen.context.ptr_type(AddressSpace::default());
 
     // vex_test_start(name: &str)
     let test_start_type = void_type.fn_type(&[i8_ptr_type.into()], false);

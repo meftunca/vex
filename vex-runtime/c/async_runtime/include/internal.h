@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include "lockfree_queue.h"
 #include "runtime.h"
+#include "timer_heap.h"
 
 typedef struct InternalTask
 {
@@ -30,6 +31,7 @@ struct WorkerContext
 {
     Worker *owner;
     InternalTask *current_task;
+    bool timer_pending; // Flag: task is waiting on timer, don't reschedule
 };
 
 struct Runtime
@@ -38,6 +40,8 @@ struct Runtime
     int num_workers;
     Worker *workers;
     LockFreeQueue *global_ready;
+    LockFreeQueue *overflow_queue; // Unbounded overflow when global_ready is full
+    TimerHeap *timer_heap;         // Global timer queue for all workers
     Poller *poller;
 #ifdef _WIN32
     void *poller_thread;

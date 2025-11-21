@@ -57,25 +57,65 @@ impl<'a> Parser<'a> {
 
         // Return statement
         if self.match_token(&Token::Return) {
+            let ret_start = self.current - 1;
             let expr = if !self.check(&Token::Semicolon) {
                 Some(self.parse_expression()?)
             } else {
                 None
             };
             self.consume(&Token::Semicolon, "Expected ';' after return")?;
-            return Ok(Statement::Return(expr));
+            let ret_end = self.current - 1;
+            
+            let span = crate::Span::from_file_and_span(
+                &self.file_name,
+                self.source,
+                self.tokens[ret_start].span.start..self.tokens[ret_end].span.end,
+            );
+            let span_id = self.span_map.generate_id();
+            self.span_map.record(span_id.clone(), span);
+            
+            return Ok(Statement::Return {
+                span_id: Some(span_id),
+                value: expr,
+            });
         }
 
         // Break statement
         if self.match_token(&Token::Break) {
+            let break_start = self.current - 1;
             self.consume(&Token::Semicolon, "Expected ';' after break")?;
-            return Ok(Statement::Break);
+            let break_end = self.current - 1;
+            
+            let span = crate::Span::from_file_and_span(
+                &self.file_name,
+                self.source,
+                self.tokens[break_start].span.start..self.tokens[break_end].span.end,
+            );
+            let span_id = self.span_map.generate_id();
+            self.span_map.record(span_id.clone(), span);
+            
+            return Ok(Statement::Break {
+                span_id: Some(span_id),
+            });
         }
 
         // Continue statement
         if self.match_token(&Token::Continue) {
+            let cont_start = self.current - 1;
             self.consume(&Token::Semicolon, "Expected ';' after continue")?;
-            return Ok(Statement::Continue);
+            let cont_end = self.current - 1;
+            
+            let span = crate::Span::from_file_and_span(
+                &self.file_name,
+                self.source,
+                self.tokens[cont_start].span.start..self.tokens[cont_end].span.end,
+            );
+            let span_id = self.span_map.generate_id();
+            self.span_map.record(span_id.clone(), span);
+            
+            return Ok(Statement::Continue {
+                span_id: Some(span_id),
+            });
         }
 
         // Defer statement (Go-style)
@@ -104,19 +144,47 @@ impl<'a> Parser<'a> {
 
         // Go statement
         if self.match_token(&Token::Go) {
+            let go_start = self.current - 1;
             let expr = if self.check(&Token::LBrace) {
                 self.parse_block_expression()?
             } else {
                 self.parse_expression()?
             };
             self.consume(&Token::Semicolon, "Expected ';' after go statement")?;
-            return Ok(Statement::Go(expr));
+            let go_end = self.current - 1;
+            
+            let span = crate::Span::from_file_and_span(
+                &self.file_name,
+                self.source,
+                self.tokens[go_start].span.start..self.tokens[go_end].span.end,
+            );
+            let span_id = self.span_map.generate_id();
+            self.span_map.record(span_id.clone(), span);
+            
+            return Ok(Statement::Go {
+                span_id: Some(span_id),
+                expr,
+            });
         }
 
         // Unsafe block
         if self.match_token(&Token::Unsafe) {
+            let unsafe_start = self.current - 1;
             let block = self.parse_block()?;
-            return Ok(Statement::Unsafe(block));
+            let unsafe_end = self.current - 1;
+            
+            let span = crate::Span::from_file_and_span(
+                &self.file_name,
+                self.source,
+                self.tokens[unsafe_start].span.start..self.tokens[unsafe_end].span.end,
+            );
+            let span_id = self.span_map.generate_id();
+            self.span_map.record(span_id.clone(), span);
+            
+            return Ok(Statement::Unsafe {
+                span_id: Some(span_id),
+                block,
+            });
         }
 
         // If statement
@@ -201,12 +269,28 @@ impl<'a> Parser<'a> {
 
         // Loop statement (infinite loop)
         if self.match_token(&Token::Loop) {
+            let loop_start = self.current - 1;
             let body = self.parse_block()?;
-            return Ok(Statement::Loop { body });
+            let loop_end = self.current - 1;
+            
+            let span = crate::Span::from_file_and_span(
+                &self.file_name,
+                self.source,
+                self.tokens[loop_start].span.start..self.tokens[loop_end].span.end,
+            );
+            let span_id = self.span_map.generate_id();
+            self.span_map.record(span_id.clone(), span);
+            
+            return Ok(Statement::Loop {
+                span_id: Some(span_id),
+                body,
+            });
         }
 
         // Switch statement
         if self.match_token(&Token::Switch) {
+            let switch_start = self.current - 1;
+            
             // Parse value expression (or none for type switch)
             let value = if !self.check(&Token::LBrace) {
                 Some(self.parse_expression()?)
@@ -219,7 +303,11 @@ impl<'a> Parser<'a> {
             let mut cases = Vec::new();
             let mut default_case = None;
 
+            let mut steps = 0usize;
             while !self.check(&Token::RBrace) && !self.is_at_end() {
+                if self.guard_tick(&mut steps, "switch body parse timeout", Self::PARSE_LOOP_DEFAULT_MAX_STEPS) {
+                    break;
+                }
                 if self.match_token(&Token::Default) {
                     self.consume(&Token::Colon, "Expected ':' after default")?;
                     default_case = Some(self.parse_block_until_case_or_brace()?);
@@ -238,13 +326,28 @@ impl<'a> Parser<'a> {
 
                     cases.push(SwitchCase { patterns, body });
                 } else {
-                    return Err(self.error("Expected 'case' or 'default' in switch"));
+                    return Err(self.make_syntax_error(
+                        "Expected 'case' or 'default' in switch",
+                        Some("expected 'case' or 'default'"),
+                        Some("Use 'case' to introduce a pattern or 'default' for the fallback case"),
+                        Some(("try 'case'", "case 1: { ... }")),
+                    ));
                 }
             }
 
             self.consume(&Token::RBrace, "Expected '}' after switch")?;
+            let switch_end = self.current - 1;
+            
+            let span = crate::Span::from_file_and_span(
+                &self.file_name,
+                self.source,
+                self.tokens[switch_start].span.start..self.tokens[switch_end].span.end,
+            );
+            let span_id = self.span_map.generate_id();
+            self.span_map.record(span_id.clone(), span);
 
             return Ok(Statement::Switch {
+                span_id: Some(span_id),
                 value,
                 cases,
                 default_case,
@@ -264,8 +367,18 @@ impl<'a> Parser<'a> {
                     // for-in loop: for i in 0..10 { }
                     let iterable = self.parse_expression()?;
                     let body = self.parse_block()?;
+                    let for_end = self.current - 1;
+                    
+                    let span = crate::Span::from_file_and_span(
+                        &self.file_name,
+                        self.source,
+                        self.tokens[for_start].span.start..self.tokens[for_end].span.end,
+                    );
+                    let span_id = self.span_map.generate_id();
+                    self.span_map.record(span_id.clone(), span);
 
                     return Ok(Statement::ForIn {
+                        span_id: Some(span_id),
                         variable: var_name,
                         iterable,
                         body,
@@ -310,7 +423,11 @@ impl<'a> Parser<'a> {
                         self.consume(&Token::Eq, "Expected '='")?;
                         let value = self.parse_expression()?;
 
-                        Some(Box::new(Statement::Assign { target, value }))
+                        Some(Box::new(Statement::Assign {
+                            span_id: None, // Inside for-loop, not critical
+                            target,
+                            value,
+                        }))
                     } else {
                         Some(Box::new(Statement::Expression(expr)))
                     }
@@ -349,9 +466,21 @@ impl<'a> Parser<'a> {
 
             // Assignment: x = expr;
             if self.match_token(&Token::Eq) {
+                let assign_start = checkpoint;
                 let value = self.parse_expression()?;
                 self.consume(&Token::Semicolon, "Expected ';'")?;
+                let assign_end = self.current - 1;
+                
+                let span = crate::Span::from_file_and_span(
+                    &self.file_name,
+                    self.source,
+                    self.tokens[assign_start].span.start..self.tokens[assign_end].span.end,
+                );
+                let span_id = self.span_map.generate_id();
+                self.span_map.record(span_id.clone(), span);
+                
                 return Ok(Statement::Assign {
+                    span_id: Some(span_id),
                     target: Expression::Ident(name),
                     value,
                 });
@@ -370,6 +499,7 @@ impl<'a> Parser<'a> {
                 Token::LShiftEq,
                 Token::RShiftEq,
             ]) {
+                let comp_start = checkpoint;
                 let op = match self.previous() {
                     Token::PlusEq => CompoundOp::Add,
                     Token::MinusEq => CompoundOp::Sub,
@@ -385,7 +515,18 @@ impl<'a> Parser<'a> {
                 };
                 let value = self.parse_expression()?;
                 self.consume(&Token::Semicolon, "Expected ';' after compound assignment")?;
+                let comp_end = self.current - 1;
+                
+                let span = crate::Span::from_file_and_span(
+                    &self.file_name,
+                    self.source,
+                    self.tokens[comp_start].span.start..self.tokens[comp_end].span.end,
+                );
+                let span_id = self.span_map.generate_id();
+                self.span_map.record(span_id.clone(), span);
+                
                 return Ok(Statement::CompoundAssign {
+                    span_id: Some(span_id),
                     target: Expression::Ident(name),
                     op,
                     value,
@@ -398,7 +539,12 @@ impl<'a> Parser<'a> {
 
         // Check for case/default (shouldn't be here, but helps error reporting)
         if self.check(&Token::Case) || self.check(&Token::Default) {
-            return Err(self.error("Unexpected case/default outside switch statement"));
+            return Err(self.make_syntax_error(
+                "Unexpected case/default outside switch statement",
+                Some("unexpected case/default"),
+                Some("'case'/'default' are only valid inside switch statements"),
+                Some(("wrap in switch", "switch { case 1: ... }")),
+            ));
         }
 
         // Expression statement (or assignment/compound assignment)
@@ -406,13 +552,25 @@ impl<'a> Parser<'a> {
     }
 
     pub(crate) fn parse_expression_statement(&mut self) -> Result<Statement, ParseError> {
+        let expr_start = self.current;
         let expr = self.parse_expression()?;
 
         // Check for assignment operator (supports field assignment like self.x = value)
         if self.match_token(&Token::Eq) {
             let value = self.parse_expression()?;
             self.consume(&Token::Semicolon, "Expected ';' after assignment")?;
+            let expr_end = self.current - 1;
+            
+            let span = crate::Span::from_file_and_span(
+                &self.file_name,
+                self.source,
+                self.tokens[expr_start].span.start..self.tokens[expr_end].span.end,
+            );
+            let span_id = self.span_map.generate_id();
+            self.span_map.record(span_id.clone(), span);
+            
             return Ok(Statement::Assign {
+                span_id: Some(span_id),
                 target: expr,
                 value,
             });
@@ -446,7 +604,18 @@ impl<'a> Parser<'a> {
             };
             let value = self.parse_expression()?;
             self.consume(&Token::Semicolon, "Expected ';' after compound assignment")?;
+            let expr_end = self.current - 1;
+            
+            let span = crate::Span::from_file_and_span(
+                &self.file_name,
+                self.source,
+                self.tokens[expr_start].span.start..self.tokens[expr_end].span.end,
+            );
+            let span_id = self.span_map.generate_id();
+            self.span_map.record(span_id.clone(), span);
+            
             return Ok(Statement::CompoundAssign {
+                span_id: Some(span_id),
                 target: expr,
                 op,
                 value,

@@ -151,7 +151,7 @@ pub fn builtin_prefetch<'ctx>(
     };
 
     // Declare llvm.prefetch
-    let i8_ptr_type = codegen.context.i8_type().ptr_type(AddressSpace::default());
+    let i8_ptr_type = codegen.context.ptr_type(AddressSpace::default());
     let intrinsic = codegen.declare_llvm_intrinsic_void(
         "llvm.prefetch.p0",
         &[

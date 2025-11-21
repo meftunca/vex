@@ -1,8 +1,8 @@
 # Vex Language - Project Status
 
 **Version:** 0.2.0 (Syntax v0.1.2)
-**Last Updated:** November 20, 2025
-**Test Status:** 465/465 passing (100%) ✅🎉 - PRODUCTION READY!
+**Last Updated:** November 21, 2025
+**Test Status:** 509/509 passing (100%) ✅🎉 - PRODUCTION READY!
 
 ## 📊 Code Metrics
 
@@ -10,9 +10,9 @@
 
 | Component | File | Lines |
 |-----------|------|-------|
-| AST | vex-ast/src/lib.rs | 1108 |
-| Parser | vex-parser/src/parser/mod.rs | 547 |
-| Codegen | vex-compiler/src/codegen_ast/mod.rs | 382 |
+| AST | vex-ast/src/lib.rs | 1166 |
+| Parser | vex-parser/src/parser/mod.rs | 678 |
+| Codegen | vex-compiler/src/codegen_ast/mod.rs | 380 |
 | Types | vex-compiler/src/codegen_ast/types.rs | 0 |
 | Pattern Matching | vex-compiler/src/codegen_ast/expressions/pattern_matching.rs | 0 |
 | Borrow Checker - Lifetimes | vex-compiler/src/borrow_checker/lifetimes.rs | 0 |

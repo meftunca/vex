@@ -46,7 +46,7 @@ impl super::LifetimeChecker {
                 Ok(())
             }
 
-            Statement::Assign { target, value } => {
+            Statement::Assign { span_id: _, target, value } => {
                 self.check_expression(target)?;
                 self.check_expression(value)?;
 
@@ -77,7 +77,7 @@ impl super::LifetimeChecker {
                 Ok(())
             }
 
-            Statement::Return(expr) => {
+            Statement::Return { span_id: _, value: expr } => {
                 if let Some(e) = expr {
                     self.check_expression(e)?;
 
@@ -142,7 +142,7 @@ impl super::LifetimeChecker {
                 Ok(())
             }
 
-            Statement::Loop { body } => {
+            Statement::Loop { span_id: _, body } => {
                 self.enter_scope();
                 self.check_block(body)?;
                 self.exit_scope();
@@ -181,6 +181,7 @@ impl super::LifetimeChecker {
             }
 
             Statement::ForIn {
+                span_id: _,
                 variable,
                 iterable,
                 body,
@@ -194,6 +195,7 @@ impl super::LifetimeChecker {
             }
 
             Statement::Switch {
+                span_id: _,
                 value,
                 cases,
                 default_case,
@@ -234,7 +236,7 @@ impl super::LifetimeChecker {
                 Ok(())
             }
 
-            Statement::Unsafe(block) => {
+            Statement::Unsafe { span_id: _, block } => {
                 // Enter unsafe context
                 let prev_unsafe = self.in_unsafe_block;
                 self.in_unsafe_block = true;
@@ -247,7 +249,7 @@ impl super::LifetimeChecker {
                 Ok(())
             }
 
-            Statement::Defer(_) | Statement::Go(_) | Statement::Break | Statement::Continue => {
+            Statement::Defer(_) | Statement::Go { span_id: _, expr: _ } | Statement::Break { span_id: _ } | Statement::Continue { span_id: _ } => {
                 Ok(())
             }
         }

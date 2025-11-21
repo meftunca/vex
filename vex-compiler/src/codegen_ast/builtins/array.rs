@@ -18,7 +18,7 @@ pub fn builtin_array_len<'ctx>(
         _ => return Err("array_len() argument must be a pointer".to_string()),
     };
 
-    let i8_ptr = codegen.context.i8_type().ptr_type(AddressSpace::default());
+    let i8_ptr = codegen.context.ptr_type(AddressSpace::default());
     let vex_array_len = codegen.declare_runtime_fn(
         "vex_array_len",
         &[i8_ptr.into()],
@@ -67,7 +67,7 @@ pub fn builtin_array_get<'ctx>(
         .build_int_z_extend(elem_size, codegen.context.i64_type(), "elem_size_cast")
         .map_err(|e| format!("Failed to cast elem_size: {}", e))?;
 
-    let i8_ptr = codegen.context.i8_type().ptr_type(AddressSpace::default());
+    let i8_ptr = codegen.context.ptr_type(AddressSpace::default());
     let vex_array_get = codegen.declare_runtime_fn(
         "vex_array_get",
         &[
@@ -130,7 +130,7 @@ pub fn builtin_array_set<'ctx>(
         .map_err(|e| format!("Failed to cast elem_size: {}", e))?;
 
     // For void return type, use declare_runtime_fn_void
-    let i8_ptr = codegen.context.i8_type().ptr_type(AddressSpace::default());
+    let i8_ptr = codegen.context.ptr_type(AddressSpace::default());
     let vex_array_set = codegen.declare_runtime_fn_void(
         "vex_array_set",
         &[
@@ -187,7 +187,7 @@ pub fn builtin_array_append<'ctx>(
         .build_int_z_extend(elem_size, codegen.context.i64_type(), "elem_size_cast")
         .map_err(|e| format!("Failed to cast elem_size: {}", e))?;
 
-    let i8_ptr = codegen.context.i8_type().ptr_type(AddressSpace::default());
+    let i8_ptr = codegen.context.ptr_type(AddressSpace::default());
     let vex_array_append = codegen.declare_runtime_fn(
         "vex_array_append",
         &[

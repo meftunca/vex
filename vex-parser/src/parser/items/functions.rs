@@ -52,16 +52,33 @@ impl<'a> Parser<'a> {
         };
 
         // ⭐ NEW: Check for operator method: op+, op-, op*, etc.
-        let (is_operator, name) = if let Token::OperatorMethod(op_name) = self.peek() {
+        // Clone token and span first to avoid borrow checker issues
+        let peek_token = self.peek().clone();
+        let peek_span = self.peek_span().span.clone();
+
+        let (is_operator, name, span_id) = if let Token::OperatorMethod(op_name) = peek_token {
+            let span = self.token_to_diag_span(&peek_span);
+            let span_id = self.span_map.generate_id();
+            self.span_map.record(span_id.clone(), span);
+
             let op_name_owned = op_name.clone();
             self.advance(); // consume operator token
-            (true, op_name_owned)
-        } else if let Token::New = self.peek() {
+            (true, op_name_owned, Some(span_id))
+        } else if let Token::New = peek_token {
+            let span = self.token_to_diag_span(&peek_span);
+            let span_id = self.span_map.generate_id();
+            self.span_map.record(span_id.clone(), span);
+
             // Allow 'new' as method name
             self.advance();
-            (false, "new".to_string())
+            (false, "new".to_string(), Some(span_id))
         } else {
-            (false, self.consume_identifier()?)
+            // Regular identifier
+            let span = self.token_to_diag_span(&peek_span);
+            let span_id = self.span_map.generate_id();
+            self.span_map.record(span_id.clone(), span);
+
+            (false, self.consume_identifier()?, Some(span_id))
         };
 
         // Optional generic type parameters with bounds: fn foo<T: Display, U: Clone>()
@@ -104,6 +121,7 @@ impl<'a> Parser<'a> {
 
         Ok(Function {
             is_exported: false, // Default to false, set to true by parse_export
+            span_id,            // ⭐ Captured span ID
             is_async: false,
             is_gpu: false,
             is_mutable,        // ⭐ NEW: Store mutability flag

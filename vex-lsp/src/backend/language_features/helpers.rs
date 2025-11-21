@@ -169,7 +169,7 @@ pub fn get_receiver_at_position(text: &str, position: Position) -> Option<String
     }
 
     // Expand left to find receiver base name (ignore generics for simplicity)
-    let mut recv_end = dot_pos;
+    let recv_end = dot_pos;
     let mut recv_start = dot_pos;
     // Move left while char is word char; this yields 'Counter' from 'Counter.new'
     while recv_start > 0

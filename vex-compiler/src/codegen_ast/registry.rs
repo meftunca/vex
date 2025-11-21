@@ -119,11 +119,13 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     code: error_codes::TYPE_MISMATCH.to_string(),
                     message: "Trait implementations only support named types".to_string(),
                     span: Span::unknown(),
+                    primary_label: Some("invalid trait implementation target".to_string()),
                     notes: vec![format!("Cannot implement trait for type: {}", type_str)],
                     help: Some(
                         "Try implementing the trait for a named struct or enum type".to_string(),
                     ),
                     suggestion: None,
+                    related: Vec::new(),
                 });
                 return Err(format!(
                     "Trait implementations currently only support named types, got: {:?}",
@@ -156,9 +158,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     code: error_codes::TYPE_MISMATCH.to_string(),
                     message: "Expected named type for trait implementation".to_string(),
                     span: Span::unknown(),
+                    primary_label: Some("invalid trait implementation target".to_string()),
                     notes: vec![format!("Got type: {}", type_str)],
                     help: Some("Trait methods can only be implemented for named types".to_string()),
                     suggestion: None,
+                    related: Vec::new(),
                 });
                 return Err(format!("Expected named type, got: {:?}", for_type));
             }

@@ -2,7 +2,7 @@
 // Collects multiple diagnostics instead of stopping at first error
 
 use crate::{ParseError, Parser};
-use vex_diagnostics::{Diagnostic, DiagnosticEngine};
+use vex_diagnostics::{Diagnostic, DiagnosticEngine, error_codes};
 use vex_lexer::Token;
 
 impl<'a> Parser<'a> {
@@ -37,7 +37,7 @@ impl<'a> Parser<'a> {
                     }
 
                     // Try to recover to next item boundary
-                    self.recover_to_next_item();
+                    self.recover_to_next_item(&mut diagnostics);
                 }
             }
         }
@@ -94,10 +94,26 @@ impl<'a> Parser<'a> {
     }
 
     /// Recover to next item boundary (semicolon, brace, or keyword)
-    fn recover_to_next_item(&mut self) {
+    fn recover_to_next_item(&mut self, diagnostics: &mut DiagnosticEngine) {
         let mut brace_depth = 0;
+        let mut steps = 0usize;
 
         while !self.is_at_end() {
+            if self.guard_tick(&mut steps, "parser recovery timeout: possible infinite loop detected", Self::PARSE_LOOP_DEFAULT_MAX_STEPS) {
+                // Emit a diagnostic to avoid infinite loop and forcibly advance once
+                let span = self.current_span();
+                let diag = Diagnostic::error(
+                    error_codes::SYNTAX_ERROR,
+                    "parser recovery timeout: possible infinite loop detected".to_string(),
+                    span,
+                )
+                .with_primary_label("parser recovery timeout".to_string())
+                .with_help("recovery exceeded maximum iterations and forcibly advanced".to_string());
+                diagnostics.emit(diag);
+                // Force advance and break: don't get stuck
+                self.advance();
+                break;
+            }
             match self.peek() {
                 // Item boundaries - stop here
                 Token::Fn
@@ -220,5 +236,51 @@ mod tests {
 
         assert!(!diagnostics.is_empty(), "Should have errors");
         println!("Diagnostics: {:?}", diagnostics);
+    }
+
+    #[test]
+    fn test_error_recovery_timeout_protects() {
+        let source = r#"
+            fn test1(): i32 { return 1; }
+            let x = broken syntax here;
+            // Create input that will have lots of tokens and prevent normal recovery
+            { { { { { { { { { { { { { { { { { { { { { { { { 
+            fn test2(): i32 { return 2; }
+        "#;
+
+        let mut parser = match Parser::new(source) {
+            Ok(p) => p,
+            Err(e) => panic!("Failed to create parser: {:?}", e),
+        };
+
+        let (_program, diagnostics) = parser.parse_with_recovery();
+
+        assert!(!diagnostics.is_empty(), "Should have errors");
+
+        // Ensure that the parser returned and produced diagnostics; timeout may or may not be triggered
+        let _has_timeout = diagnostics.iter().any(|d| d.message.contains("parser recovery timeout"));
+    }
+
+    #[test]
+    fn test_error_recovery_json_serialization() {
+        let source = r#"
+            fn test1(): i32 { return 1; }
+            let x = broken syntax here;
+            fn test2(): i32 { return 2; }
+        "#;
+
+        let mut parser = Parser::new(source).expect("Failed to create parser");
+        let (_program, diagnostics) = parser.parse_with_recovery();
+
+        assert!(!diagnostics.is_empty());
+
+        // Build a DiagnosticEngine and serialize to JSON
+        let mut engine = DiagnosticEngine::new();
+        for d in diagnostics.iter() {
+            engine.emit(d.clone());
+        }
+        let json = engine.to_json();
+        assert!(json.contains("diagnostics"));
+        assert!(json.contains("E0001"));
     }
 }

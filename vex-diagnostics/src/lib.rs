@@ -99,9 +99,13 @@ pub struct Diagnostic {
     pub code: String, // e.g., "E0308" for type mismatch
     pub message: String,
     pub span: Span,
+    /// Short primary label for the span (e.g. "mismatched types")
+    pub primary_label: Option<String>,
     pub notes: Vec<String>,
     pub help: Option<String>,
     pub suggestion: Option<Suggestion>,
+    /// Additional related spans (span, message) to show related locations
+    pub related: Vec<(Span, String)>,
 }
 
 /// Code suggestion with replacement
@@ -119,9 +123,11 @@ impl Diagnostic {
             code: code.to_string(),
             message,
             span,
+            primary_label: None,
             notes: Vec::new(),
             help: None,
             suggestion: None,
+            related: Vec::new(),
         }
     }
 
@@ -148,6 +154,16 @@ impl Diagnostic {
 
     pub fn with_help(mut self, help: String) -> Self {
         self.help = Some(help);
+        self
+    }
+
+    pub fn with_primary_label(mut self, label: String) -> Self {
+        self.primary_label = Some(label);
+        self
+    }
+
+    pub fn with_related(mut self, span: Span, message: String) -> Self {
+        self.related.push((span, message));
         self
     }
 
@@ -189,6 +205,18 @@ impl Diagnostic {
         // Notes
         for note in &self.notes {
             output.push_str(&format!(" {} {}\n", "=".cyan().bold(), note.cyan()));
+        }
+
+        // Related locations (span + message)
+        for (rel_span, rel_msg) in &self.related {
+            output.push_str(&format!(
+                " {} {} at {}:{}:{}\n",
+                "related".cyan().bold(),
+                rel_msg.cyan(),
+                rel_span.file,
+                rel_span.line,
+                rel_span.column
+            ));
         }
 
         // Help
@@ -479,6 +507,28 @@ impl DiagnosticEngine {
                 json.push_str(&format!(",\"help\":\"{}\"", help.replace('"', "\\\"")));
             }
 
+            if let Some(primary_label) = &diag.primary_label {
+                json.push_str(&format!(
+                    ",\"primary_label\":\"{}\"",
+                    primary_label.replace('"', "\\\"")
+                ));
+            }
+
+            if let Some(suggestion) = &diag.suggestion {
+                json.push_str(&format!(",\"suggestion\":{{\"message\":\"{}\",\"replacement\":\"{}\",\"file\":\"{}\",\"line\":{},\"column\":{},\"length\":{} }}", suggestion.message.replace('"', "\\\""), suggestion.replacement.replace('"', "\\\""), suggestion.span.file, suggestion.span.line, suggestion.span.column, suggestion.span.length));
+            }
+
+            if !diag.related.is_empty() {
+                json.push_str(",\"related\":[");
+                for (j, (rel_span, rel_msg)) in diag.related.iter().enumerate() {
+                    if j > 0 {
+                        json.push(',');
+                    }
+                    json.push_str(&format!("{{\"file\":\"{}\",\"line\":{},\"column\":{},\"length\":{},\"message\":\"{}\"}}", rel_span.file, rel_span.line, rel_span.column, rel_span.length, rel_msg.replace('"', "\\\"")));
+                }
+                json.push(']');
+            }
+
             json.push('}');
         }
 
@@ -506,7 +556,8 @@ impl DiagnosticEngine {
                 span.clone(),
             )
             .with_note(format!("expected `{}`, found `{}`", expected, found))
-            .with_help(format!("try converting `{}` to `{}`", found, expected)),
+            .with_help(format!("try converting `{}` to `{}`", found, expected))
+            .with_primary_label("mismatched types".to_string()),
         );
     }
 
@@ -516,7 +567,8 @@ impl DiagnosticEngine {
             error_codes::UNDEFINED_VARIABLE,
             format!("cannot find value `{}` in this scope", name),
             span,
-        );
+        )
+        .with_primary_label("undefined variable".to_string());
 
         if !suggestions.is_empty() {
             diag = diag.with_help(format!("did you mean `{}`?", suggestions.join("`, `")));
@@ -545,7 +597,8 @@ impl DiagnosticEngine {
                 ),
                 span,
             )
-            .with_note(format!("function `{}` defined here", fn_name)),
+            .with_note(format!("function `{}` defined here", fn_name))
+            .with_primary_label("argument count mismatch".to_string()),
         );
     }
 
@@ -558,6 +611,7 @@ impl DiagnosticEngine {
                 span.clone(),
             )
             .with_help(format!("prefix with `_` to silence: `_{}`", name))
+            .with_primary_label("unused variable".to_string())
             .with_suggestion(
                 "if this is intentional, prefix with `_`".to_string(),
                 format!("_{}", name),
@@ -677,9 +731,107 @@ mod tests {
         let formatted = diag.format(source);
         println!("{}", formatted);
 
-        assert!(formatted.contains("error[E0308]"));
+        // ANSI colored output may include color codes around 'error', so assert only on the 'E0308' token
+        assert!(formatted.contains("E0308"));
         assert!(formatted.contains("mismatched types"));
         assert!(formatted.contains("test.vx:2:21"));
+    }
+
+    #[test]
+    fn test_to_json_includes_suggestion_and_related() {
+        let span = Span::new("file.vx".to_string(), 10, 5, 3);
+        let suggestion_span = Span::new("file.vx".to_string(), 10, 5, 3);
+        let rel_span = Span::new("file.vx".to_string(), 2, 10, 4);
+
+        let diag = Diagnostic::error(
+            error_codes::UNDEFINED_VARIABLE,
+            "cannot find value `foo` in this scope".to_string(),
+            span,
+        )
+        .with_help("maybe you meant `foo_bar`".to_string())
+        .with_suggestion(
+            "rename to foo_bar".to_string(),
+            "foo_bar".to_string(),
+            suggestion_span,
+        )
+        .with_related(rel_span, "defined here".to_string());
+
+        let engine = DiagnosticEngine {
+            diagnostics: vec![diag],
+            error_count: 1,
+            warning_count: 0,
+            info_count: 0,
+        };
+        let json = engine.to_json();
+        assert!(json.contains("\"suggestion\":"));
+        assert!(json.contains("\"related\":"));
+    }
+
+    #[test]
+    fn test_primary_label_serialization() {
+        let span = Span::new("file.vx".to_string(), 1, 1, 1);
+        let mut engine = DiagnosticEngine::new();
+        let diag = Diagnostic::error(
+            error_codes::SYNTAX_ERROR,
+            "expected token".to_string(),
+            span.clone(),
+        )
+        .with_primary_label("syntax error".to_string())
+        .with_help("missing ';'".to_string());
+        engine.emit(diag);
+        let json = engine.to_json();
+        assert!(json.contains("\"primary_label\":\"syntax error\""));
+    }
+
+    #[test]
+    fn test_to_json_structure() {
+        let span = Span::new("main.vx".to_string(), 2, 3, 1);
+        let suggestion_span = Span::new("main.vx".to_string(), 2, 3, 1);
+        let rel_span = Span::new("lib.vx".to_string(), 4, 2, 2);
+
+        let mut engine = DiagnosticEngine::new();
+        let diag = Diagnostic::error(
+            error_codes::UNDEFINED_VARIABLE,
+            "cannot find value `x` in this scope".to_string(),
+            span.clone(),
+        )
+        .with_note("note1".to_string())
+        .with_note("note2".to_string())
+        .with_help("maybe you mean `x2`".to_string())
+        .with_primary_label("undefined variable".to_string())
+        .with_suggestion(
+            "replace with x2".to_string(),
+            "x2".to_string(),
+            suggestion_span,
+        )
+        .with_related(rel_span, "declared here".to_string());
+        engine.emit(diag);
+        let json = engine.to_json();
+
+        // Parse JSON and verify structure
+        let parsed: serde_json::Value = serde_json::from_str(&json).expect("Valid JSON");
+        let diagnostics = parsed
+            .get("diagnostics")
+            .expect("diagnostics field")
+            .as_array()
+            .unwrap();
+        assert_eq!(diagnostics.len(), 1);
+        let d = &diagnostics[0];
+        assert_eq!(d.get("level").unwrap().as_str().unwrap(), "error");
+        assert_eq!(
+            d.get("code").unwrap().as_str().unwrap(),
+            error_codes::UNDEFINED_VARIABLE
+        );
+        assert_eq!(
+            d.get("message").unwrap().as_str().unwrap(),
+            "cannot find value `x` in this scope"
+        );
+        assert_eq!(d.get("file").unwrap().as_str().unwrap(), "main.vx");
+        assert_eq!(d.get("line").unwrap().as_i64().unwrap(), 2);
+        assert!(d.get("primary_label").is_some());
+        assert!(d.get("help").is_some());
+        assert!(d.get("suggestion").is_some());
+        assert!(d.get("related").is_some());
     }
 }
 

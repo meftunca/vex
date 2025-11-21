@@ -43,4 +43,4 @@ mod print_formatting;
 pub use assertions::{
     builtin_assert, builtin_panic, builtin_print, builtin_println, builtin_unreachable,
 };
-pub use print_formatting::{compile_print_call, compile_typesafe_format};
+pub use print_formatting::compile_print_call;

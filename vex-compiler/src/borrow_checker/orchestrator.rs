@@ -1,7 +1,7 @@
 // Borrow Checker Orchestrator
 // Main coordination logic for all borrow checking phases
 
-use crate::{debug_log, debug_println};
+use crate::debug_println;
 use crate::borrow_checker::borrows::BorrowRulesChecker;
 use crate::borrow_checker::errors::BorrowResult;
 use crate::borrow_checker::immutability::ImmutabilityChecker;

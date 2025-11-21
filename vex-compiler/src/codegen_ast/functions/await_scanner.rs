@@ -19,21 +19,34 @@ fn count_await_in_statement(stmt: &Statement) -> usize {
     match stmt {
         Statement::Let { value, .. } => count_await_in_expression(value),
         Statement::LetPattern { value, .. } => count_await_in_expression(value),
-        Statement::Assign { target, value } => {
-            count_await_in_expression(target) + count_await_in_expression(value)
+        Statement::Assign {
+            span_id: _,
+            target,
+            value,
+        } => count_await_in_expression(target) + count_await_in_expression(value),
+        Statement::CompoundAssign {
+            span_id: _,
+            target,
+            op: _,
+            value,
+        } => count_await_in_expression(target) + count_await_in_expression(value),
+        Statement::Return {
+            span_id: _,
+            value: Some(expr),
+        } => count_await_in_expression(expr),
+        Statement::Return {
+            span_id: _,
+            value: None,
         }
-        Statement::CompoundAssign { target, value, .. } => {
-            count_await_in_expression(target) + count_await_in_expression(value)
-        }
-        Statement::Return(Some(expr)) => count_await_in_expression(expr),
-        Statement::Return(None) | Statement::Break | Statement::Continue => 0,
+        | Statement::Break { span_id: _ }
+        | Statement::Continue { span_id: _ } => 0,
         Statement::Expression(expr) => count_await_in_expression(expr),
         Statement::If {
             condition,
             then_block,
             elif_branches,
             else_block,
-            ..
+            span_id: _,
         } => {
             let mut count = count_await_in_expression(condition);
             count += count_await_points(then_block);
@@ -47,14 +60,16 @@ fn count_await_in_statement(stmt: &Statement) -> usize {
             count
         }
         Statement::While {
-            condition, body, ..
+            condition,
+            body,
+            span_id: _,
         } => count_await_in_expression(condition) + count_await_points(body),
         Statement::For {
             init,
             condition,
             post,
             body,
-            ..
+            span_id: _,
         } => {
             let mut count = 0;
             if let Some(init_stmt) = init {
@@ -69,12 +84,16 @@ fn count_await_in_statement(stmt: &Statement) -> usize {
             count += count_await_points(body);
             count
         }
-        Statement::ForIn { iterable, body, .. } => {
-            count_await_in_expression(iterable) + count_await_points(body)
-        }
+        Statement::ForIn {
+            iterable,
+            body,
+            span_id: _,
+            variable,
+        } => count_await_in_expression(iterable) + count_await_points(body),
         Statement::Defer(stmt) => count_await_in_statement(stmt),
-        Statement::Loop { body } => count_await_points(body),
+        Statement::Loop { span_id: _, body } => count_await_points(body),
         Statement::Switch {
+            span_id: _,
             value,
             cases,
             default_case,
@@ -94,9 +113,17 @@ fn count_await_in_statement(stmt: &Statement) -> usize {
             }
             count
         }
-        Statement::Select { cases } => cases.iter().map(|c| count_await_points(&c.body)).sum(),
-        Statement::Go(expr) => count_await_in_expression(expr),
-        Statement::Unsafe(block) => count_await_points(block),
+        Statement::Select { span_id: _, cases } => {
+            cases.iter().map(|c| count_await_points(&c.body)).sum()
+        }
+        Statement::Go {
+            span_id: _,
+            expr,
+        } => count_await_in_expression(expr),
+        Statement::Unsafe {
+            span_id: _,
+            block,
+        } => count_await_points(block),
     }
 }
 

@@ -91,7 +91,7 @@ pub fn builtin_vec_free<'ctx>(
 
     let vec_alloca = args[0].into_pointer_value();
     let vec_opaque_type = codegen.context.opaque_struct_type("vex_vec_s");
-    let vec_ptr_type = vec_opaque_type.ptr_type(AddressSpace::default());
+    let vec_ptr_type = codegen.context.ptr_type(AddressSpace::default());
 
     let vec_ptr = codegen
         .builder
@@ -142,7 +142,7 @@ pub fn builtin_box_new<'ctx>(
         .builder
         .build_pointer_cast(
             value_ptr,
-            codegen.context.i8_type().ptr_type(AddressSpace::default()),
+            codegen.context.ptr_type(AddressSpace::default()),
             "value_void_ptr",
         )
         .map_err(|e| format!("Failed to cast value pointer: {}", e))?;
@@ -168,16 +168,12 @@ pub fn builtin_box_free<'ctx>(
 
     let box_type = codegen.context.struct_type(
         &[
-            codegen
-                .context
-                .i8_type()
-                .ptr_type(AddressSpace::default())
-                .into(),
+            codegen.context.ptr_type(AddressSpace::default()).into(),
             codegen.context.i64_type().into(),
         ],
         false,
     );
-    let box_ptr_type = box_type.ptr_type(AddressSpace::default());
+    let box_ptr_type = codegen.context.ptr_type(AddressSpace::default());
 
     let box_ptr = codegen
         .builder

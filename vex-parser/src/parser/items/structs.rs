@@ -7,7 +7,12 @@ impl<'a> Parser<'a> {
     pub(crate) fn parse_struct(&mut self) -> Result<Item, ParseError> {
         self.consume(&Token::Struct, "Expected 'struct'")?;
 
+        let name_span = self.peek_span().span.clone();
         let name = self.consume_identifier_or_keyword()?;
+
+        let span = self.token_to_diag_span(&name_span);
+        let span_id = self.span_map.generate_id();
+        self.span_map.record(span_id.clone(), span);
 
         // Optional generic type parameters with bounds: struct Vec<T: Display>
         let (type_params, const_params) = self.parse_type_params()?;
@@ -76,7 +81,11 @@ impl<'a> Parser<'a> {
         let mut associated_type_bindings = Vec::new(); // ⭐ NEW: Store associated types
 
         // Parse fields and methods
+        let mut steps = 0usize;
         while !self.check(&Token::RBrace) && !self.is_at_end() {
+            if self.guard_tick(&mut steps, "struct body parse timeout", Self::PARSE_LOOP_DEFAULT_MAX_STEPS) {
+                break;
+            }
             // Check if this is a method (fn keyword - DEPRECATED), associated type (type keyword), or field
             if self.check(&Token::Fn) {
                 // ⚠️ DEPRECATED: Inline struct methods are deprecated!
@@ -116,12 +125,27 @@ impl<'a> Parser<'a> {
                     "Define methods outside the struct using Go-style syntax: fn (self: &{}) method_name(...) {{ }}",
                     name
                 ))
+                .with_primary_label("deprecated".to_string())
                 .with_note("See docs/REFERENCE.md (Method Definitions & Calls) for migration guide".to_string());
 
                 self.diagnostics.push(warning);
                 methods.push(self.parse_struct_method()?);
             } else if matches!(self.peek(), Token::OperatorMethod(_)) {
-                /* Lines 124-141 omitted */
+                // ⭐ Emit deprecation warning for operator methods inside struct body
+                let span = self.token_to_diag_span(&self.peek_span().span);
+                let warning = vex_diagnostics::Diagnostic::warning(
+                    "W0001",
+                    format!("Inline struct methods are deprecated",),
+                    span,
+                )
+                .with_help(format!(
+                    "Define operator methods outside the struct: fn (self: &{}) op+(...) {{ }}",
+                    name
+                ))
+                .with_primary_label("deprecated".to_string())
+                .with_note("See docs/REFERENCE.md (Method Definitions & Calls) for migration guide".to_string());
+
+                self.diagnostics.push(warning);
                 methods.push(self.parse_struct_method()?);
             } else if matches!(self.peek(), Token::Ident(s) if s == "op") {
                 // ⭐ NEW: Bare "op" identifier for constructor operator method
@@ -135,6 +159,7 @@ impl<'a> Parser<'a> {
                     "Define constructor outside the struct: fn (self: &{}) op(...) {{ }}",
                     name
                 ))
+                .with_primary_label("deprecated".to_string())
                 .with_note(
                     "See docs/REFERENCE.md (Method Definitions & Calls) for migration guide"
                         .to_string(),
@@ -161,6 +186,7 @@ impl<'a> Parser<'a> {
                         "Define '{}' outside the struct: fn (self: &{}) {}(...) {{ }}",
                         field_or_method_name, name, field_or_method_name
                     ))
+                    .with_primary_label("deprecated".to_string())
                     .with_note(
                         "See docs/REFERENCE.md (Method Definitions & Calls) for migration guide"
                             .to_string(),
@@ -195,17 +221,28 @@ impl<'a> Parser<'a> {
                         break;
                     }
                 } else {
-                    return Err(self.error("Expected '(' for method or ':' for field"));
+                    return Err(self.make_syntax_error(
+                        "Expected '(' for method or ':' for field",
+                        Some("expected '(' or ':'"),
+                        Some("Methods use '(' and fields use ':' after a name"),
+                        Some(("try method or field syntax", "fn name(...) { }")),
+                    ));
                 }
             } else {
-                return Err(self.error("Expected field, method, or '}'"));
+                return Err(self.make_syntax_error(
+                    "Expected field, method, or '}'",
+                    Some("expected field, method, or '}'"),
+                    Some("Inside struct body, add a field 'name: Type;', method 'fn name(...) {}', or close with '}'"),
+                    Some(("try closing struct or adding a field", "name: i32;")),
+                ));
             }
         }
 
         self.consume(&Token::RBrace, "Expected '}'")?;
 
         Ok(Item::Struct(Struct {
-            is_exported: false, // Default to false
+            is_exported: false,     // Default to false
+            span_id: Some(span_id), // ⭐ NEW: Source location ID
             name,
             type_params,
             const_params,
@@ -243,8 +280,13 @@ impl<'a> Parser<'a> {
             if next_is_self {
                 // Golang-style: fn (self: &Type) method_name(...)
                 let param_name = self.consume_identifier()?;
-                if param_name != "self" {
-                    return Err(self.error("First parameter of method must be 'self'"));
+                    if param_name != "self" {
+                    return Err(self.make_syntax_error(
+                        "First parameter of method must be 'self'",
+                        Some("first parameter must be 'self'"),
+                        Some("Receiver parameter should be 'self' in method declarations"),
+                        Some(("use 'self'", "(self: &Type)")),
+                    ));
                 }
                 self.consume(&Token::Colon, "Expected ':' after 'self'")?;
 
@@ -279,20 +321,34 @@ impl<'a> Parser<'a> {
         };
 
         // ⭐ NEW: Check for operator method AFTER receiver: op+, op-, op*, etc.
-        let (is_operator, name) = if let Token::OperatorMethod(op_name) = self.peek() {
-            let op_name_owned = op_name.clone();
-            self.advance(); // consume operator token
-            (true, op_name_owned)
-        } else if let Token::Ident(ident_name) = self.peek() {
-            // ⭐ NEW: Check if Ident is "op" (constructor)
-            if ident_name == "op" {
-                self.advance(); // consume 'op'
-                (true, "op".to_string())
-            } else {
-                (false, self.consume_identifier()?)
+        // Clone token and span first to avoid holding borrow of self while mutating self.span_map
+        let token = self.peek().clone();
+        let span = self.peek_span().span.clone();
+
+        let (is_operator, name, span_id) = match token {
+            Token::OperatorMethod(op_name) => {
+                let diag_span = self.token_to_diag_span(&span);
+                let span_id = self.span_map.generate_id();
+                self.span_map.record(span_id.clone(), diag_span);
+
+                self.advance(); // consume operator token
+                (true, op_name, Some(span_id))
             }
-        } else {
-            (false, self.consume_identifier()?)
+            Token::Ident(ident_name) if ident_name == "op" => {
+                let diag_span = self.token_to_diag_span(&span);
+                let span_id = self.span_map.generate_id();
+                self.span_map.record(span_id.clone(), diag_span);
+
+                self.advance(); // consume 'op'
+                (true, "op".to_string(), Some(span_id))
+            }
+            _ => {
+                let diag_span = self.token_to_diag_span(&span);
+                let span_id = self.span_map.generate_id();
+                self.span_map.record(span_id.clone(), diag_span);
+
+                (false, self.consume_identifier()?, Some(span_id))
+            }
         };
 
         // Parameters: (param1: T1, param2: T2)
@@ -320,10 +376,11 @@ impl<'a> Parser<'a> {
 
         Ok(Function {
             is_exported: false, // Struct methods are not exported individually
+            span_id,            // ⭐ NEW: Source location ID
             is_async: false,
             is_gpu: false,
-            is_mutable,  // ⭐ NEW: Store mutability flag
-            is_operator, // ⭐ NEW: Store operator flag
+            is_mutable,       // ⭐ NEW: Store mutability flag
+            is_operator,      // ⭐ NEW: Store operator flag
             is_static: false, // ⭐ Struct methods are never static (use external static methods)
             static_type: None,
             receiver,

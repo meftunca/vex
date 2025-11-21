@@ -100,34 +100,34 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }
 
             // simple assignment
-            Statement::Assign { target, value } => {
+            Statement::Assign { span_id: _, target, value } => {
                 self.compile_assign_statement(target, value)?;
             }
 
             // compound assignment (+=, -=, *=, /=)
-            Statement::CompoundAssign { target, op, value } => {
+            Statement::CompoundAssign { span_id: _, target, op, value } => {
                 self.compile_compound_assign_statement(target, op, value)?;
             }
 
             // control-flow
-            Statement::Return(expr) => {
+            Statement::Return { span_id: _, value: expr } => {
                 self.compile_return_statement(expr.as_ref())?;
             }
-            Statement::Break => {
+            Statement::Break { span_id: _ } => {
                 self.compile_break_statement()?;
             }
-            Statement::Continue => {
+            Statement::Continue { span_id: _ } => {
                 self.compile_continue_statement()?;
             }
             Statement::Defer(stmt) => {
                 self.compile_defer_statement(stmt.as_ref())?;
             }
-            Statement::Go(expr) => {
+            Statement::Go { span_id: _, expr } => {
                 self.compile_go_statement(expr)?;
             }
 
             // Unsafe block - enable downcast warnings instead of errors
-            Statement::Unsafe(block) => {
+            Statement::Unsafe { span_id: _, block } => {
                 let prev_unsafe = self.is_in_unsafe_block;
                 self.is_in_unsafe_block = true;
                 let result = self.compile_block(block);
@@ -167,10 +167,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
             } => {
                 self.compile_while_loop(span_id, condition, body)?;
             }
-            Statement::Loop { body } => {
+            Statement::Loop { span_id: _, body } => {
                 self.compile_loop(body)?;
             }
             Statement::ForIn {
+                span_id: _,
                 variable,
                 iterable,
                 body,
@@ -178,6 +179,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 self.compile_for_in_loop(variable, iterable, body)?;
             }
             Statement::Switch {
+                span_id: _,
                 value,
                 cases,
                 default_case,
@@ -198,11 +200,13 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     code: error_codes::NOT_IMPLEMENTED.to_string(),
                     message: "This statement type is not yet implemented".to_string(),
                     span: Span::unknown(),
+                    primary_label: Some("feature not implemented".to_string()),
                     notes: vec![format!("Statement: {}", stmt_str)],
                     help: Some("This feature is planned for a future release".to_string()),
                     suggestion: None,
+                    related: Vec::new(),
                 });
-                return Err(format!("Statement not yet implemented: {:?}", stmt));
+                    return Err(format!("Statement not yet implemented: {:?}", stmt));
             }
         }
         Ok(())

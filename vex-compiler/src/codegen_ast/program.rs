@@ -1,6 +1,6 @@
 // src/codegen/program.rs
 use super::*;
-use crate::{debug_log, debug_println};
+use crate::debug_println;
 
 impl<'ctx> ASTCodeGen<'ctx> {
     /// Extract struct name from receiver type

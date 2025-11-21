@@ -24,6 +24,8 @@ pub struct MoveChecker {
 
     /// Current function being checked (for error location tracking)
     pub(super) current_function: Option<String>,
+    /// Map of variable -> span_id of the move location (if available)
+    pub(super) move_locations: std::collections::HashMap<String, Option<String>>,
 }
 
 impl MoveChecker {
@@ -60,7 +62,7 @@ impl MoveChecker {
 
                 // Check function body
                 for stmt in &func.body.statements {
-                    self.check_statement(stmt)?;
+                    self.check_statement(stmt, None)?;
                 }
 
                 // Restore local scope (preserve globals)

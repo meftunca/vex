@@ -55,7 +55,7 @@ pub fn load_embedded_prelude() -> Result<Program, PreludeLoadError> {
     }
 
     let mut combined_items = Vec::new();
-    let mut combined_span_map = SpanMap::new();
+    let combined_span_map = SpanMap::new();
 
     for (module_name, source_code) in modules {
         // Parse each prelude module

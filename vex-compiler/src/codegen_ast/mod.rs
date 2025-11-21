@@ -79,6 +79,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             variable_ast_types: HashMap::new(),
             variable_concrete_types: HashMap::new(),
             type_constraints: Vec::new(),
+            active_type_substitutions: HashMap::new(), // ⭐ GENERIC: Initialize empty
             variable_struct_names: HashMap::new(),
             variable_enum_names: HashMap::new(),
             tuple_variable_types: HashMap::new(),
@@ -181,10 +182,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             return printf;
         }
 
-        let i8_ptr_type = self
-            .context
-            .i8_type()
-            .ptr_type(inkwell::AddressSpace::default());
+        let i8_ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
         let printf_type = self.context.i32_type().fn_type(&[i8_ptr_type.into()], true);
         let printf = self.module.add_function("printf", printf_type, None);
         self.printf_fn = Some(printf);

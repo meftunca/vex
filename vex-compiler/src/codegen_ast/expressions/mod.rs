@@ -3,7 +3,6 @@
 
 use super::ASTCodeGen;
 use crate::diagnostics::{error_codes, Diagnostic, ErrorLevel, Span};
-use inkwell::types::BasicTypeEnum;
 use inkwell::values::BasicValueEnum;
 use vex_ast::*;
 
@@ -163,9 +162,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     code: error_codes::NOT_IMPLEMENTED.to_string(),
                     message: "This expression type is not yet implemented".to_string(),
                     span: Span::unknown(),
-                    notes: vec![format!("Expression: {}", expr_str)],
+                       notes: vec![format!("Expression: {}", expr_str)],
+                       primary_label: Some("feature not implemented".to_string()),
                     help: Some("This feature is planned for a future release".to_string()),
                     suggestion: None,
+                    related: Vec::new(),
                 });
                 Err(format!("Expression not yet implemented: {:?}", expr))
             }

@@ -2,7 +2,7 @@
 //!
 //! Handles Vec concatenation, builtin contracts, and user-defined operator methods
 
-use crate::{debug_log, debug_println};
+use crate::debug_println;
 use super::super::super::ASTCodeGen;
 use inkwell::values::BasicValueEnum;
 use vex_ast::*;

@@ -29,10 +29,10 @@ import {
     vt_instant_truncate,
     vt_instant_round,
     vt_instant_unix_milli,
-    vt_instant_unix_micro
-    vt_format_go,       // 
-    vt_instant_date,    // 
-    vt_instant_clock    //
+    vt_instant_unix_micro,
+    vt_format_go,
+    vt_instant_date,
+    vt_instant_clock
 } from "./native.vxc";
 
 // ==== Duration constants ====
@@ -53,6 +53,7 @@ export const LAYOUT_RFC850: str      = "Monday, 02-Jan-06 15:04:05 MST";
 export const LAYOUT_RFC1123: str     = "Mon, 02 Jan 2006 15:04:05 MST";
 export const LAYOUT_RFC1123Z: str    = "Mon, 02 Jan 2006 15:04:05 -0700";
 export const LAYOUT_RFC3339: str     = "2006-01-02T15:04:05Z07:00";
+export const LAYOUT_RFC3339_NANO: str= "2006-01-02T15:04:05.999999999Z07:00";
 export const LAYOUT_KITCHEN: str     = "3:04PM";
 export const LAYOUT_STAMP: str       = "Jan _2 15:04:05";
 export const LAYOUT_DATE_ONLY: str   = "2006-01-02";
@@ -136,8 +137,7 @@ export fn format(i: Instant, layout: str, loc: Location): str {
     let buf_len: u64 = 128;
     // Not: Vex'te stack array syntax'ı sürüme göre değişebilir,
     // burada varsayımsal bir buffer allocation kullanıyorum.
-    // Eğer std.mem varsa oradan alloc da yapılabilir.
-    let buf = unsafe { std.mem.alloc(buf_len) }; 
+    let buf = mem.alloc(buf_len);
 
     let layout_ptr: *u8 = layout as *u8;
     
@@ -145,14 +145,14 @@ export fn format(i: Instant, layout: str, loc: Location): str {
     let len = vt_format_go(i.inner, loc.tz, layout_ptr, buf, buf_len);
     
     if len < 0 {
-        unsafe { std.mem.free(buf); }
+        unsafe { mem.free(buf); }
         return ""; // Veya hata yönetimi
     }
 
     // Buffer'dan string oluştur (Vex string'i heap allocated ise kopyalar)
     let result = string.from_utf8_lossy(buf, len as u64);
     
-    unsafe { std.mem.free(buf); }
+    unsafe { mem.free(buf); }
     return result;
 }
 

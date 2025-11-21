@@ -19,20 +19,26 @@ impl<'a> Parser<'a> {
         let is_test_input = self.file_name.contains("<"); // <input>, <stdin> for REPL
 
         if !is_vxc && !is_stdlib && !is_test_input {
-            return Err(self.error(&format!(
-                "extern blocks are only allowed in .vxc (C-interop) files\n\
-                 \n\
-                 help: rename this file to have a .vxc extension, or move extern declarations to a separate .vxc file\n\
-                 \n\
-                 Current file: {}\n\
-                 \n\
-                 Example structure:\n\
-                 - src/native.vxc     (extern \"C\" {{ ... }})\n\
-                 - src/lib.vx         (import {{ ... }} from \"./native.vxc\")\n\
-                 \n\
-                 This restriction helps isolate unsafe native code and makes it easier to review security-sensitive parts of your codebase.",
-                self.file_name
-            )));
+            let span = self.token_to_diag_span(&self.peek_span().span);
+            let diag = vex_diagnostics::Diagnostic::error(
+                vex_diagnostics::error_codes::SYNTAX_ERROR,
+                format!(
+                    "extern blocks are only allowed in .vxc (C-interop) files. Current file: {}",
+                    self.file_name
+                ),
+                span.clone(),
+            )
+            .with_primary_label("extern blocks are restricted".to_string())
+            .with_help(
+                "Rename this file to have a .vxc extension, or move extern declarations to a separate .vxc file".to_string(),
+            )
+            .with_suggestion(
+                "move externs to .vxc".to_string(),
+                "src/native.vxc".to_string(),
+                span,
+            );
+
+            return Err(ParseError::from_diagnostic(diag));
         }
 
         // Parse ABI: extern "C" { ... } or extern "system" { ... }
@@ -49,7 +55,11 @@ impl<'a> Parser<'a> {
         let mut types = Vec::new();
         let mut functions = Vec::new();
 
+        let mut steps = 0usize;
         while !self.check(&Token::RBrace) && !self.is_at_end() {
+            if self.guard_tick(&mut steps, "extern block parse timeout", Self::PARSE_LOOP_DEFAULT_MAX_STEPS) {
+                break;
+            }
             // Check if it's a type declaration or function
             if self.check(&Token::Type) {
                 types.push(self.parse_extern_type()?);
@@ -61,12 +71,22 @@ impl<'a> Parser<'a> {
                     func.is_exported = true; // Mark as exported
                     functions.push(func);
                 } else {
-                    return Err(self.error("Expected 'fn' after 'export' in extern block"));
+                    return Err(self.make_syntax_error(
+                        "Expected 'fn' after 'export' in extern block",
+                        Some("expected 'fn'"),
+                        Some("Use 'export fn name(...)' inside extern blocks to export functions."),
+                        Some(("try 'export fn'", "export fn foo();")),
+                    ));
                 }
             } else if self.check(&Token::Fn) {
                 functions.push(self.parse_extern_function()?);
             } else {
-                return Err(self.error("Expected 'type' or 'fn' in extern block"));
+                return Err(self.make_syntax_error(
+                    "Expected 'type' or 'fn' in extern block",
+                    Some("expected 'type' or 'fn'"),
+                    Some("Extern blocks only contain type declarations or function declarations"),
+                    Some(("try 'type' or 'fn'", "type T;\nfn foo();")),
+                ));
             }
         }
 

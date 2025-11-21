@@ -140,10 +140,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     .into_pointer_value();
 
                 // Cast void* to i32* and load
-                let i32_ptr_type = self
-                    .context
-                    .i32_type()
-                    .ptr_type(inkwell::AddressSpace::default());
+                let i32_ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
                 let typed_elem_ptr = self
                     .builder
                     .build_pointer_cast(elem_ptr, i32_ptr_type, "typed_elem_ptr")
@@ -248,14 +245,13 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 let box_type = self.context.struct_type(
                     &[
                         self.context
-                            .i8_type()
                             .ptr_type(inkwell::AddressSpace::default())
                             .into(),
                         self.context.i64_type().into(),
                     ],
                     false,
                 );
-                let box_ptr_type = box_type.ptr_type(inkwell::AddressSpace::default());
+                let box_ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
                 let box_ptr = self
                     .builder
                     .build_load(box_ptr_type, box_alloca_ptr, "box_ptr_load")

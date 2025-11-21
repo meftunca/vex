@@ -199,7 +199,11 @@ impl ImmutabilityChecker {
                 Ok(())
             }
 
-            Statement::Assign { target, value } => {
+            Statement::Assign {
+                span_id: _,
+                target,
+                value,
+            } => {
                 // Check if assigning to immutable variable or its fields
                 match target {
                     Expression::Ident(name) => {
@@ -256,7 +260,10 @@ impl ImmutabilityChecker {
                 Ok(())
             }
 
-            Statement::Return(value) => {
+            Statement::Return {
+                span_id: _,
+                value,
+            } => {
                 if let Some(expr) = value {
                     self.check_expression(expr)?;
                 }
@@ -348,6 +355,7 @@ impl ImmutabilityChecker {
             }
 
             Statement::Switch {
+                span_id: _,
                 value,
                 cases,
                 default_case,
@@ -492,21 +500,19 @@ mod tests {
     #[test]
     fn test_immutable_assignment_error() {
         let mut checker = ImmutabilityChecker::new();
-
-        // Simulate: let x = 42;
-        checker.immutable_vars.insert("x".to_string());
-
-        // Simulate: x = 50;
+        // Simulate: let y = 10; (immutable)
+        checker.immutable_vars.insert("y".to_string());
+        // Simulate: y = 20;\n
         let assign_stmt = Statement::Assign {
-            target: Expression::Ident("x".to_string()),
-            value: Expression::IntLiteral(50),
+            span_id: None,
+            target: Expression::Ident("y".to_string()),
+            value: Expression::IntLiteral(20),
         };
 
         let result = checker.check_statement(&assign_stmt);
-        assert!(result.is_err());
 
         if let Err(BorrowError::AssignToImmutable { variable, .. }) = result {
-            assert_eq!(variable, "x");
+            assert_eq!(variable, "y");
         } else {
             panic!("Expected AssignToImmutable error");
         }
@@ -518,9 +524,9 @@ mod tests {
 
         // Simulate: let! y = 10;
         checker.mutable_vars.insert("y".to_string());
-
         // Simulate: y = 20;
         let assign_stmt = Statement::Assign {
+            span_id: None,
             target: Expression::Ident("y".to_string()),
             value: Expression::IntLiteral(20),
         };
@@ -565,7 +571,7 @@ mod tests {
 }
 
 impl ImmutabilityChecker {
-    fn mark_pattern_mutable(&mut self, pattern: &Pattern) {
+    pub fn mark_pattern_mutable(&mut self, pattern: &Pattern) {
         match pattern {
             Pattern::Ident(name) => {
                 self.mutable_vars.insert(name.clone());
@@ -594,7 +600,7 @@ impl ImmutabilityChecker {
         }
     }
 
-    fn mark_pattern_immutable(&mut self, pattern: &Pattern) {
+    pub fn mark_pattern_immutable(&mut self, pattern: &Pattern) {
         match pattern {
             Pattern::Ident(name) => {
                 self.immutable_vars.insert(name.clone());

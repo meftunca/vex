@@ -17,6 +17,7 @@ mod hints;
 mod intrinsics;
 mod memory;
 mod memory_ops;
+pub mod optimized_print; // Optimized zero-overhead print system
 mod reflection;
 mod set; // Set<T> builtin functions (wraps Map)
 mod slice; // Slice<T> builtin functions
@@ -465,7 +466,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Parameter types: (i8*, i8, i64, i1)
         let i8_type = self.context.i8_type();
-        let i8_ptr_type = i8_type.ptr_type(inkwell::AddressSpace::default());
+        let i8_ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
         let i64_type = self.context.i64_type();
         let bool_type = self.context.bool_type();
 

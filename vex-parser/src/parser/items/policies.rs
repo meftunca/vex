@@ -36,7 +36,11 @@ impl<'a> Parser<'a> {
 
         // Parse policy fields
         let mut fields = Vec::new();
+        let mut steps = 0usize;
         while !self.check(&Token::RBrace) && !self.is_at_end() {
+            if self.guard_tick(&mut steps, "policy body parse timeout", Self::PARSE_LOOP_DEFAULT_MAX_STEPS) {
+                break;
+            }
             let field = self.parse_policy_field()?;
             fields.push(field);
 
@@ -69,7 +73,12 @@ impl<'a> Parser<'a> {
                 self.advance();
                 Ok(PolicyField { name, metadata })
             }
-            _ => Err(self.error("Expected backtick metadata (e.g., `json:\"id\"`)")),
+            _ => Err(self.make_syntax_error(
+                "Expected backtick metadata (e.g., `json:\"id\"`)",
+                Some("expected backtick metadata"),
+                Some("Provide metadata in backticks after the field name, e.g., `json:\"id\"`"),
+                Some(("try metadata", "`json:\"id\"`")),
+            )),
         }
     }
 }

@@ -36,7 +36,12 @@ impl<'a> Parser<'a> {
                     self.peek(),
                     self.current
                 );
-                return Err(self.error("Expected type"));
+                return Err(self.make_syntax_error(
+                    "Expected type",
+                    Some("expected type"),
+                    Some("Provide a type name or use builtin types like i32, Vec<T>, etc."),
+                    Some(("try a type name", "i32")),
+                ));
             }
         }
     }

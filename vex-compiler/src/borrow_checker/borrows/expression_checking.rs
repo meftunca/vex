@@ -7,98 +7,112 @@ use vex_ast::Expression;
 
 impl BorrowRulesChecker {
     /// Check an expression for borrow rule violations
-    pub(super) fn check_expression_for_borrows(&mut self, expr: &Expression) -> BorrowResult<()> {
+    pub(super) fn check_expression_for_borrows(
+        &mut self,
+        expr: &Expression,
+        parent_span: Option<&String>,
+    ) -> BorrowResult<()> {
         match expr {
             Expression::Reference { is_mutable, expr } => {
-                self.check_reference_expression(*is_mutable, expr)
+                self.check_reference_expression(*is_mutable, expr, parent_span)
             }
 
             Expression::Binary {
-                span_id: _,
+                span_id,
                 left,
                 right,
                 ..
             } => {
-                self.check_expression_for_borrows(left)?;
-                self.check_expression_for_borrows(right)?;
+                let this_span = span_id.as_ref().or(parent_span);
+                self.check_expression_for_borrows(left, this_span)?;
+                self.check_expression_for_borrows(right, this_span)?;
                 Ok(())
             }
 
-            Expression::Unary {
-                span_id: _, expr, ..
+            Expression::Unary { span_id, expr, .. } => {
+                let this_span = span_id.as_ref().or(parent_span);
+                self.check_expression_for_borrows(expr, this_span)?;
+                Ok(())
+            }
+
+            Expression::Call {
+                func,
+                args,
+                span_id,
+                ..
             } => {
-                self.check_expression_for_borrows(expr)?;
-                Ok(())
+                let this_span = span_id.as_ref().or(parent_span);
+                self.check_call_expression(func, args, this_span)
             }
-
-            Expression::Call { func, args, .. } => self.check_call_expression(func, args),
 
             Expression::MethodCall { receiver, args, .. } => {
-                self.check_method_call_expression(receiver, args)
+                self.check_method_call_expression(receiver, args, parent_span)
             }
 
             Expression::FieldAccess { object, .. } => {
-                self.check_expression_for_borrows(object)?;
+                self.check_expression_for_borrows(object, parent_span)?;
                 Ok(())
             }
 
             Expression::Index { object, index } => {
-                self.check_expression_for_borrows(object)?;
-                self.check_expression_for_borrows(index)?;
+                self.check_expression_for_borrows(object, parent_span)?;
+                self.check_expression_for_borrows(index, parent_span)?;
                 Ok(())
             }
 
             Expression::Array(elements) => {
                 for elem in elements {
-                    self.check_expression_for_borrows(elem)?;
+                    self.check_expression_for_borrows(elem, parent_span)?;
                 }
                 Ok(())
             }
 
             Expression::TupleLiteral(elements) => {
                 for elem in elements {
-                    self.check_expression_for_borrows(elem)?;
+                    self.check_expression_for_borrows(elem, parent_span)?;
                 }
                 Ok(())
             }
 
             Expression::StructLiteral { fields, .. } => {
                 for (_, expr) in fields {
-                    self.check_expression_for_borrows(expr)?;
+                    self.check_expression_for_borrows(expr, parent_span)?;
                 }
                 Ok(())
             }
 
             Expression::Range { start, end } => {
                 if let Some(s) = start {
-                    self.check_expression_for_borrows(s)?;
+                    self.check_expression_for_borrows(s, parent_span)?;
                 }
                 if let Some(e) = end {
-                    self.check_expression_for_borrows(e)?;
+                    self.check_expression_for_borrows(e, parent_span)?;
                 }
                 Ok(())
             }
 
-            Expression::Deref(expr) => self.check_deref_expression(expr),
+            Expression::Deref(expr) => self.check_deref_expression(expr, parent_span),
 
             Expression::Await(expr)
             | Expression::TryOp { expr }
             | Expression::ChannelReceive(expr) => {
-                self.check_expression_for_borrows(expr)?;
+                self.check_expression_for_borrows(expr, parent_span)?;
                 Ok(())
             }
 
-            Expression::Match { value, arms } => self.check_match_expression(value, arms),
+            Expression::Match { value, arms } => {
+                self.check_match_expression(value, arms, parent_span)
+            }
 
             Expression::New(expr) => {
-                self.check_expression_for_borrows(expr)?;
+                self.check_expression_for_borrows(expr, parent_span)?;
                 Ok(())
             }
 
             Expression::Closure { body, .. } => {
                 // Check closure body for borrow violations
                 // Note: Closure parameters are validated by LifetimeChecker
-                self.check_expression_for_borrows(body)?;
+                self.check_expression_for_borrows(body, parent_span)?;
                 Ok(())
             }
 
@@ -111,6 +125,7 @@ impl BorrowRulesChecker {
         &mut self,
         is_mutable: bool,
         expr: &Expression,
+        parent_span: Option<&String>,
     ) -> BorrowResult<()> {
         // Check if we can create this borrow
         if let Expression::Ident(var) = expr {
@@ -121,10 +136,11 @@ impl BorrowRulesChecker {
                 } else {
                     BorrowKind::Immutable
                 },
+                parent_span.cloned(),
             )?;
         }
 
-        self.check_expression_for_borrows(expr)?;
+        self.check_expression_for_borrows(expr, parent_span)?;
         Ok(())
     }
 
@@ -132,35 +148,37 @@ impl BorrowRulesChecker {
         &mut self,
         func: &Expression,
         args: &[Expression],
+        parent_span: Option<&String>,
     ) -> BorrowResult<()> {
         // Skip checking builtin function names as variables
         if let Expression::Ident(func_name) = func {
             if !self.builtin_registry.is_builtin(func_name) {
-                self.check_expression_for_borrows(func)?;
+                self.check_expression_for_borrows(func, parent_span)?;
             }
         } else {
-            self.check_expression_for_borrows(func)?;
+            self.check_expression_for_borrows(func, parent_span)?;
         }
 
         // Check if this is a builtin function call
         if let Expression::Ident(func_name) = func {
             if let Some(metadata) = self.builtin_registry.get(func_name).cloned() {
-                return self.check_builtin_call(func_name, args, &metadata);
+                return self.check_builtin_call(func_name, args, &metadata, parent_span);
             }
         }
 
         // Not a builtin, check args normally
         for arg in args {
-            self.check_expression_for_borrows(arg)?;
+            self.check_expression_for_borrows(arg, parent_span)?;
         }
         Ok(())
     }
 
     fn check_builtin_call(
         &mut self,
-        func_name: &str,
+        _func_name: &str,
         args: &[Expression],
         metadata: &super::super::builtin_metadata::BuiltinMetadata,
+        parent_span: Option<&String>,
     ) -> BorrowResult<()> {
         // Check each argument against builtin metadata
         for (i, arg) in args.iter().enumerate() {
@@ -176,12 +194,24 @@ impl BorrowRulesChecker {
                             // Check if variable is currently borrowed
                             if let Some(borrows) = self.borrowed_vars.get(var_name) {
                                 if !borrows.is_empty() {
+                                    // Try to find the location of an existing borrow for better diagnostics
+                                    let mut borrowed_loc: Option<String> = None;
+                                    for (_ref_name, borrows_vec) in &self.active_borrows {
+                                        for b in borrows_vec {
+                                            if b.variable == *var_name {
+                                                if let Some(loc) = &b.location {
+                                                    borrowed_loc = Some(loc.clone());
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                        if borrowed_loc.is_some() {
+                                            break;
+                                        }
+                                    }
                                     return Err(BorrowError::MutationWhileBorrowed {
                                         variable: var_name.clone(),
-                                        borrowed_at: Some(format!(
-                                            "builtin function '{}' requires mutable access",
-                                            func_name
-                                        )),
+                                        borrowed_at: borrowed_loc.or_else(|| parent_span.cloned()),
                                     });
                                 }
                             }
@@ -190,12 +220,25 @@ impl BorrowRulesChecker {
                             // Check if variable is currently borrowed (cannot move)
                             if let Some(borrows) = self.borrowed_vars.get(var_name) {
                                 if !borrows.is_empty() {
+                                    // Find an active borrow location, or use parent span as fallback
+                                    let mut borrow_loc: Option<String> = None;
+                                    for (_ref_name, borrows_vec) in &self.active_borrows {
+                                        for b in borrows_vec {
+                                            if b.variable == *var_name {
+                                                if let Some(loc) = &b.location {
+                                                    borrow_loc = Some(loc.clone());
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                        if borrow_loc.is_some() {
+                                            break;
+                                        }
+                                    }
                                     return Err(BorrowError::MoveWhileBorrowed {
                                         variable: var_name.clone(),
-                                        borrow_location: Some(format!(
-                                            "builtin function '{}' takes ownership",
-                                            func_name
-                                        )),
+                                        borrow_location: borrow_loc
+                                            .or_else(|| parent_span.cloned()),
                                     });
                                 }
                             }
@@ -205,7 +248,7 @@ impl BorrowRulesChecker {
                 }
             }
 
-            self.check_expression_for_borrows(arg)?;
+            self.check_expression_for_borrows(arg, parent_span)?;
         }
         Ok(())
     }
@@ -214,16 +257,21 @@ impl BorrowRulesChecker {
         &mut self,
         receiver: &Expression,
         args: &[Expression],
+        parent_span: Option<&String>,
     ) -> BorrowResult<()> {
-        self.check_expression_for_borrows(receiver)?;
+        self.check_expression_for_borrows(receiver, parent_span)?;
         for arg in args {
-            self.check_expression_for_borrows(arg)?;
+            self.check_expression_for_borrows(arg, parent_span)?;
         }
         Ok(())
     }
 
-    fn check_deref_expression(&mut self, expr: &Expression) -> BorrowResult<()> {
-        self.check_expression_for_borrows(expr)?;
+    fn check_deref_expression(
+        &mut self,
+        expr: &Expression,
+        parent_span: Option<&String>,
+    ) -> BorrowResult<()> {
+        self.check_expression_for_borrows(expr, parent_span)?;
 
         // Raw pointer dereference requires unsafe
         if !self.in_unsafe_block {
@@ -232,7 +280,7 @@ impl BorrowRulesChecker {
             if Self::is_likely_raw_pointer(expr) {
                 return Err(BorrowError::UnsafeOperationOutsideUnsafeBlock {
                     operation: "raw pointer dereference".to_string(),
-                    location: None,
+                    location: parent_span.cloned(),
                 });
             }
         }
@@ -244,13 +292,14 @@ impl BorrowRulesChecker {
         &mut self,
         value: &Expression,
         arms: &[vex_ast::MatchArm],
+        parent_span: Option<&String>,
     ) -> BorrowResult<()> {
-        self.check_expression_for_borrows(value)?;
+        self.check_expression_for_borrows(value, parent_span)?;
         for arm in arms {
             if let Some(guard) = &arm.guard {
-                self.check_expression_for_borrows(guard)?;
+                self.check_expression_for_borrows(guard, parent_span)?;
             }
-            self.check_expression_for_borrows(&arm.body)?;
+            self.check_expression_for_borrows(&arm.body, parent_span)?;
         }
         Ok(())
     }

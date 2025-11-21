@@ -30,6 +30,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include "vex.h"
 
 // Use vex_macros.h if available (Vex runtime integration)
 #if __has_include("vex_macros.h")
@@ -539,7 +540,7 @@ bool vx_parse_f64(const char *s, size_t len, double *out, VxParse *st)
   else
   {
     // allocate temporary if very long
-    char *tmp = (char *)malloc(n + 1);
+    char *tmp = (char *)vex_malloc(n + 1);
     if (!tmp)
     {
       if (st)
@@ -554,7 +555,7 @@ bool vx_parse_f64(const char *s, size_t len, double *out, VxParse *st)
     errno = 0;
     char *ep = NULL;
     double v = strtod(tmp, &ep);
-    free(tmp);
+    vex_free(tmp);
     if (!ep || ep == tmp)
     {
       if (st)
@@ -726,7 +727,7 @@ char *vex_i32_to_string(int32_t value)
 {
   char buffer[16]; // -2147483648 = 11 chars + null
   snprintf(buffer, sizeof(buffer), "%d", value);
-  return strdup(buffer);
+  return vex_strdup(buffer);
 }
 
 // Convert i64 to string (base 10)
@@ -734,7 +735,7 @@ char *vex_i64_to_string(int64_t value)
 {
   char buffer[24]; // -9223372036854775808 = 20 chars + null
   snprintf(buffer, sizeof(buffer), "%lld", (long long)value);
-  return strdup(buffer);
+  return vex_strdup(buffer);
 }
 
 // Convert u32 to string (base 10)
@@ -742,7 +743,7 @@ char *vex_u32_to_string(uint32_t value)
 {
   char buffer[16];
   snprintf(buffer, sizeof(buffer), "%u", value);
-  return strdup(buffer);
+  return vex_strdup(buffer);
 }
 
 // Convert u64 to string (base 10)
@@ -750,7 +751,7 @@ char *vex_u64_to_string(uint64_t value)
 {
   char buffer[24];
   snprintf(buffer, sizeof(buffer), "%llu", (unsigned long long)value);
-  return strdup(buffer);
+  return vex_strdup(buffer);
 }
 
 // Convert f32 to string
@@ -758,7 +759,7 @@ char *vex_f32_to_string(float value)
 {
   char buffer[64];
   snprintf(buffer, sizeof(buffer), "%g", value);
-  return strdup(buffer);
+  return vex_strdup(buffer);
 }
 
 // Convert f64 to string
@@ -766,17 +767,17 @@ char *vex_f64_to_string(double value)
 {
   char buffer[64];
   snprintf(buffer, sizeof(buffer), "%g", value);
-  return strdup(buffer);
+  return vex_strdup(buffer);
 }
 
 // Convert bool to string
 char *vex_bool_to_string(bool value)
 {
-  return strdup(value ? "true" : "false");
+  return vex_strdup(value ? "true" : "false");
 }
 
 // String to string (identity, but allocates new copy for consistency)
 char *vex_string_to_string(const char *value)
 {
-  return strdup(value ? value : "");
+  return vex_strdup(value ? value : "");
 }

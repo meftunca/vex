@@ -1,7 +1,7 @@
 // src/codegen/functions/declare.rs
 use super::super::*;
 use crate::{debug_log, debug_println};
-use inkwell::types::{BasicMetadataTypeEnum, BasicTypeEnum};
+use inkwell::types::BasicTypeEnum;
 use inkwell::values::FunctionValue;
 
 impl<'ctx> ASTCodeGen<'ctx> {

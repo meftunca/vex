@@ -70,9 +70,11 @@ impl<'a> Parser<'a> {
         // A single type in parens is just that type, not a tuple
         if types.len() == 1 {
             return Ok(types.into_iter().next().ok_or_else(|| {
-                ParseError::syntax_error(
-                    "Expected at least one type in tuple".to_string(),
-                    self.token_to_diag_span(&self.peek_span().span),
+                self.make_syntax_error(
+                    "Expected at least one type in tuple",
+                    Some("expected tuple type"),
+                    Some("A single type in parentheses is just that type - add a trailing comma to make a tuple type"),
+                    Some(("add trailing comma to make it a tuple type", "(i32,)")),
                 )
             })?);
         }
@@ -91,9 +93,19 @@ impl<'a> Parser<'a> {
             self.advance();
             s_val
                 .parse::<usize>()
-                .map_err(|_| self.error(&format!("Array size out of range: {}", s_val)))?
+                    .map_err(|_| self.make_syntax_error(
+                        &format!("Array size out of range: {}", s_val),
+                        Some("array size out of range"),
+                        Some("Array size must be a positive integer within range"),
+                        Some(("try a small integer", "10")),
+                    ))?
         } else {
-            return Err(self.error("Expected array size"));
+            return Err(self.make_syntax_error(
+                "Expected array size",
+                Some("expected array size"),
+                Some("Specify the size for the array: [T; N]"),
+                Some(("add a size", "[i32; 10]")),
+            ));
         };
 
         self.consume(&Token::RBracket, "Expected ']'")?;

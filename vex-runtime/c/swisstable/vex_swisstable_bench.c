@@ -84,7 +84,7 @@ static void bench_sequential_insert(size_t N, int initial_cap)
 
     double t0 = now_sec();
     for (size_t i = 0; i < N; ++i) {
-        if (!vex_map_insert(&m, keys[i], &vals[i])) {
+        if (!vex_map_insert(&m, keys[i], strlen(keys[i]), &vals[i])) {
             fprintf(stderr, "  ❌ insert failed at %zu\n", i);
             break;
         }
@@ -124,7 +124,7 @@ static void bench_random_lookup(size_t N)
     // Insert all
     for (size_t i = 0; i < N; ++i) {
         vals[i] = i * 7 + 13;
-        vex_map_insert(&m, keys[i], &vals[i]);
+        vex_map_insert(&m, keys[i], strlen(keys[i]), &vals[i]);
     }
 
     // Random lookup
@@ -134,7 +134,7 @@ static void bench_random_lookup(size_t N)
     double t0 = now_sec();
     for (size_t i = 0; i < N * 2; ++i) {
         size_t idx = xorshift32(&rng) % N;
-        uint64_t *p = (uint64_t *)vex_map_get(&m, keys[idx]);
+        uint64_t *p = (uint64_t *)vex_map_get(&m, keys[idx], strlen(keys[idx]));
         if (p && *p == vals[idx]) hits++;
         else misses++;
     }
@@ -175,7 +175,7 @@ static void bench_mixed_operations(size_t N)
     // Pre-populate 50%
     for (size_t i = 0; i < N; ++i) {
         vals[i] = i;
-        vex_map_insert(&m, keys[i], &vals[i]);
+        vex_map_insert(&m, keys[i], strlen(keys[i]), &vals[i]);
     }
 
     uint32_t rng = 0x11223344;
@@ -188,19 +188,19 @@ static void bench_mixed_operations(size_t N)
         if (dice < 60) {
             // 60% lookup
             size_t idx = xorshift32(&rng) % (N * 2);
-            vex_map_get(&m, keys[idx]);
+            vex_map_get(&m, keys[idx], strlen(keys[idx]));
             lookups++;
         } else if (dice < 90) {
             // 30% insert new
             size_t idx = N + (xorshift32(&rng) % N);
             vals[idx] = idx * 17;
-            vex_map_insert(&m, keys[idx], &vals[idx]);
+            vex_map_insert(&m, keys[idx], strlen(keys[idx]), &vals[idx]);
             inserts++;
         } else {
             // 10% update existing
             size_t idx = xorshift32(&rng) % N;
             vals[idx] = xorshift32(&rng);
-            vex_map_insert(&m, keys[idx], &vals[idx]);
+            vex_map_insert(&m, keys[idx], strlen(keys[idx]), &vals[idx]);
             updates++;
         }
     }
@@ -253,7 +253,7 @@ static void bench_small_keys(size_t N)
 
     double t0 = now_sec();
     for (size_t i = 0; i < N; ++i) {
-        vex_map_insert(&m, keys[i], &vals[i]);
+        vex_map_insert(&m, keys[i], strlen(keys[i]), &vals[i]);
     }
     double t1 = now_sec();
     
@@ -261,7 +261,11 @@ static void bench_small_keys(size_t N)
     size_t found = 0;
     double t2 = now_sec();
     for (size_t i = 0; i < N; ++i) {
-        if (vex_map_get(&m, keys[i])) found++;
+        // The original instruction had a typo `)d++` and an incorrect comparison.
+        // Assuming the intent was to check if the value was found and correct,
+        // similar to other benchmarks.
+        uint64_t *p = (uint64_t *)vex_map_get(&m, keys[i], strlen(keys[i]));
+        if (p && *p == vals[i]) found++;
     }
     double t3 = now_sec();
     
@@ -302,7 +306,7 @@ static void bench_collision_stress(size_t N)
 
     double t0 = now_sec();
     for (size_t i = 0; i < N; ++i) {
-        vex_map_insert(&m, keys[i], &vals[i]);
+        vex_map_insert(&m, keys[i], strlen(keys[i]), &vals[i]);
     }
     double t1 = now_sec();
     
@@ -310,7 +314,7 @@ static void bench_collision_stress(size_t N)
     size_t errors = 0;
     double t2 = now_sec();
     for (size_t i = 0; i < N; ++i) {
-        uint64_t *p = (uint64_t *)vex_map_get(&m, keys[i]);
+        uint64_t *p = (uint64_t *)vex_map_get(&m, keys[i], strlen(keys[i]));
         if (!p || *p != vals[i]) errors++;
     }
     double t3 = now_sec();

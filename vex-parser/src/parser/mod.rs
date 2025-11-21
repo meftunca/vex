@@ -4,6 +4,7 @@
 use crate::{ParseError, SourceLocation};
 use vex_ast::*;
 use vex_lexer::{Lexer, Token, TokenSpan};
+use vex_diagnostics::error_codes;
 
 // Sub-modules for different parsing responsibilities
 mod error_recovery;
@@ -27,6 +28,8 @@ pub struct Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
+    // Default parse loop step limit to avoid infinite loops
+    pub(crate) const PARSE_LOOP_DEFAULT_MAX_STEPS: usize = 10000;
     pub fn new(source: &'a str) -> Result<Self, ParseError> {
         Self::new_with_file("<input>", source)
     }
@@ -106,7 +109,15 @@ impl<'a> Parser<'a> {
         let mut imports = Vec::new();
         let mut items = Vec::new();
 
+        let mut parse_steps = 0usize;
         while !self.is_at_end() {
+            if self.guard_tick(
+                &mut parse_steps,
+                "parser top-level parse timeout detected",
+                Self::PARSE_LOOP_DEFAULT_MAX_STEPS,
+            ) {
+                break;
+            }
             // Parse top-level items
             if self.check(&Token::Import) {
                 imports.push(self.parse_import()?);
@@ -200,12 +211,38 @@ impl<'a> Parser<'a> {
                 items.push(self.parse_extern_block()?);
             } else {
                 eprintln!("🔧 Parser: Unknown token: {:?}", self.peek());
-                return Err(self.error(
+                return Err(self.make_syntax_error(
                     "Expected top-level item (import, export, const, fn, struct, type, enum, contract, impl, policy, extern)",
+                    Some("expected top-level item"),
+                    Some("Add a top-level declaration like 'fn', 'struct', 'import', etc."),
+                    Some(("try 'fn'", "fn main() { }")),
                 ));
             }
         }
         Ok(Program { imports, items })
+    }
+
+    /// Emit a timeout diagnostic and advance the parser once to avoid infinite loops
+    pub(crate) fn emit_timeout_and_advance(&mut self, message: &str) {
+        let span = self.token_to_diag_span(&self.peek_span().span);
+        self.diagnostics.push(
+            vex_diagnostics::Diagnostic::error(error_codes::SYNTAX_ERROR, message.to_string(), span)
+                .with_primary_label("parser timeout".to_string()),
+        );
+        // Force advance once to ensure we make progress
+        self.advance();
+    }
+
+    /// Guard step for parser loops.
+    /// Returns true when the timeout triggers (raise a diagnostic and advance), false otherwise.
+    pub(crate) fn guard_tick(&mut self, counter: &mut usize, message: &str, max_steps: usize) -> bool {
+        *counter += 1;
+        if *counter > max_steps {
+            self.emit_timeout_and_advance(message);
+            *counter = 0;
+            return true;
+        }
+        false
     }
 
     // ==================== Helper Methods ====================
@@ -290,7 +327,7 @@ impl<'a> Parser<'a> {
             self.advance();
             Ok(())
         } else {
-            Err(self.error(message))
+            Err(self.make_syntax_error(message, Some("expected token"), None, None))
         }
     }
 
@@ -318,7 +355,7 @@ impl<'a> Parser<'a> {
             return Ok(());
         }
 
-        Err(self.error(message))
+        Err(self.make_syntax_error(message, Some("expected token"), None, None))
     }
 
     pub(crate) fn error(&self, message: &str) -> ParseError {
@@ -337,11 +374,52 @@ impl<'a> Parser<'a> {
         ParseError::syntax_error(message.to_string(), location)
     }
 
+    /// Create a ParseError with Diagnostic containing optional primary label, help, and suggestion.
+    pub(crate) fn make_syntax_error(
+        &self,
+        message: &str,
+        primary_label: Option<&str>,
+        help: Option<&str>,
+        suggestion: Option<(&str, &str)>,
+    ) -> ParseError {
+        let span = if self.is_at_end() {
+            crate::Span::unknown()
+        } else {
+            crate::Span::from_file_and_span(&self.file_name, self.source, self.peek_span().span.clone())
+        };
+
+        let mut diag = vex_diagnostics::Diagnostic::error(
+            vex_diagnostics::error_codes::SYNTAX_ERROR,
+            message.to_string(),
+            span.clone(),
+        );
+
+        if let Some(lbl) = primary_label {
+            diag = diag.with_primary_label(lbl.to_string());
+        }
+        if let Some(h) = help {
+            diag = diag.with_help(h.to_string());
+        }
+        if let Some((msg, replacement)) = suggestion {
+            diag = diag.with_suggestion(msg.to_string(), replacement.to_string(), span);
+        }
+
+        ParseError::from_diagnostic(diag)
+    }
+
     /// Skip tokens until we find a semicolon or closing brace (for unsupported constructs)
     pub(crate) fn skip_until_semicolon_or_brace(&mut self) -> Result<(), ParseError> {
         let mut brace_depth = 0;
+        let mut steps = 0usize;
 
         while !self.is_at_end() {
+            if self.guard_tick(
+                &mut steps,
+                "skip_until_semicolon_or_brace timeout",
+                Self::PARSE_LOOP_DEFAULT_MAX_STEPS,
+            ) {
+                break;
+            }
             match self.peek() {
                 Token::LBrace => {
                     brace_depth += 1;
@@ -374,16 +452,48 @@ impl<'a> Parser<'a> {
     }
 
     pub(crate) fn parse_block(&mut self) -> Result<Block, ParseError> {
+        let block_start = self.current;
         self.consume(&Token::LBrace, "Expected '{'")?;
         let mut statements = Vec::new();
 
+        let mut steps = 0usize;
         while !self.check(&Token::RBrace) && !self.is_at_end() {
+            if self.guard_tick(&mut steps, "parse_block timeout detected", Self::PARSE_LOOP_DEFAULT_MAX_STEPS)
+            {
+                // Ensure parse_block doesn't hang: emit more explicit span-based diagnostic
+                let span = crate::Span::from_file_and_span(
+                    &self.file_name,
+                    self.source,
+                    self.tokens[block_start].span.start..self.tokens[self.current].span.end,
+                );
+                self.diagnostics.push(
+                    vex_diagnostics::Diagnostic::error(
+                        error_codes::SYNTAX_ERROR,
+                        "parse_block timeout detected".to_string(),
+                        span,
+                    )
+                    .with_primary_label("parser timeout".to_string()),
+                );
+                break;
+            }
             statements.push(self.parse_statement()?);
         }
 
         self.consume(&Token::RBrace, "Expected '}'")?;
+        let block_end = self.current - 1;
 
-        Ok(Block { statements })
+        let span = crate::Span::from_file_and_span(
+            &self.file_name,
+            self.source,
+            self.tokens[block_start].span.start..self.tokens[block_end].span.end,
+        );
+        let span_id = self.span_map.generate_id();
+        self.span_map.record(span_id.clone(), span);
+
+        Ok(Block {
+            span_id: Some(span_id),
+            statements,
+        })
     }
 
     /// Parse block as expression: { stmt1; stmt2; expr }
@@ -393,7 +503,11 @@ impl<'a> Parser<'a> {
         let mut statements = Vec::new();
         let mut return_expr = None;
 
+        let mut steps = 0usize;
         while !self.check(&Token::RBrace) && !self.is_at_end() {
+            if self.guard_tick(&mut steps, "block-expression parse timeout", Self::PARSE_LOOP_DEFAULT_MAX_STEPS) {
+                break;
+            }
             // Try to parse as expression first (peek for semicolon)
             let checkpoint = self.current;
 
@@ -438,18 +552,35 @@ impl<'a> Parser<'a> {
     }
 
     pub(crate) fn parse_block_until_case_or_brace(&mut self) -> Result<Block, ParseError> {
+        let block_start = self.current;
         let mut statements = Vec::new();
 
         // Parse statements until we hit "case", "default", or closing brace
+        let mut steps = 0usize;
         while !self.check(&Token::Case)
             && !self.check(&Token::Default)
             && !self.check(&Token::RBrace)
             && !self.is_at_end()
         {
+            if self.guard_tick(&mut steps, "parse_block_until_case_or_brace timeout", Self::PARSE_LOOP_DEFAULT_MAX_STEPS) {
+                break;
+            }
             statements.push(self.parse_statement()?);
         }
 
-        Ok(Block { statements })
+        let block_end = if self.current > 0 { self.current - 1 } else { 0 };
+        let span = crate::Span::from_file_and_span(
+            &self.file_name,
+            self.source,
+            self.tokens[block_start].span.start..self.tokens[block_end].span.end,
+        );
+        let span_id = self.span_map.generate_id();
+        self.span_map.record(span_id.clone(), span);
+
+        Ok(Block {
+            span_id: Some(span_id),
+            statements,
+        })
     }
 
     /// Parse generic type parameters with optional trait bounds and const params

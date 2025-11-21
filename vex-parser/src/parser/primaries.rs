@@ -319,11 +319,11 @@ impl<'a> Parser<'a> {
             } else {
                 // Not a map literal, restore position and fail
                 self.current = checkpoint;
-                let span = self.peek_span().span.clone();
-                let location = crate::Span::from_file_and_span(&self.file_name, self.source, span);
-                return Err(ParseError::syntax_error(
-                    "Unexpected '{', map literals need key: value pairs".to_string(),
-                    location,
+                return Err(self.make_syntax_error(
+                    "Unexpected '{', map literals need key: value pairs",
+                    Some("unexpected '{' in expression"),
+                    Some("Map literal syntax is { key: value, ... }"),
+                    None,
                 ));
             }
         }
@@ -435,10 +435,18 @@ impl<'a> Parser<'a> {
                     } else {
                         name.clone()
                     };
-                    return Err(self.error(&format!(
-                        "Deprecated: Use '{}' instead of '{}' (type-as-constructor pattern)",
-                        capitalized, name
-                    )));
+                    return Err(self.make_syntax_error(
+                        &format!(
+                            "Deprecated: Use '{}' instead of '{}' (type-as-constructor pattern)",
+                            capitalized, name
+                        ),
+                        Some("deprecated type constructor"),
+                        Some(&format!(
+                            "Use '{}' for type constructor patterns instead of '{}'.",
+                            capitalized, name
+                        )),
+                        Some(("use type name", &capitalized)),
+                    ));
                 }
                 _ => {
                     // Generic type constructor: Type() or Type(args)
@@ -496,7 +504,12 @@ impl<'a> Parser<'a> {
             return Ok(Expression::Ident("type".to_string()));
         }
 
-        Err(self.error("Expected expression"))
+        Err(self.make_syntax_error(
+            "Expected expression",
+            Some("expected expression"),
+            Some("Provide an expression such as a literal, identifier, or function call"),
+            Some(("try a literal", "42")),
+        ))
     }
 
     fn parse_map_constructor(&mut self) -> Result<Expression, ParseError> {
@@ -574,7 +587,15 @@ impl<'a> Parser<'a> {
         let mut statements = Vec::new();
         let mut return_expr = None;
 
+        let mut steps = 0usize;
         while !self.check(&Token::RBrace) && !self.is_at_end() {
+            if self.guard_tick(
+                &mut steps,
+                "async block parse timeout",
+                Self::PARSE_LOOP_DEFAULT_MAX_STEPS,
+            ) {
+                break;
+            }
             // Try to parse as expression first (peek for semicolon)
             if !self.check(&Token::Let)
                 && !self.check(&Token::Return)

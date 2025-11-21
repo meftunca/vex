@@ -7,7 +7,6 @@
 /// Dead code elimination: LLVM will optimize away unused prelude functions
 /// at link time, so including the full prelude has no runtime cost.
 
-
 /// Vec<T> - Dynamic array implementation
 pub const VEC: &str = include_str!("vec.vx");
 
@@ -67,7 +66,7 @@ mod tests {
     #[test]
     fn test_get_embedded_prelude_count() {
         let modules = get_embedded_prelude();
-        assert_eq!(modules.len(), 7, "Should have 7 prelude modules");
+        assert_eq!(modules.len(), 6, "Should have 6 prelude modules");
     }
 
     #[test]
@@ -75,11 +74,12 @@ mod tests {
         let modules = get_embedded_prelude();
         let names: Vec<&str> = modules.iter().map(|(name, _)| *name).collect();
 
-        assert_eq!(names[1], "core::ops");
-        assert_eq!(names[2], "core::builtin_contracts");
-        assert_eq!(names[3], "core::option");
-        assert_eq!(names[4], "core::result");
-        assert_eq!(names[5], "core::vec");
-        assert_eq!(names[6], "core::box");
+        // Current embedded prelude contains these modules in the following order
+        assert_eq!(names[0], "core::ops");
+        assert_eq!(names[1], "core::builtin_contracts");
+        assert_eq!(names[2], "core::option");
+        assert_eq!(names[3], "core::result");
+        assert_eq!(names[4], "core::vec");
+        assert_eq!(names[5], "core::box");
     }
 }

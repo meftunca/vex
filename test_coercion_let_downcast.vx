@@ -1,6 +1,0 @@
-// Test: Let statement downcast (should error)
-fn main() {
-    let x: i64 = 1000;
-    let y: i32 = x; // Should ERROR: cannot downcast i64 to i32
-    println(y);
-}

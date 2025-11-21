@@ -113,9 +113,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             // Count ONLY overloaded versions (fname_suffix), NOT the base name
             self.function_defs
                 .keys()
-                .filter(|k| {
-                    k.starts_with(fname) && k.chars().nth(fname.len()) == Some('_')
-                })
+                .filter(|k| k.starts_with(fname) && k.chars().nth(fname.len()) == Some('_'))
                 .count()
         } else {
             0
@@ -132,7 +130,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         && matches!(&def.return_type, Some(ret_ty) if ret_ty == expected_type.unwrap())
                     })
                     .map(|(k, _)| k.clone());
-                
+
                 matching_overload
             } else {
                 None
@@ -145,30 +143,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
             let is_overloaded = overload_count > 1;
 
             // Clone param type to avoid borrow issues
-            let param_type_opt: Option<Type> = if let Some(ref selected_name) = selected_overload_by_return_type {
-                // Use param types from the selected overload
-                if let Some(func_def) = self.function_defs.get(selected_name) {
-                    if i < func_def.params.len() {
-                        Some(func_def.params[i].ty.clone())
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                }
-            } else if is_overloaded {
-                // For overloaded functions without return type hint, don't use param types yet
-                None
-            } else if overload_count == 1 && func_name_for_check.is_some() {
-                // Single overload - find it and use its param types
-                let fname = func_name_for_check.unwrap();
-                let func_key = self.function_defs
-                    .keys()
-                    .find(|k| k == &fname || (k.starts_with(fname) && k.chars().nth(fname.len()) == Some('_')))
-                    .cloned();
-                
-                if let Some(key) = func_key {
-                    if let Some(func_def) = self.function_defs.get(&key) {
+            let param_type_opt: Option<Type> =
+                if let Some(ref selected_name) = selected_overload_by_return_type {
+                    // Use param types from the selected overload
+                    if let Some(func_def) = self.function_defs.get(selected_name) {
                         if i < func_def.params.len() {
                             Some(func_def.params[i].ty.clone())
                         } else {
@@ -177,18 +155,49 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     } else {
                         None
                     }
+                } else if is_overloaded {
+                    // For overloaded functions without return type hint, don't use param types yet
+                    None
+                } else if overload_count == 1 && func_name_for_check.is_some() {
+                    // Single overload - find it and use its param types
+                    let fname = func_name_for_check.unwrap();
+                    let func_key = self
+                        .function_defs
+                        .keys()
+                        .find(|k| {
+                            k == &fname
+                                || (k.starts_with(fname) && k.chars().nth(fname.len()) == Some('_'))
+                        })
+                        .cloned();
+
+                    if let Some(key) = func_key {
+                        if let Some(func_def) = self.function_defs.get(&key) {
+                            // ⭐ GENERIC FIX: Don't use param types from generic function definitions
+                            let is_generic = !func_def.type_params.is_empty();
+                            if !is_generic && i < func_def.params.len() {
+                                Some(func_def.params[i].ty.clone())
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                } else if let Some(func_def) = &func_def_opt {
+                    // ⭐ GENERIC FIX: Don't use param types from generic function definitions
+                    // Generic params have Named("T") which causes "Unknown type name" errors
+                    // Let type inference happen naturally without hints for generics
+                    let is_generic = !func_def.type_params.is_empty();
+                    if !is_generic && i < func_def.params.len() {
+                        Some(func_def.params[i].ty.clone())
+                    } else {
+                        None
+                    }
                 } else {
                     None
-                }
-            } else if let Some(func_def) = &func_def_opt {
-                if i < func_def.params.len() {
-                    Some(func_def.params[i].ty.clone())
-                } else {
-                    None
-                }
-            } else {
-                None
-            };
+                };
 
             // ⭐ CRITICAL: Struct parameters expect BY VALUE, not pointer
             // Check if we need to load struct value before compiling
@@ -410,8 +419,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         arg_types.push(ty);
                     }
 
-                    // Call type-safe format compiler
-                    return crate::codegen_ast::builtins::compile_typesafe_format(
+                    // Call optimized format compiler
+                    return crate::codegen_ast::builtins::optimized_print::compile_format_macro(
                         self,
                         fmt_str,
                         &arg_basic_vals[1..],

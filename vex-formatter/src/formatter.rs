@@ -3,7 +3,6 @@
 use crate::config::Config;
 use crate::visitor::FormattingVisitor;
 use anyhow::Result;
-use vex_lexer::Lexer;
 use vex_parser::Parser;
 
 /// Code formatter

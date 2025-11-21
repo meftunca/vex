@@ -4,10 +4,12 @@
 #include <sys/time.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <stdio.h>
+#include <errno.h>
 
 /* Use vex allocator */
-extern void* xmalloc(size_t size);
-extern void xfree(void* ptr);
+extern void *xmalloc(size_t size);
+extern void xfree(void *ptr);
 
 typedef struct Poller
 {
@@ -48,7 +50,8 @@ int poller_add(Poller *p, int fd, EventType type, void *user_data)
     {
         EV_SET(&ev[n++], fd, EVFILT_WRITE, EV_ADD | EV_ENABLE, 0, 0, user_data);
     }
-    return kevent(p->kq, ev, n, NULL, 0, NULL) == -1 ? -1 : 0;
+    int rc = kevent(p->kq, ev, n, NULL, 0, NULL);
+    return rc == -1 ? -1 : 0;
 }
 
 int poller_remove(Poller *p, int fd)

@@ -28,8 +28,9 @@ impl super::LifetimeChecker {
 
                 // Verify variable is in scope
                 if !self.in_scope.contains(name) {
-                    eprintln!("   ✗ {} NOT in scope (in_scope: {:?}, global_vars: {})", 
-                        name, 
+                    eprintln!(
+                        "   ✗ {} NOT in scope (in_scope: {:?}, global_vars: {})",
+                        name,
                         self.in_scope.iter().take(5).cloned().collect::<Vec<_>>(),
                         self.global_vars.contains(name)
                     );

@@ -17,7 +17,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         // Declare: vex_vec_t* vex_vec_new(size_t elem_size)
         let size_t = self.context.i64_type();
         let vec_type = self.context.opaque_struct_type("vex_vec_s");
-        let vec_ptr_type = vec_type.ptr_type(AddressSpace::default());
+        let vec_ptr_type = self.context.ptr_type(AddressSpace::default());
 
         let fn_type = vec_ptr_type.fn_type(&[size_t.into()], false);
         self.module.add_function(fn_name, fn_type, None)
@@ -33,11 +33,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Declare: void vex_vec_push(vex_vec_t *vec, const void *elem)
         let void_type = self.context.void_type();
-        let ptr_type = self.context.i8_type().ptr_type(AddressSpace::default());
-        let vec_ptr_type = self
-            .context
-            .opaque_struct_type("vex_vec_s")
-            .ptr_type(AddressSpace::default());
+        let ptr_type = self.context.ptr_type(AddressSpace::default());
+        let vec_ptr_type = self.context.ptr_type(AddressSpace::default());
 
         let fn_type = void_type.fn_type(&[vec_ptr_type.into(), ptr_type.into()], false);
         self.module.add_function(fn_name, fn_type, None)
@@ -52,11 +49,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
         }
 
         // Declare: void *vex_vec_get(vex_vec_t *vec, size_t index)
-        let ptr_type = self.context.i8_type().ptr_type(AddressSpace::default());
-        let vec_ptr_type = self
-            .context
-            .opaque_struct_type("vex_vec_s")
-            .ptr_type(AddressSpace::default());
+        let ptr_type = self.context.ptr_type(AddressSpace::default());
+        let vec_ptr_type = self.context.ptr_type(AddressSpace::default());
         let size_t = self.context.i64_type();
 
         let fn_type = ptr_type.fn_type(&[vec_ptr_type.into(), size_t.into()], false);
@@ -73,10 +67,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Declare: size_t vex_vec_len(vex_vec_t *vec)
         let size_t = self.context.i64_type();
-        let vec_ptr_type = self
-            .context
-            .opaque_struct_type("vex_vec_s")
-            .ptr_type(AddressSpace::default());
+        let vec_ptr_type = self.context.ptr_type(AddressSpace::default());
 
         let fn_type = size_t.fn_type(&[vec_ptr_type.into()], false);
         self.module.add_function(fn_name, fn_type, None)
@@ -92,10 +83,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Declare: void vex_vec_free(vex_vec_t *vec)
         let void_type = self.context.void_type();
-        let vec_ptr_type = self
-            .context
-            .opaque_struct_type("vex_vec_s")
-            .ptr_type(AddressSpace::default());
+        let vec_ptr_type = self.context.ptr_type(AddressSpace::default());
 
         let fn_type = void_type.fn_type(&[vec_ptr_type.into()], false);
         self.module.add_function(fn_name, fn_type, None)
@@ -141,12 +129,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
         }
 
         // Declare: vex_box_t* vex_box_new(const void *value, size_t size)
-        let ptr_type = self.context.i8_type().ptr_type(AddressSpace::default());
+        let ptr_type = self.context.ptr_type(AddressSpace::default());
         let size_t = self.context.i64_type();
         let box_type = self
             .context
             .struct_type(&[ptr_type.into(), size_t.into()], false);
-        let box_ptr_type = box_type.ptr_type(AddressSpace::default());
+        let box_ptr_type = self.context.ptr_type(AddressSpace::default());
 
         let fn_type = box_ptr_type.fn_type(&[ptr_type.into(), size_t.into()], false);
         self.module.add_function(fn_name, fn_type, None)
@@ -161,11 +149,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
         }
 
         // Declare: void *vex_box_get(vex_box_t *box)
-        let ptr_type = self.context.i8_type().ptr_type(AddressSpace::default());
-        let box_ptr_type = self
-            .context
-            .struct_type(&[ptr_type.into(), self.context.i64_type().into()], false)
-            .ptr_type(AddressSpace::default());
+        let ptr_type = self.context.ptr_type(AddressSpace::default());
+        let box_ptr_type = self.context.ptr_type(AddressSpace::default());
 
         let fn_type = ptr_type.fn_type(&[box_ptr_type.into()], false);
         self.module.add_function(fn_name, fn_type, None)
@@ -181,11 +166,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Declare: void vex_box_free(vex_box_t *box)
         let void_type = self.context.void_type();
-        let ptr_type = self.context.i8_type().ptr_type(AddressSpace::default());
+        let ptr_type = self.context.ptr_type(AddressSpace::default());
         let box_type = self
             .context
             .struct_type(&[ptr_type.into(), self.context.i64_type().into()], false);
-        let box_ptr_type = box_type.ptr_type(AddressSpace::default());
+        let box_ptr_type = self.context.ptr_type(AddressSpace::default());
 
         let fn_type = void_type.fn_type(&[box_ptr_type.into()], false);
         self.module.add_function(fn_name, fn_type, None)
@@ -200,7 +185,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         }
 
         // Declare: void *vex_option_unwrap(void *opt_ptr, size_t type_size, const char *file, int line)
-        let ptr_type = self.context.i8_type().ptr_type(AddressSpace::default());
+        let ptr_type = self.context.ptr_type(AddressSpace::default());
         let size_t = self.context.i64_type();
         let i32_type = self.context.i32_type();
 
@@ -226,7 +211,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Declare: bool vex_option_is_some(void *opt_ptr)
         let bool_type = self.context.bool_type();
-        let ptr_type = self.context.i8_type().ptr_type(AddressSpace::default());
+        let ptr_type = self.context.ptr_type(AddressSpace::default());
 
         let fn_type = bool_type.fn_type(&[ptr_type.into()], false);
         self.module.add_function(fn_name, fn_type, None)
@@ -241,7 +226,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         }
 
         // Declare: void *vex_result_unwrap(void *result_ptr, size_t type_size, const char *file, int line)
-        let ptr_type = self.context.i8_type().ptr_type(AddressSpace::default());
+        let ptr_type = self.context.ptr_type(AddressSpace::default());
         let size_t = self.context.i64_type();
         let i32_type = self.context.i32_type();
 
@@ -267,7 +252,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Declare: bool vex_result_is_ok(void *result_ptr)
         let bool_type = self.context.bool_type();
-        let ptr_type = self.context.i8_type().ptr_type(AddressSpace::default());
+        let ptr_type = self.context.ptr_type(AddressSpace::default());
 
         let fn_type = bool_type.fn_type(&[ptr_type.into()], false);
         self.module.add_function(fn_name, fn_type, None)
@@ -283,7 +268,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Declare: vex_vec_t* vex_vec_concat(vex_vec_t *v1, vex_vec_t *v2)
         let vec_type = self.context.opaque_struct_type("vex_vec_s");
-        let vec_ptr_type = vec_type.ptr_type(AddressSpace::default());
+        let vec_ptr_type = self.context.ptr_type(AddressSpace::default());
 
         let fn_type = vec_ptr_type.fn_type(&[vec_ptr_type.into(), vec_ptr_type.into()], false);
         self.module.add_function(fn_name, fn_type, None)

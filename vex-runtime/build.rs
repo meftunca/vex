@@ -22,24 +22,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         async_io_dir.join("src/common.c"),
         c_dir.join("vex_args.c"), // Command-line arguments
         c_dir.join("vex_channel.c"),
-        c_dir.join("vex_io.c"),     // I/O functions (print, println, etc.)
-        c_dir.join("vex_alloc.c"),  // Memory allocation
-        c_dir.join("vex_memory.c"), // Memory operations (vex_memcpy, etc.)
-        c_dir.join("vex_error.c"),  // Error handling (vex_panic, etc.)
-        c_dir.join("vex_array.c"),  // Array operations (fixed-size)
-        c_dir.join("vex_vec.c"),    // Vec<T> dynamic array operations
-        c_dir.join("vex_box.c"),    // Box<T> heap allocations
+        c_dir.join("vex_io_optimized.c"), // I/O functions (print, println, etc.)
+        c_dir.join("vex_alloc.c"),        // Memory allocation
+        c_dir.join("vex_memory.c"),       // Memory operations (vex_memcpy, etc.)
+        c_dir.join("vex_error.c"),        // Error handling (vex_panic, etc.)
+        c_dir.join("vex_array.c"),        // Array operations (fixed-size)
+        c_dir.join("vex_vec.c"),          // Vec<T> dynamic array operations
+        c_dir.join("vex_box.c"),          // Box<T> heap allocations
         c_dir.join("swisstable/vex_swisstable.c"), // HashMap<K,V> (Google Swiss Tables V1)
-        c_dir.join("swisstable/vex_swisstable_v2.c"), // HashMap<K,V> V2 (2-3x faster, SIMD optimized)
-        c_dir.join("swisstable/vex_swisstable_v3.c"), // HashMap<K,V> V3 (experimental ultimate perf)
-        c_dir.join("vex_set.c"),                      // Set<T> operations
-        c_dir.join("vex_string.c"),                   // String operations
-        c_dir.join("vex_string_type.c"),              // String type implementation
-        c_dir.join("vex_strconv.c"), // String<->Number conversions (to_string, parse)
-        c_dir.join("vex_file.c"),    // File system operations
-        c_dir.join("vex_display.c"), // Display trait - type to string conversions
+        // TODO: Re-enable v2/v3 when implementation is complete
+        // c_dir.join("swisstable/vex_swisstable_v2.c"), // HashMap<K,V> V2 (2-3x faster, SIMD optimized)
+        // c_dir.join("swisstable/vex_swisstable_v3.c"), // HashMap<K,V> V3 (experimental ultimate perf)
+        c_dir.join("vex_set.c"),           // Set<T> operations
+        c_dir.join("vex_string.c"),        // String operations
+        c_dir.join("vex_string_type.c"),   // String type implementation
+        c_dir.join("vex_strconv.c"),       // String<->Number conversions (to_string, parse)
+        c_dir.join("vex_file.c"),          // File system operations
+        c_dir.join("vex_display.c"),       // Display trait - type to string conversions
         c_dir.join("vex_value_helpers.c"), // VexValue constructor helpers
-        c_dir.join("vex_format.c"),  // Format buffer for type-safe formatting
+        c_dir.join("vex_format.c"),        // Format buffer for type-safe formatting
     ];
 
     // Detect platform and add appropriate poller
@@ -78,18 +79,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "mimalloc" => {
             let mimalloc_dir = c_dir.join("allocators/mimalloc");
             let mimalloc_src = mimalloc_dir.join("src/static.c");
-            
+
             builder.define("VEX_USE_MIMALLOC", None);
             builder.include(mimalloc_dir.join("include"));
             builder.file(&mimalloc_src);
-            
-            println!("cargo:warning=Using mimalloc from: {}", mimalloc_src.display());
+
+            println!(
+                "cargo:warning=Using mimalloc from: {}",
+                mimalloc_src.display()
+            );
         }
         "system" => {
             println!("cargo:warning=Using system allocator (malloc/free)");
         }
         _ => {
-            return Err(format!("Unknown allocator: {} (valid: mimalloc, system)", allocator).into());
+            return Err(
+                format!("Unknown allocator: {} (valid: mimalloc, system)", allocator).into(),
+            );
         }
     }
 

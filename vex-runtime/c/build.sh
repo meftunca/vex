@@ -34,6 +34,8 @@ SOURCES=(
     "vex_memory.c"
     "vex_alloc.c"
     "vex_io.c"
+    "vex_io_optimized.c"
+    "vex_format.c"
     "vex_array.c"
     "vex_error.c"
     "swisstable/vex_swisstable.c"

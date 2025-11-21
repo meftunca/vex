@@ -210,7 +210,7 @@ pub fn builtin_hashmap_free<'ctx>(
     let map_ptr = args[0].into_pointer_value();
 
     // Declare vex_map_free from runtime
-    let i8_ptr = codegen.context.i8_type().ptr_type(AddressSpace::default());
+    let i8_ptr = codegen.context.ptr_type(AddressSpace::default());
     let vex_map_free = codegen.declare_runtime_fn_void("vex_map_free", &[i8_ptr.into()]);
 
     // Call vex_map_free(map)
@@ -266,7 +266,7 @@ pub fn builtin_hashmap_remove<'ctx>(
     let key = args[1];
 
     // Declare vex_map_remove from runtime
-    let i8_ptr = codegen.context.i8_type().ptr_type(AddressSpace::default());
+    let i8_ptr = codegen.context.ptr_type(AddressSpace::default());
     let vex_map_remove = codegen.declare_runtime_fn(
         "vex_map_remove",
         &[
@@ -317,7 +317,7 @@ pub fn builtin_hashmap_clear<'ctx>(
     let map_ptr = args[0].into_pointer_value();
 
     // Declare vex_map_clear from runtime
-    let i8_ptr = codegen.context.i8_type().ptr_type(AddressSpace::default());
+    let i8_ptr = codegen.context.ptr_type(AddressSpace::default());
     let vex_map_clear = codegen.declare_runtime_fn_void("vex_map_clear", &[i8_ptr.into()]);
 
     // Call vex_map_clear(map)

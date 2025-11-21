@@ -14,7 +14,11 @@ impl<'a> Parser<'a> {
 
         let mut arms = Vec::new();
 
+        let mut steps = 0usize;
         while !self.check(&Token::RBrace) && !self.is_at_end() {
+            if self.guard_tick(&mut steps, "match arms parse timeout", Self::PARSE_LOOP_DEFAULT_MAX_STEPS) {
+                break;
+            }
             // Parse pattern
             let pattern = self.parse_pattern()?;
 
@@ -40,7 +44,10 @@ impl<'a> Parser<'a> {
                     Some(Box::new(self.parse_expression()?))
                 };
                 Expression::Block {
-                    statements: vec![Statement::Return(return_expr.map(|e| *e))],
+                    statements: vec![Statement::Return {
+                        span_id: None, // Inside match arm, not critical
+                        value: return_expr.map(|e| *e),
+                    }],
                     return_expr: None,
                 }
             } else {
@@ -106,9 +113,12 @@ impl<'a> Parser<'a> {
                     }
                     // Rest pattern must be last
                     if self.match_token(&Token::Comma) {
-                        return Err(
-                            self.error("Rest pattern must be last element in array pattern")
-                        );
+                        return Err(self.make_syntax_error(
+                            "Rest pattern must be last element in array pattern",
+                            Some("rest pattern must be last"),
+                            Some("Use '...' as the last element in an array pattern"),
+                            Some(("move '...' to end", "[a, b, ...rest]")),
+                        ));
                     }
                     break;
                 }
@@ -149,9 +159,11 @@ impl<'a> Parser<'a> {
             // Single element in parens is not a tuple, return the inner pattern
             if patterns.len() == 1 {
                 return Ok(patterns.into_iter().next().ok_or_else(|| {
-                    ParseError::syntax_error(
-                        "Expected at least one pattern in tuple".to_string(),
-                        self.token_to_diag_span(&self.peek_span().span),
+                    self.make_syntax_error(
+                        "Expected at least one pattern in tuple",
+                        Some("expected tuple pattern"),
+                        Some("A single pattern in parentheses is just that pattern - use a trailing comma to create a single-element tuple pattern"),
+                        Some(("add trailing comma to make it a tuple", "(x,)")),
                     )
                 })?);
             }
@@ -198,7 +210,11 @@ impl<'a> Parser<'a> {
                 self.advance();
                 let mut fields = Vec::new();
 
+                let mut steps = 0usize;
                 while !self.check(&Token::RBrace) && !self.is_at_end() {
+                    if self.guard_tick(&mut steps, "struct pattern parse timeout", Self::PARSE_LOOP_DEFAULT_MAX_STEPS) {
+                        break;
+                    }
                     let field_name = self.consume_identifier()?;
 
                     // Check for field: pattern or just field (shorthand)

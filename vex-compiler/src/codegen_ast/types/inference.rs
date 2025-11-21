@@ -31,10 +31,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }
 
             Expression::Call {
-                func,
-                type_args,
-                args,
-                ..
+                func, type_args, ..
             } => {
                 // Check if this is a constructor call: Vec<i32>() or Vec()
                 if let Expression::Ident(name) = func.as_ref() {
@@ -81,10 +78,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }
 
             Expression::MethodCall {
-                receiver,
-                method,
-                args,
-                ..
+                receiver, method, ..
             } => {
                 // Infer receiver type first
                 let receiver_type = self.infer_expression_type_with_context(receiver, None)?;
@@ -205,13 +199,13 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 Ok(Type::Array(Box::new(elem_type), elements.len()))
             }
             Expression::Ident(name) => {
-                // ⭐ CRITICAL: Check variable_concrete_types FIRST (highest priority)
+                // ⭐ CRITICAL: Check variable_concrete_types FIRST (variable declarations)
                 // This contains full Generic types like Vec<i32>, not just mangled names
                 if let Some(ty) = self.variable_concrete_types.get(name) {
                     return Ok(ty.clone());
                 }
 
-                // ⭐ NEW: Check module constant types FIRST (from imported modules)
+                // ⭐ NEW: Check module constant types SECOND (from imported modules)
                 // Prioritize AST types over LLVM types for accuracy
                 if let Some(const_type) = self.module_constant_types.get(name) {
                     return Ok(const_type.clone());
@@ -596,6 +590,19 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
                             if let Some(func_def) = self.function_defs.get(&mangled_name) {
                                 return Ok(func_def.return_type.clone().unwrap_or(Type::I32));
+                            } else {
+                                // ⭐ GENERIC INSTANTIATION FIX: Try with only first arg type
+                                // Generic functions are named min_i32 (type param), not min_i32_i32 (args)
+                                if !arg_types.is_empty() {
+                                    let first_arg_suffix = self.generate_type_suffix(&arg_types[0]);
+                                    let generic_name = format!("{}{}", func_name, first_arg_suffix);
+                                    if let Some(func_def) = self.function_defs.get(&generic_name) {
+                                        return Ok(func_def
+                                            .return_type
+                                            .clone()
+                                            .unwrap_or(Type::I32));
+                                    }
+                                }
                             }
                         }
 

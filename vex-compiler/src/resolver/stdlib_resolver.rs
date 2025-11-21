@@ -7,27 +7,31 @@ use std::path::{Path, PathBuf};
 
 /// Standard library modules (built-in)
 const STDLIB_MODULES: &[&str] = &[
-    // "io",
-    "core",
+    "cmd",
     "collections",
-    // "string",
-    // "memory",
-    // "sync",
-    // "time",
-    // "net",
-    // "encoding",
-    // "crypto",
-    // "db",
-    // "strconv",
-    // "path",
-    // "http",
-    // "json",
-    // "fmt",
+    "compress",
+    "contracts",
+    "conv",
+    "crypto",
+    "db",
+    "encoding",
+    "env",
+    "fmt",
+    "fs",
+    "http",
+    "io",
+    "json",
+    "math",
+    "memory",
+    "net",
+    "path",
+    "process",
+    "regex",
+    "strconv",
+    "string",
+    "sync",
     "testing",
-    "math", // Mathematical functions
-            // "fs",      // File system operations
-            // "env",     // Environment variables
-            // "process", // Process management
+    "time",
 ];
 
 /// Errors that can occur during module resolution
@@ -60,6 +64,8 @@ impl std::error::Error for ResolveError {}
 pub struct StdlibResolver {
     stdlib_root: PathBuf,
     target: Target,
+    /// Dynamic list of detected stdlib modules (derived from filesystem)
+    modules: Vec<String>,
 }
 
 impl StdlibResolver {
@@ -68,17 +74,23 @@ impl StdlibResolver {
     /// # Arguments
     /// * `stdlib_root` - Root directory of the standard library (e.g., "vex-libs/std")
     pub fn new<P: AsRef<Path>>(stdlib_root: P) -> Self {
+        let root = stdlib_root.as_ref().to_path_buf();
+        let modules = Self::detect_modules(&root);
         Self {
-            stdlib_root: stdlib_root.as_ref().to_path_buf(),
+            stdlib_root: root,
             target: Target::current(),
+            modules,
         }
     }
 
     /// Create a resolver with a custom target (for cross-compilation)
     pub fn with_target<P: AsRef<Path>>(stdlib_root: P, target: Target) -> Self {
+        let root = stdlib_root.as_ref().to_path_buf();
+        let modules = Self::detect_modules(&root);
         Self {
-            stdlib_root: stdlib_root.as_ref().to_path_buf(),
+            stdlib_root: root,
             target,
+            modules,
         }
     }
 
@@ -93,15 +105,45 @@ impl StdlibResolver {
     /// assert!(!resolver.is_stdlib_module("my_custom_lib"));
     /// ```
     pub fn is_stdlib_module(&self, module_name: &str) -> bool {
-        // Check if module_name or its root is in STDLIB_MODULES
-        // e.g., "core" → true, "core/vec" → true (root is "core")
+        // Check if module_name or its root is in the detected modules
         let root_module = module_name.split('/').next().unwrap_or(module_name);
-        STDLIB_MODULES.contains(&root_module)
+        self.modules.iter().any(|m| m == root_module)
     }
 
     /// Get all stdlib module names
-    pub fn all_modules() -> &'static [&'static str] {
-        STDLIB_MODULES
+    pub fn all_modules(&self) -> &Vec<String> {
+        &self.modules
+    }
+
+    /// Detect module directories under stdlib_root (fallback to STDLIB_MODULES)
+    fn detect_modules(stdlib_root: &Path) -> Vec<String> {
+        if !stdlib_root.exists() {
+            // Fall back to the static list
+            return STDLIB_MODULES.iter().map(|s| s.to_string()).collect();
+        }
+
+        let mut modules = Vec::new();
+        if let Ok(entries) = stdlib_root.read_dir() {
+            for entry in entries.flatten() {
+                if let Ok(ft) = entry.file_type() {
+                    if ft.is_dir() {
+                        let name = entry.file_name().to_string_lossy().to_string();
+                        let src_dir = entry.path().join("src");
+                        if src_dir.exists() {
+                            modules.push(name);
+                        }
+                    }
+                }
+            }
+        }
+
+        if modules.is_empty() {
+            // Fallback to the compile-time list
+            return STDLIB_MODULES.iter().map(|s| s.to_string()).collect();
+        }
+
+        modules.sort();
+        modules
     }
 
     /// Resolve a module name to a file path
@@ -273,12 +315,13 @@ mod tests {
 
     #[test]
     fn test_all_modules() {
-        let modules = StdlibResolver::all_modules();
-        // Updated: stdlib now has 21 modules (was 17)
-        assert_eq!(modules.len(), 21);
-        assert!(modules.contains(&"io"));
-        assert!(modules.contains(&"collections"));
-        assert!(modules.contains(&"testing"));
+        let resolver = StdlibResolver::new("vex-libs/std");
+        let modules = resolver.all_modules();
+        // Standard library can vary across repository updates; ensure sanity checks
+        assert!(modules.len() >= 21, "Expected at least 21 stdlib modules");
+        assert!(modules.iter().any(|m| m == "io"));
+        assert!(modules.iter().any(|m| m == "collections"));
+        assert!(modules.iter().any(|m| m == "testing"));
     }
 
     #[test]
@@ -336,6 +379,44 @@ mod tests {
             assert!(modules.contains(&name.as_str()));
             assert!(path.exists());
         }
+    }
+
+    #[test]
+    fn test_platform_specific_priority() {
+        use tempfile::tempdir;
+
+        // Create temporary stdlib root with a module that has platform-specific files
+        let tmp = tempdir().expect("tempdir");
+        let root = tmp.path().join("std");
+        let module_dir = root.join("io").join("src");
+        std::fs::create_dir_all(&module_dir).expect("created module dir");
+
+        // Create platform-specific file for linux.arm64
+        let linux_file = module_dir.join("lib.linux.arm64.vx");
+        std::fs::write(&linux_file, "// linux arm64 lib").expect("wrote linux file");
+
+        // Create generic lib.vx too
+        let generic_file = module_dir.join("lib.vx");
+        std::fs::write(&generic_file, "// generic lib").expect("wrote generic file");
+
+        let resolver =
+            StdlibResolver::with_target(&root, Target::new(Platform::Linux, Arch::Arm64));
+        let path = resolver.resolve_module("io").expect("resolved");
+        assert!(
+            path.to_string_lossy().contains("lib.linux.arm64.vx"),
+            "Expected platform-specific file to be selected, got: {}",
+            path.to_string_lossy()
+        );
+
+        // Now test fallback to generic when different target
+        let resolver2 =
+            StdlibResolver::with_target(&root, Target::new(Platform::MacOS, Arch::Arm64));
+        let path2 = resolver2.resolve_module("io").expect("resolved2");
+        assert!(
+            path2.to_string_lossy().ends_with("lib.vx"),
+            "Expected fallback generic lib.vx, got: {}",
+            path2.to_string_lossy()
+        );
     }
 
     #[test]

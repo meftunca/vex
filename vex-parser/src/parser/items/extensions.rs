@@ -25,7 +25,12 @@ impl<'a> Parser<'a> {
             Token::F64 => "f64",
             Token::Bool => "bool",
             Token::String => "string",
-            _ => return Err(self.error("Expected builtin type name")),
+            _ => return Err(self.make_syntax_error(
+                "Expected builtin type name",
+                Some("expected builtin type"),
+                Some("Use a builtin type like i32, u64, f32, or string"),
+                Some(("try 'i32'", "i32")),
+            )),
         }
         .to_string();
 
@@ -50,9 +55,12 @@ impl<'a> Parser<'a> {
             } else if self.match_token(&Token::Semicolon) {
                 break; // End of declaration
             } else {
-                return Err(
-                    self.error("Expected ',' or ';' after contract name in extends declaration")
-                );
+                return Err(self.make_syntax_error(
+                    "Expected ',' or ';' after contract name in extends declaration",
+                    Some("expected ',' or ';'"),
+                    Some("Separate multiple contracts with ',' and terminate the list with ';'"),
+                    Some(("try ',' or ';'", ",")),
+                ));
             }
         }
 

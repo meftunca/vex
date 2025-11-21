@@ -34,7 +34,7 @@ pub fn builtin_memcpy<'ctx>(
         .build_int_z_extend(n, codegen.context.i64_type(), "n_cast")
         .map_err(|e| format!("Failed to cast size: {}", e))?;
 
-    let i8_ptr = codegen.context.i8_type().ptr_type(AddressSpace::default());
+    let i8_ptr = codegen.context.ptr_type(AddressSpace::default());
     let vex_memcpy = codegen.declare_runtime_fn(
         "vex_memcpy",
         &[
@@ -86,7 +86,7 @@ pub fn builtin_memset<'ctx>(
         .build_int_z_extend(n, codegen.context.i64_type(), "n_cast")
         .map_err(|e| format!("Failed to cast size: {}", e))?;
 
-    let i8_ptr = codegen.context.i8_type().ptr_type(AddressSpace::default());
+    let i8_ptr = codegen.context.ptr_type(AddressSpace::default());
     let vex_memset = codegen.declare_runtime_fn(
         "vex_memset",
         &[
@@ -138,7 +138,7 @@ pub fn builtin_memcmp<'ctx>(
         .build_int_z_extend(n, codegen.context.i64_type(), "n_cast")
         .map_err(|e| format!("Failed to cast size: {}", e))?;
 
-    let i8_ptr = codegen.context.i8_type().ptr_type(AddressSpace::default());
+    let i8_ptr = codegen.context.ptr_type(AddressSpace::default());
     let vex_memcmp = codegen.declare_runtime_fn(
         "vex_memcmp",
         &[
@@ -190,7 +190,7 @@ pub fn builtin_memmove<'ctx>(
         .build_int_z_extend(n, codegen.context.i64_type(), "n_cast")
         .map_err(|e| format!("Failed to cast size: {}", e))?;
 
-    let i8_ptr = codegen.context.i8_type().ptr_type(AddressSpace::default());
+    let i8_ptr = codegen.context.ptr_type(AddressSpace::default());
     let vex_memmove = codegen.declare_runtime_fn(
         "vex_memmove",
         &[

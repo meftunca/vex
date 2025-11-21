@@ -126,7 +126,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         }
 
         let millis = args[0].into_int_value();
-        let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+        // let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
 
         // For now, we'll just call a C function vex_async_sleep
         // which internally uses worker_await_after

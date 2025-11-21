@@ -32,7 +32,7 @@ impl VexBackend {
 
             // Run linter for warnings (unused variables, etc.) - this is fast
             let mut linter = Linter::new();
-            let lint_warnings = linter.lint(&program);
+            let lint_warnings = linter.lint(&program, &cached_doc.span_map);
             for vex_diag in &lint_warnings {
                 let mut lsp_diag = vex_to_lsp_diagnostic(vex_diag);
                 lsp_diag.severity = Some(DiagnosticSeverity::WARNING);
@@ -45,7 +45,11 @@ impl VexBackend {
             if cached_doc.parse_errors.is_empty() {
                 let mut borrow_checker = BorrowChecker::new();
                 if let Err(error) = borrow_checker.check_program(&mut program) {
-                    diagnostics.push(self.borrow_error_to_diagnostic(&error, text));
+                    diagnostics.push(self.borrow_error_to_diagnostic(
+                        &error,
+                        text,
+                        &cached_doc.span_map,
+                    ));
                 }
             }
 
@@ -64,8 +68,6 @@ impl VexBackend {
         uri: &str,
         diagnostics: &mut Vec<Diagnostic>,
     ) {
-        use std::collections::HashSet;
-
         // 1. Check for missing/invalid imports
         for (import_idx, import) in program.imports.iter().enumerate() {
             // Skip auto-injected prelude imports (they're synthetic)
@@ -283,119 +285,16 @@ impl VexBackend {
         &self,
         error: &vex_compiler::borrow_checker::BorrowError,
         source: &str,
+        span_map: &vex_diagnostics::SpanMap,
     ) -> Diagnostic {
-        use vex_compiler::borrow_checker::BorrowError;
+        
 
-        let (message, code, location_str, variable, field) = match error {
-            BorrowError::AssignToImmutable { variable, location } => (
-                format!("cannot assign to immutable variable `{}`\nhelp: consider making this binding mutable: `let! {}`", variable, variable),
-                "E0101",
-                location.as_ref(),
-                Some(variable.as_str()),
-                None,
-            ),
-            BorrowError::AssignToImmutableField { variable, field, location } => (
-                format!("cannot assign to field `{}` of immutable variable `{}`\nhelp: consider making this binding mutable: `let! {}`", field, variable, variable),
-                "E0102",
-                location.as_ref(),
-                Some(variable.as_str()),
-                Some(field.as_str()),
-            ),
-            BorrowError::UseAfterMove { variable, used_at, .. } => (
-                format!("use of moved value: `{}`", variable),
-                "E0201",
-                used_at.as_ref(),
-                Some(variable.as_str()),
-                None,
-            ),
-            BorrowError::MutableBorrowWhileBorrowed { variable, new_borrow, .. } => (
-                format!("cannot borrow `{}` as mutable because it is already borrowed as immutable", variable),
-                "E0301",
-                new_borrow.as_ref(),
-                Some(variable.as_str()),
-                None,
-            ),
-            BorrowError::ImmutableBorrowWhileMutableBorrowed { variable, new_borrow, .. } => (
-                format!("cannot borrow `{}` as immutable because it is already borrowed as mutable", variable),
-                "E0302",
-                new_borrow.as_ref(),
-                Some(variable.as_str()),
-                None,
-            ),
-            BorrowError::MutationWhileBorrowed { variable, borrowed_at } => (
-                format!("cannot assign to `{}` because it is borrowed", variable),
-                "E0303",
-                borrowed_at.as_ref(),
-                Some(variable.as_str()),
-                None,
-            ),
-            BorrowError::MoveWhileBorrowed { variable, borrow_location } => (
-                format!("cannot move out of `{}` because it is borrowed", variable),
-                "E0304",
-                borrow_location.as_ref(),
-                Some(variable.as_str()),
-                None,
-            ),
-            BorrowError::ReturnLocalReference { variable } => (
-                format!("cannot return reference to local variable `{}`", variable),
-                "E0401",
-                None,
-                Some(variable.as_str()),
-                None,
-            ),
-            BorrowError::DanglingReference { reference, referent } => (
-                format!("variable `{}` references `{}` which is out of scope", reference, referent),
-                "E0402",
-                None,
-                Some(reference.as_str()),
-                None,
-            ),
-            BorrowError::UseAfterScopeEnd { variable, .. } => (
-                format!("use of `{}` after it went out of scope", variable),
-                "E0403",
-                None,
-                Some(variable.as_str()),
-                None,
-            ),
-            BorrowError::ReturnDanglingReference { variable } => (
-                format!("returning reference to local variable `{}` which will be dropped", variable),
-                "E0404",
-                None,
-                Some(variable.as_str()),
-                None,
-            ),
-            BorrowError::UnsafeOperationOutsideUnsafeBlock { operation, location } => (
-                format!("unsafe operation `{}` requires unsafe block\nhelp: wrap this in an `unsafe {{ }}` block", operation),
-                "E0133",
-                location.as_ref(),
-                None,
-                None,
-            ),
-        };
-
-        // Choose the appropriate search method based on error type
-        let range = if let Some(field_name) = field {
-            // For field-specific errors, use field search
-            if let Some(var_name) = variable {
-                self.find_field_usage_in_source(source, var_name, field_name)
-            } else {
-                self.default_range()
-            }
-        } else if let Some(var_name) = variable {
-            // For variable errors, use comprehensive variable search
-            self.find_variable_usage_in_source(source, var_name, location_str)
-        } else {
-            self.default_range()
-        };
-
-        Diagnostic {
-            range,
-            severity: Some(DiagnosticSeverity::ERROR),
-            code: Some(NumberOrString::String(code.to_string())),
-            source: Some("vex-borrow-checker".to_string()),
-            message: message.to_string(),
-            ..Default::default()
-        }
+        let diag = error.to_diagnostic(span_map);
+        // Reuse conversion helper to include relatedInformation
+        let mut lsp_diag = vex_to_lsp_diagnostic(&diag);
+        lsp_diag.code = Some(NumberOrString::String(diag.code));
+        lsp_diag.source = Some("vex-borrow-checker".to_string());
+        lsp_diag
     }
 
     /// Default range for errors without position info
@@ -686,6 +585,100 @@ impl VexBackend {
 }
 
 pub fn vex_to_lsp_diagnostic(vex_diag: &vex_diagnostics::Diagnostic) -> Diagnostic {
+    // Map related Diagnostic spans to LSP relatedInformation
+    let related_information = if !vex_diag.related.is_empty() {
+        let mut infos = Vec::new();
+        for (span, msg) in &vex_diag.related {
+            // Try to resolve a span.file to a URL for LSP: prefer file path, then parse as URL,
+            // and fall back to workspace-relative file paths.
+            let uri_opt: Option<Url> = match Url::from_file_path(&span.file) {
+                Ok(u) => Some(u),
+                Err(_) => {
+                    // Try parsing as a raw URI string
+                    if let Ok(u) = Url::parse(&span.file) {
+                        Some(u)
+                    } else {
+                        // Try to resolve as a relative path from current dir
+                        if let Ok(cwd) = std::env::current_dir() {
+                            if let Ok(u) = Url::from_file_path(cwd.join(&span.file)) {
+                                Some(u)
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    }
+                }
+            };
+            if let Some(uri) = uri_opt {
+                let range = Range {
+                    start: Position {
+                        line: span.line.saturating_sub(1) as u32,
+                        character: span.column.saturating_sub(1) as u32,
+                    },
+                    end: Position {
+                        line: span.line.saturating_sub(1) as u32,
+                        character: (span.column.saturating_sub(1) + span.length) as u32,
+                    },
+                };
+                infos.push(tower_lsp::lsp_types::DiagnosticRelatedInformation {
+                    location: tower_lsp::lsp_types::Location { uri, range },
+                    message: msg.clone(),
+                });
+            }
+        }
+        Some(infos)
+    } else {
+        None
+    };
+    // Add 'help' or 'suggestion' as related information if present and if there are no other related spans.
+    let mut related_information = related_information.unwrap_or_default();
+    let base_related_len = related_information.len();
+    if base_related_len == 0 {
+        if let Some(help) = &vex_diag.help {
+        // Attach the help message as related information at the primary location
+        if let Some(uri) = Url::from_file_path(&vex_diag.span.file).ok() {
+            let range = Range {
+                start: Position {
+                    line: vex_diag.span.line.saturating_sub(1) as u32,
+                    character: vex_diag.span.column.saturating_sub(1) as u32,
+                },
+                end: Position {
+                    line: vex_diag.span.line.saturating_sub(1) as u32,
+                    character: (vex_diag.span.column.saturating_sub(1) + vex_diag.span.length) as u32,
+                },
+            };
+            related_information.push(tower_lsp::lsp_types::DiagnosticRelatedInformation {
+                location: tower_lsp::lsp_types::Location { uri, range },
+                message: format!("help: {}", help),
+            });
+        }
+        }
+        if let Some(sugg) = &vex_diag.suggestion {
+        if let Some(uri) = Url::from_file_path(&vex_diag.span.file).ok() {
+            let range = Range {
+                start: Position {
+                    line: vex_diag.span.line.saturating_sub(1) as u32,
+                    character: vex_diag.span.column.saturating_sub(1) as u32,
+                },
+                end: Position {
+                    line: vex_diag.span.line.saturating_sub(1) as u32,
+                    character: (vex_diag.span.column.saturating_sub(1) + vex_diag.span.length) as u32,
+                },
+            };
+            related_information.push(tower_lsp::lsp_types::DiagnosticRelatedInformation {
+                location: tower_lsp::lsp_types::Location { uri, range },
+                message: format!("suggestion: {} -> {}", sugg.message, sugg.replacement),
+            });
+        }
+        }
+    }
+    let related_information = if related_information.is_empty() {
+        None
+    } else {
+        Some(related_information)
+    };
     Diagnostic {
         range: Range {
             start: Position {
@@ -699,8 +692,194 @@ pub fn vex_to_lsp_diagnostic(vex_diag: &vex_diagnostics::Diagnostic) -> Diagnost
         },
         severity: Some(DiagnosticSeverity::ERROR), // Default to error for now
         code: Some(NumberOrString::String(vex_diag.code.clone())),
-        message: vex_diag.message.clone(),
+        message: if let Some(label) = &vex_diag.primary_label {
+            format!("{}: {}", label, vex_diag.message)
+        } else {
+            vex_diag.message.clone()
+        },
         source: Some("vex".to_string()),
+        related_information,
         ..Default::default()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use vex_diagnostics::{Diagnostic as VexDiagnostic, ErrorLevel, Span};
+
+    #[test]
+    fn test_vex_to_lsp_related_information() {
+        let mut path = std::env::temp_dir();
+        path.push("test.vx");
+        let span = Span::new(path.display().to_string(), 5, 1, 1);
+        let vex_diag = VexDiagnostic {
+            level: ErrorLevel::Error,
+            code: "E000".to_string(),
+            message: "error".to_string(),
+            span: span.clone(),
+            primary_label: None,
+            notes: Vec::new(),
+            help: None,
+            suggestion: None,
+            related: vec![(span.clone(), "value moved here".to_string())],
+        };
+
+        let lsp_diag = vex_to_lsp_diagnostic(&vex_diag);
+        assert!(lsp_diag.related_information.is_some());
+        let infos = lsp_diag.related_information.unwrap();
+        assert_eq!(infos.len(), 1);
+        assert!(infos[0].message.contains("value moved here"));
+    }
+
+    #[test]
+    fn test_mutation_while_borrowed_to_lsp_related_information() {
+        use vex_compiler::borrow_checker::errors::BorrowError;
+        use vex_diagnostics::SpanMap;
+
+        let mut span_map = SpanMap::new();
+        let id = span_map.generate_id();
+        let span = Span::new(std::env::temp_dir().join("file_b.vx").display().to_string(), 2, 1, 1);
+        span_map.record(id.clone(), span.clone());
+
+        let err = BorrowError::MutationWhileBorrowed {
+            variable: "x".to_string(),
+            borrowed_at: Some(id.clone()),
+        };
+        let diag = err.to_diagnostic(&span_map);
+        let lsp_diag = vex_to_lsp_diagnostic(&diag);
+        assert!(lsp_diag.related_information.is_some());
+        let infos = lsp_diag.related_information.unwrap();
+        assert_eq!(infos.len(), 1);
+        assert!(infos[0].message.contains("borrow occurs"));
+    }
+
+    #[test]
+    fn test_parse_and_diagnose_end_to_end() {
+        // We parse a simple snippet that causes a use-after-move and ensure the LSP conversion
+        // includes related information that points at the 'moved here' span.
+        let code = r#"
+            fn main() {
+                let s = "hello";
+                let t = foo(s);
+                println(s);
+            }
+        "#;
+
+        // Parse the program and obtain its span map
+        let mut tmp_path = std::env::temp_dir();
+        tmp_path.push("e2e_test.vx");
+        let file_path_str = tmp_path.display().to_string();
+        let mut parser = vex_parser::Parser::new_with_file(&file_path_str, code).expect("Parser::new failed");
+        let program = parser.parse().expect("Parse failed");
+        let span_map = parser.take_span_map();
+
+        // Run borrow checker
+        let mut checker = vex_compiler::borrow_checker::BorrowChecker::new();
+        let result = checker.check_program(&mut program.clone());
+
+        // Ensure it returns an error (use-after-move should be detected)
+        assert!(result.is_err());
+        let err = result.err().unwrap();
+        // E2E: UseAfterMove error is generated by the checker; ensure moved_at set
+        // Inspect the parsed AST: ensure the Call expression has a span_id set
+        // Find the Call expression in the program
+        let mut found_call_span = false;
+        let mut recorded_id: Option<String> = None;
+        // Expect UseAfterMove error
+        match &err {
+            vex_compiler::borrow_checker::errors::BorrowError::UseAfterMove { variable, moved_at, .. } => {
+                assert_eq!(variable, "s");
+                assert!(moved_at.is_some(), "Expected moved_at to be set on UseAfterMove");
+                if let Some(moved_id) = moved_at {
+                    // ensure the span_map contains the id
+                    assert!(span_map.get(moved_id).is_some(), "SpanMap missing moved_at id: {}", moved_id);
+                    // moved_at id exists in span_map
+                }
+                // If we recorded a call span, ensure the moved_at corresponds to it
+                if let Some(call_id) = recorded_id.as_ref() {
+                    assert_eq!(moved_at.as_ref(), Some(call_id), "Moved_at should reference the call span id");
+                    // Check that the span_map resolves this id
+                    assert!(span_map.get(call_id).is_some(), "SpanMap must contain the moved_at id used by the error");
+                }
+            }
+            _ => panic!("Expected UseAfterMove but got {:?}", err),
+        }
+        // Inspect the parsed AST: ensure the Call expression has a span_id set
+        // Find the Call expression in the program
+        // reuse found_call_span and recorded_id above for checking AST call spans
+        for item in &program.items {
+            if let vex_ast::Item::Function(func) = item {
+                for stmt in &func.body.statements {
+                    if let vex_ast::Statement::Let { value, .. } = stmt {
+                        if let vex_ast::Expression::Call { span_id, .. } = value {
+                            if let Some(id) = span_id.as_ref() {
+                                found_call_span = true;
+                                recorded_id = Some(id.clone());
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        assert!(found_call_span, "Call expression should have a span_id");
+        if let Some(id) = recorded_id {
+            assert!(span_map.get(&id).is_some(), "SpanMap should contain the call span id");
+        }
+        let diag = err.to_diagnostic(&span_map);
+        let lsp_diag = vex_to_lsp_diagnostic(&diag);
+
+        // Related information (moved here) should be present
+        assert!(lsp_diag.related_information.is_some());
+        let infos = lsp_diag.related_information.unwrap();
+        assert!(!infos.is_empty());
+        assert!(infos.iter().any(|i| i.message.to_lowercase().contains("moved here") || i.message.to_lowercase().contains("moved")));
+    }
+
+    #[test]
+    fn test_help_and_suggestion_to_lsp_related_information() {
+        let mut path = std::env::temp_dir();
+        path.push("test2.vx");
+        let span = Span::new(path.display().to_string(), 10, 2, 3);
+
+        let suggestion = vex_diagnostics::Suggestion {
+            message: "rename to print".to_string(),
+            replacement: "print".to_string(),
+            span: span.clone(),
+        };
+
+        let vex_diag = VexDiagnostic {
+            level: ErrorLevel::Error,
+            code: "E0425".to_string(),
+            message: "cannot find function `prinnt`".to_string(),
+            span: span.clone(),
+            primary_label: Some("undefined function".to_string()),
+            notes: Vec::new(),
+            help: Some("did you mean `print`?".to_string()),
+            suggestion: Some(suggestion),
+            related: vec![],
+        };
+
+        let lsp_diag = vex_to_lsp_diagnostic(&vex_diag);
+        assert!(lsp_diag.related_information.is_some());
+        let infos = lsp_diag.related_information.unwrap();
+        // Should include both help and suggestion
+        assert!(infos.iter().any(|i| i.message.contains("help: did you mean")));
+        assert!(infos.iter().any(|i| i.message.contains("suggestion:")));
+    }
+
+    #[test]
+    fn test_primary_label_in_message_prefix() {
+        let span = Span::new("file.vx".to_string(), 1, 1, 1);
+        let vex_diag = VexDiagnostic::error(
+            "E0308",
+            "mismatched types".to_string(),
+            span.clone(),
+        )
+        .with_primary_label("mismatched types".to_string());
+
+        let lsp_diag = vex_to_lsp_diagnostic(&vex_diag);
+        assert!(lsp_diag.message.starts_with("mismatched types:"));
     }
 }

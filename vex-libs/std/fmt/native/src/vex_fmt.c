@@ -3,6 +3,11 @@
 
 #include "vex_fmt.h"
 #include <stdlib.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <string.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdarg.h>
@@ -15,7 +20,8 @@
 
 void *vex_fmt_malloc(size_t size)
 {
-    void *ptr = malloc(size);
+    extern void *vex_malloc(size_t);
+    void *ptr = vex_malloc(size);
     if (!ptr && size > 0)
     {
         fprintf(stderr, "FATAL: vex_fmt out of memory (%zu bytes)\n", size);
@@ -28,7 +34,8 @@ void vex_fmt_free(void *ptr)
 {
     if (ptr)
     {
-        free(ptr);
+        extern void vex_free(void *);
+        vex_free(ptr);
     }
 }
 

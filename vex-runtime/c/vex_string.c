@@ -937,6 +937,7 @@ size_t vex_utf8_encode(uint32_t code_point, char *buf)
  * Convert i32 to string
  * Returns heap-allocated string (caller must free)
  */
+/*
 char *vex_i32_to_string(int32_t value)
 {
     // Max length: "-2147483648" = 11 chars + null terminator
@@ -952,6 +953,7 @@ char *vex_i32_to_string(int32_t value)
  * Convert i64 to string
  * Returns heap-allocated string (caller must free)
  */
+/*
 char *vex_i64_to_string(int64_t value)
 {
     // Max length: "-9223372036854775808" = 20 chars + null terminator
@@ -963,10 +965,6 @@ char *vex_i64_to_string(int64_t value)
     return buf;
 }
 
-/**
- * Convert u32 to string
- * Returns heap-allocated string (caller must free)
- */
 char *vex_u32_to_string(uint32_t value)
 {
     // Max length: "4294967295" = 10 chars + null terminator
@@ -978,10 +976,6 @@ char *vex_u32_to_string(uint32_t value)
     return buf;
 }
 
-/**
- * Convert u64 to string
- * Returns heap-allocated string (caller must free)
- */
 char *vex_u64_to_string(uint64_t value)
 {
     // Max length: "18446744073709551615" = 20 chars + null terminator
@@ -993,10 +987,6 @@ char *vex_u64_to_string(uint64_t value)
     return buf;
 }
 
-/**
- * Convert f32 to string
- * Returns heap-allocated string (caller must free)
- */
 char *vex_f32_to_string(float value)
 {
     // Max length: "-3.402823e+38" + some buffer = 32 chars
@@ -1007,6 +997,7 @@ char *vex_f32_to_string(float value)
     snprintf(buf, 32, "%g", value); // %g uses shortest representation
     return buf;
 }
+*/
 
 // ============================================================================
 // GO-LIKE STRING OPERATIONS
@@ -1213,6 +1204,7 @@ char *vex_str_replace(const char *s, const char *old_str, const char *new_str)
  * Convert f64 to string
  * Returns heap-allocated string (caller must free)
  */
+/*
 char *vex_f64_to_string(double value)
 {
     // Max length: "-1.797693e+308" + some buffer = 32 chars
@@ -1223,25 +1215,32 @@ char *vex_f64_to_string(double value)
     snprintf(buf, 32, "%g", value); // %g uses shortest representation
     return buf;
 }
+*/
 
 /**
  * Convert bool to string
  * Returns heap-allocated string (caller must free)
  */
+/*
 char *vex_bool_to_string(bool value)
 {
-    const char *str = value ? "true" : "false";
-    return vex_strdup(str);
+    if (value)
+        return vex_strdup("true");
+    else
+        return vex_strdup("false");
 }
+*/
 
 /**
  * String to string (identity function for consistency)
  * Returns heap-allocated copy (caller must free)
  */
+/*
 char *vex_string_to_string(const char *value)
 {
     return vex_strdup(value ? value : "");
 }
+*/
 
 // ============================================================================
 // STRING INDEXING AND SLICING (v0.1.2)

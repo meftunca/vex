@@ -4,21 +4,16 @@
 // Usage:
 //   import { alloc, free, memcpy, Box } from "memory";
 
-// External C functions from vex-runtime/c/vex_alloc.c and vex_memory.c
-extern "C" {
-    // Allocation
-    fn vex_malloc(size: u64): *u8;
-    fn vex_calloc(nmemb: u64, size: u64): *u8;
-    fn vex_realloc(ptr: *u8, size: u64): *u8;
-    fn vex_free(ptr: *u8);
-
-    // Memory operations
-    fn vex_memcpy(dest: *u8, src: *u8, n: u64): *u8;
-    fn vex_memmove(dest: *u8, src: *u8, n: u64): *u8;
-    fn vex_memset(s: *u8, c: i32, n: u64): *u8;
-    fn vex_memcmp(s1: *u8, s2: *u8, n: u64): i32;
-}
-
+import {
+    vex_malloc,
+    vex_calloc,
+    vex_realloc,
+    vex_free,
+    vex_memcpy,
+    vex_memmove,
+    vex_memset,
+    vex_memcmp
+} from "./native.vxc";
 // Safe allocation functions
 export fn alloc(size: u64): *u8 {
     if size == 0 {

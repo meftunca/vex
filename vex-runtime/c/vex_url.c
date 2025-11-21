@@ -249,13 +249,13 @@ VexMap *vex_url_parse_query(const char *query)
       *eq = '\0';
       char *key = vex_url_decode(pair);
       char *value = vex_url_decode(eq + 1);
-      vex_map_insert(params, key, value);
+      vex_map_insert(params, key, strlen(key), value);
     }
     else
     {
       // Key without value
       char *key = vex_url_decode(pair);
-      vex_map_insert(params, key, vex_strdup(""));
+      vex_map_insert(params, key, strlen(key), vex_strdup(""));
     }
 
     pair = strtok_r(NULL, "&", &saveptr);

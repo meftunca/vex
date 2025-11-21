@@ -1,7 +1,6 @@
 // Instance method call compilation (variable and field access receivers)
 
 use crate::codegen_ast::ASTCodeGen;
-use inkwell::values::BasicValueEnum;
 use vex_ast::*;
 
 impl<'ctx> ASTCodeGen<'ctx> {

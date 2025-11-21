@@ -204,7 +204,24 @@ mod tests {
 
     #[test]
     fn test_runtime_creation() {
-        let rt = AsyncRuntime::new(2).expect("Failed to create runtime");
+        use std::sync::Arc;
+        use std::thread;
+
+        let rt = Arc::new(AsyncRuntime::new(2).expect("Failed to create runtime"));
+        // Start runtime in background thread to ensure proper initialization and teardown
+        let rt2 = rt.clone();
+        let handle = thread::spawn(move || {
+            rt2.enable_auto_shutdown(true);
+            rt2.run();
+        });
+
+        // Allow runtime to boot up briefly
+        thread::sleep(std::time::Duration::from_millis(10));
+
+        // Trigger shutdown and wait for background thread to finish
+        rt.shutdown();
+        handle.join().expect("Failed to join runtime thread");
+
         let stats = rt.stats();
         assert_eq!(stats.tasks_spawned, 0);
     }

@@ -42,6 +42,9 @@ impl UnreachableCodeRule {
                     span: Span::unknown(), // TODO: Get actual span
                     help: Some("remove this code or fix control flow".to_string()),
                     notes: vec![],
+                    related: Vec::new(),
+                    primary_label: Some("unreachable code".to_string()),
+                    suggestion: None,
                 });
                 break; // Only warn once per block
             }
@@ -62,7 +65,7 @@ impl UnreachableCodeRule {
         match stmt {
             Statement::Return { .. } => true,
             
-            Statement::Break | Statement::Continue => {
+            Statement::Break { span_id: _ } | Statement::Continue { span_id: _ } => {
                 // break/continue terminate current block but not the function
                 in_loop
             }

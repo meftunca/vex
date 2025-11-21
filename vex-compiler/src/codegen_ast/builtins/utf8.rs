@@ -28,7 +28,7 @@ pub fn builtin_utf8_valid<'ctx>(
         .build_int_z_extend(len, codegen.context.i64_type(), "len_cast")
         .map_err(|e| format!("Failed to cast length: {}", e))?;
 
-    let i8_ptr = codegen.context.i8_type().ptr_type(AddressSpace::default());
+    let i8_ptr = codegen.context.ptr_type(AddressSpace::default());
     let vex_utf8_valid = codegen.declare_runtime_fn(
         "vex_utf8_valid",
         &[i8_ptr.into(), codegen.context.i64_type().into()],
@@ -61,7 +61,7 @@ pub fn builtin_utf8_char_count<'ctx>(
         _ => return Err("utf8_char_count() argument must be a pointer".to_string()),
     };
 
-    let i8_ptr = codegen.context.i8_type().ptr_type(AddressSpace::default());
+    let i8_ptr = codegen.context.ptr_type(AddressSpace::default());
     let vex_utf8_char_count = codegen.declare_runtime_fn(
         "vex_utf8_char_count",
         &[i8_ptr.into()],
@@ -104,7 +104,7 @@ pub fn builtin_utf8_char_at<'ctx>(
         .build_int_z_extend(index, codegen.context.i64_type(), "index_cast")
         .map_err(|e| format!("Failed to cast index: {}", e))?;
 
-    let i8_ptr = codegen.context.i8_type().ptr_type(AddressSpace::default());
+    let i8_ptr = codegen.context.ptr_type(AddressSpace::default());
     let vex_utf8_char_at = codegen.declare_runtime_fn(
         "vex_utf8_char_at",
         &[i8_ptr.into(), codegen.context.i64_type().into()],

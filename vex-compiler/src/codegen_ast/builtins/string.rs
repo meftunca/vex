@@ -20,11 +20,7 @@ pub fn builtin_strlen<'ctx>(
 
     let vex_strlen = codegen.declare_runtime_fn(
         "vex_strlen",
-        &[codegen
-            .context
-            .i8_type()
-            .ptr_type(AddressSpace::default())
-            .into()],
+        &[codegen.context.ptr_type(AddressSpace::default()).into()],
         codegen.context.i64_type().into(),
     );
 
@@ -55,7 +51,7 @@ pub fn builtin_strcmp<'ctx>(
         _ => return Err("strcmp() second argument must be a string pointer".to_string()),
     };
 
-    let i8_ptr = codegen.context.i8_type().ptr_type(AddressSpace::default());
+    let i8_ptr = codegen.context.ptr_type(AddressSpace::default());
     let vex_strcmp = codegen.declare_runtime_fn(
         "vex_strcmp",
         &[i8_ptr.into(), i8_ptr.into()],
@@ -89,7 +85,7 @@ pub fn builtin_strcpy<'ctx>(
         _ => return Err("strcpy() second argument must be a pointer".to_string()),
     };
 
-    let i8_ptr = codegen.context.i8_type().ptr_type(AddressSpace::default());
+    let i8_ptr = codegen.context.ptr_type(AddressSpace::default());
     let vex_strcpy =
         codegen.declare_runtime_fn("vex_strcpy", &[i8_ptr.into(), i8_ptr.into()], i8_ptr.into());
 
@@ -120,7 +116,7 @@ pub fn builtin_strcat<'ctx>(
         _ => return Err("strcat() second argument must be a pointer".to_string()),
     };
 
-    let i8_ptr = codegen.context.i8_type().ptr_type(AddressSpace::default());
+    let i8_ptr = codegen.context.ptr_type(AddressSpace::default());
     let vex_strcat =
         codegen.declare_runtime_fn("vex_strcat", &[i8_ptr.into(), i8_ptr.into()], i8_ptr.into());
 
@@ -146,7 +142,7 @@ pub fn builtin_strdup<'ctx>(
         _ => return Err("strdup() argument must be a string pointer".to_string()),
     };
 
-    let i8_ptr = codegen.context.i8_type().ptr_type(AddressSpace::default());
+    let i8_ptr = codegen.context.ptr_type(AddressSpace::default());
     let vex_strdup = codegen.declare_runtime_fn("vex_strdup", &[i8_ptr.into()], i8_ptr.into());
 
     let result = codegen

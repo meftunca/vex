@@ -34,7 +34,7 @@ import {
     MINUTE,
     HOUR
 } from "time";
-
+import * as mem from "memory";
 fn test_now_and_monotonic(): i32 {
     let m1 = monotonic_now();
     let m2 = monotonic_now();

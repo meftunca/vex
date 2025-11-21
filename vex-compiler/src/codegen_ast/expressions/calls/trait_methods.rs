@@ -1,7 +1,7 @@
 // Trait method resolution and compilation
 
 use crate::codegen_ast::ASTCodeGen;
-use crate::{debug_log, debug_println};
+use crate::debug_println;
 use vex_ast::*;
 
 impl<'ctx> ASTCodeGen<'ctx> {
@@ -381,6 +381,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         // Convert TraitMethod to Function for compilation
         let func = vex_ast::Function {
             is_exported: false,
+            span_id: None, // Synthetic method, no source span
             is_async: false,
             is_gpu: false,
             is_mutable: trait_method.is_mutable, // ⭐ NEW: Copy mutability from trait

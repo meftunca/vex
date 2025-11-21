@@ -1,8 +1,7 @@
 // Closure utilities and helper functions
 
 use crate::codegen_ast::ASTCodeGen;
-use inkwell::types::BasicType;
-use inkwell::values::{BasicValueEnum, FunctionValue, PointerValue};
+use inkwell::values::{FunctionValue, PointerValue};
 use vex_ast::*;
 
 impl<'ctx> ASTCodeGen<'ctx> {
@@ -153,6 +152,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         // Create method with receiver
         let method = Function {
             is_exported: false, // Generated closure methods are internal
+            span_id: None,      // Synthetic method, no source span
             is_async: false,
             is_gpu: false,
             is_mutable,         // ⭐ NEW: Method mutability matches closure capture mode
@@ -162,25 +162,25 @@ impl<'ctx> ASTCodeGen<'ctx> {
             receiver: Some(Receiver {
                 name: "self".to_string(), // Generated closure struct methods use 'self'
                 is_mutable,
-                ty: Type::Reference(Box::new(Type::Named(struct_name.clone())), is_mutable),
-            }),
-            name: method_name.to_string(),
-            type_params: vec![],
-            const_params: vec![],
-            where_clause: vec![],
-            params: method_params,
-            return_type: return_type.clone(),
-            body: Block {
-                statements: vec![], // Empty body - will be generated in codegen
-            },
-            is_variadic: false,
-            variadic_type: None,
-        };
-
-        // Create struct definition with trait impl (no fields - managed by LLVM)
+            ty: Type::Reference(Box::new(Type::Named(struct_name.clone())), is_mutable),
+        }),
+        name: method_name.to_string(),
+        type_params: vec![],
+        const_params: vec![],
+        where_clause: vec![],
+        params: method_params,
+        return_type: return_type.clone(),
+        body: Block {
+            span_id: None, // Synthetic closure method, no source location
+            statements: vec![], // Empty body - will be generated in codegen
+        },
+        is_variadic: false,
+        variadic_type: None,
+    };        // Create struct definition with trait impl (no fields - managed by LLVM)
         // The actual closure struct layout (fn_ptr + env_ptr) is internal to LLVM
         let struct_def = Struct {
             is_exported: false, // Generated closure structs are internal
+            span_id: None,      // Synthetic struct, no source span
             name: struct_name.clone(),
             type_params: vec![],
             const_params: vec![],
@@ -209,9 +209,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
     /// Infer parameter type from usage in closure body
     pub fn infer_param_type_from_body(&self, param_name: &str, body: &Expression) -> Option<Type> {
         match body {
-            Expression::Binary {
-                left, right, op, ..
-            } => {
+            Expression::Binary { left, right, .. } => {
                 // Check if parameter is used in binary expression
                 if let Expression::Ident(name) = &**left {
                     if name == param_name {
@@ -271,19 +269,17 @@ impl<'ctx> ASTCodeGen<'ctx> {
     fn infer_expr_type(&self, expr: &Expression) -> Option<Type> {
         match expr {
             Expression::IntLiteral(_) => Some(Type::I32),
-            Expression::TypedIntLiteral { type_suffix, .. } => {
-                Some(match type_suffix.as_str() {
-                    "i8" => Type::I8,
-                    "i16" => Type::I16,
-                    "i32" => Type::I32,
-                    "i64" => Type::I64,
-                    "u8" => Type::U8,
-                    "u16" => Type::U16,
-                    "u32" => Type::U32,
-                    "u64" => Type::U64,
-                    _ => Type::I32,
-                })
-            }
+            Expression::TypedIntLiteral { type_suffix, .. } => Some(match type_suffix.as_str() {
+                "i8" => Type::I8,
+                "i16" => Type::I16,
+                "i32" => Type::I32,
+                "i64" => Type::I64,
+                "u8" => Type::U8,
+                "u16" => Type::U16,
+                "u32" => Type::U32,
+                "u64" => Type::U64,
+                _ => Type::I32,
+            }),
             Expression::FloatLiteral(_) => Some(Type::F64),
             Expression::BoolLiteral(_) => Some(Type::Bool),
             Expression::StringLiteral(_) => Some(Type::String),

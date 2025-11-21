@@ -126,7 +126,7 @@ impl DeadCodeRule {
                 self.collect_usages_in_expression(expr);
             }
             Statement::Let { value, .. } => {ession(value);
-            Statement::Return(value) => {
+            Statement::Return { span_id: _, value: value } => {
                 if let Some(expr) = value {
                     self.collect_usages_in_expression(expr);
                 }
@@ -148,7 +148,7 @@ impl DeadCodeRule {
                     self.collect_usages_in_statement(stmt);
                 }
             }
-            Statement::ForIn { iterable, body, .. } => {
+            Statement::ForIn {  iterable, body, .. } => {
                 self.collect_usages_in_expression(iterable);
                 for stmt in &body.statements {
                     self.collect_usages_in_statement(stmt);
@@ -290,6 +290,9 @@ impl DeadCodeRule {
                     span: Span::unknown(), // TODO: Get actual span from AST
                     help: Some("consider removing this item or making it public".to_string()),
                     notes: vec![],
+                    related: Vec::new(),
+                    primary_label: Some("dead code".to_string()),
+                    suggestion: None,
                 });
             }
         }

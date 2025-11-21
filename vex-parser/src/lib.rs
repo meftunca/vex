@@ -30,7 +30,9 @@ impl ParseError {
 
     /// Create syntax error
     pub fn syntax_error(message: String, span: Span) -> Self {
-        let diag = Diagnostic::error(error_codes::SYNTAX_ERROR, message, span);
+        let diag = Diagnostic::error(error_codes::SYNTAX_ERROR, message.clone(), span)
+            .with_primary_label("syntax error".to_string())
+            .with_help(message);
         Self::Diagnostic(diag)
     }
 
@@ -41,6 +43,9 @@ impl ParseError {
             format!("expected {}, found {}", expected, found),
             span,
         );
+        let diag = diag
+            .with_primary_label(format!("expected {}", expected))
+            .with_help(format!("found {}", found));
         Self::Diagnostic(diag)
     }
 
@@ -51,6 +56,9 @@ impl ParseError {
             format!("unexpected end of file, expected {}", expected),
             span,
         );
+        let diag = diag
+            .with_primary_label("unexpected eof".to_string())
+            .with_help(format!("expected {} before end of file", expected));
         Self::Diagnostic(diag)
     }
 

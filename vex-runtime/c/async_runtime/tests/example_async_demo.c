@@ -53,6 +53,7 @@
 #include <string.h>
 #include "../include/runtime.h"
 #include "../include/lockfree_queue.h"
+#include "../include/internal.h"
 
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(a) ((int)(sizeof(a) / sizeof((a)[0])))
@@ -94,7 +95,7 @@ static CoroStatus producer_coro(WorkerContext *ctx, void *data)
     int N = sh->expected_per_producer;
     for (int i = 0; i < N; ++i)
     {
-        Msg *m = (Msg *)malloc(sizeof(Msg));
+        Msg *m = (Msg *)xmalloc(sizeof(Msg));
         m->producer_id = my_id;
         m->seq = i;
         m->payload = (uint64_t)(my_id * 1000000 + i);
@@ -102,12 +103,12 @@ static CoroStatus producer_coro(WorkerContext *ctx, void *data)
         {
             // Kuyruk doluysa kısa bir bekleme ile tekrar dene
             worker_await_after(ctx, 1); // 1ms
-            return CORO_STATUS_YIELDED;  // Timer bekle!
+            return CORO_STATUS_YIELDED; // Timer bekle!
         }
         atomic_fetch_add(&sh->produced_total, 1);
         // üretim hızı: 2ms
         worker_await_after(ctx, 2);
-        return CORO_STATUS_YIELDED;  // Timer bekle!
+        return CORO_STATUS_YIELDED; // Timer bekle!
     }
 
     // bitti
@@ -125,8 +126,8 @@ static CoroStatus consumer_coro(WorkerContext *ctx, void *data)
         // "işleme" simülasyonu
         worker_await_after(ctx, 1 + (m->payload % 3));
         atomic_fetch_add(&sh->consumed_total, 1);
-        free(m);
-        return CORO_STATUS_YIELDED;  // Timer bekle!
+        xfree(m);
+        return CORO_STATUS_YIELDED; // Timer bekle!
     }
     else
     {
@@ -138,7 +139,7 @@ static CoroStatus consumer_coro(WorkerContext *ctx, void *data)
         }
         // kısa bekleme ile tekrar dene
         worker_await_after(ctx, 1);
-        return CORO_STATUS_YIELDED;  // Timer bekle!
+        return CORO_STATUS_YIELDED; // Timer bekle!
     }
 }
 
@@ -169,7 +170,7 @@ static CoroStatus supervisor_coro(WorkerContext *ctx, void *data)
     }
 
     worker_await_after(ctx, 5);
-    return CORO_STATUS_YIELDED;  // Timer bekle!
+    return CORO_STATUS_YIELDED; // Timer bekle!
 }
 
 int main(void)
@@ -184,7 +185,7 @@ int main(void)
     runtime_enable_auto_shutdown(rt, false); // kapanışı supervisor yapacak
     runtime_set_tracing(rt, false);
 
-    Shared *sh = (Shared *)malloc(sizeof(Shared));
+    Shared *sh = (Shared *)xmalloc(sizeof(Shared));
     memset(sh, 0, sizeof(*sh));
     sh->q = lfq_create(1024);
     atomic_store(&sh->producers_alive, NUM_PRODUCERS);
@@ -216,7 +217,7 @@ int main(void)
             (unsigned long long)stats.io_submitted);
 
     lfq_destroy(sh->q);
-    free(sh);
+    xfree(sh);
     runtime_destroy(rt);
     return 0;
 }

@@ -9,9 +9,20 @@ impl<'a> Parser<'a> {
         let mut expr = self.parse_null_coalesce()?;
 
         while self.match_token(&Token::Or) {
+            let op_start = self.current - 1;
             let right = self.parse_null_coalesce()?;
+            let op_end = self.current - 1;
+
+            let span = crate::Span::from_file_and_span(
+                &self.file_name,
+                self.source,
+                self.tokens[op_start].span.start..self.tokens[op_end].span.end,
+            );
+            let span_id = self.span_map.generate_id();
+            self.span_map.record(span_id.clone(), span);
+
             expr = Expression::Binary {
-                span_id: None,
+                span_id: Some(span_id),
                 left: Box::new(expr),
                 op: BinaryOp::Or,
                 right: Box::new(right),
@@ -25,9 +36,20 @@ impl<'a> Parser<'a> {
         let mut expr = self.parse_logical_and()?;
 
         while self.match_token(&Token::QuestionQuestion) {
+            let op_start = self.current - 1;
             let right = self.parse_logical_and()?;
+            let op_end = self.current - 1;
+
+            let span = crate::Span::from_file_and_span(
+                &self.file_name,
+                self.source,
+                self.tokens[op_start].span.start..self.tokens[op_end].span.end,
+            );
+            let span_id = self.span_map.generate_id();
+            self.span_map.record(span_id.clone(), span);
+
             expr = Expression::Binary {
-                span_id: None,
+                span_id: Some(span_id),
                 left: Box::new(expr),
                 op: BinaryOp::NullCoalesce,
                 right: Box::new(right),
@@ -41,9 +63,20 @@ impl<'a> Parser<'a> {
         let mut expr = self.parse_bitwise_or()?;
 
         while self.match_token(&Token::And) {
+            let op_start = self.current - 1;
             let right = self.parse_bitwise_or()?;
+            let op_end = self.current - 1;
+
+            let span = crate::Span::from_file_and_span(
+                &self.file_name,
+                self.source,
+                self.tokens[op_start].span.start..self.tokens[op_end].span.end,
+            );
+            let span_id = self.span_map.generate_id();
+            self.span_map.record(span_id.clone(), span);
+
             expr = Expression::Binary {
-                span_id: None,
+                span_id: Some(span_id),
                 left: Box::new(expr),
                 op: BinaryOp::And,
                 right: Box::new(right),
@@ -58,17 +91,39 @@ impl<'a> Parser<'a> {
 
         // Binary range operators for operator overloading: a..b and a..=b
         if self.match_token(&Token::DotDotEq) {
+            let op_start = self.current - 1;
             let right = self.parse_bitwise_or()?;
+            let op_end = self.current - 1;
+
+            let span = crate::Span::from_file_and_span(
+                &self.file_name,
+                self.source,
+                self.tokens[op_start].span.start..self.tokens[op_end].span.end,
+            );
+            let span_id = self.span_map.generate_id();
+            self.span_map.record(span_id.clone(), span);
+
             expr = Expression::Binary {
-                span_id: None,
+                span_id: Some(span_id),
                 left: Box::new(expr),
                 op: BinaryOp::RangeInclusive,
                 right: Box::new(right),
             };
         } else if self.match_token(&Token::DotDot) {
+            let op_start = self.current - 1;
             let right = self.parse_bitwise_or()?;
+            let op_end = self.current - 1;
+
+            let span = crate::Span::from_file_and_span(
+                &self.file_name,
+                self.source,
+                self.tokens[op_start].span.start..self.tokens[op_end].span.end,
+            );
+            let span_id = self.span_map.generate_id();
+            self.span_map.record(span_id.clone(), span);
+
             expr = Expression::Binary {
-                span_id: None,
+                span_id: Some(span_id),
                 left: Box::new(expr),
                 op: BinaryOp::Range,
                 right: Box::new(right),
@@ -82,9 +137,20 @@ impl<'a> Parser<'a> {
         let mut expr = self.parse_bitwise_xor()?;
 
         while self.match_token(&Token::Pipe) {
+            let op_start = self.current - 1;
             let right = self.parse_bitwise_xor()?;
+            let op_end = self.current - 1;
+
+            let span = crate::Span::from_file_and_span(
+                &self.file_name,
+                self.source,
+                self.tokens[op_start].span.start..self.tokens[op_end].span.end,
+            );
+            let span_id = self.span_map.generate_id();
+            self.span_map.record(span_id.clone(), span);
+
             expr = Expression::Binary {
-                span_id: None,
+                span_id: Some(span_id),
                 left: Box::new(expr),
                 op: BinaryOp::BitOr,
                 right: Box::new(right),
@@ -98,9 +164,20 @@ impl<'a> Parser<'a> {
         let mut expr = self.parse_bitwise_and()?;
 
         while self.match_token(&Token::Caret) {
+            let op_start = self.current - 1;
             let right = self.parse_bitwise_and()?;
+            let op_end = self.current - 1;
+
+            let span = crate::Span::from_file_and_span(
+                &self.file_name,
+                self.source,
+                self.tokens[op_start].span.start..self.tokens[op_end].span.end,
+            );
+            let span_id = self.span_map.generate_id();
+            self.span_map.record(span_id.clone(), span);
+
             expr = Expression::Binary {
-                span_id: None,
+                span_id: Some(span_id),
                 left: Box::new(expr),
                 op: BinaryOp::BitXor,
                 right: Box::new(right),
@@ -114,9 +191,20 @@ impl<'a> Parser<'a> {
         let mut expr = self.parse_shift()?;
 
         while self.match_token(&Token::Ampersand) {
+            let op_start = self.current - 1;
             let right = self.parse_shift()?;
+            let op_end = self.current - 1;
+
+            let span = crate::Span::from_file_and_span(
+                &self.file_name,
+                self.source,
+                self.tokens[op_start].span.start..self.tokens[op_end].span.end,
+            );
+            let span_id = self.span_map.generate_id();
+            self.span_map.record(span_id.clone(), span);
+
             expr = Expression::Binary {
-                span_id: None,
+                span_id: Some(span_id),
                 left: Box::new(expr),
                 op: BinaryOp::BitAnd,
                 right: Box::new(right),
@@ -130,14 +218,25 @@ impl<'a> Parser<'a> {
         let mut expr = self.parse_comparison()?;
 
         while self.match_tokens(&[Token::LShift, Token::RShift]) {
+            let op_start = self.current - 1;
             let op = match self.previous() {
                 Token::LShift => BinaryOp::Shl,
                 Token::RShift => BinaryOp::Shr,
                 _ => unreachable!(),
             };
             let right = self.parse_comparison()?;
+            let op_end = self.current - 1;
+
+            let span = crate::Span::from_file_and_span(
+                &self.file_name,
+                self.source,
+                self.tokens[op_start].span.start..self.tokens[op_end].span.end,
+            );
+            let span_id = self.span_map.generate_id();
+            self.span_map.record(span_id.clone(), span);
+
             expr = Expression::Binary {
-                span_id: None,
+                span_id: Some(span_id),
                 left: Box::new(expr),
                 op,
                 right: Box::new(right),
@@ -158,6 +257,7 @@ impl<'a> Parser<'a> {
             Token::Gt,
             Token::GtEq,
         ]) {
+            let op_start = self.current - 1;
             let op = match self.previous() {
                 Token::EqEq => BinaryOp::Eq,
                 Token::NotEq => BinaryOp::NotEq,
@@ -168,8 +268,18 @@ impl<'a> Parser<'a> {
                 _ => unreachable!(),
             };
             let right = self.parse_additive()?;
+            let op_end = self.current - 1;
+
+            let span = crate::Span::from_file_and_span(
+                &self.file_name,
+                self.source,
+                self.tokens[op_start].span.start..self.tokens[op_end].span.end,
+            );
+            let span_id = self.span_map.generate_id();
+            self.span_map.record(span_id.clone(), span);
+
             expr = Expression::Binary {
-                span_id: None,
+                span_id: Some(span_id),
                 left: Box::new(expr),
                 op,
                 right: Box::new(right),
@@ -183,14 +293,25 @@ impl<'a> Parser<'a> {
         let mut expr = self.parse_multiplicative()?;
 
         while self.match_tokens(&[Token::Plus, Token::Minus]) {
+            let op_start = self.current - 1;
             let op = match self.previous() {
                 Token::Plus => BinaryOp::Add,
                 Token::Minus => BinaryOp::Sub,
                 _ => unreachable!(),
             };
             let right = self.parse_multiplicative()?;
+            let op_end = self.current - 1;
+
+            let span = crate::Span::from_file_and_span(
+                &self.file_name,
+                self.source,
+                self.tokens[op_start].span.start..self.tokens[op_end].span.end,
+            );
+            let span_id = self.span_map.generate_id();
+            self.span_map.record(span_id.clone(), span);
+
             expr = Expression::Binary {
-                span_id: None,
+                span_id: Some(span_id),
                 left: Box::new(expr),
                 op,
                 right: Box::new(right),
@@ -204,6 +325,7 @@ impl<'a> Parser<'a> {
         let mut expr = self.parse_power()?;
 
         while self.match_tokens(&[Token::Star, Token::Slash, Token::Percent]) {
+            let op_start = self.current - 1;
             let op = match self.previous() {
                 Token::Star => BinaryOp::Mul,
                 Token::Slash => BinaryOp::Div,
@@ -211,8 +333,18 @@ impl<'a> Parser<'a> {
                 _ => unreachable!(),
             };
             let right = self.parse_power()?;
+            let op_end = self.current - 1;
+
+            let span = crate::Span::from_file_and_span(
+                &self.file_name,
+                self.source,
+                self.tokens[op_start].span.start..self.tokens[op_end].span.end,
+            );
+            let span_id = self.span_map.generate_id();
+            self.span_map.record(span_id.clone(), span);
+
             expr = Expression::Binary {
-                span_id: None,
+                span_id: Some(span_id),
                 left: Box::new(expr),
                 op,
                 right: Box::new(right),
@@ -227,9 +359,20 @@ impl<'a> Parser<'a> {
 
         // Right-associative: 2 ** 3 ** 2 = 2 ** (3 ** 2) = 512
         if self.match_token(&Token::StarStar) {
+            let op_start = self.current - 1;
             let right = self.parse_power()?;
+            let op_end = self.current - 1;
+
+            let span = crate::Span::from_file_and_span(
+                &self.file_name,
+                self.source,
+                self.tokens[op_start].span.start..self.tokens[op_end].span.end,
+            );
+            let span_id = self.span_map.generate_id();
+            self.span_map.record(span_id.clone(), span);
+
             expr = Expression::Binary {
-                span_id: None,
+                span_id: Some(span_id),
                 left: Box::new(expr),
                 op: BinaryOp::Pow,
                 right: Box::new(right),
@@ -275,9 +418,20 @@ impl<'a> Parser<'a> {
 
         // Pre-increment: ++i
         if self.match_token(&Token::Increment) {
+            let op_start = self.current - 1;
             let expr = self.parse_unary()?;
+            let op_end = self.current - 1;
+
+            let span = crate::Span::from_file_and_span(
+                &self.file_name,
+                self.source,
+                self.tokens[op_start].span.start..self.tokens[op_end].span.end,
+            );
+            let span_id = self.span_map.generate_id();
+            self.span_map.record(span_id.clone(), span);
+
             return Ok(Expression::Unary {
-                span_id: None,
+                span_id: Some(span_id),
                 op: UnaryOp::PreInc,
                 expr: Box::new(expr),
             });
@@ -285,15 +439,27 @@ impl<'a> Parser<'a> {
 
         // Pre-decrement: --i
         if self.match_token(&Token::Decrement) {
+            let op_start = self.current - 1;
             let expr = self.parse_unary()?;
+            let op_end = self.current - 1;
+
+            let span = crate::Span::from_file_and_span(
+                &self.file_name,
+                self.source,
+                self.tokens[op_start].span.start..self.tokens[op_end].span.end,
+            );
+            let span_id = self.span_map.generate_id();
+            self.span_map.record(span_id.clone(), span);
+
             return Ok(Expression::Unary {
-                span_id: None,
+                span_id: Some(span_id),
                 op: UnaryOp::PreDec,
                 expr: Box::new(expr),
             });
         }
 
         if self.match_tokens(&[Token::Not, Token::Minus, Token::Tilde]) {
+            let op_start = self.current - 1;
             let op = match self.previous() {
                 Token::Not => UnaryOp::Not,
                 Token::Minus => UnaryOp::Neg,
@@ -301,8 +467,18 @@ impl<'a> Parser<'a> {
                 _ => unreachable!(),
             };
             let expr = self.parse_unary()?;
+            let op_end = self.current - 1;
+
+            let span = crate::Span::from_file_and_span(
+                &self.file_name,
+                self.source,
+                self.tokens[op_start].span.start..self.tokens[op_end].span.end,
+            );
+            let span_id = self.span_map.generate_id();
+            self.span_map.record(span_id.clone(), span);
+
             return Ok(Expression::Unary {
-                span_id: None,
+                span_id: Some(span_id),
                 op,
                 expr: Box::new(expr),
             });
@@ -381,11 +557,22 @@ impl<'a> Parser<'a> {
 
             if self.match_token(&Token::LParen) {
                 // Function call
+                let call_start = self.current - 1;
                 let args = self.parse_arguments()?;
                 self.consume(&Token::RParen, "Expected ')' after arguments")?;
+                let call_end = self.current - 1;
 
                 // Extract pending type arguments (if any)
                 let type_args = pending_type_args.take().unwrap_or_default();
+
+                // Generate span for call expression
+                let span = crate::Span::from_file_and_span(
+                    &self.file_name,
+                    self.source,
+                    self.tokens[call_start].span.start..self.tokens[call_end].span.end,
+                );
+                let span_id = self.span_map.generate_id();
+                self.span_map.record(span_id.clone(), span);
 
                 // Method syntax sugar: in method body, convert identifier calls to method calls
                 // EXCEPT for builtin functions (print, println, panic, etc.)
@@ -417,7 +604,7 @@ impl<'a> Parser<'a> {
                         if is_builtin {
                             // This is a builtin function - compile as regular function call
                             expr = Expression::Call {
-                                span_id: None,
+                                span_id: Some(span_id),
                                 func: Box::new(expr),
                                 type_args,
                                 args,
@@ -428,7 +615,7 @@ impl<'a> Parser<'a> {
                             // - A global function (log2(msg))
                             // - A method on self (self.log(msg))
                             expr = Expression::Call {
-                                span_id: None,
+                                span_id: Some(span_id),
                                 func: Box::new(expr),
                                 type_args,
                                 args,
@@ -437,7 +624,7 @@ impl<'a> Parser<'a> {
                     }
                 } else {
                     expr = Expression::Call {
-                        span_id: None,
+                        span_id: Some(span_id),
                         func: Box::new(expr),
                         type_args,
                         args,
@@ -472,7 +659,15 @@ impl<'a> Parser<'a> {
 
                 let mut fields = Vec::new();
 
+                let mut steps = 0usize;
                 while !self.check(&Token::RBrace) && !self.is_at_end() {
+                    if self.guard_tick(
+                        &mut steps,
+                        "struct literal parse timeout",
+                        Self::PARSE_LOOP_DEFAULT_MAX_STEPS,
+                    ) {
+                        break;
+                    }
                     let field_name = self.consume_identifier()?;
                     self.consume(&Token::Colon, "Expected ':' after field name")?;
                     let field_value = self.parse_expression()?;

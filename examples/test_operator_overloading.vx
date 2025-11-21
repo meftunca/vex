@@ -1,15 +1,26 @@
-// Test operator overloading via builtin contracts
-// Phase 1, Day 3-4
+contract Add {
+    op+(rhs: Self): Self;
+}
+
+struct Point impl Add {
+    x: i32,
+    y: i32,
+
+    fn op+(other: Point): Point {
+        return Point {
+            x: self.x + other.x,
+            y: self.y + other.y,
+        };
+    }
+}
 
 fn main(): i32 {
-    // Test i32 + i32 (should use builtin Add contract)
-    let a: i32 = 10;
-    let b: i32 = 20;
-    let sum = a + b;
-    
-    if sum == 30 {
-        return 0; // Success
-    } else {
-        return 1; // Fail
-    }
+    let p1 = Point { x: 1, y: 2 };
+    let p2 = Point { x: 3, y: 4 };
+    let p3 = p1 + p2;  // Should call op+
+
+    print(p3.x);  // Should print 4
+    print(p3.y);  // Should print 6
+
+    return 0;
 }

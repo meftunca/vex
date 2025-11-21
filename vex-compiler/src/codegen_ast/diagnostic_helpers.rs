@@ -2,7 +2,6 @@
 // Converts common error patterns to structured diagnostics
 
 use super::ASTCodeGen;
-use vex_ast::Type;
 use vex_diagnostics::{error_codes, Diagnostic, ErrorLevel, Span};
 
 impl<'ctx> ASTCodeGen<'ctx> {
@@ -15,10 +14,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 "mismatched types: expected `{}`, found `{}`",
                 expected, found
             ),
+            primary_label: Some("mismatched types".to_string()),
             span,
             notes: vec![],
             help: Some(self.suggest_type_conversion(expected, found)),
             suggestion: None,
+            related: Vec::new(),
         });
     }
 
@@ -34,6 +35,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             level: ErrorLevel::Error,
             code: error_codes::UNDEFINED_VARIABLE.to_string(),
             message: format!("cannot find value `{}` in this scope", var_name),
+            primary_label: Some("undefined variable".to_string()),
             span,
             notes: vec![],
             help: if !similar.is_empty() {
@@ -41,7 +43,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
             } else {
                 None
             },
-            suggestion: None,
+            suggestion: similar.get(0).map(|s| vex_diagnostics::Suggestion {
+                message: format!("use `{}`", s),
+                replacement: s.clone(),
+                span: Span::unknown(),
+            }),
+            related: Vec::new(),
         });
     }
 
@@ -65,35 +72,63 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 if found == 1 { "was" } else { "were" }
             ),
             span,
+            primary_label: Some("argument count mismatch".to_string()),
             notes: vec![format!("function `{}` defined here", fn_name)],
             help: None,
             suggestion: None,
+            related: Vec::new(),
         });
     }
 
     /// Emit an undefined function error
     pub(crate) fn emit_undefined_function(&mut self, fn_name: &str, span: Span) {
+        let similar = self.find_similar_function_names(fn_name);
+        let suggestion_span = span.clone();
+
         self.diagnostics.emit(Diagnostic {
             level: ErrorLevel::Error,
             code: "E0425".to_string(),
             message: format!("cannot find function `{}` in this scope", fn_name),
             span,
+            primary_label: Some("undefined function".to_string()),
             notes: vec![],
-            help: None,
-            suggestion: None,
+            help: if !similar.is_empty() {
+                Some(format!("did you mean `{}`?", similar.join("`, `")))
+            } else {
+                None
+            },
+            suggestion: similar.get(0).map(|s| vex_diagnostics::Suggestion {
+                message: format!("call function `{}` instead", s),
+                replacement: s.clone(),
+                span: suggestion_span.clone(),
+            }),
+            related: Vec::new(),
         });
     }
 
     /// Emit an undefined type error
     pub(crate) fn emit_undefined_type(&mut self, type_name: &str, span: Span) {
+        let similar = self.find_similar_type_names(type_name);
+
+        let suggestion_span = span.clone();
         self.diagnostics.emit(Diagnostic {
             level: ErrorLevel::Error,
             code: "E0412".to_string(),
             message: format!("cannot find type `{}` in this scope", type_name),
             span,
+            primary_label: Some("undefined type".to_string()),
             notes: vec![],
-            help: None,
-            suggestion: None,
+            help: if !similar.is_empty() {
+                Some(format!("did you mean `{}`?", similar.join("`, `")))
+            } else {
+                None
+            },
+            suggestion: similar.get(0).map(|s| vex_diagnostics::Suggestion {
+                message: format!("use type `{}` instead", s),
+                replacement: s.clone(),
+                span: suggestion_span.clone(),
+            }),
+            related: Vec::new(),
         });
     }
 
@@ -107,9 +142,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 op, type_name
             ),
             span,
+            primary_label: Some("invalid operation".to_string()),
             notes: vec![],
             help: None,
             suggestion: None,
+            related: Vec::new(),
         });
     }
 
@@ -140,6 +177,23 @@ impl<'ctx> ASTCodeGen<'ctx> {
         vex_diagnostics::fuzzy::find_similar_names(target, &candidates, 0.6, 3)
     }
 
+    /// Find similar function names for suggestions
+    fn find_similar_function_names(&self, target: &str) -> Vec<String> {
+        let mut candidates: Vec<String> = self.functions.keys().cloned().collect();
+        candidates.extend(self.function_defs.keys().cloned());
+
+        vex_diagnostics::fuzzy::find_similar_functions(target, &candidates)
+    }
+
+    /// Find similar type names for suggestions
+    fn find_similar_type_names(&self, target: &str) -> Vec<String> {
+        let mut candidates: Vec<String> = self.struct_ast_defs.keys().cloned().collect();
+        candidates.extend(self.enum_ast_defs.keys().cloned());
+        candidates.extend(self.type_aliases.keys().cloned());
+
+        vex_diagnostics::fuzzy::find_similar_names(target, &candidates, 0.7, 3)
+    }
+
     /// Emit a generic codegen error with diagnostic
     pub(crate) fn emit_codegen_error(&mut self, message: String, span: Span) {
         self.diagnostics.emit(Diagnostic {
@@ -147,9 +201,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
             code: "E0001".to_string(),
             message,
             span,
+            primary_label: Some("codegen error".to_string()),
             notes: vec![],
             help: None,
             suggestion: None,
+            related: Vec::new(),
         });
     }
 
@@ -190,5 +246,56 @@ mod tests {
         assert!(codegen
             .suggest_type_conversion("String", "&str")
             .contains("to_string"));
+    }
+
+    #[test]
+    fn test_undefined_function_suggestion() {
+        let ctx = inkwell::context::Context::create();
+        let mut codegen = ASTCodeGen::new(&ctx, "test");
+
+        // Insert a known function to compare
+        let fn_type = codegen.context.void_type().fn_type(&[], false);
+        let print_fn = codegen.module.add_function("print", fn_type, None);
+        codegen.functions.insert("print".to_string(), print_fn);
+
+        codegen.emit_undefined_function("prinnt", vex_diagnostics::Span::unknown());
+        let diags: Vec<_> = codegen.diagnostics.diagnostics().to_vec();
+        assert_eq!(diags.len(), 1);
+        let d = &diags[0];
+        assert!(d.help.is_some());
+        assert!(d.help.as_ref().unwrap().contains("did you mean"));
+        assert!(d.suggestion.is_some());
+    }
+
+    #[test]
+    fn test_undefined_type_suggestion() {
+        let ctx = inkwell::context::Context::create();
+        let mut codegen = ASTCodeGen::new(&ctx, "test");
+
+        // Add a struct type name candidate
+        codegen.struct_ast_defs.insert(
+            "Vec".to_string(),
+            vex_ast::Struct {
+                is_exported: false,
+                span_id: None,
+                name: "Vec".to_string(),
+                type_params: vec![],
+                const_params: vec![],
+                where_clause: vec![],
+                policies: vec![],
+                impl_traits: vec![],
+                associated_type_bindings: vec![],
+                fields: vec![],
+                methods: vec![],
+            },
+        );
+
+        codegen.emit_undefined_type("Vex", vex_diagnostics::Span::unknown());
+        let diags: Vec<_> = codegen.diagnostics.diagnostics().to_vec();
+        assert_eq!(diags.len(), 1);
+        let d = &diags[0];
+        assert!(d.help.is_some());
+        assert!(d.help.as_ref().unwrap().contains("did you mean"));
+        assert!(d.suggestion.is_some());
     }
 }

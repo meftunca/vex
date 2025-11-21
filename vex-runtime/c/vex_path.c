@@ -718,7 +718,7 @@ bool vex_path_is_executable(const char *path)
 // DIRECTORY OPERATIONS
 // ============================================================================
 
-bool vex_dir_create(const char *path, int mode)
+bool vex_dir_create_with_mode(const char *path, int mode)
 {
   if (!path)
   {
@@ -791,15 +791,7 @@ bool vex_dir_create_all(const char *path, int mode)
 #endif
 }
 
-bool vex_dir_remove(const char *path)
-{
-  if (!path)
-  {
-    vex_panic("vex_dir_remove: NULL path");
-  }
 
-  return rmdir(path) == 0;
-}
 
 static bool remove_directory_recursive(const char *path)
 {
@@ -1355,6 +1347,7 @@ char *vex_symlink_read(const char *link_path)
 // FILE COPY/MOVE
 // ============================================================================
 
+/*
 bool vex_file_copy(const char *src, const char *dst)
 {
   if (!src || !dst)
@@ -1362,17 +1355,20 @@ bool vex_file_copy(const char *src, const char *dst)
     vex_panic("vex_file_copy: NULL path");
   }
 
-  size_t src_size;
-  char *data = vex_file_read_all(src, &src_size);
+  // Read source file
+  size_t size;
+  char *data = vex_file_read_all(src, &size);
   if (!data)
     return false;
 
-  bool success = vex_file_write_all(dst, data, src_size);
+  // Write to destination
+  bool success = vex_file_write_all(dst, data, size);
   vex_free(data);
-
   return success;
 }
+*/
 
+/*
 bool vex_file_move(const char *src, const char *dst)
 {
   if (!src || !dst)
@@ -1380,13 +1376,13 @@ bool vex_file_move(const char *src, const char *dst)
     vex_panic("vex_file_move: NULL path");
   }
 
-  // Try rename first (fast if on same filesystem)
+  // Try rename first (atomic on same filesystem)
   if (vex_file_rename(src, dst))
   {
     return true;
   }
 
-  // Fallback: copy + delete
+  // If rename fails, copy then delete
   if (vex_file_copy(src, dst))
   {
     return vex_file_remove(src);
@@ -1394,6 +1390,7 @@ bool vex_file_move(const char *src, const char *dst)
 
   return false;
 }
+*/
 
 // ============================================================================
 // TEMP FILE/DIR

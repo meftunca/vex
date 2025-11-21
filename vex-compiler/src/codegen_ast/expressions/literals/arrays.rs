@@ -1,10 +1,6 @@
 // Literal expressions (arrays, structs, tuples)
 
 use super::super::ASTCodeGen;
-use crate::type_system::coercion_rules::{
-    classify_coercion, coercion_policy, format_coercion_error, format_coercion_warning,
-    CoercionPolicy,
-};
 use inkwell::types::BasicTypeEnum;
 use inkwell::values::BasicValueEnum;
 use vex_ast::*;
@@ -360,7 +356,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         if is_zero_fill && count_u32 > 100 {
             // Use memset for efficient zero-initialization
             let i8_type = self.context.i8_type();
-            let i8_ptr_type = i8_type.ptr_type(inkwell::AddressSpace::default());
+            let i8_ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
             let size_type = self.context.i64_type();
 
             // Cast array pointer to i8*

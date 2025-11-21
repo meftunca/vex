@@ -17,10 +17,11 @@ BUILD_DIR := build
 
 # Source files (runtime core)
 CORE_SRCS := vex_alloc.c vex_args.c vex_array.c vex_box.c vex_cpu.c vex_error.c \
-	vex_file.c vex_io.c vex_memory.c vex_mmap.c vex_option.c \
+	vex_file.c vex_io_optimized.c vex_memory.c vex_mmap.c vex_option.c \
 	vex_path.c vex_result.c vex_string.c vex_string_type.c \
-	vex_strconv.c vex_url.c vex_vec.c vex_time.c vex_channel.c \
-	vex_range.c vex_set.c vex_slice.c vex_tuple.c
+	vex_strconv.c vex_url.c vex_vec.c vex_channel.c \
+	vex_range.c vex_set.c vex_slice.c vex_format.c
+
 
 # Component libraries
 VEXTIME_LIB := vex_time/libvextime.a

@@ -352,13 +352,13 @@ impl<'a> FormattingVisitor<'a> {
                 self.visit_expression(value);
                 self.write_line(";");
             }
-            Statement::Assign { target, value } => {
+            Statement::Assign { span_id: _, target, value } => {
                 self.visit_expression(target);
                 self.write(" = ");
                 self.visit_expression(value);
                 self.write_line(";");
             }
-            Statement::Return(expr) => {
+            Statement::Return { span_id: _, value: expr } => {
                 self.write("return");
                 if let Some(ref e) = expr {
                     self.write(" ");
@@ -396,7 +396,7 @@ impl<'a> FormattingVisitor<'a> {
 
                 self.write_line("");
             }
-            Statement::Unsafe(block) => {
+            Statement::Unsafe { span_id: _, block } => {
                 self.write("unsafe ");
                 self.visit_block(block);
                 self.write_line("");
@@ -405,7 +405,7 @@ impl<'a> FormattingVisitor<'a> {
                 self.write("defer ");
                 self.visit_statement(&*stmt);
             }
-            Statement::Go(expr) => {
+            Statement::Go { span_id: _, expr } => {
                 self.write("go ");
                 self.visit_expression(expr);
                 self.write_line(";");
@@ -442,10 +442,10 @@ impl<'a> FormattingVisitor<'a> {
                 self.visit_block(body);
                 self.write_line("");
             }
-            Statement::Break => {
+            Statement::Break { span_id: _ } => {
                 self.write_line("break;");
             }
-            Statement::Continue => {
+            Statement::Continue { span_id: _ } => {
                 self.write_line("continue;");
             }
             _ => {

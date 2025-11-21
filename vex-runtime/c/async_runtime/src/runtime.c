@@ -1,7 +1,7 @@
-#include <stdio.h>
 #include <string.h>
 #include <errno.h>
 #include <time.h>
+#include <stdio.h>
 #include "internal.h"
 #include "poller.h"
 
@@ -16,6 +16,37 @@ static unsigned __stdcall poller_main(void *arg);
 static void *worker_main(void *arg);
 static void *poller_main(void *arg);
 #endif
+
+// === Pro extension: Runtime counters ===
+typedef struct
+{
+    _Atomic(uint64_t) tasks_spawned;
+    _Atomic(uint64_t) tasks_done;
+    _Atomic(uint64_t) poller_events;
+    _Atomic(uint64_t) io_submitted;
+    _Atomic(uint64_t) steals;
+    _Atomic(uint64_t) parks;
+    _Atomic(uint64_t) unparks;
+    _Atomic(bool) auto_shutdown;
+} RtCounters;
+
+static RtCounters g_rt_counters = {0};
+
+// Monotonic clock helper
+uint64_t rt_now_ns(void)
+{
+#ifdef _WIN32
+    LARGE_INTEGER freq, counter;
+    QueryPerformanceFrequency(&freq);
+    QueryPerformanceCounter(&counter);
+    long double s = (long double)counter.QuadPart / (long double)freq.QuadPart;
+    return (uint64_t)(s * 1000000000.0L);
+#else
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (uint64_t)ts.tv_sec * 1000000000ULL + (uint64_t)ts.tv_nsec;
+#endif
+}
 
 static InternalTask *make_task(coro_resume_func fn, void *data)
 {
@@ -42,7 +73,9 @@ Runtime *runtime_create(int num_workers)
     atomic_store(&rt->running, false);
     rt->num_workers = num_workers;
     rt->workers = (Worker *)xmalloc(sizeof(Worker) * num_workers);
-    rt->global_ready = lfq_create(1024);
+    rt->global_ready = lfq_create(65536);   // Primary queue: 64K capacity
+    rt->overflow_queue = lfq_create(65536); // Overflow queue: 64K capacity (unbounded-like)
+    rt->timer_heap = timer_heap_create(64); // Initial capacity for timers
     rt->poller = poller_create();
     rt->poller_thread = NULL;
     atomic_store(&rt->tracing, false);
@@ -56,6 +89,7 @@ Runtime *runtime_create(int num_workers)
         w->context = (struct WorkerContext *)xmalloc(sizeof(struct WorkerContext));
         w->context->owner = w;
         w->context->current_task = NULL;
+        w->context->timer_pending = false;
         w->thread_handle = NULL;
     }
     return rt;
@@ -66,12 +100,14 @@ void runtime_destroy(Runtime *rt)
     if (!rt)
         return;
     poller_destroy(rt->poller);
+    timer_heap_destroy(rt->timer_heap);
     for (int i = 0; i < rt->num_workers; ++i)
     {
         lfq_destroy(rt->workers[i].local_ready);
         xfree(rt->workers[i].context);
     }
     lfq_destroy(rt->global_ready);
+    lfq_destroy(rt->overflow_queue);
     xfree(rt->workers);
     xfree(rt);
 }
@@ -79,8 +115,26 @@ void runtime_destroy(Runtime *rt)
 void runtime_spawn_global(Runtime *rt, coro_resume_func fn, void *data)
 {
     InternalTask *t = make_task(fn, data);
-    while (!lfq_enqueue(rt->global_ready, t))
+
+    // Try global queue first (fast path)
+    if (lfq_enqueue(rt->global_ready, t))
     {
+        return;
+    }
+
+    // Global full, try overflow queue (unbounded fallback)
+    if (lfq_enqueue(rt->overflow_queue, t))
+    {
+        return;
+    }
+
+    // Both queues full, spin with yield (extremely rare)
+    while (true)
+    {
+        if (lfq_enqueue(rt->global_ready, t))
+            return;
+        if (lfq_enqueue(rt->overflow_queue, t))
+            return;
 #ifdef _WIN32
         Sleep(0);
 #else
@@ -111,28 +165,85 @@ void worker_spawn_local(WorkerContext *ctx, coro_resume_func fn, void *data)
 
 void worker_await_io(WorkerContext *ctx, int fd, EventType type)
 {
+    if (!ctx || !ctx->current_task)
+        return;
+
     InternalTask *t = ctx->current_task;
-    (void)lfq_enqueue(ctx->owner->rt->global_ready, NULL);
-    int rc = poller_add(ctx->owner->rt->poller, fd, type, t);
-    (void)rc;
+    Runtime *rt = ctx->owner->rt;
+
+    // Register with poller - task will be re-queued when I/O ready
+    int rc = poller_add(rt->poller, fd, type, t);
+
+    if (rc < 0)
+    {
+        // Poller registration failed, re-queue immediately to avoid deadlock
+        while (!lfq_enqueue(rt->global_ready, t))
+        {
+#ifdef _WIN32
+            Sleep(0);
+#else
+            sched_yield();
+#endif
+        }
+        return;
+    }
+
+    // Clear current_task - worker won't reschedule it
+    ctx->current_task = NULL;
 }
 
 static InternalTask *steal(Runtime *rt, int self_id)
 {
     InternalTask *t = NULL;
+
+    // Priority 1: Try global queue (highest priority)
     if (lfq_dequeue(rt->global_ready, (void **)&t))
     {
         if (t != NULL)
+        {
+            atomic_fetch_add(&g_rt_counters.steals, 1);
             return t;
+        }
     }
-    for (int i = 0; i < rt->num_workers; ++i)
+
+    // Priority 2: Try overflow queue (unbounded fallback)
+    if (lfq_dequeue(rt->overflow_queue, (void **)&t))
     {
-        if (i == self_id)
+        if (t != NULL)
+        {
+            atomic_fetch_add(&g_rt_counters.steals, 1);
+            return t;
+        }
+    }
+
+    // Priority 3: Random victim selection from other workers
+    int num_workers = rt->num_workers;
+    if (num_workers <= 1)
+        return NULL;
+
+    // Start at random offset
+    static _Atomic(uint32_t) rng_state = 12345;
+    uint32_t state = atomic_fetch_add(&rng_state, 1);
+    // Simple xorshift for randomness
+    state ^= state << 13;
+    state ^= state >> 17;
+    state ^= state << 5;
+    int start = (int)(state % (uint32_t)num_workers);
+
+    // Try each worker starting from random position
+    for (int offset = 0; offset < num_workers; ++offset)
+    {
+        int victim_id = (start + offset) % num_workers;
+        if (victim_id == self_id)
             continue;
-        if (lfq_dequeue(rt->workers[i].local_ready, (void **)&t))
+
+        if (lfq_dequeue(rt->workers[victim_id].local_ready, (void **)&t))
         {
             if (t)
+            {
+                atomic_fetch_add(&g_rt_counters.steals, 1);
                 return t;
+            }
         }
     }
     return NULL;
@@ -141,19 +252,29 @@ static InternalTask *steal(Runtime *rt, int self_id)
 // Tüm kuyrukların boş olup olmadığını kontrol et
 static bool all_queues_empty(Runtime *rt)
 {
-    // Global queue kontrolü
     void *tmp = NULL;
+
+    // Check global queue
     if (lfq_dequeue(rt->global_ready, &tmp))
     {
         if (tmp != NULL)
         {
-            // Geri koy
             lfq_enqueue(rt->global_ready, tmp);
             return false;
         }
     }
 
-    // Tüm worker local queue'larını kontrol et
+    // Check overflow queue
+    if (lfq_dequeue(rt->overflow_queue, &tmp))
+    {
+        if (tmp != NULL)
+        {
+            lfq_enqueue(rt->overflow_queue, tmp);
+            return false;
+        }
+    }
+
+    // Check all worker local queues
     for (int i = 0; i < rt->num_workers; ++i)
     {
         if (lfq_dequeue(rt->workers[i].local_ready, &tmp))
@@ -165,6 +286,11 @@ static bool all_queues_empty(Runtime *rt)
             }
         }
     }
+
+    // Check timer heap
+    if (!timer_heap_empty(rt->timer_heap))
+        return false;
+
     return true;
 }
 
@@ -173,17 +299,54 @@ void runtime_shutdown(Runtime *rt)
     atomic_store(&rt->running, false);
 }
 
+// Timer processing callback - enqueue expired task
+static void enqueue_expired_task(void *task, void *user_data)
+{
+    Runtime *rt = (Runtime *)user_data;
+    InternalTask *t = (InternalTask *)task;
+
+    // Try global queue first, then overflow
+    if (lfq_enqueue(rt->global_ready, t))
+        return;
+    if (lfq_enqueue(rt->overflow_queue, t))
+        return;
+
+    // Rare fallback: spin until space available
+    while (true)
+    {
+        if (lfq_enqueue(rt->global_ready, t))
+            return;
+        if (lfq_enqueue(rt->overflow_queue, t))
+            return;
+#ifdef _WIN32
+        Sleep(0);
+#else
+        sched_yield();
+#endif
+    }
+}
+
+// Process expired timers - called by worker 0
+static void process_expired_timers(Runtime *rt)
+{
+    uint64_t now_ns = rt_now_ns();
+    timer_heap_pop_expired(rt->timer_heap, now_ns, enqueue_expired_task, rt);
+}
+
 void runtime_run(Runtime *rt)
 {
     atomic_store(&rt->running, true);
+
+    // Start poller thread first
 #ifdef _WIN32
     rt->poller_thread = (void *)_beginthreadex(NULL, 0, poller_main, rt, 0, &rt->poller_tid);
 #else
-    pthread_t tid;
-    pthread_create(&tid, NULL, poller_main, rt);
-    rt->poller_thread = (void *)tid;
+    pthread_t poller_tid;
+    pthread_create(&poller_tid, NULL, poller_main, rt);
+    rt->poller_thread = (void *)poller_tid;
 #endif
 
+    // Start worker threads
 #ifdef _WIN32
     for (int i = 0; i < rt->num_workers; ++i)
     {
@@ -200,19 +363,26 @@ void runtime_run(Runtime *rt)
     }
 #endif
 
+    // Wait for all workers to complete
 #ifdef _WIN32
     for (int i = 0; i < rt->num_workers; ++i)
     {
         WaitForSingleObject((HANDLE)rt->workers[i].thread_handle, INFINITE);
         CloseHandle((HANDLE)rt->workers[i].thread_handle);
     }
-    WaitForSingleObject((HANDLE)rt->poller_thread, INFINITE);
-    CloseHandle((HANDLE)rt->poller_thread);
 #else
     for (int i = 0; i < rt->num_workers; ++i)
     {
         pthread_join((pthread_t)rt->workers[i].thread_handle, NULL);
     }
+#endif
+
+    // Signal poller to stop and wait for it
+    atomic_store(&rt->running, false);
+#ifdef _WIN32
+    WaitForSingleObject((HANDLE)rt->poller_thread, INFINITE);
+    CloseHandle((HANDLE)rt->poller_thread);
+#else
     pthread_join((pthread_t)rt->poller_thread, NULL);
 #endif
 }
@@ -227,32 +397,62 @@ static unsigned __stdcall worker_main(void *arg)
     Worker *w = (Worker *)arg;
     Runtime *rt = w->rt;
     int idle_cycles = 0;
-    const int MAX_IDLE_CYCLES = 10; // 10 boş döngü sonra kontrol et
+    const int MAX_IDLE_CYCLES = 100;
 
     while (atomic_load(&rt->running))
     {
+        // Check for expired timers (only one worker processes timers to avoid races)
+        if (w->id == 0)
+        { // Worker 0 responsible for timer processing
+            process_expired_timers(rt);
+        }
+
         InternalTask *t = NULL;
-        if (!lfq_dequeue(w->local_ready, (void **)&t))
+
+        // Priority 1: Check global queue first (important for I/O wakeups)
+        if (lfq_dequeue(rt->global_ready, (void **)&t) && t != NULL)
+        {
+            // Got task from global
+        }
+        // Priority 2: Check overflow queue
+        else if (lfq_dequeue(rt->overflow_queue, (void **)&t) && t != NULL)
+        {
+            // Got task from overflow
+        }
+        // Priority 3: Check local queue
+        else if (lfq_dequeue(w->local_ready, (void **)&t) && t != NULL)
+        {
+            // Got task from local
+        }
+        // Priority 4: Steal from other workers
+        else
         {
             t = steal(rt, w->id);
             if (!t)
             {
                 idle_cycles++;
-                if (idle_cycles >= MAX_IDLE_CYCLES)
+                if (w->id == 0 && idle_cycles % 20 == 0)
                 {
-                    // Tüm kuyruklar boş mu kontrol et
+                    fprintf(stderr, "[Worker %d] Idle cycle %d\n", w->id, idle_cycles);
+                }
+
+                // Auto-shutdown check
+                if (atomic_load(&g_rt_counters.auto_shutdown) && idle_cycles >= MAX_IDLE_CYCLES)
+                {
+                    // All queues empty check
                     if (all_queues_empty(rt))
                     {
+                        if (w->id == 0)
+                            fprintf(stderr, "[Worker %d] Auto-shutdown triggered\n", w->id);
                         runtime_shutdown(rt);
                         break;
                     }
                     idle_cycles = 0;
                 }
 #ifdef _WIN32
-                Sleep(1);
+                Sleep(0); // Yield CPU
 #else
-                struct timespec ts = {.tv_sec = 0, .tv_nsec = 1000000};
-                nanosleep(&ts, NULL);
+                sched_yield(); // Yield CPU instead of sleep
 #endif
                 continue;
             }
@@ -260,11 +460,34 @@ static unsigned __stdcall worker_main(void *arg)
 
         idle_cycles = 0; // İş bulundu, sayacı sıfırla
         w->context->current_task = t;
+        w->context->timer_pending = false; // Reset timer flag
         CoroStatus st = t->resume_fn(w->context, t->coro_data);
+
+        // Check if task is still current (not cleared by await_io/timer)
+        bool task_suspended = (w->context->current_task == NULL);
         w->context->current_task = NULL;
+
+        // If timer was set during execution, don't reschedule
+        if (w->context->timer_pending)
+        {
+            // Task is now in timer heap, will be rescheduled when timer expires
+            continue;
+        }
+
+        // If task was suspended (I/O or other async operation), don't reschedule
+        // It will be re-queued by poller or other mechanism
+        if (task_suspended)
+        {
+            continue;
+        }
 
         if (st == CORO_STATUS_RUNNING)
         {
+            schedule_local(w, t);
+        }
+        else if (st == CORO_STATUS_YIELDED)
+        {
+            // Task yielded but not suspended - re-queue immediately
             schedule_local(w, t);
         }
         else if (st == CORO_STATUS_DONE)
@@ -290,7 +513,26 @@ static unsigned __stdcall poller_main(void *arg)
     ReadyEvent evs[1024];
     while (atomic_load(&rt->running))
     {
-        int n = poller_wait(rt->poller, evs, 1024, 100);
+        // Calculate timeout based on next timer deadline
+        int timeout_ms = 100; // Default timeout
+        uint64_t next_deadline = timer_heap_peek_deadline(rt->timer_heap);
+        if (next_deadline != UINT64_MAX)
+        {
+            uint64_t now_ns = rt_now_ns();
+            if (next_deadline <= now_ns)
+            {
+                timeout_ms = 0; // Timer already expired, poll immediately
+            }
+            else
+            {
+                uint64_t diff_ns = next_deadline - now_ns;
+                timeout_ms = (int)(diff_ns / 1000000); // Convert ns to ms
+                if (timeout_ms > 100)
+                    timeout_ms = 100; // Cap at 100ms
+            }
+        }
+
+        int n = poller_wait(rt->poller, evs, 1024, timeout_ms);
         for (int i = 0; i < n; ++i)
         {
             InternalTask *t = (InternalTask *)evs[i].user_data;
@@ -314,56 +556,34 @@ static unsigned __stdcall poller_main(void *arg)
 #endif
 }
 
-// === Pro extension: minimal monotonic clock ===
-static uint64_t rt_now_ns(void) {
-#ifdef _WIN32
-    LARGE_INTEGER freq, counter;
-    QueryPerformanceFrequency(&freq);
-    QueryPerformanceCounter(&counter);
-    long double s = (long double)counter.QuadPart / (long double)freq.QuadPart;
-    return (uint64_t)(s * 1000000000.0L);
-#else
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return (uint64_t)ts.tv_sec * 1000000000ull + (uint64_t)ts.tv_nsec;
-#endif
-}
-
-// Lightweight globals for demo purposes (not thread-safe/lock-free final design)
-typedef struct {
-    _Atomic(uint64_t) tasks_spawned;
-    _Atomic(uint64_t) tasks_done;
-    _Atomic(uint64_t) poller_events;
-    _Atomic(uint64_t) io_submitted;
-    _Atomic(uint64_t) steals;
-    _Atomic(uint64_t) parks;
-    _Atomic(uint64_t) unparks;
-    _Atomic(bool) auto_shutdown;
-} RtCounters;
-
-static RtCounters g_rt_counters = {0};
-
-void runtime_enable_auto_shutdown(Runtime* rt, bool enabled) {
+void runtime_enable_auto_shutdown(Runtime *rt, bool enabled)
+{
     (void)rt;
     atomic_store(&g_rt_counters.auto_shutdown, enabled);
 }
 
-void runtime_get_stats(Runtime* rt, RuntimeStats* out_stats) {
+void runtime_get_stats(Runtime *rt, RuntimeStats *out_stats)
+{
     (void)rt;
-    if (!out_stats) return;
+    if (!out_stats)
+        return;
     out_stats->tasks_spawned = atomic_load(&g_rt_counters.tasks_spawned);
-    out_stats->tasks_done    = atomic_load(&g_rt_counters.tasks_done);
+    out_stats->tasks_done = atomic_load(&g_rt_counters.tasks_done);
     out_stats->poller_events = atomic_load(&g_rt_counters.poller_events);
-    out_stats->io_submitted  = atomic_load(&g_rt_counters.io_submitted);
-    out_stats->steals        = atomic_load(&g_rt_counters.steals);
-    out_stats->parks         = atomic_load(&g_rt_counters.parks);
-    out_stats->unparks       = atomic_load(&g_rt_counters.unparks);
+    out_stats->io_submitted = atomic_load(&g_rt_counters.io_submitted);
+    out_stats->steals = atomic_load(&g_rt_counters.steals);
+    out_stats->parks = atomic_load(&g_rt_counters.parks);
+    out_stats->unparks = atomic_load(&g_rt_counters.unparks);
 }
 
 // Cancellation token (very thin wrapper)
-struct CancelToken { _Atomic(bool) flag; };
+struct CancelToken
+{
+    _Atomic(bool) flag;
+};
 
-CancelToken* worker_cancel_token(WorkerContext* ctx) {
+CancelToken *worker_cancel_token(WorkerContext *ctx)
+{
     (void)ctx;
     // For demo, return an address unique per-context would be ideal.
     // Here we return a thread-local token to keep ABI simple.
@@ -375,18 +595,23 @@ CancelToken* worker_cancel_token(WorkerContext* ctx) {
     return &t;
 }
 
-bool cancel_requested(const CancelToken* t) {
-    if (!t) return false;
-    return atomic_load(&((struct CancelToken*)t)->flag);
+bool cancel_requested(const CancelToken *t)
+{
+    if (!t)
+        return false;
+    return atomic_load(&((struct CancelToken *)t)->flag);
 }
 
-void cancel_request(CancelToken* t) {
-    if (!t) return;
+void cancel_request(CancelToken *t)
+{
+    if (!t)
+        return;
     atomic_store(&t->flag, true);
 }
 
 // Generic handle await: best-effort mapping
-void worker_await_ioh(WorkerContext* ctx, IoHandle h, EventType type) {
+void worker_await_ioh(WorkerContext *ctx, IoHandle h, EventType type)
+{
 #if defined(_WIN32)
     (void)h; // IOCP path: fd value is not relied upon when resuming; user_data matters.
     worker_await_io(ctx, -1, type);
@@ -396,21 +621,28 @@ void worker_await_ioh(WorkerContext* ctx, IoHandle h, EventType type) {
 #endif
 }
 
-// Timers: use vex_net timer via poller
-void worker_await_deadline(WorkerContext* ctx, uint64_t deadline_ns) {
-    uint64_t now = rt_now_ns();
-    uint64_t millis = (deadline_ns > now) ? (deadline_ns - now) / 1000000ull : 0;
-    
-    // Set timer via poller, passing current task as user_data
-    Runtime* rt = ctx->owner->rt;
-    InternalTask* task = ctx->current_task;
-    
-    if (rt->poller && task) {
-        poller_set_timer(rt->poller, millis, task);
-    }
+// Timers: pause current task and schedule wake-up
+void worker_await_deadline(WorkerContext *ctx, uint64_t deadline_ns)
+{
+    if (!ctx || !ctx->current_task || !ctx->owner || !ctx->owner->rt)
+        return;
+
+    Runtime *rt = ctx->owner->rt;
+    InternalTask *task = ctx->current_task;
+
+    // Insert task into timer heap (will be woken up when deadline expires)
+    timer_heap_insert(rt->timer_heap, deadline_ns, task);
+
+    // Set flag so worker won't reschedule this task
+    ctx->timer_pending = true;
+
+    // Clear current_task (it's now waiting on timer)
+    ctx->current_task = NULL;
 }
 
-void worker_await_after(WorkerContext* ctx, uint64_t millis) {
-    uint64_t target = rt_now_ns() + millis * 1000000ull;
+void worker_await_after(WorkerContext *ctx, uint64_t millis)
+{
+    uint64_t now_ns = rt_now_ns();
+    uint64_t target = now_ns + millis * 1000000ULL;
     worker_await_deadline(ctx, target);
 }

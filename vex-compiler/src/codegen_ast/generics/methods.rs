@@ -6,7 +6,6 @@ use super::super::*;
 use inkwell::types::BasicTypeEnum;
 use inkwell::values::FunctionValue;
 use std::collections::HashMap;
-use vex_ast::*;
 
 impl<'ctx> ASTCodeGen<'ctx> {
     /// Instantiate a generic method for a specific type

@@ -278,6 +278,8 @@ pub enum Item {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Function {
     pub is_exported: bool, // ⭐ NEW: Export visibility
+    #[serde(skip)]
+    pub span_id: Option<String>, // ⭐ NEW: Source location ID
     pub is_async: bool,
     pub is_gpu: bool,
     pub is_mutable: bool,  // ⭐ NEW: Method-level mutability (fn method()!)
@@ -341,6 +343,8 @@ pub struct TraitImpl {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Struct {
     pub is_exported: bool, // ⭐ NEW: Export visibility
+    #[serde(skip)]
+    pub span_id: Option<String>, // ⭐ NEW: Source location ID
     pub name: String,
     pub type_params: Vec<TypeParam>, // Generic type parameters with bounds: <T: Display>
     pub const_params: Vec<(String, Type)>, // ⭐ NEW: Const params: (N, usize), (SIZE, i32)
@@ -365,6 +369,8 @@ pub struct Field {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TypeAlias {
     pub is_exported: bool, // ⭐ NEW: Export visibility
+    #[serde(skip)]
+    pub span_id: Option<String>, // ⭐ NEW: Source location ID
     pub name: String,
     pub type_params: Vec<TypeParam>, // Generic type parameters with bounds
     pub ty: Type,
@@ -374,6 +380,8 @@ pub struct TypeAlias {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Enum {
     pub is_exported: bool, // ⭐ NEW: Export visibility
+    #[serde(skip)]
+    pub span_id: Option<String>, // ⭐ NEW: Source location ID
     pub name: String,
     pub type_params: Vec<TypeParam>, // Generic type parameters with bounds
     pub variants: Vec<EnumVariant>,
@@ -390,6 +398,8 @@ pub struct EnumVariant {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Const {
     pub is_exported: bool, // ⭐ NEW: Export visibility
+    #[serde(skip)]
+    pub span_id: Option<String>, // ⭐ NEW: Source location ID
     pub name: String,
     pub ty: Option<Type>,
     pub value: Expression,
@@ -426,6 +436,8 @@ pub struct ExternFunction {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Trait {
     pub is_exported: bool, // ⭐ NEW: Export visibility
+    #[serde(skip)]
+    pub span_id: Option<String>, // ⭐ NEW: Source location ID
     pub name: String,
     pub type_params: Vec<TypeParam>, // Generic type parameters with bounds: Converter<T: Display>
     pub super_traits: Vec<String>,   // Trait inheritance: trait A: B, C
@@ -454,6 +466,8 @@ pub struct TraitTypeAlias {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TraitMethod {
     pub name: String,
+    #[serde(skip)]
+    pub span_id: Option<String>, // ⭐ NEW: Source location ID
     pub is_mutable: bool,  // ⭐ NEW: Method-level mutability (fn method()!)
     pub is_operator: bool, // ⭐ NEW: Operator overload method (fn op+(...))
     pub receiver: Option<Receiver>, // self parameter (must use Self type)
@@ -467,6 +481,8 @@ pub struct TraitMethod {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ExternalTraitImpl {
     pub trait_name: String,
+    #[serde(skip)]
+    pub span_id: Option<String>, // ⭐ NEW: Source location ID
     pub type_params: Vec<TypeParam>, // Generic params with bounds for the impl
     pub for_type: Type,              // Type implementing the trait
     pub associated_type_bindings: Vec<(String, Type)>, // Associated type bindings: type Item = i32;
@@ -607,6 +623,8 @@ pub enum Type {
 /// Block of statements
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Block {
+    #[serde(skip)]
+    pub span_id: Option<String>,
     pub statements: Vec<Statement>,
 }
 
@@ -631,25 +649,39 @@ pub enum Statement {
 
     /// Assignment: x = expr;
     Assign {
+        #[serde(skip)]
+        span_id: Option<String>,
         target: Expression,
         value: Expression,
     },
 
     /// Compound assignment: x += expr;
     CompoundAssign {
+        #[serde(skip)]
+        span_id: Option<String>,
         target: Expression,
         op: CompoundOp,
         value: Expression,
     },
 
     /// Return statement
-    Return(Option<Expression>),
+    Return {
+        #[serde(skip)]
+        span_id: Option<String>,
+        value: Option<Expression>,
+    },
 
     /// Break statement
-    Break,
+    Break {
+        #[serde(skip)]
+        span_id: Option<String>,
+    },
 
     /// Continue statement
-    Continue,
+    Continue {
+        #[serde(skip)]
+        span_id: Option<String>,
+    },
 
     /// Defer statement (Go-style): defer cleanup();
     /// Executes when function exits (LIFO order)
@@ -684,10 +716,16 @@ pub enum Statement {
     },
 
     /// Loop statement: loop { body } (infinite loop)
-    Loop { body: Block },
+    Loop {
+        #[serde(skip)]
+        span_id: Option<String>,
+        body: Block,
+    },
 
     /// For-in loop: for item in collection
     ForIn {
+        #[serde(skip)]
+        span_id: Option<String>,
         variable: String,
         iterable: Expression,
         body: Block,
@@ -695,19 +733,33 @@ pub enum Statement {
 
     /// Switch statement (Go-style)
     Switch {
+        #[serde(skip)]
+        span_id: Option<String>,
         value: Option<Expression>, // None for type switch
         cases: Vec<SwitchCase>,
         default_case: Option<Block>,
     },
 
     /// Select statement (async)
-    Select { cases: Vec<SelectCase> },
+    Select {
+        #[serde(skip)]
+        span_id: Option<String>,
+        cases: Vec<SelectCase>,
+    },
 
     /// Go statement (async)
-    Go(Expression),
+    Go {
+        #[serde(skip)]
+        span_id: Option<String>,
+        expr: Expression,
+    },
 
     /// Unsafe block
-    Unsafe(Block),
+    Unsafe {
+        #[serde(skip)]
+        span_id: Option<String>,
+        block: Block,
+    },
 
     /// Expression statement
     Expression(Expression),
@@ -788,11 +840,17 @@ pub enum Expression {
     /// Literals
     IntLiteral(i64),
     /// Typed integer literal with explicit suffix: 42i64, 100u32, etc.
-    TypedIntLiteral { value: i64, type_suffix: String },
+    TypedIntLiteral {
+        value: i64,
+        type_suffix: String,
+    },
     /// Large integer literal (for i128/u128) stored as string, converted during codegen
     BigIntLiteral(String),
     /// Typed big integer literal with explicit suffix
-    TypedBigIntLiteral { value: String, type_suffix: String },
+    TypedBigIntLiteral {
+        value: String,
+        type_suffix: String,
+    },
     FloatLiteral(f64),
     StringLiteral(String),
     FStringLiteral(String), // f"..."

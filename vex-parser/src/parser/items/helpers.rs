@@ -14,7 +14,12 @@ impl<'a> Parser<'a> {
                 self.peek(),
                 self.current
             );
-            Err(self.error("Expected identifier"))
+            Err(self.make_syntax_error(
+                "Expected identifier",
+                Some("expected identifier"),
+                Some("Identifiers look like: foo, _bar, or CamelCaseName"),
+                Some(("try identifier", "foo")),
+            ))
         }
     }
 
@@ -47,7 +52,12 @@ impl<'a> Parser<'a> {
                 self.advance();
                 Ok("from".to_string())
             }
-            _ => Err(self.error("Expected identifier or keyword")),
+            _ => Err(self.make_syntax_error(
+                "Expected identifier or keyword",
+                Some("expected identifier or keyword"),
+                Some("Identifiers or keywords (e.g., 'unsafe', 'new') are allowed here"),
+                Some(("try identifier or keyword", "foo")),
+            )),
         }
     }
 }

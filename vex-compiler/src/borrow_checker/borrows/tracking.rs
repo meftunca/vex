@@ -14,6 +14,7 @@ pub enum BorrowKind {
 pub(crate) struct Borrow {
     pub kind: BorrowKind,
     pub variable: String, // Which variable is being borrowed from
+    pub location: Option<String>,
 }
 
 /// Borrow tracking state

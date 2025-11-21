@@ -2,7 +2,8 @@
 
 use crate::codegen_ast::ASTCodeGen;
 use inkwell::types::BasicType;
-use inkwell::values::{BasicValueEnum, FunctionValue, PointerValue};
+use inkwell::values::BasicValueEnum;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use vex_ast::*;
 
 impl<'ctx> ASTCodeGen<'ctx> {
@@ -15,12 +16,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
         body: &Expression,
         capture_mode: &CaptureMode,
     ) -> Result<BasicValueEnum<'ctx>, String> {
-        // Generate unique closure name
-        static mut CLOSURE_COUNTER: usize = 0;
-        let closure_name = unsafe {
-            CLOSURE_COUNTER += 1;
-            format!("__closure_{}", CLOSURE_COUNTER)
-        };
+        // Generate unique closure name (thread-safe atomic counter)
+        static CLOSURE_COUNTER: AtomicUsize = AtomicUsize::new(0);
+        let closure_id = CLOSURE_COUNTER.fetch_add(1, Ordering::Relaxed);
+        let closure_name = format!("__closure_{}", closure_id);
 
         // Step 1: Detect free variables (captured from environment)
         let free_vars = self.find_free_variables(body, params);

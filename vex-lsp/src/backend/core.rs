@@ -42,10 +42,12 @@ impl DocumentCache {
                     "E0001",
                     format!("Lexer error: {}", e),
                     vex_diagnostics::Span::unknown(),
-                );
+                )
+                .with_primary_label("lexer error".to_string());
                 let cached = CachedDocument {
                     parse_errors: vec![diag],
                     ast: None,
+                    span_map: vex_diagnostics::SpanMap::new(), // Empty map for failed parse
                     version,
                 };
                 self.cache.insert(uri.to_string(), cached.clone());
@@ -73,10 +75,12 @@ impl DocumentCache {
                         "E0002",
                         format!("Parser crashed: {}", panic_msg),
                         vex_diagnostics::Span::unknown(),
-                    );
+                    )
+                    .with_primary_label("internal parser error".to_string());
                     let cached = CachedDocument {
                         parse_errors: vec![diag],
                         ast: None,
+                        span_map: vex_diagnostics::SpanMap::new(), // Empty map for panic
                         version,
                     };
                     self.cache.insert(uri.to_string(), cached.clone());
@@ -87,9 +91,13 @@ impl DocumentCache {
         // Also collect any warnings from parser
         parse_errors.extend(parser.diagnostics().iter().cloned());
 
+        // Take span map from parser
+        let span_map = parser.take_span_map();
+
         let cached = CachedDocument {
             parse_errors,
             ast: ast_opt,
+            span_map,
             version,
         };
 
@@ -100,12 +108,17 @@ impl DocumentCache {
     pub fn remove(&self, uri: &str) {
         self.cache.remove(uri);
     }
+
+    pub fn get(&self, uri: &str) -> Option<CachedDocument> {
+        self.cache.get(uri).map(|r| r.clone())
+    }
 }
 
 #[derive(Debug, Clone)]
 pub struct CachedDocument {
     pub parse_errors: Vec<vex_diagnostics::Diagnostic>,
     pub ast: Option<vex_ast::Program>,
+    pub span_map: vex_diagnostics::SpanMap,
     pub version: i32,
 }
 

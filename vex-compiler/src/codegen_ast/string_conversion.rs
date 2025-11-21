@@ -98,10 +98,7 @@ impl<'ctx> super::ASTCodeGen<'ctx> {
         }
 
         // char* vex_strcat_new(const char* s1, const char* s2)
-        let i8_ptr_type = self
-            .context
-            .i8_type()
-            .ptr_type(inkwell::AddressSpace::default());
+        let i8_ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
         let fn_type = i8_ptr_type.fn_type(&[i8_ptr_type.into(), i8_ptr_type.into()], false);
 
         Ok(self.module.add_function("vex_strcat_new", fn_type, None))
@@ -113,10 +110,7 @@ impl<'ctx> super::ASTCodeGen<'ctx> {
             return Ok(func);
         }
 
-        let i8_ptr_type = self
-            .context
-            .i8_type()
-            .ptr_type(inkwell::AddressSpace::default());
+        let i8_ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
         let fn_type = i8_ptr_type.fn_type(&[self.context.i32_type().into()], false);
 
         Ok(self.module.add_function("vex_i32_to_string", fn_type, None))
@@ -128,10 +122,7 @@ impl<'ctx> super::ASTCodeGen<'ctx> {
             return Ok(func);
         }
 
-        let i8_ptr_type = self
-            .context
-            .i8_type()
-            .ptr_type(inkwell::AddressSpace::default());
+        let i8_ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
         let fn_type = i8_ptr_type.fn_type(&[self.context.i64_type().into()], false);
 
         Ok(self.module.add_function("vex_i64_to_string", fn_type, None))
@@ -143,10 +134,7 @@ impl<'ctx> super::ASTCodeGen<'ctx> {
             return Ok(func);
         }
 
-        let i8_ptr_type = self
-            .context
-            .i8_type()
-            .ptr_type(inkwell::AddressSpace::default());
+        let i8_ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
         let fn_type = i8_ptr_type.fn_type(&[self.context.f32_type().into()], false);
 
         Ok(self.module.add_function("vex_f32_to_string", fn_type, None))
@@ -158,10 +146,7 @@ impl<'ctx> super::ASTCodeGen<'ctx> {
             return Ok(func);
         }
 
-        let i8_ptr_type = self
-            .context
-            .i8_type()
-            .ptr_type(inkwell::AddressSpace::default());
+        let i8_ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
         let fn_type = i8_ptr_type.fn_type(&[self.context.f64_type().into()], false);
 
         Ok(self.module.add_function("vex_f64_to_string", fn_type, None))

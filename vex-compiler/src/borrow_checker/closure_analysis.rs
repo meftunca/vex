@@ -48,11 +48,18 @@ impl super::BorrowChecker {
             Statement::LetPattern { value, .. } => {
                 self.analyze_expression_closures(value)?;
             }
-            Statement::Assign { target, value } => {
+            Statement::Assign {
+                span_id: _,
+                target,
+                value,
+            } => {
                 self.analyze_expression_closures(target)?;
                 self.analyze_expression_closures(value)?;
             }
-            Statement::Return(Some(expr)) => {
+            Statement::Return {
+                span_id: _,
+                value: Some(expr),
+            } => {
                 self.analyze_expression_closures(expr)?;
             }
             Statement::Expression(expr) => {
@@ -91,7 +98,7 @@ impl super::BorrowChecker {
                     self.analyze_statement_closures(stmt)?;
                 }
             }
-            Statement::Loop { body } => {
+            Statement::Loop { span_id: _, body } => {
                 for stmt in &mut body.statements {
                     self.analyze_statement_closures(stmt)?;
                 }
@@ -123,6 +130,7 @@ impl super::BorrowChecker {
                 }
             }
             Statement::Switch {
+                span_id: _,
                 value,
                 cases,
                 default_case,
@@ -141,20 +149,34 @@ impl super::BorrowChecker {
                     }
                 }
             }
-            Statement::Select { .. } | Statement::Unsafe(_) => {
+            Statement::Select { .. }
+            | Statement::Unsafe {
+                span_id: _,
+                block: _,
+            } => {
                 // These don't typically contain user closures
             }
             Statement::Defer(stmt) => {
                 self.analyze_statement_closures(stmt)?;
             }
-            Statement::Go(expr) => {
+            Statement::Go { span_id: _, expr } => {
                 self.analyze_expression_closures(expr)?;
             }
-            Statement::CompoundAssign { target, value, .. } => {
+            Statement::CompoundAssign {
+                span_id: _,
+                target,
+                op: _,
+                value,
+            } => {
                 self.analyze_expression_closures(target)?;
                 self.analyze_expression_closures(value)?;
             }
-            Statement::Break | Statement::Continue | Statement::Return(None) => {
+            Statement::Break { span_id: _ }
+            | Statement::Continue { span_id: _ }
+            | Statement::Return {
+                span_id: _,
+                value: None,
+            } => {
                 // No expressions to analyze
             }
         }

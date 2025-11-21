@@ -49,11 +49,20 @@ impl UnusedVariableRule {
                     continue;
                 }
 
-                diagnostics.push(Diagnostic::warning(
-                    "W0001",
-                    format!("unused variable: `{}`", var_name),
-                    vex_diagnostics::Span::unknown(), // TODO: Get actual span from AST
-                ));
+                diagnostics.push(
+                    Diagnostic::warning(
+                        "W0001",
+                        format!("unused variable: `{}`", var_name),
+                        vex_diagnostics::Span::unknown(), // TODO: Get actual span from AST
+                    )
+                    .with_primary_label("unused variable".to_string())
+                    .with_help(format!("consider removing this variable or prefix with `_`"))
+                    .with_suggestion(
+                        "prefix variable with '_'".to_string(),
+                        format!("_{}", var_name),
+                        vex_diagnostics::Span::unknown(),
+                    ),
+                );
             }
         }
 
@@ -129,14 +138,14 @@ impl UnusedVariableRule {
                 Statement::LetPattern { value, .. } => {
                     self.collect_usages_expr(value, used);
                 }
-                Statement::Expression(expr) | Statement::Return(Some(expr)) => {
+                Statement::Expression(expr) | Statement::Return { span_id: _, value: Some(expr) } => {
                     self.collect_usages_expr(expr, used);
                 }
-                Statement::Assign { target, value } => {
+                Statement::Assign { span_id: _, target, value } => {
                     self.collect_usages_expr(target, used);
                     self.collect_usages_expr(value, used);
                 }
-                Statement::CompoundAssign { target, value, .. } => {
+                Statement::CompoundAssign { span_id: _, target, op: _, value } => {
                     self.collect_usages_expr(target, used);
                     self.collect_usages_expr(value, used);
                 }
@@ -303,7 +312,7 @@ impl UnusedVariableRule {
 }
 
 impl LintRule for UnusedVariableRule {
-    fn check(&self, program: &Program) -> Vec<Diagnostic> {
+    fn check(&self, program: &Program, _span_map: &vex_diagnostics::SpanMap) -> Vec<Diagnostic> {
         let mut diagnostics = Vec::new();
 
         for item in &program.items {

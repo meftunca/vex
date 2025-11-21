@@ -231,7 +231,7 @@ impl<'a> CaptureAnalyzer<'a> {
                 self.visit_expression(value);
             }
 
-            Statement::Assign { target, value } => {
+            Statement::Assign { span_id: _, target, value } => {
                 // Check if we're mutating a captured variable
                 if let Expression::Ident(name) = target {
                     if !self.param_names.contains(name) && !self.local_vars.contains(name) {
@@ -272,7 +272,7 @@ impl<'a> CaptureAnalyzer<'a> {
                 self.visit_expression(value);
             }
 
-            Statement::Return(expr) => {
+            Statement::Return { span_id: _, value: expr } => {
                 if let Some(e) = expr {
                     self.visit_expression(e);
                 }
@@ -325,6 +325,7 @@ impl<'a> CaptureAnalyzer<'a> {
             }
 
             Statement::ForIn {
+                span_id: _,
                 iterable,
                 body,
                 variable,
@@ -338,11 +339,11 @@ impl<'a> CaptureAnalyzer<'a> {
             Statement::Defer(stmt) => {
                 self.visit_statement(stmt);
             }
-            Statement::Go(expr) => {
+            Statement::Go { span_id: _, expr } => {
                 self.visit_expression(expr);
             }
 
-            Statement::Break | Statement::Continue => {}
+            Statement::Break { span_id: _ } | Statement::Continue { span_id: _ } => {}
 
             Statement::Expression(expr) => {
                 self.visit_expression(expr);

@@ -15,7 +15,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Declare: char* vex_i32_to_string(int32_t value)
         let i32_type = self.context.i32_type();
-        let str_ptr_type = self.context.i8_type().ptr_type(AddressSpace::default());
+        let str_ptr_type = self.context.ptr_type(AddressSpace::default());
 
         let fn_type = str_ptr_type.fn_type(&[i32_type.into()], false);
         self.module.add_function(fn_name, fn_type, None)
@@ -31,7 +31,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Declare: char* vex_i64_to_string(int64_t value)
         let i64_type = self.context.i64_type();
-        let str_ptr_type = self.context.i8_type().ptr_type(AddressSpace::default());
+        let str_ptr_type = self.context.ptr_type(AddressSpace::default());
 
         let fn_type = str_ptr_type.fn_type(&[i64_type.into()], false);
         self.module.add_function(fn_name, fn_type, None)
@@ -47,7 +47,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Declare: char* vex_u32_to_string(uint32_t value)
         let u32_type = self.context.i32_type(); // u32 same as i32 in LLVM
-        let str_ptr_type = self.context.i8_type().ptr_type(AddressSpace::default());
+        let str_ptr_type = self.context.ptr_type(AddressSpace::default());
 
         let fn_type = str_ptr_type.fn_type(&[u32_type.into()], false);
         self.module.add_function(fn_name, fn_type, None)
@@ -63,7 +63,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Declare: char* vex_u64_to_string(uint64_t value)
         let u64_type = self.context.i64_type();
-        let str_ptr_type = self.context.i8_type().ptr_type(AddressSpace::default());
+        let str_ptr_type = self.context.ptr_type(AddressSpace::default());
 
         let fn_type = str_ptr_type.fn_type(&[u64_type.into()], false);
         self.module.add_function(fn_name, fn_type, None)
@@ -79,7 +79,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Declare: char* vex_f32_to_string(float value)
         let f32_type = self.context.f32_type();
-        let str_ptr_type = self.context.i8_type().ptr_type(AddressSpace::default());
+        let str_ptr_type = self.context.ptr_type(AddressSpace::default());
 
         let fn_type = str_ptr_type.fn_type(&[f32_type.into()], false);
         self.module.add_function(fn_name, fn_type, None)
@@ -95,7 +95,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // Declare: char* vex_f64_to_string(double value)
         let f64_type = self.context.f64_type();
-        let str_ptr_type = self.context.i8_type().ptr_type(AddressSpace::default());
+        let str_ptr_type = self.context.ptr_type(AddressSpace::default());
 
         let fn_type = str_ptr_type.fn_type(&[f64_type.into()], false);
         self.module.add_function(fn_name, fn_type, None)

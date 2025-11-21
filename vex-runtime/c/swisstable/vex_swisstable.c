@@ -29,11 +29,20 @@
 // vex.h already includes vex_macros.h with:
 // - VEX_STATIC_ASSERT, VEX_LIKELY, VEX_UNLIKELY, VEX_RESTRICT
 
+#if defined(__GNUC__) || defined(__clang__)
+#define VEX_ALWAYS_INLINE __attribute__((always_inline)) inline
+#elif defined(_MSC_VER)
+#define VEX_ALWAYS_INLINE __forceinline
+#else
+#define VEX_ALWAYS_INLINE inline
+#endif
+
 // ===== Internal types =====
 typedef struct
 {
     uint64_t hash;
     const char *key; // not owned
+    size_t len;      // <--- ADDED: Cache friendly filtering
     void *value;
 } Entry;
 
@@ -54,7 +63,7 @@ typedef struct
 #define DELETED 0xFEu
 #define H2_MASK 0x7Fu
 
-_Static_assert(GROUP_SIZE == 16, "GROUP_SIZE must be 16");
+_Static_assert(GROUP_SIZE == 16 || GROUP_SIZE == 32, "GROUP_SIZE must be 16 or 32");
 _Static_assert((EMPTY & 0x80u) == 0x80u, "EMPTY must have high bit set");
 _Static_assert((DELETED & 0x80u) == 0x80u, "DELETED must have high bit set");
 
@@ -113,20 +122,44 @@ static inline uint64_t _wyr8(const uint8_t *p)
     memcpy(&v, p, 8);
     return v;
 }
-// dosyanın başlarına (statik yardımcılar // simd yardımcılarından önce olabilir)
-static inline bool fast_eq_prefix8_safe(const char *a, const char *b)
+// Optimized key equality check (Phase 1 optimization)
+// Eliminates redundant work: checks 8-byte chunks first, then remaining bytes
+static inline bool fast_key_eq(const char *a, const char *b, size_t len)
 {
-    // maksimum 8 byte karşılaştır; bir yerde '\0' görürsek orada biter.
-    for (int i = 0; i < 8; ++i)
+    // Fast path: 8+ byte keys (most common case)
+    if (VEX_LIKELY(len >= 8))
     {
-        unsigned char ca = (unsigned char)a[i];
-        unsigned char cb = (unsigned char)b[i];
-        if (ca != cb)
+        // Quick reject: compare first 8 bytes as uint64_t
+        uint64_t a_word, b_word;
+        memcpy(&a_word, a, 8);
+        memcpy(&b_word, b, 8);
+        if (a_word != b_word)
             return false;
-        if (ca == 0)
-            return true; // ikisi de 0 ise buraya zaten gelmiştik
+        
+        if (len == 8)
+            return true;
+        
+        // Check remaining bytes (len > 8)
+        return memcmp(a + 8, b + 8, len - 8) == 0;
     }
-    return true;
+    
+    // Medium keys: 4-7 bytes
+    if (len >= 4)
+    {
+        uint32_t a_word, b_word;
+        memcpy(&a_word, a, 4);
+        memcpy(&b_word, b, 4);
+        if (a_word != b_word)
+            return false;
+        
+        if (len == 4)
+            return true;
+        
+        return memcmp(a + 4, b + 4, len - 4) == 0;
+    }
+    
+    // Small keys: 0-3 bytes (fallback)
+    return memcmp(a, b, len) == 0;
 }
 static inline uint64_t _wyr4(const uint8_t *p)
 {
@@ -140,7 +173,9 @@ static inline uint64_t _wyr3(const uint8_t *p, size_t k)
     return (((uint64_t)p[0]) << 16) | (((uint64_t)p[k >> 1]) << 8) | p[k - 1];
 }
 
-static inline uint64_t wyhash64(const void *key, size_t len, uint64_t seed)
+
+
+static VEX_ALWAYS_INLINE uint64_t wyhash64(const void *key, size_t len, uint64_t seed)
 {
     const uint8_t *p = (const uint8_t *)key;
     seed ^= 0xa0761d6478bd642full;
@@ -188,6 +223,8 @@ static inline uint64_t wyhash64(const void *key, size_t len, uint64_t seed)
     }
     return _wymix(0x2d358dccaa6c78a5ull ^ len, _wymix(a ^ 0x2d358dccaa6c78a5ull, b ^ seed));
 }
+
+
 
 // Fast string hash wrapper (single-pass strlen + hash)
 static inline uint64_t hash64_str(const char *s)
@@ -279,42 +316,34 @@ static inline uint32_t simd_group_match_any2_x86(const uint8_t *p, uint8_t a, ui
 }
 
 // ---- NEON movemask helper (optimized for ARM64) ----
-static inline uint32_t neon_movemask_u8(uint8x16_t input)
+static VEX_ALWAYS_INLINE uint32_t neon_movemask_u8(uint8x16_t input)
 {
-    // ARM doesn't have native movemask, so we extract high bits manually
-    // Method: Use vshrn to collect bits, then extract to scalar
+    // Optimized movemask for AArch64 using ADDV (Horizontal Add)
+    // We mask with powers of 2, then sum the bytes.
+    // Since the sum of lower 8 lanes fits in 8 bits, and upper 8 lanes fits in 8 bits,
+    // we can use pairwise addition or split-and-add.
+    
+    const uint8_t __attribute__((aligned(16))) powers[16] =
+        {1, 2, 4, 8, 16, 32, 64, 128, 1, 2, 4, 8, 16, 32, 64, 128};
+    uint8x16_t mask_vec = vld1q_u8(powers);
+    uint8x16_t bits = vandq_u8(input, mask_vec);
 
-    // Shift right by 7 to get high bit in LSB position
-    uint8x16_t highbits = vshrq_n_u8(input, 7);
-
-    // Pack pairs of bytes: 16 bytes -> 8 uint16_t
-    uint8x8_t low = vget_low_u8(highbits);
-    uint8x8_t high = vget_high_u8(highbits);
-
-    // Build 16-bit result manually from each byte
-    uint16_t result = 0;
-    result |= ((uint16_t)vget_lane_u8(low, 0)) << 0;
-    result |= ((uint16_t)vget_lane_u8(low, 1)) << 1;
-    result |= ((uint16_t)vget_lane_u8(low, 2)) << 2;
-    result |= ((uint16_t)vget_lane_u8(low, 3)) << 3;
-    result |= ((uint16_t)vget_lane_u8(low, 4)) << 4;
-    result |= ((uint16_t)vget_lane_u8(low, 5)) << 5;
-    result |= ((uint16_t)vget_lane_u8(low, 6)) << 6;
-    result |= ((uint16_t)vget_lane_u8(low, 7)) << 7;
-    result |= ((uint16_t)vget_lane_u8(high, 0)) << 8;
-    result |= ((uint16_t)vget_lane_u8(high, 1)) << 9;
-    result |= ((uint16_t)vget_lane_u8(high, 2)) << 10;
-    result |= ((uint16_t)vget_lane_u8(high, 3)) << 11;
-    result |= ((uint16_t)vget_lane_u8(high, 4)) << 12;
-    result |= ((uint16_t)vget_lane_u8(high, 5)) << 13;
-    result |= ((uint16_t)vget_lane_u8(high, 6)) << 14;
-    result |= ((uint16_t)vget_lane_u8(high, 7)) << 15;
-
-    return (uint32_t)result;
+    // Sum lower 8 bytes and upper 8 bytes separately
+    // vpaddq_u8 pairs adjacent bytes: [b0+b1, b2+b3, ..., b14+b15] (16 bytes, but top 8 are garbage/dup?)
+    // Actually, simpler:
+    
+    uint8x8_t low = vget_low_u8(bits);
+    uint8x8_t high = vget_high_u8(bits);
+    
+    // vaddv_u8 sums all elements in 8x8 vector to a scalar
+    uint32_t l = vaddv_u8(low);
+    uint32_t h = vaddv_u8(high);
+    
+    return l | (h << 8);
 }
 
 // ---- NEON path (optimized with proper movemask) ----
-static inline uint32_t simd_group_match_eq_neon(const uint8_t *p, uint8_t byte)
+static VEX_ALWAYS_INLINE uint32_t simd_group_match_eq_neon(const uint8_t *p, uint8_t byte)
 {
 #if SIMD_NEON
     uint8x16_t v = vld1q_u8(p);
@@ -327,7 +356,7 @@ static inline uint32_t simd_group_match_eq_neon(const uint8_t *p, uint8_t byte)
     return 0;
 #endif
 }
-static inline uint32_t simd_group_match_any2_neon(const uint8_t *p, uint8_t a, uint8_t b)
+static VEX_ALWAYS_INLINE uint32_t simd_group_match_any2_neon(const uint8_t *p, uint8_t a, uint8_t b)
 {
 #if SIMD_NEON
     uint8x16_t v = vld1q_u8(p);
@@ -365,9 +394,33 @@ static inline uint32_t simd_group_match_any2_scalar(const uint8_t *p, uint8_t a,
 }
 
 // ---- Unified API ----
-static inline uint32_t simd_group_match_eq(const uint8_t *p, uint8_t byte)
+// ---- AVX2 path (32-byte) ----
+#if SIMD_AVX2
+static inline uint32_t simd_group_match_eq_avx2(const uint8_t *p, uint8_t byte)
 {
-#if SIMD_X86
+    __m256i v = _mm256_loadu_si256((const __m256i *)p);
+    __m256i key = _mm256_set1_epi8((char)byte);
+    __m256i eq = _mm256_cmpeq_epi8(v, key);
+    return (uint32_t)_mm256_movemask_epi8(eq);
+}
+static inline uint32_t simd_group_match_any2_avx2(const uint8_t *p, uint8_t a, uint8_t b)
+{
+    __m256i v = _mm256_loadu_si256((const __m256i *)p);
+    __m256i va = _mm256_set1_epi8((char)a);
+    __m256i vb = _mm256_set1_epi8((char)b);
+    __m256i eqA = _mm256_cmpeq_epi8(v, va);
+    __m256i eqB = _mm256_cmpeq_epi8(v, vb);
+    __m256i orv = _mm256_or_si256(eqA, eqB);
+    return (uint32_t)_mm256_movemask_epi8(orv);
+}
+#endif
+
+// ---- Unified API ----
+static VEX_ALWAYS_INLINE uint32_t simd_group_match_eq(const uint8_t *p, uint8_t byte)
+{
+#if SIMD_AVX2
+    return simd_group_match_eq_avx2(p, byte);
+#elif SIMD_X86
     return simd_group_match_eq_x86(p, byte);
 #elif SIMD_NEON
     return simd_group_match_eq_neon(p, byte);
@@ -375,9 +428,15 @@ static inline uint32_t simd_group_match_eq(const uint8_t *p, uint8_t byte)
     return simd_group_match_eq_scalar(p, byte);
 #endif
 }
-static inline uint32_t simd_group_match_empty_or_deleted(const uint8_t *p)
+
+
+
+
+static VEX_ALWAYS_INLINE uint32_t simd_group_match_empty_or_deleted(const uint8_t *p)
 {
-#if SIMD_X86
+#if SIMD_AVX2
+    return simd_group_match_any2_avx2(p, EMPTY, DELETED);
+#elif SIMD_X86
     return simd_group_match_any2_x86(p, EMPTY, DELETED);
 #elif SIMD_NEON
     return simd_group_match_any2_neon(p, EMPTY, DELETED);
@@ -403,32 +462,94 @@ static inline int first_bit(uint32_t mask)
 
 // ===== Forward declarations =====
 static bool vex_swiss_init_internal(SwissMap *map, size_t initial_capacity);
-static bool vex_swiss_insert_internal(SwissMap *map, const char *key, void *value);
-static bool vex_swiss_remove_internal(SwissMap *map, const char *key);
-static void *vex_swiss_get_internal(const SwissMap *map, const char *key);
+static bool vex_swiss_insert_internal(SwissMap *map, const char *key, size_t len, void *value);
+static bool vex_swiss_remove_internal(SwissMap *map, const char *key, size_t len);
+static void *vex_swiss_get_internal(const SwissMap *map, const char *key, size_t len);
 static void vex_swiss_free_internal(SwissMap *map);
 
-// ===== Rehash (grow) =====
+// ===== Fast Insert for Rehash (No duplicate check, no rehash check) =====
+static void vex_swiss_insert_move(SwissMap *map, uint64_t h, const char *key, size_t len, void *value)
+{
+    const size_t cap = map->capacity;
+    const uint8_t fp = h2(h);
+    size_t i = bucket_start(h, cap);
+
+    for (;;)
+    {
+        const uint8_t *gptr = map->ctrl + (i & (cap - 1));
+
+        // We only look for EMPTY slots in a fresh map
+        uint32_t empties = simd_group_match_eq(gptr, EMPTY);
+
+        if (empties)
+        {
+            int off = first_bit(empties);
+            size_t idx = (i + (size_t)off) & (cap - 1);
+
+            map->ctrl[idx] = fp;
+            map->entries[idx].hash = h;
+            map->entries[idx].key = key;
+            map->entries[idx].len = len;
+            map->entries[idx].value = value;
+            map->len++;
+            return;
+        }
+
+        i += GROUP_SIZE;
+    }
+}
+
+// ---- AVX2 path (32-byte groups) ----
+#if defined(__AVX2__)
+#define SIMD_AVX2 1
+#else
+#define SIMD_AVX2 0
+#endif
+
+// Unified Group Size
+#if SIMD_AVX2
+#undef GROUP_SIZE
+#define GROUP_SIZE 32u
+#endif
+
+// ... (existing SIMD helpers) ...
+
+// Rehash (grow) - Optimized Batch Processing
 static bool vex_swiss_rehash(SwissMap *map, size_t new_cap)
 {
     SwissMap nm;
     if (!vex_swiss_init_internal(&nm, new_cap))
         return false;
 
-    for (size_t i = 0; i < map->capacity; ++i)
+    // Batch process entries
+    // We can iterate linearly over the old arrays
+    // Since we are rehashing, we don't need to check for duplicates or DELETED
+    
+    const Entry *old_entries = map->entries;
+    const uint8_t *old_ctrl = map->ctrl;
+    const size_t old_cap = map->capacity;
+    
+    for (size_t i = 0; i < old_cap; ++i)
     {
-        uint8_t c = map->ctrl[i];
+        uint8_t c = old_ctrl[i];
         if (c != EMPTY && c != DELETED)
         {
-            if (!vex_swiss_insert_internal(&nm, map->entries[i].key, map->entries[i].value))
-            {
-                vex_swiss_free_internal(&nm);
-                return false;
-            }
+            // Hot path: direct insert without full probe overhead
+            // We know the new map is empty, so we just find the first empty slot
+            // in the target group or subsequent groups.
+            
+            Entry *e = (Entry*)&old_entries[i];
+            vex_swiss_insert_move(&nm, e->hash, e->key, e->len, e->value);
         }
     }
+    
+    // Free old ctrl with correct free function
+#if defined(_WIN32)
+    _aligned_free(map->ctrl);
+#else
     free(map->ctrl);
-    free(map->entries);
+#endif
+    vex_free(map->entries);
     *map = nm;
     return true;
 }
@@ -451,13 +572,35 @@ static bool vex_swiss_init_internal(SwissMap *map, size_t initial_capacity)
     map->len = 0;
     map->max_load = cap - (cap >> 3); // 7/8
 
-    map->entries = (Entry *)calloc(cap, sizeof(Entry));
-    map->ctrl = (uint8_t *)malloc(cap + GROUP_PAD);
+    map->entries = (Entry *)vex_calloc(cap, sizeof(Entry));
+
+    // 64 byte alignment for SIMD (Cache line size)
+    size_t ctrl_size = cap + GROUP_PAD;
+    size_t aligned_size = (ctrl_size + 63) & ~63;
+
+#if defined(_WIN32)
+    map->ctrl = (uint8_t *)_aligned_malloc(aligned_size, 64);
+#else
+// C11 aligned_alloc or posix_memalign
+#if defined(_ISOC11_SOURCE) || (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L)
+    map->ctrl = (uint8_t *)aligned_alloc(64, aligned_size);
+#else
+    if (posix_memalign((void **)&map->ctrl, 64, aligned_size) != 0)
+        map->ctrl = NULL;
+#endif
+#endif
 
     if (!map->entries || !map->ctrl)
     {
-        free(map->entries);
-        free(map->ctrl);
+        vex_free(map->entries);
+        if (map->ctrl)
+        {
+#if defined(_WIN32)
+            _aligned_free(map->ctrl);
+#else
+            free(map->ctrl);
+#endif
+        }
         map->entries = NULL;
         map->ctrl = NULL;
         map->capacity = map->len = map->max_load = 0;
@@ -471,8 +614,12 @@ static void vex_swiss_free_internal(SwissMap *map)
 {
     if (!map)
         return;
+#if defined(_WIN32)
+    _aligned_free(map->ctrl);
+#else
     free(map->ctrl);
-    free(map->entries);
+#endif
+    vex_free(map->entries);
     map->ctrl = NULL;
     map->entries = NULL;
     map->capacity = 0;
@@ -483,27 +630,27 @@ static void vex_swiss_free_internal(SwissMap *map)
 // ===== Public API glue =====
 
 bool vex_map_new(VexMap *map, size_t initial_capacity) { return vex_swiss_init_internal((SwissMap *)map, initial_capacity); }
-bool vex_map_insert(VexMap *map, const char *key, void *value) { return vex_swiss_insert_internal((SwissMap *)map, key, value); }
-void *vex_map_get(const VexMap *map, const char *key) { return vex_swiss_get_internal((const SwissMap *)map, key); }
-bool vex_map_remove(VexMap *map, const char *key) { return vex_swiss_remove_internal((SwissMap *)map, key); }
+bool vex_map_insert(VexMap *map, const char *key, size_t len, void *value) { return vex_swiss_insert_internal((SwissMap *)map, key, len, value); }
+void *vex_map_get(const VexMap *map, const char *key, size_t len) { return vex_swiss_get_internal((const SwissMap *)map, key, len); }
+bool vex_map_remove(VexMap *map, const char *key, size_t len) { return vex_swiss_remove_internal((SwissMap *)map, key, len); }
 size_t vex_map_len(const VexMap *map) { return ((const SwissMap *)map)->len; }
 void vex_map_free(VexMap *map) { vex_swiss_free_internal((SwissMap *)map); }
 
 VexMap *vex_map_create(size_t initial_capacity)
 {
-    VexMap *map = (VexMap *)malloc(sizeof(VexMap));
+    VexMap *map = (VexMap *)vex_malloc(sizeof(VexMap));
     if (!map)
         return NULL;
     if (!vex_map_new(map, initial_capacity))
     {
-        free(map);
+        vex_free(map);
         return NULL;
     }
     return map;
 }
 
 // ===== Insert or update (grouped probing with backstop) =====
-static bool vex_swiss_insert_internal(SwissMap *map, const char *key, void *value)
+static bool vex_swiss_insert_internal(SwissMap *map, const char *key, size_t len, void *value)
 {
     if (VEX_UNLIKELY(!map || !key))
         return false;
@@ -516,7 +663,7 @@ static bool vex_swiss_insert_internal(SwissMap *map, const char *key, void *valu
             return false;
     }
 
-    const uint64_t h = hash64_str(key);
+    const uint64_t h = wyhash64(key, len, 0);
     const uint8_t fp = h2(h);
 
     // Backstop loop: if we ever scan full table without finding a slot, grow and retry
@@ -536,22 +683,19 @@ static bool vex_swiss_insert_internal(SwissMap *map, const char *key, void *valu
             {
                 int off = first_bit(match);
                 size_t idx = (i + (size_t)off) & (cap - 1);
+                Entry *e = &map->entries[idx];
 
-                // Fast 8-byte prefix check before full strcmp
-                const char *k = map->entries[idx].key;
-                uint64_t a, b;
-                memcpy(&a, k, 8);
-                memcpy(&b, key, 8);
-
-                // if (map->entries[idx].hash == h && a == b && strcmp(k, key) == 0)
-                // {
-                if (map->entries[idx].hash == h &&
-                    fast_eq_prefix8_safe(k, key) &&
-                    strcmp(k, key) == 0)
+                // 1. Filter: Hash check
+                // 2. Filter: Length check (Cache friendly)
+                if (e->hash == h && e->len == len)
                 {
-                    // hit / update
-                    map->entries[idx].value = value;
-                    return true;
+                    // 3. Optimized key comparison (fast_key_eq eliminates redundant work)
+                    if (fast_key_eq(e->key, key, len))
+                    {
+                        // hit / update
+                        e->value = value;
+                        return true;
+                    }
                 }
                 match &= (match - 1);
             }
@@ -568,21 +712,22 @@ static bool vex_swiss_insert_internal(SwissMap *map, const char *key, void *valu
                 map->ctrl[idx] = fp;
                 map->entries[idx].hash = h;
                 map->entries[idx].key = key; // caller owns memory
+                map->entries[idx].len = len; // Store length
                 map->entries[idx].value = value;
                 map->len++;
                 return true;
             }
 
-            // 3) Next group
+            // 3) Next group + Enhanced Prefetching (hide L1 miss latency)
             i += GROUP_SIZE;
             scanned += GROUP_SIZE;
 
-            // Prefetch next group (hide L1 miss latency)
+            // Prefetch next group ahead (critical for performance)
             if (VEX_LIKELY(scanned < cap))
             {
                 size_t next = (i + GROUP_SIZE) & (cap - 1);
-                __builtin_prefetch((const void *)(map->ctrl + next), 0, 1);
-                __builtin_prefetch((const void *)(map->entries + next), 0, 1);
+                __builtin_prefetch((const void *)(map->ctrl + next), 0, 1);      // Read, low temporal locality
+                __builtin_prefetch((const void *)(map->entries + next), 0, 1);  // Prefetch entries too
             }
 
             // Backstop: scanned a full table worth of bytes, no slot found
@@ -599,13 +744,13 @@ static bool vex_swiss_insert_internal(SwissMap *map, const char *key, void *valu
 }
 
 // ===== Lookup =====
-static void *vex_swiss_get_internal(const SwissMap *map, const char *key)
+static void *vex_swiss_get_internal(const SwissMap *map, const char *key, size_t len)
 {
     if (VEX_UNLIKELY(!map || !key || map->len == 0))
         return NULL;
 
     const size_t cap = map->capacity;
-    const uint64_t h = hash64_str(key);
+    const uint64_t h = wyhash64(key, len, 0);
     const uint8_t fp = h2(h);
     size_t i = bucket_start(h, cap);
     size_t scanned = 0;
@@ -620,15 +765,13 @@ static void *vex_swiss_get_internal(const SwissMap *map, const char *key)
         {
             int off = first_bit(match);
             size_t idx = (i + (size_t)off) & (cap - 1);
+            Entry *e = &map->entries[idx];
 
-            // Fast 8-byte prefix check before full strcmp
-            const char *k = map->entries[idx].key;
-            uint64_t a, b;
-            memcpy(&a, k, 8);
-            memcpy(&b, key, 8);
-
-            if (map->entries[idx].hash == h && a == b && strcmp(k, key) == 0)
-                return map->entries[idx].value;
+            if (e->hash == h && e->len == len)
+            {
+                if (fast_key_eq(e->key, key, len))
+                    return e->value;
+            }
             match &= (match - 1);
         }
 
@@ -637,15 +780,15 @@ static void *vex_swiss_get_internal(const SwissMap *map, const char *key)
         if (empties)
             return NULL;
 
+        // Next group + Enhanced Prefetching (critical for lookup performance)
         i += GROUP_SIZE;
         scanned += GROUP_SIZE;
 
-        // Prefetch next group (critical for lookup performance)
-        if (VEX_LIKELY(scanned <= cap))
+        if (VEX_LIKELY(scanned < cap))
         {
             size_t next = (i + GROUP_SIZE) & (cap - 1);
-            __builtin_prefetch((const void *)(map->ctrl + next), 0, 0);
-            __builtin_prefetch((const void *)(map->entries + next), 0, 0);
+            __builtin_prefetch((const void *)(map->ctrl + next), 0, 0);      // Read-only, no temporal locality
+            __builtin_prefetch((const void *)(map->entries + next), 0, 0);  // Prefetch entries too
         }
 
         if (VEX_UNLIKELY(scanned > cap))
@@ -654,19 +797,19 @@ static void *vex_swiss_get_internal(const SwissMap *map, const char *key)
 }
 
 // ===== Legacy wrappers for old tests (optional) =====
-bool vex_swiss_insert(SwissMap *map, const char *key, void *value) { return vex_swiss_insert_internal(map, key, value); }
-void *vex_swiss_get(const SwissMap *map, const char *key) { return vex_swiss_get_internal(map, key); }
+bool vex_swiss_insert(SwissMap *map, const char *key, void *value) { return vex_swiss_insert_internal(map, key, strlen(key), value); }
+void *vex_swiss_get(const SwissMap *map, const char *key) { return vex_swiss_get_internal(map, key, strlen(key)); }
 bool vex_swiss_init(SwissMap *map, size_t initial_capacity) { return vex_swiss_init_internal(map, initial_capacity); }
 void vex_swiss_free(SwissMap *map) { vex_swiss_free_internal(map); }
 
 // ===== Remove/Delete =====
-static bool vex_swiss_remove_internal(SwissMap *map, const char *key)
+static bool vex_swiss_remove_internal(SwissMap *map, const char *key, size_t len)
 {
     if (VEX_UNLIKELY(!map || !key || map->len == 0))
         return false;
 
     const size_t cap = map->capacity;
-    const uint64_t h = hash64_str(key);
+    const uint64_t h = wyhash64(key, len, 0);
     const uint8_t fp = h2(h);
     size_t i = bucket_start(h, cap);
     size_t scanned = 0;
@@ -681,20 +824,17 @@ static bool vex_swiss_remove_internal(SwissMap *map, const char *key)
         {
             int off = first_bit(match);
             size_t idx = (i + (size_t)off) & (cap - 1);
+            Entry *e = &map->entries[idx];
 
-            // Fast 8-byte prefix check before full strcmp
-            const char *k = map->entries[idx].key;
-            if (map->entries[idx].hash == h &&
-                fast_eq_prefix8_safe(k, key) &&
-                strcmp(k, key) == 0)
+            if (e->hash == h && e->len == len)
             {
-                // Found it - mark as DELETED
-                map->ctrl[idx] = DELETED;
-                map->entries[idx].key = NULL;
-                map->entries[idx].value = NULL;
-                map->entries[idx].hash = 0;
-                map->len--;
-                return true;
+                if (fast_key_eq(e->key, key, len))
+                {
+                    // Found it. Mark DELETED.
+                    map->ctrl[idx] = DELETED;
+                    map->len--;
+                    return true;
+                }
             }
             match &= (match - 1);
         }
@@ -702,16 +842,22 @@ static bool vex_swiss_remove_internal(SwissMap *map, const char *key)
         // Early exit ONLY if we see EMPTY in this group
         uint32_t empties = simd_group_match_eq(gptr, EMPTY);
         if (empties)
-            return false; // not found
+            return false;
 
-        // Next group
+        // Next group + Enhanced Prefetching
         i += GROUP_SIZE;
         scanned += GROUP_SIZE;
 
-        // Safety: prevent infinite loop
-        if (VEX_UNLIKELY(scanned >= cap))
+        if (VEX_LIKELY(scanned < cap))
+        {
+            size_t next = (i + GROUP_SIZE) & (cap - 1);
+            __builtin_prefetch((const void *)(map->ctrl + next), 0, 1);      // Read, low temporal locality
+            __builtin_prefetch((const void *)(map->entries + next), 0, 1);  // Prefetch entries too
+        }
+
+        if (VEX_UNLIKELY(scanned > cap))
             return false;
     }
 }
 
-bool vex_swiss_remove(SwissMap *map, const char *key) { return vex_swiss_remove_internal(map, key); }
+// ============================================================================

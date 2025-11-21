@@ -3,7 +3,7 @@
 
 use crate::borrow_checker::builtin_metadata::BuiltinBorrowRegistry;
 use crate::borrow_checker::builtins_list;
-use crate::borrow_checker::errors::{BorrowError, BorrowResult};
+use crate::borrow_checker::errors::BorrowResult;
 use std::collections::{HashMap, HashSet};
 use vex_ast::*;
 
@@ -227,6 +227,9 @@ mod tests {
     fn test_lifetime_checker_creation() {
         let checker = LifetimeChecker::new();
         assert_eq!(checker.current_scope, 0);
-        assert!(checker.variable_scopes.is_empty());
+        // Builtins are registered into variable_scopes - this should not be empty
+        assert!(!checker.variable_scopes.is_empty());
+        // The builtin `println` should be present at scope 0
+        assert_eq!(checker.variable_scopes.get("println"), Some(&0usize));
     }
 }

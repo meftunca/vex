@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
-use vex_compiler::{debug_log, debug_println};
+use vex_compiler::debug_println;
 
 #[derive(Parser)]
 #[command(name = "vex")]
@@ -770,7 +770,7 @@ fn main() -> Result<()> {
             let mut borrow_checker = vex_compiler::BorrowChecker::new();
             if let Err(borrow_error) = borrow_checker.check_program(&mut ast) {
                 // Convert borrow error to diagnostic
-                let diagnostic = borrow_error.to_diagnostic();
+                let diagnostic = borrow_error.to_diagnostic(&span_map);
 
                 if json {
                     // Output as single diagnostic JSON
@@ -794,7 +794,7 @@ fn main() -> Result<()> {
 
             // Run linter for warnings
             let mut linter = vex_compiler::Linter::new();
-            let lint_warnings = linter.lint(&ast);
+            let lint_warnings = linter.lint(&ast, &span_map);
 
             if !lint_warnings.is_empty() {
                 if json {
@@ -1457,7 +1457,7 @@ fn main() -> Result<()> {
             let mut borrow_checker = vex_compiler::BorrowChecker::new();
             if let Err(borrow_error) = borrow_checker.check_program(&mut ast) {
                 // Convert borrow error to diagnostic
-                let diagnostic = borrow_error.to_diagnostic();
+                let diagnostic = borrow_error.to_diagnostic(&span_map);
 
                 if json {
                     // Output as single diagnostic JSON

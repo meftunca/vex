@@ -57,11 +57,13 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 code: error_codes::TYPE_MISMATCH.to_string(),
                 message: "While condition must be an integer or boolean value".to_string(),
                 span,
+                primary_label: Some("type mismatch".to_string()),
                 notes: vec![format!("Got non-integer type in while condition")],
                 help: Some(
                     "Ensure the condition evaluates to a boolean (i1) or integer type".to_string(),
                 ),
                 suggestion: None,
+                related: Vec::new(),
             });
             return Err("While condition must be integer".to_string());
         };

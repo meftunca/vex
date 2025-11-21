@@ -1,8 +1,7 @@
 // Linter module - static analysis and warnings for Vex code
 // Detects code quality issues and unused code
 
-use std::collections::{HashMap, HashSet};
-use vex_ast::{Expression, Item, Program, Statement};
+use vex_ast::Program;
 use vex_diagnostics::{Diagnostic, DiagnosticEngine};
 
 pub mod unused_variables;
@@ -19,7 +18,7 @@ pub use unused_variables::UnusedVariableRule;
 /// Trait for implementing lint rules
 pub trait LintRule {
     /// Check the AST and return diagnostics
-    fn check(&self, program: &Program) -> Vec<Diagnostic>;
+    fn check(&self, program: &Program, span_map: &vex_diagnostics::SpanMap) -> Vec<Diagnostic>;
 
     /// Name of the lint rule
     fn name(&self) -> &str;
@@ -68,11 +67,15 @@ impl Linter {
     }
 
     /// Run all lint rules on the program
-    pub fn lint(&mut self, program: &Program) -> Vec<Diagnostic> {
+    pub fn lint(
+        &mut self,
+        program: &Program,
+        span_map: &vex_diagnostics::SpanMap,
+    ) -> Vec<Diagnostic> {
         let mut all_diagnostics = Vec::new();
 
         for rule in &self.rules {
-            let diagnostics = rule.check(program);
+            let diagnostics = rule.check(program, span_map);
             all_diagnostics.extend(diagnostics);
         }
 

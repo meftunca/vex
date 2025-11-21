@@ -54,6 +54,12 @@ pub struct ASTCodeGen<'ctx> {
     // ⭐ Phase 1: Type Inference - Type constraint collection
     // Collects constraints during first pass, resolved in unification phase
     pub type_constraints: Vec<TypeConstraint>,
+
+    // ⭐ GENERIC INSTANTIATION: Active type substitutions during generic function compilation
+    // Maps type parameter names to their concrete types during instantiation
+    // Example: {"T" → Type::I32} when compiling min_i32 from min<T>
+    // CRITICAL: Used by infer_expression_type() to resolve generic type parameters
+    pub active_type_substitutions: HashMap<String, Type>,
     // Track tuple variables separately to know their struct types for pattern matching
     pub(crate) tuple_variable_types: HashMap<String, StructType<'ctx>>,
     // Track function pointer parameters (stored as values, not allocas)
@@ -103,7 +109,7 @@ pub struct ASTCodeGen<'ctx> {
     // Stores compiled constant values from imported modules
     // Key format: "module_name::CONST_NAME" or direct "CONST_NAME"
     pub(crate) module_constants: HashMap<String, BasicValueEnum<'ctx>>,
-    
+
     // ⭐ NEW: Module constant type tracking
     // Stores AST types for module constants for proper type inference
     // Used by infer_expression_type() for namespace access (math.PI)
