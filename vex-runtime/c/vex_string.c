@@ -1201,6 +1201,82 @@ char *vex_str_replace(const char *s, const char *old_str, const char *new_str)
 }
 
 /**
+ * Split - Split string by delimiter
+ * Returns array of strings (NULL-terminated)
+ * Caller must free each string and the array itself
+ */
+char **vex_str_split(const char *s, const char *delim, size_t *out_count)
+{
+    if (!s || !delim || !out_count)
+        return NULL;
+
+    size_t delim_len = vex_strlen(delim);
+    if (delim_len == 0)
+    {
+        // Empty delimiter - return single element (copy of s)
+        char **result = (char **)vex_malloc(2 * sizeof(char *));
+        if (!result)
+            return NULL;
+        result[0] = vex_strdup(s);
+        result[1] = NULL;
+        *out_count = 1;
+        return result;
+    }
+
+    // Count occurrences
+    size_t count = 1; // At least one part
+    const char *tmp = s;
+    while ((tmp = strstr(tmp, delim)) != NULL)
+    {
+        count++;
+        tmp += delim_len;
+    }
+
+    // Allocate array (count + 1 for NULL terminator)
+    char **result = (char **)vex_malloc((count + 1) * sizeof(char *));
+    if (!result)
+        return NULL;
+
+    // Split
+    size_t idx = 0;
+    const char *start = s;
+    const char *end;
+
+    while ((end = strstr(start, delim)) != NULL)
+    {
+        size_t part_len = end - start;
+        result[idx] = (char *)vex_malloc(part_len + 1);
+        if (!result[idx])
+        {
+            // Cleanup on failure
+            for (size_t i = 0; i < idx; i++)
+                vex_free(result[i]);
+            vex_free(result);
+            return NULL;
+        }
+        memcpy(result[idx], start, part_len);
+        result[idx][part_len] = '\0';
+        idx++;
+        start = end + delim_len;
+    }
+
+    // Last part
+    result[idx] = vex_strdup(start);
+    if (!result[idx])
+    {
+        for (size_t i = 0; i < idx; i++)
+            vex_free(result[i]);
+        vex_free(result);
+        return NULL;
+    }
+    idx++;
+
+    result[idx] = NULL; // NULL terminator
+    *out_count = count;
+    return result;
+}
+
+/**
  * Convert f64 to string
  * Returns heap-allocated string (caller must free)
  */

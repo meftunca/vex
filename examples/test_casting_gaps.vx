@@ -32,7 +32,7 @@ fn test_match_coercion(x: i8): i8 {
 
 // Test 5: If expression coercion
 fn test_if_expr(cond: bool): i8 {
-    return if cond { 10 } else { 20 };  // Should compile 10,20 as i8
+     if cond  { return 10; } else { return 20; }  // Should compile 10,20 as i8
 }
 
 // Test 6: Multi-overload function call

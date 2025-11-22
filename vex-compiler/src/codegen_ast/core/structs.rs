@@ -47,6 +47,11 @@ pub struct ASTCodeGen<'ctx> {
     pub(crate) global_constants: HashMap<String, PointerValue<'ctx>>,
     pub(crate) global_constant_types: HashMap<String, BasicTypeEnum<'ctx>>,
     pub(crate) functions: HashMap<String, FunctionValue<'ctx>>,
+    
+    // ⭐ CRITICAL: Maps base function name to its mangled name
+    // This allows function pointer lookups by base name (e.g., "double" -> "double_i32_1")
+    pub(crate) function_name_to_mangled: HashMap<String, String>,
+    
     pub(crate) function_defs: HashMap<String, Function>,
     pub(crate) struct_ast_defs: HashMap<String, Struct>,
     pub(crate) struct_defs: HashMap<String, StructDef>,

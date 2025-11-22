@@ -57,16 +57,43 @@ impl<'ctx> ASTCodeGen<'ctx> {
         type_args: &[vex_ast::Type],
         args: &[vex_ast::Expression],
     ) -> Result<BasicValueEnum<'ctx>, String> {
-        // Type constructor: Vec<i32>(), Point(10, 20)
-        // Desugar to static method call: Type<T>.new(args)
+        // Type constructor: Vec<i32>(), Point(10, 20), String("hello")
+        // Strategy:
+        // 1. Try calling constructor function: Point(x, y) -> calls fn Point(x, y)
+        // 2. If not found or generic, desugar to static method: Type<T>.new(args)
 
-        // ⭐ Phase 3: Handle Vec() without type args - will be inferred from usage
         eprintln!(
-            "🔧 Type constructor: {}() with {} type args",
+            "🔧 Type constructor: {}() with {} type args, {} args",
             type_name,
-            type_args.len()
+            type_args.len(),
+            args.len()
         );
 
+        // ⭐ FIX: Always try constructor function first (handles overloads)
+        // String("hello") → fn String(s: str) 
+        // Point(10, 20) → fn Point(x: i32, y: i32)
+        let call_expr = vex_ast::Expression::Call {
+            span_id: None,
+            func: Box::new(vex_ast::Expression::Ident(type_name.to_string())),
+            type_args: type_args.to_vec(),
+            args: args.to_vec(),
+        };
+        
+        // Try to compile as regular function call
+        // This will handle overload resolution automatically
+        match self.compile_expression(&call_expr) {
+            Ok(result) => {
+                eprintln!("  ✅ Called constructor function: {}", type_name);
+                return Ok(result);
+            }
+            Err(e) => {
+                eprintln!("  ⚠️ Constructor function failed: {}", e);
+                // Fall back to static method if constructor not found
+            }
+        }
+
+        eprintln!("  → Fallback: using static method {}.new()", type_name);
+        
         // ⭐ CRITICAL: Preserve generic type arguments!
         // Vec<i32>() should become Vec<i32>.new(), not Vec.new()
         let method_call = vex_ast::Expression::MethodCall {

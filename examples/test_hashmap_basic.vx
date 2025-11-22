@@ -1,0 +1,4 @@
+// Test HashMap basic functionality
+fn main() {
+    println("Testing HashMap...");
+}

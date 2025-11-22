@@ -1,21 +1,21 @@
 // HashMap<K, V> - Generic hash map
-// Zero-cost wrapper over vex_swisstable_v2.c (30M+ ops/s)
+// Zero-cost wrapper over vex_swisstable.c (Swiss Tables V1)
 
-// External C functions from vex_swisstable_v2.c
+// External C functions from vex_swisstable.c (V1 API)
 extern "C" {
-    fn vex_map_new_v2(map: *(*u8), capacity: i64): bool;
-    fn vex_map_insert_v2(map: *u8, key: str, value: *u8): bool;
-    fn vex_map_get_v2(map: *u8, key: str): *u8;
-    fn vex_map_remove_v2(map: *u8, key: str): bool;
-    fn vex_map_len_v2(map: *u8): i64;
-    fn vex_map_free_v2(map: *u8);
+    fn vex_map_new(map: *(*u8), capacity: i64): bool;
+    fn vex_map_insert(map: *u8, key: str, value: *u8): bool;
+    fn vex_map_get(map: *u8, key: str): *u8;
+    fn vex_map_remove(map: *u8, key: str): bool;
+    fn vex_map_len(map: *u8): i64;
+    fn vex_map_free(map: *u8);
 }
 
 export {
-    vex_map_new_v2,
-    vex_map_insert_v2,
-    vex_map_get_v2,
-    vex_map_remove_v2,
-    vex_map_len_v2,
-    vex_map_free_v2
+    vex_map_new,
+    vex_map_insert,
+    vex_map_get,
+    vex_map_remove,
+    vex_map_len,
+    vex_map_free
 };

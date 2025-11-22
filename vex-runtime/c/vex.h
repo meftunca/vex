@@ -130,6 +130,15 @@ extern "C"
    */
   char *vex_strdup(const char *s);
 
+  /**
+   * Split string by delimiter
+   * @param s String to split
+   * @param delim Delimiter string
+   * @param out_count Output parameter for number of parts
+   * @return NULL-terminated array of strings (must free each string and array)
+   */
+  char **vex_str_split(const char *s, const char *delim, size_t *out_count);
+
   // ============================================================================
   // UTF-8 OPERATIONS
   // ============================================================================
@@ -998,73 +1007,15 @@ extern "C"
   //   - Lookup: 53.86M ops/s (18.6 ns/op) 🔥
   //   - Remove: 18.2M ops/s (54.9 ns/op)
 
-  /**
-   * Initialize map with V2 implementation (RECOMMENDED)
-   * @param map Pointer to VexMap struct
-   * @param initial_capacity Initial capacity (will be rounded to power of 2)
-   * @return true on success, false on allocation failure
-   */
-  bool vex_map_new_v2(VexMap *map, size_t initial_capacity);
-
-  /**
-   * Insert or update with V2 (2.8x faster than Rust)
-   * @param map Map to insert into
-   * @param key Key string (must remain valid)
-   * @param value Value pointer
-   * @return true on success
-   */
-  bool vex_map_insert_v2(VexMap *map, const char *key, void *value);
-
-  /**
-   * Get value with V2 (3.4x faster than Rust)
-   * @param map Map to search
-   * @param key Key string to find
-   * @return Value pointer or NULL if not found
-   */
-  void *vex_map_get_v2(const VexMap *map, const char *key);
-
-  /**
-   * Remove key with V2
-   * @param map Map to remove from
-   * @param key Key to remove
-   * @return true if key was found and removed
-   */
-  bool vex_map_remove_v2(VexMap *map, const char *key);
-
-  /**
-   * Clear all entries (keeps capacity)
-   * @param map Map to clear
-   */
-  void vex_map_clear_v2(VexMap *map);
-
-  /**
-   * Get number of entries with V2
-   * @param map Map to query
-   * @return Number of entries
-   */
-  size_t vex_map_len_v2(const VexMap *map);
-
-  /**
-   * Free map with V2
-   * @param map Map to free
-   */
-  void vex_map_free_v2(VexMap *map);
-
   // ============================================================================
-  // SWISSTABLE V3 API - EXPERIMENTAL (FASTER INSERT/LOOKUP)
+  // SWISSTABLE V2 & V3 APIs - NOT IMPLEMENTED
   // ============================================================================
-  // Performance (100K items on ARM64):
-  //   - Insert: 19.3M ops/s (51.6 ns/op)
-  //   - Lookup: 13.3M ops/s (74.9 ns/op)
-  //   - Remove: 48.4M ops/s (20.6 ns/op)
-
-  bool vex_map_new_v3(VexMap *map, size_t initial_capacity);
-  bool vex_map_insert_v3(VexMap *map, const char *key, void *value);
-  void *vex_map_get_v3(const VexMap *map, const char *key);
-  bool vex_map_remove_v3(VexMap *map, const char *key);
-  void vex_map_clear_v3(VexMap *map);
-  size_t vex_map_len_v3(const VexMap *map);
-  void vex_map_free_v3(VexMap *map);
+  // V2/V3 implementations are commented out in build.rs
+  // Only V1 API (vex_map_new, vex_map_insert, etc.) is currently available
+  // TODO: Implement V2/V3 for improved performance
+  
+  // V2 API declarations removed - implementation not compiled
+  // V3 API declarations removed - implementation not compiled
 
   // ============================================================================
   // PATH OPERATIONS

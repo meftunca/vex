@@ -159,12 +159,47 @@ impl<'ctx> ASTCodeGen<'ctx> {
         } else if self.functions.contains_key(&external_method_name) {
             external_method_name
         } else {
-            // Final fallback: try to find ANY function that starts with struct_method pattern
-            // This handles cases where type suffix doesn't match exactly
+            // Final fallback: try to find BEST MATCHING function based on arg types
+            // This handles method overloading: String.push(str) vs String.pushChar(u32)
             let pattern = format!("{}_{}", struct_name, method_encoded);
-            if let Some(found) = self.functions.keys().find(|k| k.starts_with(&pattern)) {
-                eprintln!("   ✅ Found via pattern match: {}", found);
-                found.clone()
+            let candidates: Vec<String> = self
+                .functions
+                .keys()
+                .filter(|k| k.starts_with(&pattern))
+                .cloned()
+                .collect();
+            
+            if !candidates.is_empty() {
+                eprintln!("   🔍 Found {} candidates: {:?}", candidates.len(), candidates);
+                
+                // Try to find best match based on first arg type
+                if !args.is_empty() {
+                    if let Ok(arg_type) = self.infer_expression_type(&args[0]) {
+                        let arg_type_str = match arg_type {
+                            Type::Named(ref n) if n == "str" => "str",
+                            Type::U32 => "u32",
+                            Type::I32 => "i32",
+                            Type::I64 => "i64",
+                            Type::F32 => "f32",
+                            Type::F64 => "f64",
+                            Type::Bool => "bool",
+                            Type::Named(ref n) => n.as_str(),
+                            _ => "",
+                        };
+                        
+                        eprintln!("   🔍 Looking for match with arg type: {}", arg_type_str);
+                        
+                        // Find candidate that contains this type in its name
+                        if let Some(best_match) = candidates.iter().find(|c| c.contains(arg_type_str)) {
+                            eprintln!("   ✅ Best match found: {}", best_match);
+                            return Ok(best_match.clone());
+                        }
+                    }
+                }
+                
+                // No type match - use first candidate (backward compatibility)
+                eprintln!("   ⚠️ Using first candidate: {}", candidates[0]);
+                candidates[0].clone()
             } else {
                 // Default to inline naming for error messages (most common case)
                 inline_method_name

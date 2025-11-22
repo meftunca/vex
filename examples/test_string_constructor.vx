@@ -1,0 +1,31 @@
+// Test new String static method syntax
+// String.new(), String.from(), String.withCapacity()
+
+fn main(): i32 {
+    // Static method calls - proper OOP style
+    let s1 = String();
+    println("Empty string created: {}", s1.empty());
+    
+    let s2 = String("Hello, Vex!");
+    println("String from str: {}", s2.text());
+    
+    let s3 = String.withCapacity(100);
+    println("String with capacity: {}", s3.capacity());
+    
+    // Instance methods
+    let contains = s2.contains("Vex");
+    println("Contains 'Vex': {}", contains);
+    
+    let upper = s2.upper();
+    println("Uppercase: {}", upper.text());
+    
+    // Type constructor syntax (sugar for String.new())
+    let s4 = String();
+    println("Constructor syntax works: {}", s4.empty());
+    
+    if contains && s1.empty() {
+        return 42;
+    }
+    
+    return 1;
+}

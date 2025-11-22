@@ -134,12 +134,12 @@ impl<'ctx> ASTCodeGen<'ctx> {
         // LLVM doesn't allow +, *, -, etc. in function names
         let method_name_encoded = Self::encode_operator_name(&method.name);
 
-        // ⭐ NEW: Enhanced mangling for generic trait implementations
-        // For inline methods, param_count includes implicit receiver
-        let param_count = method.params.len() + 1; // +1 for implicit receiver
+        // ⭐ CRITICAL: For inline methods, param_count should NOT include receiver
+        // Receiver is implicit, only count explicit parameters for consistency with call sites
+        let param_count = method.params.len(); // Receiver excluded
         let base_name = format!("{}_{}", struct_name, method_name_encoded);
 
-        // Try to find trait + type args for this method by matching parameter types
+        // ⭐ UNIFIED MANGLING: Use central mangle_function_name for consistency
         let mangled_name = if method.name.starts_with("op") && !method.params.is_empty() {
             if let Some(struct_def) = self.struct_ast_defs.get(struct_name) {
                 // For operator methods, check the first parameter type against trait impl type args
@@ -196,7 +196,17 @@ impl<'ctx> ASTCodeGen<'ctx> {
         {
             format!("{}_{}", base_name, param_count)
         } else {
-            base_name
+            // ⭐ CRITICAL: Add parameter type suffix for overloading support
+            let mut type_suffix = String::new();
+            for param in &method.params {
+                type_suffix.push_str(&self.generate_type_suffix(&param.ty));
+            }
+            
+            if !type_suffix.is_empty() {
+                format!("{}{}_{}", base_name, type_suffix, param_count)
+            } else {
+                base_name
+            }
         };
 
         let mut param_types: Vec<inkwell::types::BasicMetadataTypeEnum> = Vec::new();
@@ -248,6 +258,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         };
 
         let fn_val = self.module.add_function(&mangled_name, fn_type, None);
+        eprintln!("🔧 Registering inline method: {} (functions map)", mangled_name);
         self.functions.insert(mangled_name.clone(), fn_val);
 
         let mut mangled_method = method.clone();
@@ -276,9 +287,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
         // ⭐ CRITICAL: Encode operator symbols for LLVM compatibility
         let method_name_encoded = Self::encode_operator_name(&method.name);
 
-        // ⭐ NEW: Enhanced mangling for generic trait implementations (same as declare_struct_method)
-        // For inline methods, param_count includes implicit receiver
-        let param_count = method.params.len() + 1; // +1 for implicit receiver
+        // ⭐ CRITICAL: For inline methods, param_count should NOT include receiver
+        // Receiver is implicit, only count explicit parameters for consistency with call sites
+        let param_count = method.params.len(); // Receiver excluded
         let base_name = format!("{}_{}", struct_name, method_name_encoded);
 
         let mangled_name = if method.name.starts_with("op") && !method.params.is_empty() {
@@ -336,7 +347,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
         {
             format!("{}_{}", base_name, param_count)
         } else {
-            base_name
+            // ⭐ UNIFIED: Use mangle_function_name for all non-operator methods
+            self.mangle_function_name(&base_name, &method.params, true)
         };
 
         let fn_val = *self

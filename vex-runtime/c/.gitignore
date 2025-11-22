@@ -10,6 +10,8 @@ build/
 # Test binaries
 test
 test_*
+!tests/**/*.c
+*.mock.txt
 
 # macOS
 .DS_Store

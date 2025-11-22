@@ -38,8 +38,28 @@ impl<'ctx> ASTCodeGen<'ctx> {
     ) -> Result<(), String> {
         eprintln!("🔵 compile_let_statement: name='{}', ty={:?}", name, ty);
 
+        // ⭐ CRITICAL: For static method calls, register the type first
+        // This prevents "Variable X is not a struct" error
+        if let Expression::MethodCall { receiver, .. } = value {
+            eprintln!("🔵 MethodCall detected in let statement");
+            if let Expression::Ident(type_name) = receiver.as_ref() {
+                eprintln!("🔵 Receiver is Ident: {}", type_name);
+                let is_type_name = type_name.chars().next().map(|c| c.is_uppercase()).unwrap_or(false);
+                let is_not_variable = !self.variables.contains_key(type_name);
+                
+                eprintln!("🔵 is_type_name={}, is_not_variable={}", is_type_name, is_not_variable);
+                
+                if is_type_name && is_not_variable {
+                    eprintln!("🔵 Pre-registering struct type: {}", type_name);
+                    // Temporarily register this as a struct so compile_method_call works
+                    self.variable_struct_names.insert(type_name.clone(), type_name.clone());
+                }
+            }
+        }
+
         // Step 1: Infer struct name from expression if no type annotation
         let struct_name_from_expr = self.infer_struct_name_from_expression(ty, value)?;
+        eprintln!("🔵 struct_name_from_expr: {:?}", struct_name_from_expr);
 
         // Step 2: Validate array size if type annotation is array
         self.validate_array_size(ty, value)?;
@@ -104,6 +124,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
         } else {
             false
         };
+        
+        eprintln!("🔵 early_return_needed={} for variable '{}'", early_return_needed, name);
 
         if !early_return_needed {
             // Step 5: Determine final type

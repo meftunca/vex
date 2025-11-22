@@ -1,0 +1,21 @@
+// Test parsing static method syntax
+
+struct Point {
+    x: i32,
+}
+
+// Static method
+fn Point.new(x: i32): Point {
+    return Point { x: x };
+}
+
+// Instance method
+fn (self: &Point) double(): i32 {
+    return self.x * 2;
+}
+
+fn main(): i32 {
+    let p = Point.new(10);
+    let d = p.double();
+    return d;
+}

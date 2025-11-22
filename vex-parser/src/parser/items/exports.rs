@@ -1,7 +1,7 @@
 use crate::parser::Parser;
 use crate::ParseError;
-use vex_diagnostics::error_codes;
 use vex_ast::*;
+use vex_diagnostics::error_codes;
 use vex_lexer::Token;
 
 impl<'a> Parser<'a> {
@@ -55,7 +55,7 @@ impl<'a> Parser<'a> {
             loop {
                 // Accept both identifiers and keywords (like "unsafe")
                 let item_name = self.consume_identifier_or_keyword()?;
-                
+
                 // Check for alias: export { a as b }
                 let alias = if self.match_token(&Token::As) {
                     Some(self.consume_identifier()?)
@@ -119,6 +119,11 @@ impl<'a> Parser<'a> {
             // Pattern 4: export fn foo() {} or export fn Type.method()
             self.advance(); // consume 'fn'
 
+            eprintln!(
+                "📝 Parser: export fn detected, next token: {:?}",
+                self.peek()
+            );
+
             // Check for static method syntax: fn Type<T>.method()
             let checkpoint = self.current;
             let mut static_type = None;
@@ -127,23 +132,29 @@ impl<'a> Parser<'a> {
 
             let is_static_method = if let Token::Ident(type_name) = self.peek() {
                 let type_name_str = type_name.clone();
+                eprintln!("📝 Parser: Found identifier: {}", type_name_str);
                 self.advance(); // consume type name
 
                 // Check for generic args: Type<T, U>
                 if self.check(&Token::Lt) {
+                    eprintln!("📝 Parser: Found generic args <");
                     let (tp, cp) = self.parse_type_params()?;
                     type_params = tp;
                     const_params = cp;
                 }
 
                 // Check for dot: Type.method or Type<T>.method
+                eprintln!("📝 Parser: Next token after type: {:?}", self.peek());
                 if self.check(&Token::Dot) {
+                    eprintln!("📝 Parser: Found dot, this is a static method!");
                     static_type = Some(type_name_str);
                     true
                 } else {
+                    eprintln!("📝 Parser: No dot found, not a static method");
                     false
                 }
             } else {
+                eprintln!("📝 Parser: Not an identifier: {:?}", self.peek());
                 false
             };
 
@@ -215,11 +226,18 @@ impl<'a> Parser<'a> {
                 e.is_exported = true;
             }
             Ok(item)
+        } else if self.check(&Token::Type) {
+            // Pattern 2: export type Foo = Bar;
+            let mut item = self.parse_type_alias()?;
+            if let Item::TypeAlias(ref mut t) = item {
+                t.is_exported = true;
+            }
+            Ok(item)
         } else {
             let span = self.token_to_diag_span(&self.peek_span().span);
             let diag = vex_diagnostics::Diagnostic::error(
                 error_codes::SYNTAX_ERROR,
-                "Expected '{', 'fn', 'const', 'struct', 'contract', or 'enum' after 'export'".to_string(),
+                "Expected '{', 'fn', 'const', 'struct', 'contract', 'enum', or 'type' after 'export'".to_string(),
                 span.clone(),
             )
             .with_primary_label("expected export item".to_string())

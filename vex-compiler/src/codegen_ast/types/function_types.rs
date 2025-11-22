@@ -66,7 +66,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     Ok(Type::F64)
                 }
             }
-            BasicTypeEnum::PointerType(_) => Ok(Type::String), // Assume string for now
+            BasicTypeEnum::PointerType(_) => Ok(Type::Named("str".to_string())), // String literals are str (pointer to C string)
             BasicTypeEnum::ArrayType(arr_ty) => {
                 let elem_ty = arr_ty.get_element_type();
                 let size = arr_ty.len() as usize;

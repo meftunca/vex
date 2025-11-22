@@ -1,0 +1,7 @@
+import * as math from "math";
+
+fn main() {
+    let x: i64 = -42;
+    let result = math.abs(x);
+    println(result);
+}

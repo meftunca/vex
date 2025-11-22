@@ -15,6 +15,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
         &mut self,
         value: &Expression,
         arms: &[MatchArm],
+        expected_type: Option<&vex_ast::Type>,
     ) -> Result<BasicValueEnum<'ctx>, String> {
         if arms.is_empty() {
             return Err("Match expression must have at least one arm".to_string());
@@ -99,7 +100,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 self.compile_pattern_binding(&arm.pattern, arm_match_value)?;
             }
 
-            let arm_result = self.compile_expression(&arm.body)?;
+            let arm_result = self.compile_expression_with_type(&arm.body, expected_type)?;
 
             // Only store result and branch if block is not terminated by return/break etc.
             if self

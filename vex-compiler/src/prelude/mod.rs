@@ -19,6 +19,9 @@ pub const RESULT: &str = include_str!("result.vx");
 /// Box<T> - Heap-allocated smart pointer
 pub const BOX: &str = include_str!("box.vx");
 
+/// String - Mutable, growable, heap-allocated string
+pub const STRING: &str = include_str!("string.vx");
+
 /// Operator traits (Add, Sub, Mul, Div, etc.)
 pub const OPS: &str = include_str!("ops.vx");
 
@@ -28,13 +31,13 @@ pub const BUILTIN_CONTRACTS: &str = include_str!("builtin_contracts.vx");
 /// Get all embedded prelude modules as (module_name, source_code) pairs
 ///
 /// Returns modules in the correct initialization order:
-/// 1. lib.vx - Core traits (Display, Clone, Debug, Default)
-/// 2. ops.vx - Operator traits
-/// 3. builtin_contracts.vx - Type contracts
-/// 4. option.vx - Option<T> type
-/// 5. result.vx - Result<T, E> type
-/// 6. vec.vx - Vec<T> type
-/// 7. box.vx - Box<T> type
+/// 1. ops.vx - Operator traits
+/// 2. builtin_contracts.vx - Type contracts
+/// 3. option.vx - Option<T> type
+/// 4. result.vx - Result<T, E> type
+/// 5. vec.vx - Vec<T> type
+/// 6. box.vx - Box<T> type
+/// 7. string.vx - String type
 pub fn get_embedded_prelude() -> Vec<(&'static str, &'static str)> {
     vec![
         ("core::ops", OPS),
@@ -43,6 +46,7 @@ pub fn get_embedded_prelude() -> Vec<(&'static str, &'static str)> {
         ("core::result", RESULT),
         ("core::vec", VEC),
         ("core::box", BOX),
+        ("core::string", STRING),
     ]
 }
 
@@ -56,6 +60,7 @@ mod tests {
         assert!(!OPTION.is_empty(), "option.vx should not be empty");
         assert!(!RESULT.is_empty(), "result.vx should not be empty");
         assert!(!BOX.is_empty(), "box.vx should not be empty");
+        assert!(!STRING.is_empty(), "string.vx should not be empty");
         assert!(!OPS.is_empty(), "ops.vx should not be empty");
         assert!(
             !BUILTIN_CONTRACTS.is_empty(),
@@ -66,7 +71,7 @@ mod tests {
     #[test]
     fn test_get_embedded_prelude_count() {
         let modules = get_embedded_prelude();
-        assert_eq!(modules.len(), 6, "Should have 6 prelude modules");
+        assert_eq!(modules.len(), 7, "Should have 7 prelude modules");
     }
 
     #[test]
@@ -81,5 +86,6 @@ mod tests {
         assert_eq!(names[3], "core::result");
         assert_eq!(names[4], "core::vec");
         assert_eq!(names[5], "core::box");
+        assert_eq!(names[6], "core::string");
     }
 }

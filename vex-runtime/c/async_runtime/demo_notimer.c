@@ -1,6 +1,7 @@
 // Demo without timer dependency - works with vex_net
 #include "include/runtime.h"
 #include "include/lockfree_queue.h"
+#include "include/internal.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdatomic.h>
@@ -129,6 +130,7 @@ int main(void)
     printf("  async_runtime + vex_net Demo (No Timers)\n");
     printf("  Producer/Consumer Pipeline\n");
     printf("════════════════════════════════════════════════════════\n\n");
+    fflush(stdout);
 
     const int NUM_WORKERS = 4;
     const int NUM_PRODUCERS = 3;
@@ -137,7 +139,7 @@ int main(void)
 
     Runtime *rt = runtime_create(NUM_WORKERS);
     g_rt = rt;
-    runtime_enable_auto_shutdown(rt, false);
+    runtime_enable_auto_shutdown(rt, true);
     runtime_set_tracing(rt, false);
 
     printf("✓ Runtime created with %d workers\n", NUM_WORKERS);

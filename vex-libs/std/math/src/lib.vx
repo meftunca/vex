@@ -143,8 +143,14 @@ export fn lgamma_f64(x: f64): f64 { return lgamma(x); }
 // ============================================================================
 
 export fn gcd(a: i32, b: i32): i32 {
-    let! x: i32 = abs(a);
-    let! y: i32 = abs(b);
+    let! x: i32 = a;
+    if x < 0 {
+        x = 0 - x;
+    }
+    let! y: i32 = b;
+    if y < 0 {
+        y = 0 - y;
+    }
     while y != 0 {
         let temp: i32 = y;
         y = x % y;
@@ -154,8 +160,14 @@ export fn gcd(a: i32, b: i32): i32 {
 }
 
 export fn gcd(a: i64, b: i64): i64 {
-    let! x: i64 = abs(a);
-    let! y: i64 = abs(b);
+    let! x: i64 = a;
+    if x < 0 {
+        x = 0 - x;
+    }
+    let! y: i64 = b;
+    if y < 0 {
+        y = 0 - y;
+    }
     while y != 0 {
         let temp: i64 = y;
         y = x % y;
@@ -166,12 +178,20 @@ export fn gcd(a: i64, b: i64): i64 {
 
 export fn lcm(a: i32, b: i32): i32 {
     if a == 0 || b == 0 { return 0; }
-    return abs(a * b) / gcd(a, b);
+    let! product: i32 = a * b;
+    if product < 0 {
+        product = 0 - product;
+    }
+    return product / gcd(a, b);
 }
 
 export fn lcm(a: i64, b: i64): i64 {
     if a == 0 || b == 0 { return 0; }
-    return abs(a * b) / gcd(a, b);
+    let! product: i64 = a * b;
+    if product < 0 {
+        product = 0 - product;
+    }
+    return product / gcd(a, b);
 }
 
 export fn factorial(n: i32): i64 {

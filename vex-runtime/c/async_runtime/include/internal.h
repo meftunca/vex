@@ -10,6 +10,8 @@ typedef struct InternalTask
 {
     coro_resume_func resume_fn;
     void *coro_data;
+    _Atomic(int) state; // 0=ready, 1=in_queue, 2=executing, 3=io_waiting
+    int last_fd;        // Track last FD to detect spurious events
 } InternalTask;
 
 typedef struct Worker
@@ -50,6 +52,7 @@ struct Runtime
     void *poller_thread;
 #endif
     _Atomic(bool) tracing;
+    _Atomic(int) pending_io_count;
 };
 
 // util

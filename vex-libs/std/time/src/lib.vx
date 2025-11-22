@@ -35,14 +35,14 @@ import {
     vt_instant_clock
 } from "./native.vxc";
 
-// ==== Duration constants ====
+// ==== Duration constants (nanoseconds) ====
 export const NANOSECOND: i64 = 1;
-export const MICROSECOND: i64 = 1000i64 * NANOSECOND;
-export const MILLISECOND: i64 = 1000i64 * MICROSECOND;
-export const SECOND: i64 = 1000i64 * MILLISECOND;
-export const MINUTE: i64 = 60i64 * SECOND;
-export const HOUR: i64 = 60i64 * MINUTE;
-export const DAY: i64 = 24i64 * HOUR;
+export const MICROSECOND: i64 = 1000;
+export const MILLISECOND: i64 = 1000000;
+export const SECOND: i64 = 1000000000;
+export const MINUTE: i64 = 60000000000;
+export const HOUR: i64 = 3600000000000;
+export const DAY: i64 = 86400000000000;
 // ==== Layout Constants (Go Style) ====
 export const LAYOUT_ANSIC: str       = "Mon Jan _2 15:04:05 2006";
 export const LAYOUT_UNIX_DATE: str   = "Mon Jan _2 15:04:05 MST 2006";
@@ -75,11 +75,15 @@ export fn unix(sec: i64, nsec: i32): Instant {
 }
 
 // ==== Duration parsing ====
-export fn parse_duration(s: str): Result<i64, str> {
+export fn parse_duration(s: str): Result<i64, String> {
 	let raw: i64 = 0;
 	let p: *u8 = s as *u8;
 	let r = vt_parse_duration(p, &raw);
-	if r == 0 { return Result.Ok(raw); } else { return Result.Err("invalid duration"); }
+	if r == 0 { 
+		return Result.Ok(raw); 
+	} else { 
+		return Result.Err(string_from("invalid duration")); 
+	}
 }// ==== Arithmetic on Time ====
 export fn add(t: Time, d: i64): Time { return Time { inner: vt_add(&t.inner, d) }; }
 export fn sub(t: Time, u: Time): i64 { return vt_sub(&t.inner, &u.inner); }
@@ -90,11 +94,15 @@ export fn until(t: Time): i64 { return vt_until(&t.inner); }
 export fn sleep(ns: i64) { vt_sleep_ns(ns); }
 
 // ==== RFC3339 ====
-export fn parse_rfc3339(s: str): Result<Instant, str> {
+export fn parse_rfc3339(s: str): Result<Instant, String> {
     let inst: VexInstant = VexInstant { unix_sec: 0, nsec: 0, _pad: 0 };
     let p: *u8 = s as *u8;
     let r = vt_parse_rfc3339(p, &inst);
-    if r == 0 { return Result.Ok(Instant { inner: inst }); } else { return Result.Err("invalid RFC3339"); }
+    if r == 0 { 
+        return Result.Ok(Instant { inner: inst }); 
+    } else { 
+        return Result.Err(string_from("invalid RFC3339")); 
+    }
 }
 
 // ==== Time Zones ====
@@ -103,10 +111,14 @@ export fn local(): Location { return Location { tz: vt_tz_local() }; }
 export fn fixed_zone(name: str, offset_sec: i32): Location {
     let p: *u8 = name as *u8; return Location { tz: vt_tz_fixed(p, offset_sec) };
 }
-export fn load_location(name: str): Result<Location, str> {
-    let p: *u8 = name as *u8; let tz = vt_tz_load(p); 
-    if tz != 0 as *u8 { return Result.Ok(Location { tz: tz }); } 
-    else { return Result.Err("tz not found"); }
+export fn load_location(name: str): Result<Location, String> {
+    let p: *u8 = name as *u8; 
+    let tz = vt_tz_load(p); 
+    if tz != 0 as *u8 { 
+        return Result.Ok(Location { tz: tz }); 
+    } else { 
+        return Result.Err(string_from("tz not found")); 
+    }
 }
 
 // ==== Component queries ====
@@ -131,12 +143,9 @@ export fn unix_micro(i: Instant): i64 { return vt_instant_unix_micro(&i.inner); 
 // ==== Formatting ====
 
 /// Formats the Instant according to the given layout and location.
-export fn format(i: Instant, layout: str, loc: Location): str {
+export fn format(i: Instant, layout: str, loc: Location): String {
     // Stack üzerinde statik bir buffer ayıralım (128 byte genelde yeterlidir)
-    // Vex'in mevcut sürümünde stack array tanımlayıp pointer'ını geçiyoruz.
     let buf_len: u64 = 128;
-    // Not: Vex'te stack array syntax'ı sürüme göre değişebilir,
-    // burada varsayımsal bir buffer allocation kullanıyorum.
     let buf = mem.alloc(buf_len);
 
     let layout_ptr: *u8 = layout as *u8;
@@ -146,30 +155,31 @@ export fn format(i: Instant, layout: str, loc: Location): str {
     
     if len < 0 {
         unsafe { mem.free(buf); }
-        return ""; // Veya hata yönetimi
+        return string_new(); // Empty string
     }
 
-    // Buffer'dan string oluştur (Vex string'i heap allocated ise kopyalar)
-    let result = string.from_utf8_lossy(buf, len as u64);
+    // Buffer'dan string oluştur (buf zaten null-terminated C string)
+    let str_view: str = buf as str;
+    let result = string_from(str_view);
     
     unsafe { mem.free(buf); }
     return result;
 }
 
 /// Parse a string using a specific layout
-export fn parse(layout: str, value: str, loc: Location): Result<Instant, str> {
+export fn parse(layout: str, value: str, loc: Location): Result<Instant, String> {
     let inst: VexInstant = VexInstant { unix_sec: 0, nsec: 0, _pad: 0 };
     
     let layout_ptr: *u8 = layout as *u8;
     let value_ptr: *u8 = value as *u8;
 
-    // C fonksiyonunu çağır [cite: 15]
+    // C fonksiyonunu çağır
     let res = vt_parse_go(layout_ptr, value_ptr, loc.tz, &inst);
     
     if res == 0 {
         return Result.Ok(Instant { inner: inst });
     } else {
-        return Result.Err("parse error");
+        return Result.Err(string_from("parse error"));
     }
 }
 

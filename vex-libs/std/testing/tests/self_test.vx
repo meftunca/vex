@@ -1,0 +1,60 @@
+import { T, B, Assert, TestCase, BenchCase, run_tests, run_benchmarks, run_benchmark } from "../src/testing.vx";
+
+fn test_assertions(t: *T) {
+    let assert = Assert.new(t);
+    assert.equal_i64(1, 1, "1 == 1");
+    assert.not_equal_i64(1, 2, "1 != 2");
+    assert.equal_string("foo", "foo", "foo == foo");
+    assert.is_true(true, "true is true");
+    assert.is_false(false, "false is false");
+}
+
+fn sub1(sub: *T) {
+    let assert = Assert.new(sub);
+    assert.is_true(true, "sub1 pass");
+}
+
+fn sub2(sub: *T) {
+    let assert = Assert.new(sub);
+    assert.equal_i64(42, 42, "sub2 pass");
+}
+
+fn test_subtests(t: *T) {
+    t.run("Sub1", sub1);
+    t.run("Sub2", sub2);
+}
+
+fn cleanup_fn() {
+    print("Cleanup ran!\n");
+}
+
+fn test_cleanup(t: *T) {
+    // We can't easily verify cleanup ran without side effects, 
+    // but we can verify it compiles and runs without crashing.
+    t.cleanup(cleanup_fn);
+}
+
+fn bench_loop(b: *B) {
+    for i in 0..b.n {
+        let x = 1 + 1;
+    }
+}
+
+fn main() {
+    // let tests = Vec[
+    //     TestCase { name: "TestAssertions", test_fn: test_assertions },
+    //     TestCase { name: "TestSubtests", test_fn: test_subtests },
+    //     TestCase { name: "TestCleanup", test_fn: test_cleanup },
+    // ];
+    let tests = Vec<TestCase>();
+    tests.push(TestCase { name: "TestAssertions", test_fn: test_assertions });
+    tests.push(TestCase { name: "TestSubtests", test_fn: test_subtests });
+    tests.push(TestCase { name: "TestCleanup", test_fn: test_cleanup });
+    let exit_code = run_tests(tests);
+    
+    if exit_code == 0 {
+        let benches = Vec<BenchCase>();
+        benches.push(BenchCase { name: "BenchmarkLoop", bench_fn: bench_loop });
+        run_benchmarks(benches);
+    }
+}

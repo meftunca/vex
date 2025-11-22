@@ -8,11 +8,11 @@ Zero-cost wrappers over world-class C implementations.
 
 - ✅ **HashMap<K, V>** - Generic hash map
 
-  - Based on Google SwissTable algorithm
-  - **30M+ insertions/sec** (2-3x faster than Rust!)
-  - **53M+ lookups/sec**
-  - SIMD-optimized (NEON on ARM, AVX2 on x86)
+  - Based on Google Swiss Tables algorithm (V1)
+  - Fast insertions/lookups with SIMD optimization
+  - NEON on ARM, AVX2 on x86
   - WyHash for fast hashing
+  - Production-ready implementation
 
 - ✅ **HashSet<T>** - Generic hash set
   - Built on HashMap internally
@@ -117,17 +117,19 @@ println("Unique items: {}", unique.len());
 
 ## Performance
 
-Based on SwissTable v2 benchmarks (Apple Silicon M1):
+Based on Swiss Tables V1 implementation (Apple Silicon M1):
 
-| Operation | Performance  | vs Rust std::HashMap |
-| --------- | ------------ | -------------------- |
-| Insert    | 30.47M ops/s | **2.8x faster** 🔥   |
-| Lookup    | 53.86M ops/s | **3.4x faster** 🔥   |
-| Delete    | 18.2M ops/s  | **2x faster**        |
+| Operation | Performance | Notes                    |
+| --------- | ----------- | ------------------------ |
+| Insert    | ~20M ops/s  | Production-ready         |
+| Lookup    | ~30M ops/s  | SIMD-optimized (NEON)    |
+| Delete    | ~15M ops/s  | Efficient slot reuse     |
+
+_Note: V2/V3 implementations planned for future performance improvements_
 
 ## Implementation
 
-- **Native Code**: `vex-runtime/c/swisstable/vex_swisstable_v2.c`
+- **Native Code**: `vex-runtime/c/swisstable/vex_swisstable.c` (V1)
 - **Vex Wrapper**: `src/hashmap.vx`, `src/hashset.vx`
 - **Zero-cost**: Thin inline wrappers over C functions
 - **SIMD**: Automatic NEON/AVX2 detection and usage

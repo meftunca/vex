@@ -1,0 +1,21 @@
+// Simple coercion test
+fn test_match(x: i8): i8 {
+    return match x {
+        0 => 1,
+        _ => 2
+    };
+}
+
+fn test_if(cond: bool): i8 {
+    if cond {
+        return 10;
+    } else {
+        return 20;
+    }
+}
+
+fn main() {
+    let a = test_match(0);
+    let b = test_if(true);
+    println("Match: {}, If: {}", a, b);
+}

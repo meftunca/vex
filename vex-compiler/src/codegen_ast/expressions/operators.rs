@@ -32,28 +32,41 @@ impl<'ctx> ASTCodeGen<'ctx> {
         );
 
         // Infer types early to avoid lifetime issues
-        let inferred_left_type = if right_is_literal && !left_is_literal {
+        // Infer types for later use
+        let inferred_left_type = if !left_is_literal {
             self.infer_expression_type(left).ok()
         } else {
             None
         };
-        let inferred_right_type = if left_is_literal && !right_is_literal {
+        let inferred_right_type = if !right_is_literal {
             self.infer_expression_type(right).ok()
         } else {
             None
         };
 
-        let (left_expected, right_expected) = if expected_type.is_some() {
-            (expected_type, expected_type)
+        // ⭐ CRITICAL: Literal coercion strategy:
+        // 1. If expected_type exists, use it for ALL expressions (literals AND variables)
+        // 2. If one side is literal and other is typed, use typed side's type for literal
+        // 3. This ensures `0 - x` where x:i8 compiles 0 as i8, not i32
+        let (left_expected, right_expected) = if let Some(exp_ty) = expected_type {
+            // If we have an expected type, use it for both sides
+            // This handles cases like: let result: i8 = 0 - x;
+            (Some(exp_ty), Some(exp_ty))
         } else if left_is_literal && inferred_right_type.is_some() {
+            // Left is literal, right is typed variable -> use right's type for left
             (inferred_right_type.as_ref(), None)
         } else if right_is_literal && inferred_left_type.is_some() {
+            // Right is literal, left is typed variable -> use left's type for right
             (None, inferred_left_type.as_ref())
         } else {
             (None, None)
         };
 
         // Compile left and right operands with inferred/expected types
+        eprintln!(
+            "🔍 Binary op coercion: left_expected={:?}, right_expected={:?}",
+            left_expected, right_expected
+        );
         let left_val = self.compile_expression_with_type(left, left_expected)?;
         let right_val = self.compile_expression_with_type(right, right_expected)?;
 

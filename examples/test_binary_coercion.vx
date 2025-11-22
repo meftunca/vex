@@ -1,0 +1,10 @@
+// Test binary op coercion  
+fn test_sub(x: i8): i8 {
+    let result: i8 = 0 - x;
+    return result;
+}
+
+fn main() {
+    let r = test_sub(5);
+    println("Result: {}", r);
+}

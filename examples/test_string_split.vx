@@ -1,0 +1,13 @@
+// Test String.split() - simple version
+// Note: String literals are inferred as String type, need to pass str variable
+
+fn main(): i32 {
+    let s = string_from("hello,world,vex");
+    let delim: str = ",";
+    let parts = s.split(delim);
+    
+    // parts is ptr (char**)
+    // For now, just test it compiles and runs
+    
+    return 42;
+}

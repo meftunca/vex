@@ -119,6 +119,16 @@ impl<'ctx> BuiltinRegistry<'ctx> {
         self.register("strdup", string::builtin_strdup);
         self.register("vex_string_as_cstr", string::builtin_string_as_cstr);
         self.register("vex_string_len", string::builtin_string_len);
+        
+        // String search/manipulation functions (newly exposed)
+        self.register("vex_str_contains", string::builtin_str_contains);
+        self.register("vex_str_has_prefix", string::builtin_str_has_prefix);
+        self.register("vex_str_has_suffix", string::builtin_str_has_suffix);
+        self.register("vex_str_to_upper", string::builtin_str_to_upper);
+        self.register("vex_str_to_lower", string::builtin_str_to_lower);
+        self.register("vex_str_trim", string::builtin_str_trim);
+        self.register("vex_str_replace", string::builtin_str_replace);
+        self.register("vex_str_split", string::builtin_str_split);
     }
 
     /// Register formatting functions
@@ -214,10 +224,8 @@ impl<'ctx> BuiltinRegistry<'ctx> {
         self.register("box_new", builtin_types::builtin_box_new);
         self.register("Box.new", builtin_types::builtin_box_new); // Type constructor syntax
         self.register("box_free", builtin_types::builtin_box_free);
-        self.register("string_new", builtin_types::builtin_string_new);
-        self.register("String.new", builtin_types::builtin_string_new); // Type constructor syntax
-        self.register("string_from", builtin_types::builtin_string_from);
-        self.register("string_free", builtin_types::builtin_string_free);
+        // ⚠️ REMOVED: string_new, string_from, string_free - now in prelude/string.vx
+        // These are now regular functions with proper mangling support (string_from_str_1, etc.)
         self.register("channel_new", channel::builtin_channel_new);
         self.register("Channel.new", channel::builtin_channel_new); // Type constructor syntax
 

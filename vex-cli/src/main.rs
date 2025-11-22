@@ -1004,6 +1004,11 @@ fn main() -> Result<()> {
                 }
             }
 
+
+            // Add native linker args from imported modules
+            for arg in &native_linker_args {
+                command.arg(arg);
+            }
             let output = command.output().map_err(|e| anyhow::anyhow!(e))?;
 
             if !output.status.success() {

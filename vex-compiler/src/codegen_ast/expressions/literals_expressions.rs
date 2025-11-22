@@ -18,6 +18,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
         expr: &vex_ast::Expression,
         expected_type: Option<&vex_ast::Type>,
     ) -> Result<BasicValueEnum<'ctx>, String> {
+        eprintln!(
+            "🔍 compile_literal_with_type: expr={:?}, expected_type={:?}",
+            expr, expected_type
+        );
         match expr {
             vex_ast::Expression::IntLiteral(n) => {
                 // Target-typed: infer from expected type if available
@@ -35,7 +39,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                     value
                                 ));
                             }
-                            return Ok(self.context.i8_type().const_int(value as u64, true).into());
+                            let result =
+                                self.context.i8_type().const_int(value as u64, true).into();
+                            eprintln!("🔍 IntLiteral({}) compiled to i8: {:?}", value, result);
+                            return Ok(result);
                         }
                         vex_ast::Type::I16 => {
                             if value > 32767 && value != 32768 {
@@ -44,7 +51,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                     value
                                 ));
                             }
-                            return Ok(self.context.i16_type().const_int(value as u64, true).into());
+                            return Ok(self
+                                .context
+                                .i16_type()
+                                .const_int(value as u64, true)
+                                .into());
                         }
                         vex_ast::Type::I32 => {
                             return Ok(self.context.i32_type().const_int(value as u64, true).into())
@@ -66,7 +77,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                     value
                                 ));
                             }
-                            return Ok(self.context.i8_type().const_int(value as u64, false).into());
+                            return Ok(self
+                                .context
+                                .i8_type()
+                                .const_int(value as u64, false)
+                                .into());
                         }
                         vex_ast::Type::U16 => {
                             if value < 0 || value > 65535 {

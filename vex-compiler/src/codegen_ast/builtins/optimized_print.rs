@@ -79,13 +79,37 @@ pub fn print_value_direct<'ctx>(
                 .map_err(|e| format!("Failed to call vex_print_bool: {}", e))?;
         }
 
-        // String
-        Type::String => {
+        // str (string slice/pointer)
+        Type::Named(name) if name == "str" => {
             let print_fn = declare_vex_print_string(codegen);
             codegen
                 .builder
                 .build_call(print_fn, &[val.into()], "print_string")
                 .map_err(|e| format!("Failed to call vex_print_string: {}", e))?;
+        }
+
+        // String struct - call .text() method to get str
+        Type::Named(name) if name == "String" => {
+            // Check if String has .text() method
+            let text_method = "String_text";
+            if let Some(text_fn) = codegen.functions.get(text_method) {
+                // Call String.text() to get str pointer
+                let str_ptr = codegen
+                    .builder
+                    .build_call(*text_fn, &[val.into()], "str_from_string")
+                    .map_err(|e| format!("Failed to call String.text(): {}", e))?
+                    .try_as_basic_value()
+                    .unwrap_basic();
+                
+                // Now print the str
+                let print_fn = declare_vex_print_string(codegen);
+                codegen
+                    .builder
+                    .build_call(print_fn, &[str_ptr.into()], "print_string")
+                    .map_err(|e| format!("Failed to call vex_print_string: {}", e))?;
+            } else {
+                return Err("String type must implement .text() method for printing".to_string());
+            }
         }
 
         // Struct/Named types - check for Display trait

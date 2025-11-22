@@ -1,0 +1,31 @@
+// Test gcd with abs overload resolution
+fn abs(x: i64): i64 {
+    if x < 0 {
+        return 0 - x;
+    }
+    return x;
+}
+
+fn abs(x: i32): i32 {
+    if x < 0 {
+        return 0 - x;
+    }
+    return x;
+}
+
+fn gcd(a: i64, b: i64): i64 {
+    let! x = abs(a);  // Should call abs_i64_1
+    let! y = abs(b);
+    
+    while y != 0 {
+        let temp = y;
+        y = x % y;
+        x = temp;
+    }
+    return x;
+}
+
+fn main() {
+    let result = gcd(48, 18);
+    print(result);  // Should be 6
+}

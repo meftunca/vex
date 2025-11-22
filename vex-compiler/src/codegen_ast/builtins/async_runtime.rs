@@ -116,7 +116,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
     }
 
     /// async_sleep(millis: i64)
-    /// Simple async sleep using worker_await_after
+    /// CRITICAL: This must act as an await point and yield to runtime
     pub(crate) fn builtin_async_sleep(
         &mut self,
         args: &[BasicValueEnum<'ctx>],
@@ -125,22 +125,84 @@ impl<'ctx> ASTCodeGen<'ctx> {
             return Err("async_sleep expects 1 argument (millis)".to_string());
         }
 
-        let millis = args[0].into_int_value();
-        // let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+        let millis_arg = args[0].into_int_value();
+        let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
 
-        // For now, we'll just call a C function vex_async_sleep
-        // which internally uses worker_await_after
+        // Convert to i64 if needed
+        let millis = if millis_arg.get_type().get_bit_width() == 64 {
+            millis_arg
+        } else {
+            self.builder
+                .build_int_s_extend(millis_arg, self.context.i64_type(), "millis_i64")
+                .map_err(|e| format!("Failed to extend millis to i64: {}", e))?
+        };
+
+        // ⭐ CRITICAL: Check if in async context
+        if self.async_state_stack.is_empty() {
+            return Err("async_sleep must be called from async context".to_string());
+        }
+
+        // Get state machine context
+        let (state_ptr, state_field_ptr, current_state_id) = self
+            .async_state_stack
+            .last()
+            .copied()
+            .ok_or("Await outside async context")?;
+
+        // Get WorkerContext from current async resume function parameter
+        let resume_fn = self.current_async_resume_fn.ok_or_else(|| {
+            "async_sleep must be called from async context".to_string()
+        })?;
+        
+        let worker_ctx = resume_fn
+            .get_first_param()
+            .ok_or_else(|| "Failed to get WorkerContext parameter".to_string())?
+            .into_pointer_value();
+
+        // Call vex_async_sleep to register timer
+        // void vex_async_sleep(WorkerContext* ctx, uint64_t millis)
         let async_sleep_fn = self.declare_runtime_fn(
             "vex_async_sleep",
-            &[self.context.i64_type().into()],
-            self.context.i32_type().into(),
+            &[ptr_type.into(), self.context.i64_type().into()],
+            ptr_type.into(),
         );
 
         self.builder
-            .build_call(async_sleep_fn, &[millis.into()], "async_sleep")
+            .build_call(async_sleep_fn, &[worker_ctx.into(), millis.into()], "async_sleep_call")
             .map_err(|e| format!("Failed to call async_sleep: {}", e))?;
 
-        // Return void (nil)
+        // ⭐ CRITICAL: Now YIELD to runtime like a regular await point
+        let next_state_id = current_state_id + 1;
+
+        // Get resume block
+        let resume_block = self
+            .async_resume_blocks
+            .get((next_state_id - 1) as usize)
+            .copied()
+            .ok_or_else(|| format!("Resume block {} not allocated", next_state_id))?;
+
+        // Save state
+        self.builder
+            .build_store(
+                state_field_ptr,
+                self.context.i32_type().const_int(next_state_id as u64, false),
+            )
+            .map_err(|e| format!("Failed to save state: {}", e))?;
+
+        // Return YIELDED
+        let yielded_status = self.context.i32_type().const_int(1, false);
+        self.builder
+            .build_return(Some(&yielded_status))
+            .map_err(|e| format!("Failed to build yield return: {}", e))?;
+
+        // Position at resume block
+        self.builder.position_at_end(resume_block);
+
+        // Update state context
+        self.async_state_stack.pop();
+        self.async_state_stack.push((state_ptr, state_field_ptr, next_state_id));
+
+        // Return placeholder
         Ok(self.context.i32_type().const_int(0, false).into())
     }
 

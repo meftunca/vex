@@ -185,8 +185,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 _ => Type::I128,
             }),
             Expression::FloatLiteral(_) => Ok(Type::F64),
-            Expression::StringLiteral(_) => Ok(Type::String),
-            Expression::FStringLiteral(_) => Ok(Type::String),
+            // String literals are str (pointer), not String struct
+            Expression::StringLiteral(_) => Ok(Type::Named("str".to_string())),
+            Expression::FStringLiteral(_) => Ok(Type::Named("str".to_string())),
             Expression::BoolLiteral(_) => Ok(Type::Bool),
             Expression::MapLiteral(_) => Ok(Type::Named("Map".to_string())),
             Expression::Array(elements) => {
@@ -419,11 +420,14 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 // Check if this is a static method call: Type.method()
                 // Receiver is Ident with uppercase first letter = static call
                 let is_static_call = matches!(**receiver, Expression::Ident(ref name) if name.chars().next().unwrap_or('_').is_uppercase());
+                
+                eprintln!("🔍 MethodCall inference: receiver={:?}, method={}, is_static_call={}", receiver, method, is_static_call);
 
                 // For static calls, treat receiver as a type name instead of variable
                 let receiver_type = if is_static_call {
                     if let Expression::Ident(type_name) = &**receiver {
                         // Static call: Counter.new() - receiver is type name
+                        eprintln!("🔍 Static call detected: {}.{}()", type_name, method);
                         Type::Named(type_name.clone())
                     } else {
                         self.infer_expression_type(receiver)?
@@ -442,12 +446,34 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
                 // ⭐ For static method calls, check function_defs first
                 if is_static_call {
-                    let static_method_name = format!("{}_{}", struct_name.to_lowercase(), method);
-                    if let Some(func_def) = self.function_defs.get(&static_method_name) {
+                    // Try both PascalCase (new format) and lowercase (legacy) patterns
+                    let pascal_method_name = format!("{}_{}", struct_name, method);
+                    let lowercase_method_name = format!("{}_{}", struct_name.to_lowercase(), method);
+                    
+                    eprintln!("🔍 Static method lookup: trying {} and {}", pascal_method_name, lowercase_method_name);
+                    eprintln!("🔍 function_defs contains: {:?}", 
+                        self.function_defs.keys()
+                            .filter(|k| k.contains(&struct_name) || k.contains(method))
+                            .collect::<Vec<_>>()
+                    );
+                    
+                    // Try PascalCase first (preferred)
+                    if let Some(func_def) = self.function_defs.get(&pascal_method_name) {
                         if let Some(ret_ty) = &func_def.return_type {
+                            eprintln!("✅ Static method inference: {}() -> {:?}", pascal_method_name, ret_ty);
                             return Ok(ret_ty.clone());
                         }
                     }
+                    
+                    // Fallback to lowercase for legacy code
+                    if let Some(func_def) = self.function_defs.get(&lowercase_method_name) {
+                        if let Some(ret_ty) = &func_def.return_type {
+                            eprintln!("✅ Static method inference (lowercase): {}() -> {:?}", lowercase_method_name, ret_ty);
+                            return Ok(ret_ty.clone());
+                        }
+                    }
+                    
+                    eprintln!("❌ Static method {} not found in function_defs", pascal_method_name);
                 }
 
                 eprintln!(

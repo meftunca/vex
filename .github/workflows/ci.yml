@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    name: Test on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Build Vex compiler
+        run: cargo build --release
+        timeout-minutes: 30
+
+      - name: Run test suite (Unix)
+        if: runner.os != 'Windows'
+        run: ./test_all.sh
+        timeout-minutes: 45
+        shell: bash
+
+      - name: Run test suite (Windows)
+        if: runner.os == 'Windows'
+        run: bash test_all.sh
+        timeout-minutes: 45
+        shell: bash
+
+      - name: Upload test artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-results-${{ matrix.os }}
+          path: |
+            *.log
+            test_*.sh
+            examples/**/*.vx
+          retention-days: 7

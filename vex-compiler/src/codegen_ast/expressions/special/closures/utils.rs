@@ -282,7 +282,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             }),
             Expression::FloatLiteral(_) => Some(Type::F64),
             Expression::BoolLiteral(_) => Some(Type::Bool),
-            Expression::StringLiteral(_) => Some(Type::String),
+            Expression::StringLiteral(_) => Some(Type::Named("str".to_string())),
             Expression::Binary {
                 left, right, op, ..
             } => {

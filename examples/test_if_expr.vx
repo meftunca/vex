@@ -1,0 +1,7 @@
+// Test if expressions work in Vex
+
+fn main() {
+    let a: i32 = -5;
+    let! x: i32 = if a < 0 { 0 - a } else { a };
+    println(x);
+}

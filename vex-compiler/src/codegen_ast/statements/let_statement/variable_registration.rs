@@ -705,32 +705,38 @@ impl<'ctx> ASTCodeGen<'ctx> {
         let is_slice = matches!(final_var_type, Type::Slice(_, _));
 
         // ⭐ NEW: Check if type is a primitive type (should NOT be treated as struct)
+        // NOTE: String is NOT primitive - it's a struct with methods!
         let is_primitive = matches!(
             final_var_type,
-            Type::I32 | Type::I64 | Type::F32 | Type::F64 | Type::Bool | Type::String
+            Type::I32 | Type::I64 | Type::F32 | Type::F64 | Type::Bool
         ) || matches!(final_var_type, Type::Named(n) if n == "i32" || n == "i64" || n == "f32" || n == "f64" || n == "bool");
+
+        eprintln!("🔍 is_primitive={:?} for {:?}", is_primitive, final_var_type);
 
         let is_struct_or_tuple = !is_primitive
             && (matches!(final_var_type,
-                Type::Named(type_name) if type_name == "Tuple"
-                    || self.struct_defs.contains_key(type_name)
-                    || type_name == "Option"
-                    || type_name == "Result"
-                    || type_name == "Vec"  // Builtin Vec without type annotation
-                    || type_name == "Box"  // Builtin Box without type annotation
-                    || type_name == "Map"
-                    || type_name == "Set"
-                    || type_name == "Channel"
-            ) || matches!(final_var_type, Type::Option(_) | Type::Result(_, _))
+                    Type::Named(type_name) if type_name == "Tuple"
+                        || type_name == "String"  // String struct (not str)
+                        || self.struct_defs.contains_key(type_name)
+                        || type_name == "Option"
+                        || type_name == "Result"
+                        || type_name == "Vec"  // Builtin Vec without type annotation
+                        || type_name == "Box"  // Builtin Box without type annotation
+                        || type_name == "Map"
+                        || type_name == "Set"
+                        || type_name == "Channel"
+                )
+                || matches!(final_var_type, Type::Option(_) | Type::Result(_, _))
                 || matches!(final_var_type, Type::Generic { .. })  // ⭐ CRITICAL: Generic types are structs!
                 || is_tuple_literal);
 
         eprintln!(
-            "📝 Variable '{}': is_struct_or_tuple={}, is_builtin_pointer={}, final_var_type={:?}",
-            name, is_struct_or_tuple, is_builtin_pointer, final_var_type
+            "📝 Variable '{}': is_struct_or_tuple={}, is_builtin_pointer={}, is_array={}, is_slice={}, final_var_type={:?}",
+            name, is_struct_or_tuple, is_builtin_pointer, is_array, is_slice, final_var_type
         );
 
         if is_struct_or_tuple || is_builtin_pointer || is_array || is_slice {
+            eprintln!("🔷 Calling register_struct_or_tuple_variable for '{}'", name);
             self.register_struct_or_tuple_variable(
                 name,
                 val,
@@ -740,6 +746,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 is_mutable,
             )?;
         } else {
+            eprintln!("🔶 Calling register_regular_variable for '{}'", name);
             self.register_regular_variable(name, val, final_var_type, final_llvm_type, is_mutable)?;
         }
 
@@ -829,12 +836,21 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 // Track struct name for field access
                 match final_var_type {
                     Type::Named(type_name) => {
-                        eprintln!(
-                            "📝 Registering variable '{}' with struct name: {}",
-                            name, type_name
+                        // ⭐ CRITICAL FIX: Don't register type aliases to primitives as structs!
+                        // Check if this is a type alias that resolves to a primitive
+                        let resolved = self.resolve_type(&Type::Named(type_name.clone()));
+                        let is_primitive = matches!(
+                            resolved,
+                            Type::I8 | Type::I16 | Type::I32 | Type::I64 | Type::I128 |
+                            Type::U8 | Type::U16 | Type::U32 | Type::U64 | Type::U128 |
+                            Type::F16 | Type::F32 | Type::F64 | Type::Bool |
+                            Type::String | Type::RawPtr { .. }
                         );
-                        self.variable_struct_names
-                            .insert(name.to_string(), type_name.clone());
+
+                        if !is_primitive {
+                            self.variable_struct_names
+                                .insert(name.to_string(), type_name.clone());
+                        }
                     }
                     Type::Vec(inner_ty) => {
                         let mangled = format!("Vec_{}", self.type_to_string(inner_ty.as_ref()));
@@ -903,12 +919,20 @@ impl<'ctx> ASTCodeGen<'ctx> {
             // Track struct name for field access
             match final_var_type {
                 Type::Named(type_name) => {
-                    eprintln!(
-                        "📝 Registering struct variable '{}' with name: {}",
-                        name, type_name
+                    // ⭐ CRITICAL FIX: Don't register type aliases to primitives as structs!
+                    let resolved = self.resolve_type(&Type::Named(type_name.clone()));
+                    let is_primitive = matches!(
+                        resolved,
+                        Type::I8 | Type::I16 | Type::I32 | Type::I64 | Type::I128 |
+                        Type::U8 | Type::U16 | Type::U32 | Type::U64 | Type::U128 |
+                        Type::F16 | Type::F32 | Type::F64 | Type::Bool |
+                        Type::String | Type::RawPtr { .. }
                     );
-                    self.variable_struct_names
-                        .insert(name.to_string(), type_name.clone());
+
+                    if !is_primitive {
+                        self.variable_struct_names
+                            .insert(name.to_string(), type_name.clone());
+                    }
                 }
                 Type::Vec(inner_ty) => {
                     let mangled = format!("Vec_{}", self.type_to_string(inner_ty.as_ref()));
@@ -994,6 +1018,27 @@ impl<'ctx> ASTCodeGen<'ctx> {
             .insert(name.to_string(), final_llvm_type);
         self.variable_ast_types
             .insert(name.to_string(), final_var_type.clone());
+
+        // ⭐ CRITICAL FIX: Register struct name for actual struct types, NOT type aliases to primitives!
+        // Don't register str/ptr (builtin pointer types) OR type aliases that resolve to primitives
+        if let Type::Named(type_name) = final_var_type {
+            // ⭐ Resolve type aliases first
+            let resolved = self.resolve_type(&Type::Named(type_name.clone()));
+            
+            // Check if resolved type is a primitive (including str/ptr)
+            let is_primitive_or_pointer = matches!(
+                resolved,
+                Type::I8 | Type::I16 | Type::I32 | Type::I64 | Type::I128 |
+                Type::U8 | Type::U16 | Type::U32 | Type::U64 | Type::U128 |
+                Type::F16 | Type::F32 | Type::F64 | Type::Bool |
+                Type::String | Type::RawPtr { .. }
+            ) || type_name == "str" || type_name == "ptr";
+
+            if !is_primitive_or_pointer {
+                self.variable_struct_names
+                    .insert(name.to_string(), type_name.clone());
+            }
+        }
 
         Ok(())
     }

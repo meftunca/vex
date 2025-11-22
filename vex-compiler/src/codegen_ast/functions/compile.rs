@@ -99,43 +99,20 @@ impl<'ctx> ASTCodeGen<'ctx> {
             if func.name.starts_with(&format!("{}_", type_name)) {
                 func.name.clone()
             } else {
-                // CRITICAL: Encode operator symbols (op[], op[]=) for LLVM
+                // ⭐ UNIFIED: Use mangle_function_name for method compilation
                 let encoded_method_name = Self::encode_operator_name(&func.name);
-                let param_count = func.params.len();
                 let base_name = format!("{}_{}", type_name, encoded_method_name);
-
-                // Add type suffix for overloading (same logic as program.rs)
-                let name = if !func.params.is_empty() {
-                    let first_param_type = &func.params[0].ty;
-                    let type_suffix = self.generate_type_suffix(first_param_type);
-
-                    if func.name.starts_with("op") && !type_suffix.is_empty() {
-                        format!("{}{}_{}", base_name, type_suffix, param_count)
-                    } else if !type_suffix.is_empty() {
-                        format!("{}{}_{}", base_name, type_suffix, param_count)
-                    } else {
-                        format!("{}_{}", base_name, param_count)
-                    }
-                } else {
-                    base_name
-                };
-                name
+                self.mangle_function_name(&base_name, &func.params, true)
             }
         } else {
-            // ⭐ CRITICAL FIX: For function overloading, use mangled name
-            let mangled_name = if !func.params.is_empty() && func.type_params.is_empty() {
-                // Non-generic function with parameters - generate mangled name
-                let mut param_suffix = String::new();
-                for param in &func.params {
-                    param_suffix.push_str(&self.generate_type_suffix(&param.ty));
-                }
-                let mangled = format!("{}{}", func.name, param_suffix);
+            // ⭐ UNIFIED: Use mangle_function_name for regular functions
+            if !func.params.is_empty() && func.type_params.is_empty() {
+                let mangled = self.mangle_function_name(&func.name, &func.params, true);
                 eprintln!("🔧 Compiling overload: {} → {}", func.name, mangled);
                 mangled
             } else {
                 func.name.clone()
-            };
-            mangled_name
+            }
         };
 
         let fn_val = *self
@@ -201,6 +178,31 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 .build_store(global_runtime, runtime_ptr)
                 .map_err(|e| format!("Failed to store runtime: {}", e))?;
 
+            // Enable auto-shutdown so runtime exits when all tasks are done
+            // void runtime_enable_auto_shutdown(Runtime* rt, bool enabled)
+            let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+            let auto_shutdown_fn_type = self.context.void_type().fn_type(
+                &[
+                    ptr_type.into(),
+                    self.context.bool_type().into(),
+                ],
+                false,
+            );
+            let auto_shutdown_fn = self
+                .module
+                .add_function("runtime_enable_auto_shutdown", auto_shutdown_fn_type, None);
+            
+            self.builder
+                .build_call(
+                    auto_shutdown_fn,
+                    &[
+                        runtime_ptr.into(),
+                        self.context.bool_type().const_int(1, false).into(),
+                    ],
+                    "",
+                )
+                .map_err(|e| format!("Failed to call runtime_enable_auto_shutdown: {}", e))?;
+
             eprintln!("✅ Runtime initialized and stored in global");
         }
 
@@ -211,6 +213,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
         self.variable_concrete_types.clear(); // ⭐ CRITICAL: Clear concrete types too
         self.function_params.clear();
         self.function_param_types.clear();
+        
+        eprintln!("🔧 [COMPILE_FUNCTION] Starting: {} (params: {})", func.name, func.params.len());
 
         // ⭐ SPECIAL: Skip argc/argv parameters in main()
         let mut param_offset = if func.name == "main" { 2 } else { 0 };

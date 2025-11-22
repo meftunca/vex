@@ -7,7 +7,7 @@
 async fn sleep_and_print(ms: i32): i32 {
     println("Before sleep");
     
-    // TODO: await async_sleep(ms);
+    async_sleep(ms);
     
     println("After sleep (1000ms)");
     return 0;

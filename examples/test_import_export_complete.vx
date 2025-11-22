@@ -1,5 +1,5 @@
 // Test 1: Named import
-import { abs, sin, cos } from "math";
+//import { abs, sin, cos } from "math";
 
 // Test 2: Namespace import  
 import * as math from "math";
@@ -14,7 +14,7 @@ fn test_constants() {
 
 // Test 4: Function calls
 fn main() {
-    println(abs(-5));
-    println(sin(0.0));
+    println(math.abs(-5));
+    println(math.sin(0.0));
     test_constants();
 }

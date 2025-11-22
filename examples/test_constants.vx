@@ -1,4 +1,4 @@
-import "math";
+import { PI, degrees, radians } from "math";
 
 fn main() {
     print("Testing constant usage...\n");

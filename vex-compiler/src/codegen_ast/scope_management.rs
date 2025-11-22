@@ -35,8 +35,9 @@ impl<'ctx> super::ASTCodeGen<'ctx> {
             .insert("Vec".to_string(), "vec_free".to_string());
         self.destructor_impls
             .insert("Box".to_string(), "box_free".to_string());
-        self.destructor_impls
-            .insert("String".to_string(), "vex_string_free".to_string());
+        // String now uses Drop trait instead of Destructor trait
+        // self.destructor_impls
+        //     .insert("String".to_string(), "vex_string_free".to_string());
         self.destructor_impls
             .insert("Map".to_string(), "vex_map_free".to_string());
         self.destructor_impls
@@ -100,25 +101,8 @@ impl<'ctx> super::ASTCodeGen<'ctx> {
                                 .map_err(|e| format!("Failed to call box_free: {}", e))?;
                         }
                         "String" => {
-                            let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
-                            let string_value = self
-                                .builder
-                                .build_load(ptr_type, var_ptr, "string_cleanup_load")
-                                .map_err(|e| format!("Failed to load string for cleanup: {}", e))?;
-
-                            let void_fn_type =
-                                self.context.void_type().fn_type(&[ptr_type.into()], false);
-                            let string_free_fn =
-                                self.module
-                                    .add_function("vex_string_free", void_fn_type, None);
-
-                            self.builder
-                                .build_call(
-                                    string_free_fn,
-                                    &[string_value.into()],
-                                    "string_auto_free",
-                                )
-                                .map_err(|e| format!("Failed to call vex_string_free: {}", e))?;
+                            // String cleanup handled by Drop trait in drop_trait.rs
+                            // Skip Destructor trait cleanup to avoid double-free
                         }
                         "Map" | "Set" => {
                             let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());

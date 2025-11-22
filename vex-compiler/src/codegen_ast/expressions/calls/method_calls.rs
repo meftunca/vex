@@ -33,6 +33,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
             let is_namespace_import = self.namespace_imports.contains_key(module_name);
 
             if is_module_namespace || is_namespace_import {
+                eprintln!("🔍🔍🔍 NAMESPACE METHOD CALL: {}.{}()", module_name, method);
+                
                 // Check if method exists in module_namespaces (if available)
                 // If only in namespace_imports, we assume the method exists and let the function lookup fail if not
                 let method_exists =
@@ -61,46 +63,167 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     let fn_val = if !arg_basic_vals.is_empty() {
                         // Build type suffix from arguments for overload resolution
                         let mut type_suffix = String::new();
-                        for arg_val in &arg_basic_vals {
+                        for (idx, arg_val) in arg_basic_vals.iter().enumerate() {
                             let arg_type_enum = arg_val.get_type();
-                            let ast_type = match arg_type_enum {
-                                inkwell::types::BasicTypeEnum::IntType(it) => {
-                                    match it.get_bit_width() {
-                                        8 => Type::I8,
-                                        16 => Type::I16,
-                                        32 => Type::I32,
-                                        64 => Type::I64,
-                                        128 => Type::I128,
-                                        1 => Type::Bool,
+                            
+                            // Try to infer actual argument type from source expression
+                            let ast_type = if idx < args.len() {
+                                if let Expression::Ident(var_name) = &args[idx] {
+                                    // First check variable_ast_types (has both let vars AND function params)
+                                    if let Some(ast_ty) = self.variable_ast_types.get(var_name) {
+                                        eprintln!("🔍 [NAMESPACE ARG {}] var {} has AST type: {:?}", idx, var_name, ast_ty);
+                                        ast_ty.clone()
+                                    } else if let Some(tracked_ty) = self.variable_types.get(var_name) {
+                                        // Fallback: Check if variable has tracked LLVM type
+                                        eprintln!("🔍 [NAMESPACE ARG {}] var {} has tracked LLVM type: {:?}", idx, var_name, tracked_ty);
+                                        match tracked_ty {
+                                            inkwell::types::BasicTypeEnum::IntType(it) => {
+                                                match it.get_bit_width() {
+                                                    8 => Type::I8,
+                                                    16 => Type::I16,
+                                                    32 => Type::I32,
+                                                    64 => Type::I64,
+                                                    128 => Type::I128,
+                                                    1 => Type::Bool,
+                                                    _ => Type::I32,
+                                                }
+                                            }
+                                            inkwell::types::BasicTypeEnum::FloatType(ft) => {
+                                                if *ft == self.context.f32_type() {
+                                                    Type::F32
+                                                } else {
+                                                    Type::F64
+                                                }
+                                            }
+                                            _ => {
+                                                // Fallback to arg_type_enum
+                                                match arg_type_enum {
+                                                    inkwell::types::BasicTypeEnum::IntType(it) => {
+                                                        match it.get_bit_width() {
+                                                            8 => Type::I8,
+                                                            16 => Type::I16,
+                                                            32 => Type::I32,
+                                                            64 => Type::I64,
+                                                            128 => Type::I128,
+                                                            1 => Type::Bool,
+                                                            _ => Type::I32,
+                                                        }
+                                                    }
+                                                    inkwell::types::BasicTypeEnum::FloatType(ft) => {
+                                                        if ft == self.context.f32_type() {
+                                                            Type::F32
+                                                        } else {
+                                                            Type::F64
+                                                        }
+                                                    }
+                                                    inkwell::types::BasicTypeEnum::PointerType(_) => Type::String,
+                                                    _ => Type::I32,
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        // No tracked type, infer from arg_type_enum
+                                        match arg_type_enum {
+                                            inkwell::types::BasicTypeEnum::IntType(it) => {
+                                                match it.get_bit_width() {
+                                                    8 => Type::I8,
+                                                    16 => Type::I16,
+                                                    32 => Type::I32,
+                                                    64 => Type::I64,
+                                                    128 => Type::I128,
+                                                    1 => Type::Bool,
+                                                    _ => Type::I32,
+                                                }
+                                            }
+                                            inkwell::types::BasicTypeEnum::FloatType(ft) => {
+                                                if ft == self.context.f32_type() {
+                                                    Type::F32
+                                                } else {
+                                                    Type::F64
+                                                }
+                                            }
+                                            inkwell::types::BasicTypeEnum::PointerType(_) => Type::String,
+                                            _ => Type::I32,
+                                        }
+                                    }
+                                } else {
+                                    // Not an identifier, infer from LLVM type
+                                    match arg_type_enum {
+                                        inkwell::types::BasicTypeEnum::IntType(it) => {
+                                            match it.get_bit_width() {
+                                                8 => Type::I8,
+                                                16 => Type::I16,
+                                                32 => Type::I32,
+                                                64 => Type::I64,
+                                                128 => Type::I128,
+                                                1 => Type::Bool,
+                                                _ => Type::I32,
+                                            }
+                                        }
+                                        inkwell::types::BasicTypeEnum::FloatType(ft) => {
+                                            if ft == self.context.f32_type() {
+                                                Type::F32
+                                            } else {
+                                                Type::F64
+                                            }
+                                        }
+                                        inkwell::types::BasicTypeEnum::PointerType(_) => Type::String,
                                         _ => Type::I32,
                                     }
                                 }
-                                inkwell::types::BasicTypeEnum::FloatType(ft) => {
-                                    if ft == self.context.f32_type() {
-                                        Type::F32
-                                    } else {
-                                        Type::F64
+                            } else {
+                                // Fallback
+                                match arg_type_enum {
+                                    inkwell::types::BasicTypeEnum::IntType(it) => {
+                                        match it.get_bit_width() {
+                                            8 => Type::I8,
+                                            16 => Type::I16,
+                                            32 => Type::I32,
+                                            64 => Type::I64,
+                                            128 => Type::I128,
+                                            1 => Type::Bool,
+                                            _ => Type::I32,
+                                        }
                                     }
+                                    inkwell::types::BasicTypeEnum::FloatType(ft) => {
+                                        if ft == self.context.f32_type() {
+                                            Type::F32
+                                        } else {
+                                            Type::F64
+                                        }
+                                    }
+                                    inkwell::types::BasicTypeEnum::PointerType(_) => Type::String,
+                                    _ => Type::I32,
                                 }
-                                inkwell::types::BasicTypeEnum::PointerType(_) => Type::String,
-                                _ => Type::I32, // fallback
                             };
+                            
+                            eprintln!("🔍 [NAMESPACE ARG {}] inferred type: {:?}", idx, ast_type);
                             type_suffix.push_str(&self.generate_type_suffix(&ast_type));
                         }
 
-                        // Try exact match first
-                        let mangled_name = format!("{}{}", method, type_suffix);
-                        eprintln!("🔍 Trying overload: {}", mangled_name);
+                        // Try exact match first: abs_i64_1
+                        let param_count = arg_basic_vals.len();
+                        let mangled_with_count = format!("{}{}_{}", method, type_suffix, param_count);
+                        eprintln!("🔍 [NAMESPACE OVERLOAD] Trying mangled: {}", mangled_with_count);
 
-                        if let Some(fn_val) = self.functions.get(&mangled_name) {
-                            eprintln!("✅ Found exact match: {}", mangled_name);
+                        if let Some(fn_val) = self.functions.get(&mangled_with_count) {
+                            eprintln!("✅ Found exact match: {}", mangled_with_count);
                             *fn_val
                         } else {
-                            // Fallback to base name
-                            eprintln!("⚠️ No exact match, trying base name: {}", method);
-                            *self.functions.get(method).ok_or_else(|| {
-                                format!("Module function {} not found in LLVM module", method)
-                            })?
+                            // Try without param count
+                            let mangled_name = format!("{}{}", method, type_suffix);
+                            eprintln!("🔍 [NAMESPACE OVERLOAD] Trying legacy: {}", mangled_name);
+                            
+                            if let Some(fn_val) = self.functions.get(&mangled_name) {
+                                eprintln!("✅ Found legacy match: {}", mangled_name);
+                                *fn_val
+                            } else {
+                                // Fallback to base name
+                                eprintln!("⚠️ No exact match, trying base name: {}", method);
+                                *self.functions.get(method).ok_or_else(|| {
+                                    format!("Module function {} not found in LLVM module", method)
+                                })?
+                            }
                         }
                     } else {
                         // No arguments, use base name
@@ -188,6 +311,66 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         return Err(e);
                     }
                 }
+            }
+        }
+
+        // Method chaining: function_call().method()
+        // Example: string_from("hello").trim()
+        if let Expression::Call { func, args: call_args, .. } = receiver {
+            eprintln!("🔗 Method chaining detected: {:?}().{}()", func, method);
+            
+            // Compile the function call first to get return value (struct by value)
+            let func_return_val = self.compile_call(func, &[], call_args, None)?;
+            eprintln!("🔗 Function return value compiled, now calling method: {}", method);
+            
+            // Infer struct type from function call
+            let struct_name = if let Expression::Ident(func_name) = &**func {
+                // For now, use simple heuristic: string_from -> String
+                if func_name == "string_from" {
+                    "String".to_string()
+                } else {
+                    // Try to infer from expression type
+                    match self.infer_expression_type(receiver) {
+                        Ok(Type::Named(name)) => name,
+                        Ok(Type::Generic { name, .. }) => name,
+                        _ => return Err(format!("Cannot infer struct type from function call: {}", func_name)),
+                    }
+                }
+            } else {
+                return Err("Method chaining only supported on function calls".to_string());
+            };
+            eprintln!("🔗 Inferred struct type: {}", struct_name);
+            
+            // Create temp storage for struct value (by value, not pointer!)
+            let temp_ptr = self.builder
+                .build_alloca(func_return_val.get_type(), "temp_chain")
+                .map_err(|e| format!("Failed to create temp for chaining: {}", e))?;
+            self.builder
+                .build_store(temp_ptr, func_return_val)
+                .map_err(|e| format!("Failed to store temp: {}", e))?;
+            
+            // Call method directly on temp_ptr (which holds the struct value)
+            // Build method name with mangling
+            let method_name = format!("{}_{}", struct_name, method);
+            
+            if let Some(fn_val) = self.functions.get(&method_name).cloned() {
+                eprintln!("🔗 Calling method: {} on temp value", method_name);
+                
+                // Build args: receiver (temp_ptr) + method args
+                let mut arg_vals: Vec<BasicMetadataValueEnum> = vec![temp_ptr.into()];
+                
+                for arg in args {
+                    let arg_val = self.compile_expression(arg)?;
+                    arg_vals.push(arg_val.into());
+                }
+                
+                let call_site = self.builder
+                    .build_call(fn_val, &arg_vals, "chainedcall")
+                    .map_err(|e| format!("Failed to call chained method: {}", e))?;
+                
+                return Ok(call_site.try_as_basic_value().unwrap_basic());
+            } else {
+                return Err(format!("Method {} not found for chaining on {}", method, struct_name));
             }
         }
 

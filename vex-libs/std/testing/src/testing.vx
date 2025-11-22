@@ -10,7 +10,7 @@ import {monotonic_now} from "time";
 
 // Testable defines the interface for test contexts
 contract Testable {
-    error(msg: String);
+    err(msg: String);
     skip(msg: String);
     log(msg: String);
     failed(): bool;
@@ -25,7 +25,7 @@ contract Benchmarkable {
     ops_per_sec(): i64;
     set_bytes(bytes: i64);
 }
-
+export type vecVoidFn = Vec<fn(): void>;
 // ============================================================================
 // Test Context - Modern struct with contract implementation
 // ============================================================================
@@ -35,10 +35,44 @@ export struct T impl Testable {
     failed: bool,
     skipped: bool,
     
+    cleanups: vecVoidFn,
+}
 
+// Run a sub-test
+export fn (self: &T) run(name: String, sub_fn: fn(*T): void) {
+    let sub_name = self.name + "/" + name;
+    print("=== RUN   " + sub_name + "\n");
+    
+    let! sub_t = T {
+        name: sub_name,
+        failed: false,
+        skipped: false,
+        cleanups: Vec.new(),
+    };
+    
+    sub_fn(&sub_t);
+    
+    // Run cleanups in reverse order (LIFO)
+    for i in (0..sub_t.cleanups.len()).rev() {
+        sub_t.cleanups[i]();
+    }
+    
+    if sub_t.failed {
+        self.failed = true;
+        print("--- FAIL: " + sub_name + "\n");
+    } elif sub_t.skipped {
+        print("--- SKIP: " + sub_name + "\n");
+    } else {
+        print("--- PASS: " + sub_name + "\n");
+    }
+}
+
+// Register cleanup function
+export fn (self: &T!) cleanup(cleanup_fn: fn():void) {
+    self.cleanups.push(cleanup_fn);
 }
 // Report test failure
-export fn (self:&T!) error(msg: String)! {
+export fn (self:&T!) err(msg: String) {
     self.failed = true;
     print("[FAIL] ");
     print(self.name);
@@ -48,7 +82,7 @@ export fn (self:&T!) error(msg: String)! {
 }
 
 // Skip test with reason
-export fn (self:&T!) skip(msg: String)! {
+export fn (self:&T!) skip(msg: String) {
     self.skipped = true;
     print("[SKIP] ");
     print(self.name);
@@ -83,14 +117,14 @@ export struct B impl Benchmarkable {
 
 }
 // Reset benchmark timer
-export fn (self:&B!) reset_timer()! {
+export fn (self:&B!) reset_timer() {
     self.elapsed_ns = 0;
     self.start_time = monotonic_now() as i64;
     self.timer_running = true;
 }
 
 // Start timing (if stopped)
-export fn (self:&B!) start_timer()! {
+export fn (self:&B!) start_timer() {
     if !self.timer_running {
         self.start_time = monotonic_now() as i64;
         self.timer_running = true;
@@ -98,7 +132,7 @@ export fn (self:&B!) start_timer()! {
 }
 
 // Stop timing
-export fn (self:&B!) stop_timer()! {
+export fn (self:&B!) stop_timer() {
     if self.timer_running {
         let now: i64 = monotonic_now() as i64;
         self.elapsed_ns = now - self.start_time;
@@ -107,7 +141,7 @@ export fn (self:&B!) stop_timer()! {
 }
 
 // Set bytes processed per operation (for MB/s)
-export fn (self:&B!) set_bytes(bytes: i64)! {
+export fn (self:&B!) set_bytes(bytes: i64) {
     self.bytes = bytes;
 }
 
@@ -127,52 +161,202 @@ export fn (self:&B) ops_per_sec(): i64 {
     return (self.n * 1000000000) / self.elapsed_ns;
 }
 // ============================================================================
+// Test Runner Structs
+// ============================================================================
+
+export struct TestCase {
+    name: String,
+    test_fn: fn(*T): void,
+}
+
+export struct BenchCase {
+    name: String,
+    bench_fn: fn(*B): void,
+}
+
+// ============================================================================
+// Assertions - Testify-style helpers
+// ============================================================================
+
+export struct Assert {
+    t: *T,
+}
+
+export fn Assert.new(t: *T): Assert {
+    return Assert { t: t };
+}
+
+export fn (self: &Assert) equal_i64(actual: i64, expected: i64, msg: String) {
+    if actual != expected {
+        self.t.err(msg + ": expected " + expected.to_string() + ", got " + actual.to_string());
+    }
+}
+
+export fn (self: &Assert) not_equal_i64(actual: i64, expected: i64, msg: String) {
+    if actual == expected {
+        self.t.err(msg + ": expected not " + expected.to_string() + ", got " + actual.to_string());
+    }
+}
+
+export fn (self: &Assert) equal_string(actual: String, expected: String, msg: String) {
+    if actual != expected {
+        self.t.err(msg + ": expected '" + expected + "', got '" + actual + "'");
+    }
+}
+
+export fn (self: &Assert) is_true(cond: bool, msg: String) {
+    if !cond {
+        self.t.err(msg + ": expected true, got false");
+    }
+}
+
+export fn (self: &Assert) is_false(cond: bool, msg: String) {
+    if cond {
+        self.t.err(msg + ": expected false, got true");
+    }
+}
+
+// ============================================================================
 // Helper Functions - Golang-style test runners
 // ============================================================================
 
 // Run a test function
-export fn run_test(name: String, test_fn: fn(*T)) {
+export fn run_test(name: String, test_fn: fn(*T): void) {
+    print("=== RUN   " + name + "\n");
     let! t: T = T {
         name: name,
         failed: false,
         skipped: false,
+        cleanups: Vec.new(),
     };
     
     test_fn(&t);
     
-    if !t.failed && !t.skipped {
-        print("[PASS] ");
-        print(name);
-        print("\n");
+    // Run cleanups in reverse order
+    for i in (0..t.cleanups.len()).rev() {
+        t.cleanups[i]();
+    }
+    
+    if t.failed {
+        print("--- FAIL: " + name + "\n");
+    } elif t.skipped {
+        print("--- SKIP: " + name + "\n");
+    } else {
+        print("--- PASS: " + name + "\n");
     }
 }
 
-// Run a benchmark
-export fn run_benchmark(name: String, n: i64, bench_fn: fn(*B)) {
-    let start_ns: i64 = monotonic_now() as i64;
-    let! b: B = B {
-        name: name,
-        n: n,
-        elapsed_ns: 0,
-        bytes: 0,
-        timer_running: true,
-        start_time: start_ns,
-    };
+// Run a benchmark with auto-calibration
+export fn run_benchmark(name: String, bench_fn: fn(*B): void) {
+    let target_ns: i64 = 1000000000; // 1 second
+    let! n: i64 = 1;
     
-    bench_fn(&b);
+    // Auto-calibration loop
+    while true {
+        let! b: B = B {
+            name: name,
+            n: n,
+            elapsed_ns: 0,
+            bytes: 0,
+            timer_running: false,
+            start_time: 0,
+        };
+        
+        b.start_timer();
+        bench_fn(&b);
+        if b.timer_running {
+            b.stop_timer();
+        }
+        
+        if b.elapsed_ns >= target_ns || n >= 1000000000 {
+             // Print results
+            print(name);
+            print("\t");
+            print(b.n);
+            print("\t");
+            print(b.ns_per_op());
+            print(" ns/op");
+            
+            if b.bytes > 0 {
+                let mb_per_sec = (b.bytes * b.n * 1000) / b.elapsed_ns; // approx MB/s
+                print("\t");
+                print(mb_per_sec); // Simple calc, improve later
+                print(" MB/s");
+            }
+            print("\n");
+            break;
+        }
+        
+        // Increase n
+        let prev_n = n;
+        if b.elapsed_ns == 0 {
+            n *= 100;
+        } else {
+            // Predict n needed for target_ns
+            n = (target_ns * prev_n) / b.elapsed_ns;
+        }
+        
+        // Don't grow too fast
+        if n > prev_n * 100 {
+            n = prev_n * 100;
+        }
+        // Ensure we grow
+        if n <= prev_n {
+            n = prev_n + 1;
+        }
+    }
+}
+
+// Run a suite of tests
+export fn run_tests(tests: Vec<TestCase>): i32 {
+    let! failures = 0;
+    print("Running " + tests.len().to_string() + " tests...\n");
     
-    // Auto-stop if still running
-    if b.timer_running {
-        b.stop_timer();
+    for i in 0..tests.len() {
+        let test = tests[i];
+        
+        print("=== RUN   " + test.name + "\n");
+        let! t: T = T {
+            name: test.name,
+            failed: false,
+            skipped: false,
+            cleanups: Vec.new(),
+        };
+        
+        test.test_fn(&t);
+        
+        // Run cleanups
+        for j in (0..t.cleanups.len()).rev() {
+            t.cleanups[j]();
+        }
+        
+        if t.failed {
+            print("--- FAIL: " + test.name + "\n");
+            failures += 1;
+        } elif t.skipped {
+            print("--- SKIP: " + test.name + "\n");
+        } else {
+            print("--- PASS: " + test.name + "\n");
+        }
     }
     
-    // Print results
-    print(name);
-    print("-1\t");
-    print(b.n);
-    print("\t");
-    print(b.ns_per_op());
-    print(" ns/op\t");
-    print(b.ops_per_sec());
-    print(" ops/sec\n");
+    if failures > 0 {
+        print("FAIL\n");
+        return 1;
+    }
+    
+    print("PASS\n");
+    return 0;
+}
+
+// Run a suite of benchmarks
+export fn run_benchmarks(benches: Vec<BenchCase>) {
+    print("Running " + benches.len().to_string() + " benchmarks...\n");
+    print("goos: vex\n");
+    print("goarch: native\n");
+    
+    for i in 0..benches.len() {
+        let bench = benches[i];
+        run_benchmark(bench.name, bench.bench_fn);
+    }
 }

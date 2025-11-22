@@ -41,7 +41,7 @@ else
     endif
 endif
 
-SRC_COMMON = src/runtime.c src/worker_context.c src/lockfree_queue.c src/common.c src/timer_heap.c
+SRC_COMMON = src/runtime.c src/worker_context.c src/lockfree_queue.c src/common.c src/timer_heap.c src/task_pool.c
 
 # Ensure we link the core allocator implementation so async runtime tests can use vex_malloc/vex_free
 ALLOC_SRC = ../vex_alloc.c
@@ -146,4 +146,18 @@ print-config:
 	$(CC) $(CFLAGS) $(INC) -c -o $@ $<
 
 $(MIMALLOC_OBJ): $(MIMALLOC_SRC)
+	$(CC) $(CFLAGS) $(INC) -c -o $@ $<
+
+# Synthetic benchmark (pure scheduling test)
+benchmark_synthetic: $(VEXNET_LIB) $(OBJ) benchmark_synthetic.o $(ALLOC_OBJ) $(MIMALLOC_OBJ)
+	$(CC) $(CFLAGS) -o $@ $(OBJ) benchmark_synthetic.o $(ALLOC_OBJ) $(MIMALLOC_OBJ) $(LIBS)
+
+benchmark_synthetic.o: benchmark_synthetic.c
+	$(CC) $(CFLAGS) $(INC) -c -o $@ $<
+
+# Connection-pooled network benchmark
+benchmark_pooled: $(VEXNET_LIB) $(OBJ) benchmark_pooled.o $(ALLOC_OBJ) $(MIMALLOC_OBJ)
+	$(CC) $(CFLAGS) -o $@ $(OBJ) benchmark_pooled.o $(ALLOC_OBJ) $(MIMALLOC_OBJ) $(LIBS)
+
+benchmark_pooled.o: benchmark_pooled.c
 	$(CC) $(CFLAGS) $(INC) -c -o $@ $<

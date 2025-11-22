@@ -157,7 +157,16 @@ fn count_await_in_expression(expr: &Expression) -> usize {
 
         // Function/method calls
         Expression::Call { func, args, .. } => {
-            let mut count = count_await_in_expression(func);
+            let mut count = 0;
+            
+            // ⭐ CRITICAL: Count async_sleep as an await point
+            if let Expression::Ident(name) = func.as_ref() {
+                if name == "async_sleep" {
+                    count += 1;
+                }
+            }
+            
+            count += count_await_in_expression(func);
             for arg in args {
                 count += count_await_in_expression(arg);
             }

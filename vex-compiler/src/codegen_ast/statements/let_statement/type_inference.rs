@@ -14,6 +14,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
         if ty.is_some() {
             return Ok(None);
         }
+        
+        eprintln!("🔍 infer_struct_name_from_expression: value discriminant={:?}", std::mem::discriminant(value));
 
         let result = match value {
             Expression::StructLiteral {
@@ -24,7 +26,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
             Expression::MethodCall {
                 receiver, method, ..
-            } => self.infer_from_method_call(receiver, method)?,
+            } => {
+                eprintln!("🔍 MethodCall case in infer_struct_name");
+                self.infer_from_method_call(receiver, method)?
+            },
 
             Expression::TypeConstructor {
                 type_name,
@@ -88,6 +93,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
         receiver: &Expression,
         method: &str,
     ) -> Result<Option<String>, String> {
+        eprintln!("🔍 infer_from_method_call: receiver={:?}, method={}", receiver, method);
+        
         // Check for static method calls: Type.new() -> Type
         if let Expression::Ident(potential_type_name) = receiver {
             let is_type_name = potential_type_name
@@ -97,6 +104,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 .unwrap_or(false);
 
             let is_not_variable = !self.variables.contains_key(potential_type_name);
+            
+            eprintln!("🔍 Static method check: type_name={}, is_type_name={}, is_not_variable={}", 
+                potential_type_name, is_type_name, is_not_variable);
 
             if is_type_name && is_not_variable {
                 // Special case: For builtin types with constructors, return the type name
@@ -104,11 +114,13 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 if method == "new" {
                     match potential_type_name.as_str() {
                         "Vec" | "Box" | "Map" | "Set" | "String" | "Channel" => {
+                            eprintln!("✅ Returning builtin type: {}", potential_type_name);
                             return Ok(Some(potential_type_name.clone()));
                         }
                         _ => {}
                     }
                 }
+                eprintln!("✅ Returning type name: {}", potential_type_name);
                 return Ok(Some(potential_type_name.clone()));
             }
         }

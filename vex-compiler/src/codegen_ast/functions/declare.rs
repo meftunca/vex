@@ -80,12 +80,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     ));
                 }
             };
-            // Check if name is already mangled (imported methods)
-            if func.name.starts_with(&format!("{}_", type_name)) {
-                func.name.clone()
-            } else {
-                format!("{}_{}", type_name, func.name)
-            }
+            // For methods, func.name is already mangled by program.rs or compile_function
+            // Just use it directly
+            func.name.clone()
         } else {
             func.name.clone()
         };
@@ -96,6 +93,22 @@ impl<'ctx> ASTCodeGen<'ctx> {
             fn_name,
             func.is_async
         );
+
+        // ⭐ COMPUTE MANGLED NAME EARLY: For regular functions with params, mangle before LLVM declaration
+        // Methods are already pre-mangled by program.rs, generics use base name
+        let mangled_llvm_name = if !func.params.is_empty() 
+            && !func.type_params.is_empty() {
+            // Generic function - use base name (will be instantiated with type args later)
+            fn_name.clone()
+        } else if !func.params.is_empty() && func_for_decl.receiver.is_none() {
+            // Non-generic regular function with parameters - mangle now
+            let mangled = self.mangle_function_name(&fn_name, &func.params, true);
+            eprintln!("🔧 Function overload (LLVM): {} → {}", fn_name, mangled);
+            mangled
+        } else {
+            // Methods (pre-mangled), no-param functions, or special cases
+            fn_name.clone()
+        };
 
         // ⭐ SPECIAL HANDLING: async main() should be declared as regular main
         let is_async_main = func.name == "main" && func.is_async;
@@ -144,10 +157,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
             // ⭐ SPECIAL: Type::Nil should be treated as void (no return value)
             if matches!(ty, Type::Nil) {
-                debug_log!("🟢 Function {} return type: nil (void)", fn_name);
+                debug_log!("🟢 Function {} return type: nil (void)", mangled_llvm_name);
                 let fn_type = self.context.void_type().fn_type(&param_types, is_variadic);
-                let fn_val = self.module.add_function(&fn_name, fn_type, None);
-                self.functions.insert(fn_name.clone(), fn_val);
+                let fn_val = self.module.add_function(&mangled_llvm_name, fn_type, None);
+                self.functions.insert(mangled_llvm_name.clone(), fn_val);
                 return Ok(fn_val);
             }
 
@@ -177,7 +190,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
             eprintln!(
                 "🟢 Declaring function {} with return AST type: {:?}",
-                fn_name, actual_ret_ty
+                mangled_llvm_name, actual_ret_ty
             );
             eprintln!(
                 "🟢 Converted to LLVM type: {:?}{}",
@@ -245,7 +258,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 );
                 let i32_type = self.context.i32_type();
                 let fn_type = i32_type.fn_type(&param_types, is_variadic);
-                self.module.add_function(&fn_name, fn_type, Some(inkwell::module::Linkage::External))
+                self.module.add_function(&mangled_llvm_name, fn_type, Some(inkwell::module::Linkage::External))
             } else {
                 eprintln!("🟢 Function {} return type: void", fn_name);
                 let fn_type = self.context.void_type().fn_type(&param_types, is_variadic);
@@ -265,34 +278,14 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     Some(Linkage::Internal)
                 };
                 
-                self.module.add_function(&fn_name, fn_type, linkage)
+                self.module.add_function(&mangled_llvm_name, fn_type, linkage)
             }
         };
 
-        // ⭐ CRITICAL FIX: For function overloading, generate mangled name with parameter types
-        // This allows multiple functions with same base name but different signatures
-        let mangled_fn_name = if !func.params.is_empty() && !func.type_params.is_empty() {
-            // Generic function - use base name (will be instantiated with type args later)
-            fn_name.clone()
-        } else if !func.params.is_empty() {
-            // Non-generic function with parameters - mangle with parameter types
-            let mut param_suffix = String::new();
-            for param in &func.params {
-                param_suffix.push_str(&self.generate_type_suffix(&param.ty));
-            }
-            let mangled = format!("{}{}", fn_name, param_suffix);
-            eprintln!("🔧 Function overload: {} → {}", fn_name, mangled);
-
-            // Register with BOTH names:
-            // 1. Mangled name for type-specific lookup
-            self.functions.insert(mangled.clone(), fn_val);
-            // 2. Base name for generic lookup (will be overridden by last overload, but that's OK)
-            fn_name.clone()
-        } else {
-            fn_name.clone()
-        };
-
-        self.functions.insert(mangled_fn_name, fn_val);
+        // Register in functions map with BOTH mangled name AND base name
+        // This enables both direct calls (double_i32_1) and function pointers (double)
+        self.register_function(&func_for_decl.name, &mangled_llvm_name, fn_val);
+        
         Ok(fn_val)
     }
 }

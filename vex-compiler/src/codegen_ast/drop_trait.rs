@@ -32,7 +32,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
                 // Call drop method if it exists
                 if let Some(drop_fn) = self.functions.get(&drop_method) {
-                    // Drop methods take &self as receiver
+                    // Drop methods take &self as receiver (pointer to struct)
+                    // var_ptr is already a pointer to the struct variable
                     self.builder
                         .build_call(
                             *drop_fn,

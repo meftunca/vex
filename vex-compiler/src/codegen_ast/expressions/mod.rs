@@ -102,7 +102,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
             Expression::Await(expr) => self.compile_await_dispatch(expr),
 
-            Expression::Match { value, arms } => self.compile_match_dispatch(value, arms),
+            Expression::Match { value, arms } => self.compile_match_dispatch(value, arms, expected_type),
 
             Expression::Block {
                 statements,

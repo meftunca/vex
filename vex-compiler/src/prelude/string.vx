@@ -1,0 +1,166 @@
+// stdlib/core/src/string.vx
+// String - Mutable, growable, heap-allocated string
+// str - Immutable string slice/view (primitive)
+
+extern "C" {
+    fn malloc(size: i64): ptr;
+    fn free(ptr: ptr);
+    fn realloc(ptr: ptr, new_size: i64): ptr;
+}
+
+// String struct - heap-allocated mutable string
+export struct String impl Drop {
+    _ptr: ptr  // vex_string_t* pointer (C runtime)
+}
+
+// ===== GLOBAL CONSTRUCTORS (Temporary until static methods work) =====
+
+// Create empty string
+export fn String(): String {
+    let ptr = vex_string_new();
+    return String { _ptr: ptr };
+}
+// Create string from str literal
+export fn String(s: &str): String {
+    let ptr = vex_string_from_cstr(s);
+    return String { _ptr: ptr };
+}
+// Create string from str literal
+export fn String(s: String): String {
+    let ptr = vex_string_from_cstr(s.text());
+    return String { _ptr: ptr };
+}
+export fn String.new(): String {
+    let ptr = vex_string_new();
+    return String { _ptr: ptr };
+}
+// Create string from str slice
+export fn string_from(s: str): String {
+    let ptr = vex_string_from_cstr(s);
+    return String { _ptr: ptr };
+}
+
+// Create string with pre-allocated capacity
+export fn string_with_capacity(cap: i64): String {
+    let ptr = vex_string_with_capacity(cap as u64);
+    return String { _ptr: ptr };
+}
+export fn String.withCapacity(cap: i64): String {
+    let ptr = vex_string_with_capacity(cap as u64);
+    return String { _ptr: ptr };
+}
+export fn String.withCapacity(cap: i32): String {
+    let ptr = vex_string_with_capacity(cap as u64);
+    return String { _ptr: ptr };
+}
+// ===== INSTANCE METHODS =====
+
+// Basic operations
+export fn (self: &String) len(): i64 {
+    return vex_string_len(self._ptr) as i64;
+}
+
+export fn (self: &String) empty(): bool {
+    return vex_string_is_empty(self._ptr);
+}
+
+export fn (self: &String) capacity(): i64 {
+    return vex_string_capacity(self._ptr) as i64;
+}
+
+export fn (self: &String) text(): str {
+    return vex_string_as_cstr(self._ptr);
+}
+
+export fn (self: &String) chars(): i64 {
+    return vex_string_char_count(self._ptr) as i64;
+}
+
+// Modification methods (require &String!)
+export fn (self: &String!) push(s: str) {
+    vex_string_push_str(self._ptr, s);
+}
+
+export fn (self: &String!) pushChar(codepoint: u32) {
+    vex_string_push_char(self._ptr, codepoint);
+}
+
+export fn (self: &String!) clear() {
+    vex_string_clear(self._ptr);
+}
+
+// Search methods
+export fn (self: &String) contains(needle: str): bool {
+    return vex_str_contains(self.text(), needle);
+}
+
+export fn (self: &String) startsWith(prefix: str): bool {
+    return vex_str_has_prefix(self.text(), prefix);
+}
+
+export fn (self: &String) endsWith(suffix: str): bool {
+    return vex_str_has_suffix(self.text(), suffix);
+}
+
+// Transform methods (return new strings)
+export fn (self: &String) upper(): String {
+    let result = vex_str_to_upper(self.text());
+    return string_from(result);
+}
+
+export fn (self: &String) lower(): String {
+    let result = vex_str_to_lower(self.text());
+    return string_from(result);
+}
+
+export fn (self: &String) trim(): String {
+    let result = vex_str_trim(self.text());
+    return string_from(result);
+}
+
+export fn (self: &String) replace(old: str, replacement: str): String {
+    let result = vex_str_replace(self.text(), old, replacement);
+    return string_from(result);
+}
+
+// Split string by delimiter - returns array of strings
+export fn (self: &String) split(delim: str): ptr {
+    return vex_str_split(self.text(), delim);
+}
+
+// Clone
+export fn (self: &String) clone(): String {
+    let ptr = vex_string_clone(self._ptr);
+    return String { _ptr: ptr };
+}
+
+// Drop implementation
+export fn (self: &String) drop() {
+    vex_string_free(self._ptr);
+}
+
+// External C runtime functions
+extern {
+    fn vex_string_new(): ptr;
+    fn vex_string_from_cstr(s: str): ptr;
+    fn vex_string_with_capacity(cap: u64): ptr;
+    fn vex_string_len(s: ptr): u64;
+    fn vex_string_capacity(s: ptr): u64;
+    fn vex_string_is_empty(s: ptr): bool;
+    fn vex_string_as_cstr(s: ptr): str;
+    fn vex_string_char_count(s: ptr): u64;
+    fn vex_string_push_str(s: ptr, text: str);
+    fn vex_string_push_char(s: ptr, ch: u32);
+    fn vex_string_clear(s: ptr);
+    fn vex_string_clone(s: ptr): ptr;
+    fn vex_string_free(s: ptr);
+    
+    fn vex_str_contains(s: str, substr: str): bool;
+    fn vex_str_has_prefix(s: str, prefix: str): bool;
+    fn vex_str_has_suffix(s: str, suffix: str): bool;
+    fn vex_str_to_upper(s: str): str;
+    fn vex_str_to_lower(s: str): str;
+    fn vex_str_trim(s: str): str;
+    fn vex_str_replace(s: str, old: str, replacement: str): str;
+    fn vex_str_split(s: str, delim: str): ptr;
+}

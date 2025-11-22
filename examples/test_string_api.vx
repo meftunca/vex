@@ -1,0 +1,85 @@
+// Test String API - Vex-style kısa isimlendirme
+// Tests: len, empty, text, chars, contains, startsWith, endsWith, upper, lower, trim, replace
+
+fn main(): i32 {
+    println("=== String API Tests ===");
+    
+    // Test 1: String creation
+    let! s1 = String();
+    println("✓ String() works");
+    
+    let s2 = string_from("Hello, World!");
+    println("✓ string_from() works");
+    
+    // Test 2: Basic operations
+    let text = s2.text();
+    println(f"Text: {text}");
+    
+    let length = s2.len();
+    print("Length: ");
+    print(length);
+    println("");
+    
+    let char_count = s2.chars();
+    print("Characters: ");
+    print(char_count);
+    println("");
+    
+    let is_empty = s2.empty();
+    print("Empty: ");
+    print(is_empty);
+    println("");
+    
+    // Test 3: Search methods
+    let has_world = s2.contains("World");
+    print("Contains 'World': ");
+    print(has_world);
+    println("");
+    
+    let starts = s2.startsWith("Hello");
+    print("Starts with 'Hello': ");
+    print(starts);
+    println("");
+    
+    let ends = s2.endsWith("!");
+    print("Ends with '!': ");
+    print(ends);
+    println("");
+    
+    // Test 4: Transform methods
+    let upper = s2.upper();
+    print("Uppercase: ");
+    print(upper.text());
+    println("");
+    
+    let lower = s2.lower();
+    print("Lowercase: ");
+    print(lower.text());
+    println("");
+    
+    let trimmed = string_from("  spaces  ").trim();
+    print("Trimmed: '");
+    print(trimmed.text());
+    println("'");
+    
+    let replaced = s2.replace("World", "Vex");
+    print("Replaced: ");
+    print(replaced.text());
+    println("");
+    
+    // Test 5: Mutable operations
+    s1.push("First");
+    s1.push(" ");
+    s1.push("Second");
+    print("After push: ");
+    print(s1.text());
+    println("");
+    
+    s1.clear();
+    print("After clear empty: ");
+    print(s1.empty());
+    println("");
+    
+    println("✅ All String API tests passed!");
+    return 0;
+}

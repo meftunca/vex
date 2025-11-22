@@ -2,18 +2,23 @@
   "name": "cmd",
   "version": "0.2.0",
   "description": "Command-line argument parsing and utilities",
-  "authors": ["Vex Team"],
+  "authors": [
+    "Vex Team"
+  ],
   "license": "MIT",
-
   "dependencies": {},
-
   "native": {
-    "sources": [],
+    "sources": [
+      "native/vex_cmd.c"
+    ],
     "libraries": [],
-    "cflags": ["-O3"],
-    "include_dirs": ["../../../vex-runtime/c"]
+    "cflags": [
+      "-O3"
+    ],
+    "include_dirs": [
+      "../../../vex-runtime/c"
+    ]
   },
-
   "exports": {
     "main": "src/lib.vx"
   }

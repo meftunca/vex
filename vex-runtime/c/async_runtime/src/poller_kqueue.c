@@ -42,15 +42,34 @@ int poller_add(Poller *p, int fd, EventType type, void *user_data)
 {
     struct kevent ev[2];
     int n = 0;
+
+    // Handle READ filter
     if (type & EVENT_TYPE_READABLE)
     {
-        EV_SET(&ev[n++], fd, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, user_data);
+        EV_SET(&ev[n++], fd, EVFILT_READ, EV_ADD | EV_ENABLE | EV_CLEAR, 0, 0, user_data);
     }
+    else
+    {
+        EV_SET(&ev[n++], fd, EVFILT_READ, EV_DELETE, 0, 0, NULL);
+    }
+
+    // Handle WRITE filter
     if (type & EVENT_TYPE_WRITABLE)
     {
-        EV_SET(&ev[n++], fd, EVFILT_WRITE, EV_ADD | EV_ENABLE, 0, 0, user_data);
+        EV_SET(&ev[n++], fd, EVFILT_WRITE, EV_ADD | EV_ENABLE | EV_CLEAR, 0, 0, user_data);
     }
+    else
+    {
+        EV_SET(&ev[n++], fd, EVFILT_WRITE, EV_DELETE, 0, 0, NULL);
+    }
+
+    // Execute all changes in one syscall
+    // We ignore errors from EV_DELETE (if filter didn't exist)
     int rc = kevent(p->kq, ev, n, NULL, 0, NULL);
+    
+    // If kevent returns -1, it's a fatal error (e.g. bad file descriptor)
+    // But if it returns >= 0, it might still have EV_ERROR in flags for some events
+    // For our purpose, we just return -1 if the syscall failed entirely
     return rc == -1 ? -1 : 0;
 }
 

@@ -30,8 +30,41 @@ impl<'ctx> ASTCodeGen<'ctx> {
             l.get_type().get_bit_width()
         };
 
-        // Call the original implementation but with target bit width for overflow checks
-        self.compile_integer_binary_op_internal(l, r, op, target_bit_width)
+        // Call the original implementation
+        let result = self.compile_integer_binary_op_internal(l, r, op, target_bit_width)?;
+        
+        // ⭐ CRITICAL: If expected_type is provided and result is wider, downcast to expected type
+        // This ensures `0 - x` where x:i8 returns i8, not i32
+        if let (Some(exp_ty), BasicValueEnum::IntValue(int_result)) = (expected_type, result) {
+            let result_width = int_result.get_type().get_bit_width();
+            if result_width != target_bit_width {
+                // Need to cast result to target width
+                let target_type = match exp_ty {
+                    Type::I8 | Type::U8 => self.context.i8_type(),
+                    Type::I16 | Type::U16 => self.context.i16_type(),
+                    Type::I32 | Type::U32 => self.context.i32_type(),
+                    Type::I64 | Type::U64 => self.context.i64_type(),
+                    Type::I128 | Type::U128 => self.context.i128_type(),
+                    _ => return Ok(result),
+                };
+                
+                // ⭐ FIX: Use extend for upcast, truncate for downcast
+                let casted = if result_width < target_bit_width {
+                    // Extend: i32 → i64
+                    self.builder
+                        .build_int_s_extend(int_result, target_type, "sext_to_expected")
+                        .map_err(|e| format!("Failed to extend to expected type: {}", e))?
+                } else {
+                    // Truncate: i64 → i32
+                    self.builder
+                        .build_int_truncate(int_result, target_type, "trunc_to_expected")
+                        .map_err(|e| format!("Failed to truncate to expected type: {}", e))?
+                };
+                return Ok(casted.into());
+            }
+        }
+        
+        Ok(result)
     }
 
     /// Compile binary operations for integer operands (backward compat)

@@ -1,7 +1,3 @@
-extern {
-    fn malloc(size: i64): i64;
-    fn free(ptr: i64);
-}
 
 fn abs(x: i8): i8 {
     if x < 0 {

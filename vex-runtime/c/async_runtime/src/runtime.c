@@ -2,8 +2,10 @@
 #include <errno.h>
 #include <time.h>
 #include <stdio.h>
+#include <fcntl.h>
 #include "internal.h"
 #include "poller.h"
+#include "task_pool.h"
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -50,9 +52,13 @@ uint64_t rt_now_ns(void)
 
 static InternalTask *make_task(coro_resume_func fn, void *data)
 {
-    InternalTask *t = (InternalTask *)xmalloc(sizeof(InternalTask));
+    InternalTask *t = task_pool_alloc(); // Zero-allocation from pool!
+    if (!t)
+        return NULL;
     t->resume_fn = fn;
     t->coro_data = data;
+    atomic_store(&t->state, 0); // ready
+    t->last_fd = -1;
     return t;
 }
 
@@ -79,6 +85,7 @@ Runtime *runtime_create(int num_workers)
     rt->poller = poller_create();
     rt->poller_thread = NULL;
     atomic_store(&rt->tracing, false);
+    atomic_store(&rt->pending_io_count, 0);
 
     for (int i = 0; i < num_workers; ++i)
     {
@@ -172,11 +179,13 @@ void worker_await_io(WorkerContext *ctx, int fd, EventType type)
     Runtime *rt = ctx->owner->rt;
 
     // Register with poller - task will be re-queued when I/O ready
+    // Register with poller - task will be re-queued when I/O ready
     int rc = poller_add(rt->poller, fd, type, t);
 
     if (rc < 0)
     {
         // Poller registration failed, re-queue immediately to avoid deadlock
+        atomic_store(&t->state, 1); // in_queue
         while (!lfq_enqueue(rt->global_ready, t))
         {
 #ifdef _WIN32
@@ -188,7 +197,12 @@ void worker_await_io(WorkerContext *ctx, int fd, EventType type)
         return;
     }
 
-    // Clear current_task - worker won't reschedule it
+    // Track pending I/O
+    atomic_fetch_add(&rt->pending_io_count, 1);
+
+    // Mark task as waiting for I/O, clear current_task
+    atomic_store(&t->state, 3); // io_waiting
+    t->last_fd = fd;
     ctx->current_task = NULL;
 }
 
@@ -289,6 +303,10 @@ static bool all_queues_empty(Runtime *rt)
 
     // Check timer heap
     if (!timer_heap_empty(rt->timer_heap))
+        return false;
+
+    // Check pending I/O
+    if (atomic_load(&rt->pending_io_count) > 0)
         return false;
 
     return true;
@@ -412,16 +430,19 @@ static unsigned __stdcall worker_main(void *arg)
         // Priority 1: Check global queue first (important for I/O wakeups)
         if (lfq_dequeue(rt->global_ready, (void **)&t) && t != NULL)
         {
+            atomic_store(&t->state, 2); // executing
             // Got task from global
         }
         // Priority 2: Check overflow queue
         else if (lfq_dequeue(rt->overflow_queue, (void **)&t) && t != NULL)
         {
+            atomic_store(&t->state, 2); // executing
             // Got task from overflow
         }
         // Priority 3: Check local queue
         else if (lfq_dequeue(w->local_ready, (void **)&t) && t != NULL)
         {
+            atomic_store(&t->state, 2); // executing
             // Got task from local
         }
         // Priority 4: Steal from other workers
@@ -433,7 +454,7 @@ static unsigned __stdcall worker_main(void *arg)
                 idle_cycles++;
                 if (w->id == 0 && idle_cycles % 20 == 0)
                 {
-                    fprintf(stderr, "[Worker %d] Idle cycle %d\n", w->id, idle_cycles);
+                    // Removed debug spam
                 }
 
                 // Auto-shutdown check
@@ -483,16 +504,18 @@ static unsigned __stdcall worker_main(void *arg)
 
         if (st == CORO_STATUS_RUNNING)
         {
+            atomic_store(&t->state, 0); // ready
             schedule_local(w, t);
         }
         else if (st == CORO_STATUS_YIELDED)
         {
             // Task yielded but not suspended - re-queue immediately
+            atomic_store(&t->state, 0); // ready
             schedule_local(w, t);
         }
         else if (st == CORO_STATUS_DONE)
         {
-            xfree(t);
+            task_pool_free(t); // Return to pool for reuse
         }
     }
 #ifndef _WIN32
@@ -511,6 +534,9 @@ static unsigned __stdcall poller_main(void *arg)
 #endif
     Runtime *rt = (Runtime *)arg;
     ReadyEvent evs[1024];
+    InternalTask *batch[256]; // Batch buffer for ready tasks
+    int batch_count = 0;
+    
     while (atomic_load(&rt->running))
     {
         // Calculate timeout based on next timer deadline
@@ -533,12 +559,51 @@ static unsigned __stdcall poller_main(void *arg)
         }
 
         int n = poller_wait(rt->poller, evs, 1024, timeout_ms);
+
+        // Batch process events
         for (int i = 0; i < n; ++i)
         {
             InternalTask *t = (InternalTask *)evs[i].user_data;
             if (t)
             {
-                while (!lfq_enqueue(rt->global_ready, t))
+                // Atomic state transition: io_waiting -> in_queue
+                int expected = 3; // io_waiting
+                if (!atomic_compare_exchange_strong(&t->state, &expected, 1))
+                {
+                    continue; // Spurious or stale event
+                }
+                
+                // Decrement pending I/O count
+                atomic_fetch_sub(&rt->pending_io_count, 1);
+
+                // Add to batch instead of immediate enqueue
+                batch[batch_count++] = t;
+
+                // Flush batch when full (reduces queue contention)
+                if (batch_count >= 256)
+                {
+                    for (int j = 0; j < batch_count; j++)
+                    {
+                        while (!lfq_enqueue(rt->global_ready, batch[j]))
+                        {
+#ifndef _WIN32
+                            sched_yield();
+#else
+                            Sleep(0);
+#endif
+                        }
+                    }
+                    batch_count = 0;
+                }
+            }
+        }
+
+        // Flush remaining batch
+        if (batch_count > 0)
+        {
+            for (int j = 0; j < batch_count; j++)
+            {
+                while (!lfq_enqueue(rt->global_ready, batch[j]))
                 {
 #ifndef _WIN32
                     sched_yield();
@@ -547,6 +612,7 @@ static unsigned __stdcall poller_main(void *arg)
 #endif
                 }
             }
+            batch_count = 0;
         }
     }
 #ifndef _WIN32

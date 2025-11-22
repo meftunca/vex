@@ -1,7 +1,7 @@
-import * as math from "math";
+import { PI } from "math";
 
 fn main() {
-    let pi = math.PI;
+    let pi = PI;
     print("PI = ");
     println(pi);
 }

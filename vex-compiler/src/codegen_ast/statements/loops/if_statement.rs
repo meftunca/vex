@@ -37,6 +37,41 @@ impl<'ctx> ASTCodeGen<'ctx> {
             self.builder
                 .build_int_compare(IntPredicate::NE, iv, zero, "ifcond")
                 .map_err(|e| format!("Failed to compare: {}", e))?
+        } else if let BasicValueEnum::PointerValue(pv) = cond_val {
+            // ⭐ Handle bool variables stored as pointers - load them first
+            // This happens when: let is_eq: bool = ...; if is_eq { ... }
+            let loaded = self.builder
+                .build_load(self.context.bool_type(), pv, "bool_load")
+                .map_err(|e| format!("Failed to load bool: {}", e))?;
+            
+            if let BasicValueEnum::IntValue(iv) = loaded {
+                let zero = iv.get_type().const_int(0, false);
+                self.builder
+                    .build_int_compare(IntPredicate::NE, iv, zero, "ifcond")
+                    .map_err(|e| format!("Failed to compare: {}", e))?
+            } else {
+                // ⭐ Get span from span_id
+                let span = span_id
+                    .as_ref()
+                    .and_then(|id| self.span_map.get(id))
+                    .cloned()
+                    .unwrap_or_else(Span::unknown);
+
+                self.diagnostics.emit(Diagnostic {
+                    level: ErrorLevel::Error,
+                    code: error_codes::TYPE_MISMATCH.to_string(),
+                    message: "If condition must be an integer or boolean value".to_string(),
+                    span,
+                    notes: vec![format!("Got non-integer type after loading from pointer")],
+                    help: Some(
+                        "Ensure the condition evaluates to a boolean (i1) or integer type".to_string(),
+                    ),
+                    suggestion: None,
+                    related: Vec::new(),
+                    primary_label: Some("type mismatch".to_string()),
+                });
+                return Err("Condition must be integer value after load".to_string());
+            }
         } else {
             // ⭐ Get span from span_id
             let span = span_id
@@ -129,6 +164,20 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 self.builder
                     .build_int_compare(IntPredicate::NE, iv, zero, "elifcond")
                     .map_err(|e| format!("Failed to compare: {}", e))?
+            } else if let BasicValueEnum::PointerValue(pv) = cond_val {
+                // ⭐ Handle bool variables stored as pointers
+                let loaded = self.builder
+                    .build_load(self.context.bool_type(), pv, "bool_load")
+                    .map_err(|e| format!("Failed to load bool: {}", e))?;
+                
+                if let BasicValueEnum::IntValue(iv) = loaded {
+                    let zero = iv.get_type().const_int(0, false);
+                    self.builder
+                        .build_int_compare(IntPredicate::NE, iv, zero, "elifcond")
+                        .map_err(|e| format!("Failed to compare: {}", e))?
+                } else {
+                    return Err("Elif condition must be integer value after load".to_string());
+                }
             } else {
                 return Err("Elif condition must be integer value".to_string());
             };

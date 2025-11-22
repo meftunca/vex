@@ -306,3 +306,24 @@ int main(void) {
 
 #endif // VEX_MATH_DEMO
 
+
+/* =================================================================
+ * Function Aliases for Vex FFI (native.vxc compatibility)
+ * These aliases match the exact names used in native.vxc exports
+ * ================================================================= */
+
+// Aliases for classification functions (native.vxc exports without vex_ prefix)
+int is_nan(double x) { return vex_is_nan(x); }
+int is_inf(double x) { return vex_is_inf(x); }
+
+// GCD function (required by lcm in lib.vx)
+int64_t gcd(int64_t a, int64_t b) {
+    if (a < 0) a = -a;
+    if (b < 0) b = -b;
+    while (b != 0) {
+        int64_t temp = b;
+        b = a % b;
+        a = temp;
+    }
+    return a;
+}

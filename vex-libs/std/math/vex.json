@@ -2,18 +2,26 @@
   "name": "math",
   "version": "0.2.0",
   "description": "Mathematical operations for Vex - comprehensive math library",
-  "authors": ["Vex Team"],
+  "authors": [
+    "Vex Team"
+  ],
   "license": "MIT",
-
   "dependencies": {},
-
   "native": {
-    "sources": [],
-    "libraries": ["m"],
-    "cflags": ["-O3", "-ffast-math"],
-    "include_dirs": ["../../../vex-runtime/c"]
+    "sources": [
+      "native/vex_math.c"
+    ],
+    "libraries": [
+      "m"
+    ],
+    "cflags": [
+      "-O3",
+      "-ffast-math"
+    ],
+    "include_dirs": [
+      "../../../vex-runtime/c"
+    ]
   },
-
   "exports": {
     "main": "src/lib.vx"
   }

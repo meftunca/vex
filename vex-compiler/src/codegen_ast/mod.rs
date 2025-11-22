@@ -88,6 +88,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
             global_constants: HashMap::new(),
             global_constant_types: HashMap::new(),
             functions: HashMap::new(),
+            function_name_to_mangled: HashMap::new(), // ⭐ CRITICAL: Base name -> mangled name mapping
             function_defs: HashMap::new(),
             struct_ast_defs: HashMap::new(),
             struct_defs: HashMap::new(),
@@ -218,9 +219,95 @@ impl<'ctx> ASTCodeGen<'ctx> {
         Ok(())
     }
 
+    /// ⭐ CRITICAL: Register function with BOTH base name and mangled name
+    /// This ensures function can be found both ways:
+    /// - By mangled name for direct calls: double_i32_1(x)
+    /// - By base name for function pointers: apply(double, x)
+    pub(crate) fn register_function(
+        &mut self,
+        base_name: &str,
+        mangled_name: &str,
+        fn_val: inkwell::values::FunctionValue<'ctx>,
+    ) {
+        // Always register with mangled name (for type-safe calls)
+        self.functions.insert(mangled_name.to_string(), fn_val);
+        
+        // Also register with base name if:
+        // 1. No existing function with base name, OR
+        // 2. This is a simpler overload (zero params) than existing
+        let should_insert_base = if mangled_name != base_name {
+            if let Some(existing_mangled) = self.function_name_to_mangled.get(base_name) {
+                // If existing mangled name is longer, this is simpler (prefer foo() over foo_i32_1)
+                mangled_name.len() < existing_mangled.len()
+            } else {
+                true
+            }
+        } else {
+            // Base name == mangled name (no params), always insert
+            true
+        };
+        
+        if should_insert_base {
+            self.functions.insert(base_name.to_string(), fn_val);
+            self.function_name_to_mangled.insert(base_name.to_string(), mangled_name.to_string());
+        }
+    }
+
+    /// ⭐ CRITICAL: Lookup function by name, trying BOTH base name and mangled name
+    /// This handles all cases:
+    /// - Direct function calls with explicit types
+    /// - Function pointers passed as arguments
+    /// - Overloaded function resolution
+    pub(crate) fn lookup_function(&self, name: &str) -> Option<inkwell::values::FunctionValue<'ctx>> {
+        // Try exact match first (handles mangled names)
+        if let Some(fn_val) = self.functions.get(name) {
+            return Some(*fn_val);
+        }
+        
+        // Try base name lookup (for function pointers)
+        if let Some(func_def) = self.function_defs.get(name) {
+            let mangled = self.mangle_function_name(name, &func_def.params, true);
+            if let Some(fn_val) = self.functions.get(&mangled) {
+                return Some(*fn_val);
+            }
+        }
+        
+        None
+    }
+
     /// ⭐ NEW: Generate comprehensive type suffix for method overloading
     /// Handles ALL type variants including primitives, generics, references, tuples, etc.
     /// Returns a mangled suffix that uniquely identifies the type for method dispatch
+    /// Generate mangled name for method/function with parameters
+    /// Format: BaseName_ParamType1_ParamType2_..._ParamCount
+    /// This provides both type safety (overloading) and arity information
+    pub(crate) fn mangle_function_name(
+        &self,
+        base_name: &str,
+        params: &[vex_ast::Param],
+        include_param_count: bool,
+    ) -> String {
+        if params.is_empty() {
+            return base_name.to_string();
+        }
+
+        let mut mangled = base_name.to_string();
+        
+        // Add type suffix for each parameter
+        // ⭐ CRITICAL: Resolve type aliases before mangling!
+        for param in params {
+            let resolved_ty = self.resolve_type(&param.ty);
+            mangled.push_str(&self.generate_type_suffix(&resolved_ty));
+        }
+        
+        // Optionally add parameter count at the end
+        if include_param_count {
+            mangled.push_str(&format!("_{}", params.len()));
+        }
+        
+        mangled
+    }
+
     pub(crate) fn generate_type_suffix(&self, ty: &Type) -> String {
         match ty {
             Type::Unknown => "_unknown".to_string(),

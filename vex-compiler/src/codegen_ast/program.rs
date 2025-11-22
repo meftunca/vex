@@ -10,14 +10,18 @@ impl<'ctx> ASTCodeGen<'ctx> {
     /// &Vec<T> → Some("Vec")
     /// &Box<T> → Some("Box")
     pub(crate) fn extract_struct_name_from_receiver(&self, ty: &Type) -> Option<String> {
+        eprintln!("🔍 extract_struct_name_from_receiver: {:?}", ty);
         match ty {
-            Type::Reference(inner, _) => self.extract_struct_name_from_receiver(inner),
             Type::Named(name) => Some(name.clone()),
             Type::Generic { name, .. } => Some(name.clone()),
             Type::Vec(_) => Some("Vec".to_string()),
             Type::Box(_) => Some("Box".to_string()),
             Type::Option(_) => Some("Option".to_string()),
             Type::Result(_, _) => Some("Result".to_string()),
+            Type::Reference(inner, _) => {
+                // Unwrap reference and extract from inner type
+                self.extract_struct_name_from_receiver(inner)
+            }
             _ => None,
         }
     }
@@ -98,6 +102,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
             let mut re_export_modules: Vec<(Vec<ExportItem>, String, bool)> = Vec::new(); // (items, module, is_wildcard)
 
             // Scan module items for export declarations
+            eprintln!(
+                "📦 Scanning imported module: {} ({} items)",
+                import.module,
+                imported_module.items.len()
+            );
             for item in &imported_module.items {
                 match item {
                     Item::Export(export) => {
@@ -132,10 +141,14 @@ impl<'ctx> ASTCodeGen<'ctx> {
                             }
                         }
                     }
-                    Item::Function(func) if func.name.starts_with("export ") => {
+                    Item::Function(func) if func.is_exported => {
+                        eprintln!("   📦 Found exported function: {}", func.name);
                         // Direct export: export fn foo() - function name has "export " prefix removed by parser
                         // Actually parser already handles this, function name is clean
                         exported_symbols.insert(func.name.clone());
+                    }
+                    Item::Function(func) => {
+                        eprintln!("   🔒 Found private function: {}", func.name);
                     }
                     Item::Const(const_decl) if const_decl.name.starts_with("export ") => {
                         exported_symbols.insert(const_decl.name.clone());
@@ -334,6 +347,21 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                         "   ❌ Not auto-importing {}.{} because {} is NOT imported",
                                         type_name, func.name, type_name
                                     );
+                                }
+                            }
+                        }
+
+                        // ⭐ NEW: Automatically import instance methods if their receiver type is imported
+                        if !should_import {
+                            if let Some(receiver) = &func.receiver {
+                                if let Some(struct_name) =
+                                    self.extract_struct_name_from_receiver(&receiver.ty)
+                                {
+                                    if should_import_item(&struct_name) {
+                                        should_import = true;
+                                        eprintln!("   📦 Auto-importing instance method {}.{} because {} is imported", 
+                                            struct_name, func.name, struct_name);
+                                    }
                                 }
                             }
                         }
@@ -703,31 +731,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         let mangled_name = if func.name.starts_with(&format!("{}_", sn)) {
                             func.name.clone()
                         } else {
-                            // ⭐ Method name mangling with type-based overloading support
-                            // CRITICAL: Encode operator symbols (op[], op[]=) for LLVM
+                            // ⭐ UNIFIED: Use mangle_function_name for consistency
                             let encoded_method_name = Self::encode_operator_name(&func.name);
-                            let param_count = func.params.len();
                             let base_name = format!("{}_{}", sn, encoded_method_name);
-
-                            // ⭐ For method overloading: Include first parameter type in mangling
-                            // This allows overloading like: add(i32), add(f64), op+(i32), op+(f64)
-                            let name = if !func.params.is_empty() {
-                                let first_param_type = &func.params[0].ty;
-                                let type_suffix = self.generate_type_suffix(first_param_type);
-
-                                // Add type suffix for all external methods (operators and regular methods)
-                                // Format: StructName_methodname_typename_paramcount
-                                if !type_suffix.is_empty() {
-                                    format!("{}{}_{}", base_name, type_suffix, param_count)
-                                } else {
-                                    format!("{}_{}", base_name, param_count)
-                                }
-                            } else {
-                                // No parameters (e.g., getter methods)
-                                base_name
-                            };
-
-                            name
+                            self.mangle_function_name(&base_name, &func.params, true)
                         };
 
                         // Store with mangled name (but keep original func structure)
@@ -754,6 +761,10 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         // ⭐ CRITICAL FIX: Store BOTH the fully mangled name AND the base name
                         // Fully mangled: Vec_push_i32_1 (for direct lookups)
                         // Base name: Vec_push (for generic instantiation)
+                        eprintln!(
+                            "📝 Storing external method: {} in function_defs",
+                            mangled_name
+                        );
                         self.function_defs
                             .insert(mangled_name.clone(), method_func.clone());
 
@@ -774,19 +785,20 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     // Regular function
                     // ⭐ CRITICAL FIX: Store with mangled name for overloading support
                     let storage_name = if !func.params.is_empty() {
-                        // Generate mangled name with parameter types
+                        // Generate mangled name with parameter types AND count
                         let mut param_suffix = String::new();
                         for param in &func.params {
                             param_suffix.push_str(&self.generate_type_suffix(&param.ty));
                         }
-                        let mangled = format!("{}{}", func.name, param_suffix);
+                        // Add parameter count suffix: _str_1, _i32_i32_2
+                        let mangled = format!("{}{}_{}", func.name, param_suffix, func.params.len());
                         eprintln!("🔧 Storing function overload: {} → {}", func.name, mangled);
                         mangled
                     } else {
                         func.name.clone()
                     };
 
-                    self.function_defs.insert(storage_name, func.clone());
+                    self.function_defs.insert(storage_name.clone(), func.clone());
 
                     // Also store with base name for lookup
                     // ⭐ CRITICAL FIX: Don't overwrite base name if existing overload is "simpler" (fewer params)
@@ -859,8 +871,15 @@ impl<'ctx> ASTCodeGen<'ctx> {
         // Declare inline struct methods (new trait system v1.3)
         for item in &merged_program.items {
             if let Item::Struct(struct_def) = item {
+                eprintln!(
+                    "📋 Found struct: {} (type_params={}, methods={})",
+                    struct_def.name,
+                    struct_def.type_params.len(),
+                    struct_def.methods.len()
+                );
                 if struct_def.type_params.is_empty() {
                     for method in &struct_def.methods {
+                        eprintln!("  🔧 Declaring method: {}.{}", struct_def.name, method.name);
                         self.declare_struct_method(&struct_def.name, method)?;
                     }
                 }

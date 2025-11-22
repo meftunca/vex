@@ -8,8 +8,9 @@ impl<'ctx> ASTCodeGen<'ctx> {
         &mut self,
         value: &vex_ast::Expression,
         arms: &[vex_ast::MatchArm],
+        expected_type: Option<&vex_ast::Type>,
     ) -> Result<BasicValueEnum<'ctx>, String> {
-        self.compile_match_expression(value, arms)
+        self.compile_match_expression(value, arms, expected_type)
     }
 
     /// Compile block expressions

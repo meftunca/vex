@@ -86,6 +86,20 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 return Ok((*ptr).into());
             }
 
+            // CRITICAL: For ptr and str type variables, LOAD the pointer value from alloca
+            // ptr/str are stored as "ptr" in alloca, so we need to load them
+            if let Some(ast_type) = self.variable_ast_types.get(name) {
+                if matches!(ast_type, vex_ast::Type::Named(n) if n == "ptr" || n == "str") {
+                    // Load the pointer value from the alloca
+                    let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                    let loaded_ptr = self
+                        .builder
+                        .build_load(ptr_type, *ptr, &format!("{}_ptr", name))
+                        .map_err(|e| format!("Failed to load ptr/str variable: {}", e))?;
+                    return Ok(loaded_ptr);
+                }
+            }
+
             // Use alignment-aware load to fix memory corruption
             let loaded = self.build_load_aligned(*ty, *ptr, name)?;
 
@@ -93,7 +107,8 @@ impl<'ctx> ASTCodeGen<'ctx> {
         }
 
         // Check if this is a global function name (for function pointers)
-        if let Some(func_val) = self.functions.get(name) {
+        // Use centralized lookup that handles BOTH base names and mangled names
+        if let Some(func_val) = self.lookup_function(name) {
             // Return function as a pointer value
             return Ok(func_val.as_global_value().as_pointer_value().into());
         }

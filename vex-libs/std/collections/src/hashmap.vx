@@ -1,13 +1,13 @@
-//zero-cost wrapper over vex_swisstable_v2.c (30M+ ops/s)
+//zero-cost wrapper over vex_swisstable.c (Swiss Tables V1)
 
-// External C functions from vex_swisstable_v2.c
+// External C functions from vex_swisstable.c (V1 API)
 import {
-    vex_map_new_v2,
-    vex_map_insert_v2,
-    vex_map_get_v2,
-    vex_map_remove_v2,
-    vex_map_len_v2,
-    vex_map_free_v2
+    vex_map_new,
+    vex_map_insert,
+    vex_map_get,
+    vex_map_remove,
+    vex_map_len,
+    vex_map_free
 } from "./native.vxc";
 
     
@@ -51,7 +51,7 @@ export fn with_capacity_hashmap<K, V>(cap: i64): HashMap<K, V> {
     };
     
     // Allocate C map
-    vex_map_new_v2(&map.inner, cap);
+    vex_map_new(&map.inner, cap);
     
     return map;
 }
@@ -65,11 +65,11 @@ fn (self: &HashMap<K, V>!) insert(key: K, value: V): Option<V> {
     let! key_str = "key";  // Placeholder
     
     // Check if key exists (for return value)
-    let old_ptr = vex_map_get_v2(self.inner, key_str);
+    let old_ptr = vex_map_get(self.inner, key_str);
     if old_ptr == (0 as *u8) {
         let old_val = None;
         // Insert/update
-        let inserted = vex_map_insert_v2(self.inner, key_str, &value as *u8);
+        let inserted = vex_map_insert(self.inner, key_str, &value as *u8);
         if inserted {
             self.len = self.len + 1;
         }
@@ -78,7 +78,7 @@ fn (self: &HashMap<K, V>!) insert(key: K, value: V): Option<V> {
         let old = *(old_ptr as *V);
         let old_val = Some(old);
         // Insert/update
-        vex_map_insert_v2(self.inner, key_str, &value as *u8);
+        vex_map_insert(self.inner, key_str, &value as *u8);
         return old_val;
     }
 }
@@ -86,7 +86,7 @@ fn (self: &HashMap<K, V>!) insert(key: K, value: V): Option<V> {
 // Get value by key
 fn (self: &HashMap<K, V>) get(key: K): Option<V> {
     let key_str = "key";  // Placeholder
-    let ptr = vex_map_get_v2(self.inner, key_str);
+    let ptr = vex_map_get(self.inner, key_str);
     
     if ptr == (0 as *u8) {
         return None;
@@ -101,7 +101,7 @@ fn (self: &HashMap<K, V>!) remove(key: K): Option<V> {
     let key_str = "key";  // Placeholder
     
     // Get old value before removing
-    let ptr = vex_map_get_v2(self.inner, key_str);
+    let ptr = vex_map_get(self.inner, key_str);
     if ptr == (0 as *u8) {
         return None;
     }
@@ -110,7 +110,7 @@ fn (self: &HashMap<K, V>!) remove(key: K): Option<V> {
     let old_val = Some(old);
     
     // Remove from map
-    let removed = vex_map_remove_v2(self.inner, key_str);
+    let removed = vex_map_remove(self.inner, key_str);
     
     if removed {
         self.len = self.len - 1;
@@ -139,7 +139,7 @@ fn (self: &HashMap<K, V>) is_empty(): bool {
 
 // Clear all entries
 fn (self: &HashMap<K, V>!) clear() {
-    vex_map_free_v2(self.inner);
-    vex_map_new_v2(&self.inner, self.capacity);
+    vex_map_free(self.inner);
+    vex_map_new(&self.inner, self.capacity);
     self.len = 0;
 }

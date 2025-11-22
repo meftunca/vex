@@ -98,6 +98,7 @@ test_file() {
        [[ "$file" == *"test_borrow_diagnostic"* ]] || \
        [[ "$file" == *"test_immutable_violation"* ]] || \
        [[ "$file" == *"test_error_recovery"* ]] || \
+       [[ "$file" == *"test_struct_field_downcast"* ]] || \
        [[ "$file" == *"test_func_downcast"* ]] || \
        [[ "$file" == *"test_downcast_errors"* ]]; then
         output=$(timeout 10s "$vex_bin" run "$file" 2>&1)
@@ -123,11 +124,12 @@ test_file() {
     fi
     
     # Tests with stdlib imports need 'run' instead of 'compile'
-    # Also tests that only work with 'run' (builtin_extensions, static_methods, overload_debug)
+    # Also tests that only work with 'run' (builtin_extensions, static_methods, overload_debug, time tests)
     if [[ "$file" == *"test_io_"* ]] || [[ "$file" == *"test_stdlib_"* ]] || \
        [[ "$file" == *"test_process_"* ]] || [[ "$file" == *"stdlib_integration"* ]] || \
        [[ "$file" == *"builtin_extensions"* ]] || [[ "$file" == *"static_methods"* ]] || \
-       [[ "$file" == *"overload_debug"* ]]; then
+       [[ "$file" == *"overload_debug"* ]] || [[ "$file" == *"test_time_"* ]] || \
+       [[ "$file" == *"test_struct_return.vx"* ]]; then
         output=$(timeout 10s "$vex_bin" run "$file" 2>&1)
         exit_code=$?
         
