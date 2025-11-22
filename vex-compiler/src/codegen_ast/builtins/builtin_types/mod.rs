@@ -205,7 +205,23 @@ pub fn builtin_string_new<'ctx>(
         .build_call(string_new_fn, &[], "string_new")
         .map_err(|e| format!("Failed to call vex_string_new: {}", e))?;
 
-    Ok(result.try_as_basic_value().unwrap_basic())
+    let ptr_val = result
+        .try_as_basic_value()
+        .unwrap_basic()
+        .into_pointer_value();
+
+    // ⭐ CRITICAL: Wrap pointer in String struct { _ptr: ptr }
+    // String type is defined as struct String { _ptr: *vex_string_t }
+    let string_struct_type = codegen.context.struct_type(&[ptr_type.into()], false);
+
+    let mut string_val = string_struct_type.get_undef();
+    string_val = codegen
+        .builder
+        .build_insert_value(string_val, ptr_val, 0, "string_struct")
+        .map_err(|e| format!("Failed to wrap string pointer: {}", e))?
+        .into_struct_value();
+
+    Ok(string_val.into())
 }
 
 /// Builtin: string_from(literal) - Create String from string literal
@@ -235,7 +251,22 @@ pub fn builtin_string_from<'ctx>(
         .build_call(string_from_fn, &[str_ptr.into()], "string_from")
         .map_err(|e| format!("Failed to call vex_string_from_cstr: {}", e))?;
 
-    Ok(result.try_as_basic_value().unwrap_basic())
+    let ptr_val = result
+        .try_as_basic_value()
+        .unwrap_basic()
+        .into_pointer_value();
+
+    // ⭐ CRITICAL: Wrap pointer in String struct { _ptr: ptr }
+    let string_struct_type = codegen.context.struct_type(&[ptr_type.into()], false);
+
+    let mut string_val = string_struct_type.get_undef();
+    string_val = codegen
+        .builder
+        .build_insert_value(string_val, ptr_val, 0, "string_struct")
+        .map_err(|e| format!("Failed to wrap string pointer: {}", e))?
+        .into_struct_value();
+
+    Ok(string_val.into())
 }
 
 /// Builtin: string_free() - Free String memory

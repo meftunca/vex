@@ -9,7 +9,7 @@ fn main(): i32 {
     let s2 = String("Hello, Vex!");
     println("String from str: {}", s2.text());
     
-    let s3 = String.withCapacity(100);
+    let s3 = String.withCapacity(100i64);
     println("String with capacity: {}", s3.capacity());
     
     // Instance methods

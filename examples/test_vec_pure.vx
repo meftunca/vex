@@ -1,6 +1,6 @@
 // Pure Vex Vec<T> test - Zero-cost abstractions
 fn main():i32 {
-    let v: Vec<i32> = vec_new<i32>();
+    let v: Vec<i32> = Vec<i32>();
     v.push(10);
     v.push(20);
     v.push(30);

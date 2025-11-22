@@ -70,7 +70,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut builder = cc::Build::new();
     builder
         .warnings(true)
-        .extra_warnings(true)
+        .extra_warnings(false)  // Disable -Wextra to reduce noise
+        .warnings_into_errors(false)  // Don't treat warnings as errors
         .include(async_io_dir.join("include"))
         .include(&c_dir) // For vex_channel.h
         .flag("-std=c11")
