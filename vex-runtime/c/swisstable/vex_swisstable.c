@@ -18,7 +18,7 @@
 //  - Thread-safety: none.
 //  - License: CC0 / Public Domain.
 
-#include "vex.h"
+#include "../vex.h"
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>

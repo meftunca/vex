@@ -18,6 +18,63 @@ impl<'ctx> ASTCodeGen<'ctx> {
             eprintln!("  Type args: {:?}", type_args);
         }
 
+        // ⭐ NEW: Type constructor overload routing based on argument count
+        // String() → String.new (0 args), String("text") → String.from (1 arg)
+        if let Expression::Ident(func_name) = func_expr {
+            // Check if this is a type name (PascalCase starting with uppercase)
+            let is_type_name = func_name
+                .chars()
+                .next()
+                .map(|c| c.is_uppercase())
+                .unwrap_or(false);
+
+            if is_type_name {
+                eprintln!(
+                    "🏗️  Type constructor detected: {}() with {} args",
+                    func_name,
+                    args.len()
+                );
+
+                // Built-in type constructors that support multiple arities
+                let builtin_types = ["String", "Vec", "Box", "Map", "HashMap", "HashSet"];
+
+                if builtin_types.contains(&func_name.as_str()) {
+                    // Determine which constructor to use based on argument count
+                    let constructor_name = match (func_name.as_str(), args.len()) {
+                        // String constructors
+                        ("String", 0) => Some("String.new"),
+                        ("String", 1) => Some("String.from"),
+
+                        // Vec constructors
+                        ("Vec", 0) => Some("Vec.new"),
+
+                        // Box constructors
+                        ("Box", 1) => Some("Box.new"),
+
+                        // For other counts, try to find user-defined constructor first
+                        _ => None,
+                    };
+
+                    if let Some(builtin_name) = constructor_name {
+                        eprintln!("  🔍 Routing to builtin: {}", builtin_name);
+
+                        if let Some(builtin_fn) = self.builtins.get(builtin_name) {
+                            eprintln!("  ✅ Found builtin constructor: {}", builtin_name);
+                            // Compile arguments
+                            let mut arg_basic_vals: Vec<BasicValueEnum> = Vec::new();
+                            for arg in args.iter() {
+                                let val = self.compile_expression(arg)?;
+                                arg_basic_vals.push(val);
+                            }
+                            return builtin_fn(self, &arg_basic_vals);
+                        } else {
+                            eprintln!("  ⚠️  Builtin not registered: {}", builtin_name);
+                        }
+                    }
+                }
+            }
+        }
+
         // EARLY CHECK: Type constructor with explicit type args (e.g., Vec<i32>())
         if !type_args.is_empty() {
             if let Expression::Ident(func_name) = func_expr {
