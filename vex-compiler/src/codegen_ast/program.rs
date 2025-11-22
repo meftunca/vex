@@ -929,6 +929,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         for item in &merged_program.items {
             if let Item::Function(func) = item {
+                eprintln!("🔍 Checking function for compilation: {}", func.name);
                 // Skip generic functions - they'll be compiled when instantiated
                 // Also skip methods with generic receivers (they'll be instantiated with their struct)
                 let is_on_generic_struct_compile = if let Some(ref receiver) = func.receiver {

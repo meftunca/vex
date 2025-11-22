@@ -641,7 +641,13 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 let mut best_match_score = i32::MIN;
 
                 for candidate in &mangled_candidates {
+                    eprintln!("🔍 Checking candidate: {}", candidate);
                     if let Some(fn_val) = self.functions.get(candidate) {
+                        eprintln!(
+                            "✅ Found candidate: {} -> {:?}",
+                            candidate,
+                            fn_val.get_name().to_str()
+                        );
                         // Calculate match score:
                         // - Exact match (same type): score = 1000
                         // - Safe upcast (i8->i32): score = 100
