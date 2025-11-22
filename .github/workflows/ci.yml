@@ -25,7 +25,7 @@ jobs:
           wget https://apt.llvm.org/llvm.sh
           chmod +x llvm.sh
           sudo ./llvm.sh 21
-          sudo apt-get install -y libclang-21-dev libpolly-21-dev
+          sudo apt-get install -y libclang-21-dev libpolly-21-dev build-essential
 
       - name: Install LLVM and Clang (macOS)
         if: runner.os == 'macOS'
@@ -36,6 +36,7 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           choco install llvm -y
+          refreshenv
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -49,7 +50,8 @@ jobs:
       - name: Set LLVM environment variables (Windows)
         if: runner.os == 'Windows'
         run: |
-          echo "LLVM_SYS_210_PREFIX=C:\Program Files\LLVM" >> $env:GITHUB_ENV
+          echo "LLVM_SYS_211_PREFIX=C:\Program Files\LLVM" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          echo "C:\Program Files\LLVM\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
         shell: pwsh
 
       - name: Cache Cargo dependencies

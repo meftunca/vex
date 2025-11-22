@@ -522,9 +522,13 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 None
             } else {
                 // ⭐ PHASE 1: Debug logging for type inference validation
-                eprintln!("🔍 [PHASE1] func={}, args.len={}, arg_basic_vals.len={}", 
-                    func_name, final_args.len(), arg_basic_vals.len());
-                
+                eprintln!(
+                    "🔍 [PHASE1] func={}, args.len={}, arg_basic_vals.len={}",
+                    func_name,
+                    final_args.len(),
+                    arg_basic_vals.len()
+                );
+
                 // Try to infer types BEFORE checking arg_basic_vals
                 let mut inferred_types = Vec::new();
                 for (i, arg) in final_args.iter().enumerate() {
@@ -539,7 +543,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                     }
                 }
                 eprintln!("  [PHASE1] inferred_types: {:?}", inferred_types);
-                
+
                 // ⭐ CRITICAL FIX: For function overloading, try mangled name first
                 // Build mangled name with argument types: abs_i32, abs_f64, etc.
                 let mut mangled_candidates = Vec::new();
@@ -554,49 +558,82 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 } else if let Some(ref selected_name) = selected_overload_by_return_type {
                     // ⭐ NEW: Return type-based overload selection takes priority
                     mangled_candidates.push(selected_name.clone());
-                } else if overload_count == 1 {
-                    mangled_candidates.push(func_name.to_string());
-                } else if !arg_basic_vals.is_empty() {
-                    // Multiple overloads - use argument types for disambiguation
-                    // Generate type suffix from actual argument types
-                    let mut type_suffix = String::new();
-                    for arg_val in &arg_basic_vals {
-                        let arg_type_enum = arg_val.get_type();
-                        // Convert LLVM type to AST type for suffix generation
-                        let ast_type = match arg_type_enum {
-                            inkwell::types::BasicTypeEnum::IntType(it) => {
-                                match it.get_bit_width() {
-                                    8 => Type::I8,
-                                    16 => Type::I16,
-                                    32 => Type::I32,
-                                    64 => Type::I64,
-                                    _ => Type::I32, // default
-                                }
-                            }
-                            inkwell::types::BasicTypeEnum::FloatType(ft) => {
-                                if ft == self.context.f32_type() {
-                                    Type::F32
-                                } else {
-                                    Type::F64
-                                }
-                            }
-                            inkwell::types::BasicTypeEnum::PointerType(_) => Type::String,
-                            _ => continue, // Skip complex types
-                        };
-                        type_suffix.push_str(&self.generate_type_suffix(&ast_type));
-                    }
-
-                    if !type_suffix.is_empty() {
-                        let mangled_name = format!("{}{}", func_name, type_suffix);
-                        mangled_candidates.push(mangled_name);
-                    }
-
-                    // Also try base name as fallback
-                    mangled_candidates.push(func_name.to_string());
                 } else {
-                    // No arguments or extern function - use base name
-                    mangled_candidates.push(func_name.to_string());
-                }
+                    // ⭐ PHASE 2: Smart overload resolution with type inference
+
+                    // Step 1: Infer argument types from final_args (before compilation)
+                    let mut inferred_types = Vec::new();
+                    for arg in &final_args {
+                        if let Ok(ty) = self.infer_expression_type(arg) {
+                            inferred_types.push(ty);
+                        }
+                    }
+
+                    // Step 2: If we have inferred types, try to build exact mangled name
+                    // Only use this path if we successfully inferred ALL argument types
+                    if !inferred_types.is_empty() && inferred_types.len() == final_args.len() {
+                        let mut type_suffix = String::new();
+                        for ty in &inferred_types {
+                            type_suffix.push_str(&self.generate_type_suffix(ty));
+                        }
+
+                        if !type_suffix.is_empty() {
+                            // Try with param count suffix: func_types_count
+                            let with_count =
+                                format!("{}{}_{}", func_name, type_suffix, final_args.len());
+                            mangled_candidates.push(with_count);
+
+                            // Try without param count (legacy): func_types
+                            let without_count = format!("{}{}", func_name, type_suffix);
+                            mangled_candidates.push(without_count);
+                        }
+                    }
+
+                    // Fallback to existing logic
+                    if overload_count == 1 {
+                        mangled_candidates.push(func_name.to_string());
+                    } else if !arg_basic_vals.is_empty() {
+                        // Multiple overloads - use argument types for disambiguation
+                        // Generate type suffix from actual argument types
+                        let mut type_suffix = String::new();
+                        for arg_val in &arg_basic_vals {
+                            let arg_type_enum = arg_val.get_type();
+                            // Convert LLVM type to AST type for suffix generation
+                            let ast_type = match arg_type_enum {
+                                inkwell::types::BasicTypeEnum::IntType(it) => {
+                                    match it.get_bit_width() {
+                                        8 => Type::I8,
+                                        16 => Type::I16,
+                                        32 => Type::I32,
+                                        64 => Type::I64,
+                                        _ => Type::I32, // default
+                                    }
+                                }
+                                inkwell::types::BasicTypeEnum::FloatType(ft) => {
+                                    if ft == self.context.f32_type() {
+                                        Type::F32
+                                    } else {
+                                        Type::F64
+                                    }
+                                }
+                                inkwell::types::BasicTypeEnum::PointerType(_) => Type::String,
+                                _ => continue, // Skip complex types
+                            };
+                            type_suffix.push_str(&self.generate_type_suffix(&ast_type));
+                        }
+
+                        if !type_suffix.is_empty() {
+                            let mangled_name = format!("{}{}", func_name, type_suffix);
+                            mangled_candidates.push(mangled_name);
+                        }
+
+                        // Also try base name as fallback
+                        mangled_candidates.push(func_name.to_string());
+                    } else {
+                        // No arguments or extern function - use base name
+                        mangled_candidates.push(func_name.to_string());
+                    }
+                } // End of Phase 2 else block
 
                 // Try each candidate - prefer exact match over upcasts
                 let mut found_fn_val = None;
