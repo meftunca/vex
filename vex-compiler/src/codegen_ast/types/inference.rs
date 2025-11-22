@@ -420,8 +420,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 // Check if this is a static method call: Type.method()
                 // Receiver is Ident with uppercase first letter = static call
                 let is_static_call = matches!(**receiver, Expression::Ident(ref name) if name.chars().next().unwrap_or('_').is_uppercase());
-                
-                eprintln!("🔍 MethodCall inference: receiver={:?}, method={}, is_static_call={}", receiver, method, is_static_call);
+
+                eprintln!(
+                    "🔍 MethodCall inference: receiver={:?}, method={}, is_static_call={}",
+                    receiver, method, is_static_call
+                );
 
                 // For static calls, treat receiver as a type name instead of variable
                 let receiver_type = if is_static_call {
@@ -448,32 +451,47 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 if is_static_call {
                     // Try both PascalCase (new format) and lowercase (legacy) patterns
                     let pascal_method_name = format!("{}_{}", struct_name, method);
-                    let lowercase_method_name = format!("{}_{}", struct_name.to_lowercase(), method);
-                    
-                    eprintln!("🔍 Static method lookup: trying {} and {}", pascal_method_name, lowercase_method_name);
-                    eprintln!("🔍 function_defs contains: {:?}", 
-                        self.function_defs.keys()
+                    let lowercase_method_name =
+                        format!("{}_{}", struct_name.to_lowercase(), method);
+
+                    eprintln!(
+                        "🔍 Static method lookup: trying {} and {}",
+                        pascal_method_name, lowercase_method_name
+                    );
+                    eprintln!(
+                        "🔍 function_defs contains: {:?}",
+                        self.function_defs
+                            .keys()
                             .filter(|k| k.contains(&struct_name) || k.contains(method))
                             .collect::<Vec<_>>()
                     );
-                    
+
                     // Try PascalCase first (preferred)
                     if let Some(func_def) = self.function_defs.get(&pascal_method_name) {
                         if let Some(ret_ty) = &func_def.return_type {
-                            eprintln!("✅ Static method inference: {}() -> {:?}", pascal_method_name, ret_ty);
+                            eprintln!(
+                                "✅ Static method inference: {}() -> {:?}",
+                                pascal_method_name, ret_ty
+                            );
                             return Ok(ret_ty.clone());
                         }
                     }
-                    
+
                     // Fallback to lowercase for legacy code
                     if let Some(func_def) = self.function_defs.get(&lowercase_method_name) {
                         if let Some(ret_ty) = &func_def.return_type {
-                            eprintln!("✅ Static method inference (lowercase): {}() -> {:?}", lowercase_method_name, ret_ty);
+                            eprintln!(
+                                "✅ Static method inference (lowercase): {}() -> {:?}",
+                                lowercase_method_name, ret_ty
+                            );
                             return Ok(ret_ty.clone());
                         }
                     }
-                    
-                    eprintln!("❌ Static method {} not found in function_defs", pascal_method_name);
+
+                    eprintln!(
+                        "❌ Static method {} not found in function_defs",
+                        pascal_method_name
+                    );
                 }
 
                 eprintln!(
@@ -611,7 +629,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                             let mangled_name = if type_suffix.is_empty() {
                                 func_name.clone()
                             } else {
-                                format!("{}{}", func_name, type_suffix)
+                                format!("{}{}_{}", func_name, type_suffix, arg_types.len())
                             };
 
                             if let Some(func_def) = self.function_defs.get(&mangled_name) {

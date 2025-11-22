@@ -96,8 +96,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
 
         // ⭐ COMPUTE MANGLED NAME EARLY: For regular functions with params, mangle before LLVM declaration
         // Methods are already pre-mangled by program.rs, generics use base name
-        let mangled_llvm_name = if !func.params.is_empty() 
-            && !func.type_params.is_empty() {
+        let mangled_llvm_name = if !func.params.is_empty() && !func.type_params.is_empty() {
             // Generic function - use base name (will be instantiated with type args later)
             fn_name.clone()
         } else if !func.params.is_empty() && func_for_decl.receiver.is_none() {
@@ -108,6 +107,25 @@ impl<'ctx> ASTCodeGen<'ctx> {
         } else {
             // Methods (pre-mangled), no-param functions, or special cases
             fn_name.clone()
+        };
+
+        // ⭐ LINKAGE TRICK: Control visibility for Dead Code Elimination (DCE)
+        // If LINKAGE_MODE != "EXTERNAL", we make non-exported functions Internal.
+        // Internal functions can be deleted by LLVM if they are not used.
+        // main() is always External.
+        use inkwell::module::Linkage;
+        let linkage_mode = std::env::var("LINKAGE_MODE").unwrap_or_default();
+        let force_external = linkage_mode == "EXTERNAL";
+
+        let linkage = if fn_name == "main" {
+            Some(Linkage::External)
+        } else if force_external {
+            Some(Linkage::External)
+        } else if func.is_exported {
+            Some(Linkage::External)
+        } else {
+            // "Trick": Make it internal so GlobalDCE can remove it if unused
+            Some(Linkage::Internal)
         };
 
         // ⭐ SPECIAL HANDLING: async main() should be declared as regular main
@@ -159,7 +177,16 @@ impl<'ctx> ASTCodeGen<'ctx> {
             if matches!(ty, Type::Nil) {
                 debug_log!("🟢 Function {} return type: nil (void)", mangled_llvm_name);
                 let fn_type = self.context.void_type().fn_type(&param_types, is_variadic);
-                let fn_val = self.module.add_function(&mangled_llvm_name, fn_type, None);
+                let fn_val = self
+                    .module
+                    .add_function(&mangled_llvm_name, fn_type, linkage);
+                eprintln!(
+                    "🔧 Declared function: {} (return type: {:?})",
+                    fn_name,
+                    fn_type.get_return_type()
+                );
+
+                // Store in functions map using the mangled name
                 self.functions.insert(mangled_llvm_name.clone(), fn_val);
                 return Ok(fn_val);
             }
@@ -228,27 +255,15 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 }
             };
 
-            // ⭐ LINKAGE TRICK: Control visibility for Dead Code Elimination (DCE)
-            // If LINKAGE_MODE != "EXTERNAL", we make non-exported functions Internal.
-            // Internal functions can be deleted by LLVM if they are not used.
-            // main() is always External.
-            use inkwell::module::Linkage;
-            
-            let linkage_mode = std::env::var("LINKAGE_MODE").unwrap_or_default();
-            let force_external = linkage_mode == "EXTERNAL";
-            
-            let linkage = if fn_name == "main" {
-                Some(Linkage::External)
-            } else if force_external {
-                Some(Linkage::External)
-            } else if func.is_exported {
-                Some(Linkage::External)
-            } else {
-                // "Trick": Make it internal so GlobalDCE can remove it if unused
-                Some(Linkage::Internal)
-            };
-
-            self.module.add_function(&fn_name, fn_type, linkage)
+            let fn_val = self
+                .module
+                .add_function(&mangled_llvm_name, fn_type, linkage);
+            eprintln!(
+                "🔧 Declared function: {} (return type: {:?})",
+                mangled_llvm_name,
+                fn_type.get_return_type()
+            );
+            fn_val
         } else {
             // ⭐ SPECIAL HANDLING: main() must always return i32 (0) for C runtime compatibility
             if fn_name == "main" && !func.is_async {
@@ -258,34 +273,23 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 );
                 let i32_type = self.context.i32_type();
                 let fn_type = i32_type.fn_type(&param_types, is_variadic);
-                self.module.add_function(&mangled_llvm_name, fn_type, Some(inkwell::module::Linkage::External))
+                self.module.add_function(
+                    &mangled_llvm_name,
+                    fn_type,
+                    Some(inkwell::module::Linkage::External),
+                )
             } else {
                 eprintln!("🟢 Function {} return type: void", fn_name);
                 let fn_type = self.context.void_type().fn_type(&param_types, is_variadic);
-                
-                // ⭐ LINKAGE TRICK (Void functions)
-                use inkwell::module::Linkage;
-                let linkage_mode = std::env::var("LINKAGE_MODE").unwrap_or_default();
-                let force_external = linkage_mode == "EXTERNAL";
-                
-                let linkage = if fn_name == "main" {
-                    Some(Linkage::External)
-                } else if force_external {
-                    Some(Linkage::External)
-                } else if func.is_exported {
-                    Some(Linkage::External)
-                } else {
-                    Some(Linkage::Internal)
-                };
-                
-                self.module.add_function(&mangled_llvm_name, fn_type, linkage)
+                self.module
+                    .add_function(&mangled_llvm_name, fn_type, linkage)
             }
         };
 
         // Register in functions map with BOTH mangled name AND base name
         // This enables both direct calls (double_i32_1) and function pointers (double)
         self.register_function(&func_for_decl.name, &mangled_llvm_name, fn_val);
-        
+
         Ok(fn_val)
     }
 }

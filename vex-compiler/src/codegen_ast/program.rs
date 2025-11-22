@@ -427,6 +427,16 @@ impl<'ctx> ASTCodeGen<'ctx> {
                                 if let Some(alias) = get_import_alias(&c.name) {
                                     c.name = alias;
                                 }
+                                // ⭐ NEW: Register constant type for imported constants
+                                // This is required for type inference when using constants like math::PI
+                                if let Some(ty) = &c.ty {
+                                    self.module_constant_types
+                                        .insert(c.name.clone(), ty.clone());
+                                    eprintln!(
+                                        "📝 Registered imported constant '{}' with type {:?}",
+                                        c.name, ty
+                                    );
+                                }
                             }
                             imported_items.push(item_to_push);
                         }

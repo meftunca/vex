@@ -673,7 +673,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 }
 
                 if let Some(fn_val) = found_fn_val {
-                    eprintln!("✅ Selected function: {:?}", fn_val.get_name());
+                    eprintln!(
+                        "✅ Selected function: {:?} (return type: {:?})",
+                        fn_val.get_name().to_str().unwrap(),
+                        fn_val.get_type().get_return_type()
+                    );
                     Some(fn_val)
                 } else if let Some(func_def) = self.function_defs.get(func_name).cloned() {
                     // Generic function - instantiate it

@@ -77,6 +77,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .flag("-O2")
         .define("VEX_RUNTIME_INTEGRATED", None); // Enable vex_malloc/vex_free in async runtime
 
+    // Define _GNU_SOURCE on Linux for pthread_barrier_t
+    if target_os == "linux" || target_os == "android" {
+        builder.define("_GNU_SOURCE", None);
+    }
+
     // ========== Allocator Configuration ==========
     match allocator.as_str() {
         "mimalloc" => {
