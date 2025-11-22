@@ -521,6 +521,25 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 // Function pointer parameter - will be handled in complex expression path
                 None
             } else {
+                // ⭐ PHASE 1: Debug logging for type inference validation
+                eprintln!("🔍 [PHASE1] func={}, args.len={}, arg_basic_vals.len={}", 
+                    func_name, final_args.len(), arg_basic_vals.len());
+                
+                // Try to infer types BEFORE checking arg_basic_vals
+                let mut inferred_types = Vec::new();
+                for (i, arg) in final_args.iter().enumerate() {
+                    match self.infer_expression_type(arg) {
+                        Ok(ty) => {
+                            eprintln!("  [PHASE1] arg[{}]: {:?}", i, ty);
+                            inferred_types.push(ty);
+                        }
+                        Err(e) => {
+                            eprintln!("  [PHASE1] arg[{}]: inference failed: {}", i, e);
+                        }
+                    }
+                }
+                eprintln!("  [PHASE1] inferred_types: {:?}", inferred_types);
+                
                 // ⭐ CRITICAL FIX: For function overloading, try mangled name first
                 // Build mangled name with argument types: abs_i32, abs_f64, etc.
                 let mut mangled_candidates = Vec::new();
