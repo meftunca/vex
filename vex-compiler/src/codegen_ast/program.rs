@@ -373,6 +373,21 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         // If this is a static method (fn Type.method()), preserve is_static flag
                         if func.is_static {
                             let mut item_to_push = item.clone();
+                            if let Item::Function(f) = &mut item_to_push {
+                                if let Some(type_name) = &f.static_type {
+                                    if let Some(alias) = get_import_alias(type_name) {
+                                        f.static_type = Some(alias);
+                                    }
+                                }
+                            }
+                            imported_items.push(item_to_push);
+                        } else {
+                            // Regular function or method (no premature mangling)
+                            let mut item_to_push = item.clone();
+                            if let Item::Function(f) = &mut item_to_push {
+                                if let Some(alias) = get_import_alias(&f.name) {
+                                    f.name = alias;
+                                }
                             }
                             imported_items.push(item_to_push);
                         }
@@ -756,14 +771,16 @@ impl<'ctx> ASTCodeGen<'ctx> {
                             param_suffix.push_str(&self.generate_type_suffix(&param.ty));
                         }
                         // Add parameter count suffix: _str_1, _i32_i32_2
-                        let mangled = format!("{}{}_{}", func.name, param_suffix, func.params.len());
+                        let mangled =
+                            format!("{}{}_{}", func.name, param_suffix, func.params.len());
                         eprintln!("🔧 Storing function overload: {} → {}", func.name, mangled);
                         mangled
                     } else {
                         func.name.clone()
                     };
 
-                    self.function_defs.insert(storage_name.clone(), func.clone());
+                    self.function_defs
+                        .insert(storage_name.clone(), func.clone());
 
                     // Also store with base name for lookup
                     // ⭐ CRITICAL FIX: Don't overwrite base name if existing overload is "simpler" (fewer params)
