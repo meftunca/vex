@@ -19,8 +19,38 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Install LLVM and Clang (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 21
+          sudo apt-get install -y libclang-21-dev
+
+      - name: Install LLVM and Clang (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install llvm
+
+      - name: Install LLVM and Clang (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          choco install llvm --version=21.1.1 -y
+
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+
+      - name: Set LLVM environment variables (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          echo "LLVM_SYS_210_PREFIX=$(brew --prefix llvm)" >> $GITHUB_ENV
+          echo "$(brew --prefix llvm)/bin" >> $GITHUB_PATH
+
+      - name: Set LLVM environment variables (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          echo "LLVM_SYS_210_PREFIX=C:\Program Files\LLVM" >> $env:GITHUB_ENV
+        shell: pwsh
 
       - name: Cache Cargo dependencies
         uses: actions/cache@v3
