@@ -561,10 +561,11 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 } else {
                     // ⭐ PHASE 2: Smart overload resolution with type inference
 
-                    // Step 1: Infer argument types from final_args (before compilation)
+                    // Step 1: Infer argument types
                     let mut inferred_types = Vec::new();
                     for arg in &final_args {
                         if let Ok(ty) = self.infer_expression_type(arg) {
+                            eprintln!("🔍 Inferred type for arg: {:?}", ty);
                             inferred_types.push(ty);
                         }
                     }
@@ -666,6 +667,7 @@ impl<'ctx> ASTCodeGen<'ctx> {
                 }
 
                 if let Some(fn_val) = found_fn_val {
+                    eprintln!("✅ Selected function: {:?}", fn_val.get_name());
                     Some(fn_val)
                 } else if let Some(func_def) = self.function_defs.get(func_name).cloned() {
                     // Generic function - instantiate it

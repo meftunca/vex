@@ -107,6 +107,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         builder.flag("-pthread");
     }
 
+    // Add atomic library on Linux (required for C11 stdatomic.h)
+    if target_os == "linux" || target_os == "android" {
+        println!("cargo:rustc-link-lib=atomic");
+    }
+
     // Add all source files
     for source in sources {
         builder.file(source);

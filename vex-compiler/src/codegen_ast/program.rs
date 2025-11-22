@@ -373,41 +373,6 @@ impl<'ctx> ASTCodeGen<'ctx> {
                         // If this is a static method (fn Type.method()), preserve is_static flag
                         if func.is_static {
                             let mut item_to_push = item.clone();
-                            if let Item::Function(f) = &mut item_to_push {
-                                if let Some(type_name) = &f.static_type {
-                                    if let Some(alias) = get_import_alias(type_name) {
-                                        f.static_type = Some(alias);
-                                    }
-                                }
-                            }
-
-                            eprintln!(
-                                "   📦 Importing static method: {}.{} (is_static={})",
-                                func.static_type.as_ref().unwrap_or(&"?".to_string()),
-                                func.name,
-                                func.is_static
-                            );
-                            imported_items.push(item_to_push);
-                        }
-                        // If this is a method (has receiver), mangle its name NOW
-                        // This prevents double-mangling in compile_program
-                        else if let Some(receiver) = &func.receiver {
-                            if let Some(struct_name) =
-                                self.extract_struct_name_from_receiver(&receiver.ty)
-                            {
-                                let mut mangled_func = func.clone();
-                                let mangled_name = format!("{}_{}", struct_name, func.name);
-                                mangled_func.name = mangled_name.clone();
-                                imported_items.push(Item::Function(mangled_func));
-                            } else {
-                                imported_items.push(item.clone());
-                            }
-                        } else {
-                            let mut item_to_push = item.clone();
-                            if let Item::Function(f) = &mut item_to_push {
-                                if let Some(alias) = get_import_alias(&f.name) {
-                                    f.name = alias;
-                                }
                             }
                             imported_items.push(item_to_push);
                         }
